@@ -5,16 +5,15 @@ import javafx.scene.Node;
 import javafx.scene.image.ImageView;
 
 import java.util.ArrayList;
+import java.util.List;
 
 
 public class Enemy extends GameObject {
 
-    private Point2D enemySight;
-    private int value;
 
     private ArrayList<Bullet> bullets;
 
-    public Enemy(Node view){
+    public Enemy(Node view) {
         super(view);
         health = 50;
         bullets = new ArrayList<>();
@@ -22,31 +21,26 @@ public class Enemy extends GameObject {
 
     public void engage(Player player) {
         if (player.getX() > this.getX()) {
-            this.setX(this.getX() + 2);
-        }
-        else if (player.getX() < this.getX()){
-            this.setX(this.getX() - 2);
-        }
-        else {
-            this.shoot(this.addBullet());
+            this.setX(this.getX() + 1);
+        } else if (player.getX() < this.getX()) {
+            this.setX(this.getX() - 1);
         }
     }
 
-    public void shoot(Bullet bullet) {
-        this.bullets.add(bullet);
-        bullet.setImage(Sprites.sprites.get("bullet"));
-        bullet.setX(this.getX() - this.getImage().getWidth()/2);
-        bullet.setY(this.getY() + this.getImage().getHeight());
+    public static void shoot(Enemy enemy, Bullet bullet) {
+        bullet.setImage(Sprites.sprites.get("enemyBullet"));
+        bullet.getView().setTranslateX(enemy.getView().getTranslateX() + 30);
+        bullet.getView().setTranslateY(enemy.getView().getTranslateY() + 30);
+        bullet.setVelocity(new Point2D(0,3));
     }
 
-    public Bullet addBullet(){
+    public Bullet addBullet() {
         Bullet bullet = new Bullet(new ImageView(Sprites.sprites.get("enemyBullet")));
         bullets.add(bullet);
         return bullet;
     }
 
-    public void removeBullet(Bullet bullet){
-        bullets.remove(bullet);
+    public ArrayList<Bullet> getBullets(){
+        return bullets;
     }
-
 }

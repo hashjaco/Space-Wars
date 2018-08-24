@@ -16,14 +16,12 @@ public class Main extends Application {
     }
 
     @Override
-    public void start(Stage primaryStage) {
-
+    public synchronized void start(Stage primaryStage) {
         // Background Music
-        playMedia(sounds.getValue("background music"));
         GameEngine gameEngine = new GameEngine();
 
         primaryStage.setScene(gameEngine.getScene());
-        primaryStage.setTitle("Space Raiders");
+        primaryStage.setTitle("Space Case");
         primaryStage.getIcons().add(sprites.getValue("player1straight"));
         primaryStage.setResizable(false);
                 primaryStage.show();

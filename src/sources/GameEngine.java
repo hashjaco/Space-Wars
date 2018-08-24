@@ -9,6 +9,7 @@ import javafx.scene.control.SplitPane;
 import javafx.scene.layout.*;
 import java.awt.*;
 import java.io.File;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import javafx.animation.AnimationTimer;
@@ -35,19 +36,24 @@ public class GameEngine {
     private List<PowerUp> powerups = new ArrayList<>();
     private List<Bullet> player1bullets = new ArrayList<>();
     private List<Bullet> player2bullets = new ArrayList<>();
-    private List<Bullet> enemyBullets = new ArrayList<>();
+    private static List<Bullet> enemyBullets = new ArrayList<>();
     private List<Asteroid> asteroids = new ArrayList<>();
+    private List<Animation> animations = new ArrayList<>();
 
     private List<GameObject> objects = new ArrayList<>();
 
     private List<GameObject> deadAsteroids = new ArrayList<>();
     private List<GameObject> deadEnemies = new ArrayList<>();
     private List<GameObject> deadBullets = new ArrayList<>();
+    private List<GameObject> deadEnemyBullets = new ArrayList<>();
 
     private ArrayList<GameObject> returnObjects1 = new ArrayList<>();
+    private ArrayList<GameObject> returnObjects2 = new ArrayList<>();
 
     private QuadTree<Bullet> bulletTree1 = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
     private QuadTree<Bullet> bulletTree2 = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
+    private QuadTree<Bullet> enemyBulletTree = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
+
     private QuadTree<Asteroid> asteroidTree = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
     private QuadTree<Player> playerTree = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
     private QuadTree<Enemy> enemyTree = new QuadTree<>(1, new Rectangle(0, 0, (int) W, (int) H));
@@ -77,6 +83,8 @@ public class GameEngine {
     // background copy position (for scrolling)
     private double background2Y = 0;
 
+    private boolean isPaused;
+
     // HashMaps containing sprites and sounds
     private Sprites sprites;
     private Sound sounds;
@@ -90,6 +98,7 @@ public class GameEngine {
     private GraphicsContext graphicsContext = canvas.getGraphicsContext2D();
     private GraphicsContext graphicsContext2 = canvas2.getGraphicsContext2D();
     private Background background, background2;
+    private MediaPlayer backgroundMusic;
 
 
     private Scene scene;
@@ -102,6 +111,9 @@ public class GameEngine {
 
     // Creates all static content for both screens
     private Parent createContent() {
+        backgroundMusic = Sound.sounds.get("background music");
+        playMedia(backgroundMusic);
+        isPaused = false;
         sounds = new Sound();
         sprites = new Sprites();
         background = new Background(sprites.getValue("background"));
@@ -154,11 +166,8 @@ public class GameEngine {
 
     // Updates the board by eliminating any dead objects due to collision, adds enemies to the board at random, and changes position of objects as necessary
     private void onUpdate() {
-
-        // handle controls
         doMovement();
-
-        // handle collision
+        handleBoundaries();
         handleCollisions();
         spawnAsteroid();
         spawnEnemy();
@@ -166,52 +175,69 @@ public class GameEngine {
         for (Enemy enemy : enemies) {
             if (Math.sqrt(Math.pow(enemy.getX() - firstPlayer.getX(), 2) + (Math.pow(enemy.getY() - firstPlayer.getY(), 2))) < (Math.sqrt(Math.pow(enemy.getX() - secondPlayer.getX(), 2) + (Math.pow(enemy.getY() - secondPlayer.getY(), 2))))) {
                 enemy.engage(firstPlayer);
+                if (enemy.isFireReady()){
+                    if (enemy.getX() <= firstPlayer.getX()+5 || enemy.getX() >= firstPlayer.getX()-5){
+                        Bullet bullet = new Bullet(new ImageView(sprites.getValue("enemyBullet")));
+                        Enemy.shoot(enemy,bullet); enemyBullets.add(bullet);
+                    }
+                }
             } else {
                 enemy.engage(secondPlayer);
+                if (enemy.isFireReady()){
+                    Bullet bullet = new Bullet(new ImageView(sprites.getValue("enemyBullet")));
+                    if (enemy.getX() <= secondPlayer.getX()+5 || enemy.getX() >= secondPlayer.getX()-5){
+                        Enemy.shoot(enemy,bullet); enemyBullets.add(bullet);
+                    }
+                }
             }
             if (enemy.getY() < H / 2) {
                 enemy.setY(enemy.getY() + 1);
             }
 
+            if (enemy.getTimeBetweenFire() < 50) {
+                enemy.setFireReady(false);
+                enemy.setTimeBetweenFire(enemy.getTimeBetweenFire() + 1);
+            } else {
+                enemy.setFireReady(true);
+                enemy.setTimeBetweenFire(0);
+            }
         }
-
 
         // Update time between fire for each player to control fire rate
         players.forEach(player -> {
-
-            if (player.getTimeBetweenFire() < 10) {
+            if (player.getTimeBetweenFire() < 30) {
                 player.setFireReady(false);
                 player.setTimeBetweenFire(player.getTimeBetweenFire() + 1);
             } else {
                 player.setFireReady(true);
+                //player.setTimeBetweenFire(0);
             }
         });
 
         // move bullets vertically and set dead when collides with edge of pane
         bullets.forEach(bullet -> {
-            if (bullet.getY() >= 8) {
-                bullet.setVelocity(new Point2D(bullet.getVelocity().getX(), bullet.getVelocity().getY() - 8));
-                bullet.update();
-            } else {
-                bullet.setDead();
-            }
+            if (bullet.getY() >= 8) { bullet.setVelocity(new Point2D(bullet.getVelocity().getX(), bullet.getVelocity().getY() - 8)); bullet.update(); }
+            else { bullet.setDead(); }
         });
 
+        enemyBullets.forEach(bullet -> {
+            if (bullet.getY() < Attributes.H) { bullet.setY(bullet.getY()+8); bullet.update(); }
+            else { bullet.setDead(); }
+        });
 
         // Remove dead objects from their lists to be disposed of
         bullets.removeIf(Bullet::isDead);
         enemies.removeIf(Enemy::isDead);
         players.removeIf(Player::isDead);
         asteroids.removeIf(Asteroid::isDead);
+        enemyBullets.removeIf(Bullet::isDead);
 
 
         // update position and state of each game object on each tick
         enemies.forEach(Enemy::update);
         players.forEach(Player::update);
-        try {
-            //firstPlayer.update();
-            //secondPlayer.update();
 
+        try {
             for (Asteroid asteroid : asteroids) {
                 asteroid.update();
             }
@@ -219,17 +245,19 @@ public class GameEngine {
             System.out.println(e);
         }
 
-
         ensureVisible(firstPane, firstPlayer.getView());
         ensureVisible(secondPane, secondPlayer.getView());
         render(graphicsContext, 1);
         render(graphicsContext2, 2);
         ticks += 1;
+
+        System.out.println("The size of enemy bullet array is " + enemyBullets.size());
+
     }
 
 
     // moves viewport with ship
-    private static void ensureVisible(ScrollPane pane, Node node) {
+    private void ensureVisible(ScrollPane pane, Node node) {
         Bounds viewport = pane.getViewportBounds();
         double contentHeight = pane.getContent().getBoundsInLocal().getHeight();
         double contentWidth = pane.getContent().getBoundsInLocal().getWidth();
@@ -255,7 +283,7 @@ public class GameEngine {
     }
 
     // movement controls
-    public void doMovement() {
+    protected synchronized void doMovement() {
 
         scene.setOnKeyPressed((KeyEvent e) -> {
             if (e.getCode() == KeyCode.UP) {
@@ -308,7 +336,7 @@ public class GameEngine {
 
             }
             if (e.getCode() == KeyCode.D) {
-                if (firstPlayer.getView().getTranslateX() <= W - 50) {
+                if (firstPlayer.getView().getTranslateX() < W - 50) {
                     firstPlayer.setImage(sprites.getValue("player1right"));
                     firstPlayer.moveRight();
                 } else firstPlayer.getView().setTranslateX(W - 50);
@@ -324,7 +352,12 @@ public class GameEngine {
 
             // Pause Menu
             if (e.getCode() == KeyCode.ESCAPE) {
-                timer.stop();
+                if(isPaused==false) {
+                    timer.stop(); isPaused=true; pauseMedia(backgroundMusic);
+                }
+                else {
+                    timer.start(); isPaused=false;
+                }
             }
 
         });
@@ -365,13 +398,16 @@ public class GameEngine {
     }
 
     // fires bullet if enough time has elapsed between fire
-    public void fireIfReady(Player player, List<Bullet> player1bullets) {
-        if (player.isFireReady()) {
-            Bullet bullet = new Bullet(new ImageView(sprites.getValue("bullet")));
-            player1bullets.add(bullet);
-            shoot(player, bullet);
-            player.setTimeBetweenFire(0);
-            playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Projects/SpaceWars/src/sources/Sounds/lazer.wav").toURI().toString())));
+    public void fireIfReady(Player gameObject, List<Bullet> somebullets) {
+        if (gameObject.isFireReady()) {
+            switch(gameObject.getFirePowerLevel()) {
+                case 0: Bullet bullet = new Bullet(new ImageView(sprites.getValue("bullet")));
+                    shoot(gameObject, bullet);
+                    somebullets.add(bullet);
+                    playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Projects/SpaceWars/src/sources/Sounds/lazer.wav").toURI().toString())));
+                    break;
+                case 1:
+            }
         }
     }
 
@@ -417,6 +453,7 @@ public class GameEngine {
 
     // Adds an enemy to the scene
     public void spawnEnemy() {
+
         if (enemyTotal < 5) {
             int chance = (int) (Math.random() * 1000) + 1;
             if (chance < 5) {
@@ -456,8 +493,8 @@ public class GameEngine {
 
     // render player screen
     public void render(GraphicsContext gc, int player) {
-        gc.clearRect(W / 4, H / 4, W / 2, H / 2);
         Bounds viewport;
+        gc.clearRect(W / 4, H / 4, W / 2, H / 2);
         switch (player) {
             case 1:
                 double contentWidth;
@@ -554,26 +591,71 @@ public class GameEngine {
         }
         gc.drawImage(firstPlayer.getImage(), firstPlayer.getX(), firstPlayer.getY());
         gc.drawImage(secondPlayer.getImage(), secondPlayer.getX(), secondPlayer.getY());
-        spawnAsteroid();
+        //spawnAsteroid();
+
         bullets.forEach(bullet -> {
-            gc.drawImage(bullet.getImage(), bullet.getX(), bullet.getY() - 8);
+            gc.drawImage(bullet.getImage(), bullet.getX(), bullet.getY());
+        });
+
+        enemyBullets.forEach(bullet -> {
+            gc.drawImage(bullet.getImage(), bullet.getX(), bullet.getY());
         });
 
         asteroids.forEach(asteroid -> {
-            if (asteroid.getY() >= H){
+            if (asteroid.getY() >= Attributes.H || asteroid.getX() >= Attributes.W || asteroid.getX() <= 0){
                 asteroid.setDead();
-                deadAsteroids.add(asteroid);
+                //deadAsteroids.add(asteroid);
             }
             gc.drawImage(asteroid.getImage(), asteroid.getX(), asteroid.getY() + 8);
         });
+
+
         enemies.forEach(enemy -> {
-            gc.drawImage(enemy.getImage(), enemy.getX(), enemy.getY() + 3);
+            gc.drawImage(enemy.getImage(), enemy.getX(), enemy.getY());
         });
-        asteroids.removeAll(deadAsteroids);
+
+        animations.forEach(animation -> {
+            if (!animation.isFinished()){
+                System.out.println("more files exist");
+                animation.setCurrentTime(animation.getCurrentTime()+1);
+                if (animation.getCurrentTime()%animation.getDuration()/animation.listOfImages().size()==0)
+                    gc.drawImage(animation.animate(),animation.getxLocation(),animation.getyLocation());
+            }
+            else {
+                //animations.remove(animation);
+                animation.setDead();
+            }
+        });
+
+
+
+        //asteroids.removeAll(deadAsteroids);
+    }
+
+    public void handleBoundaries(){
+        bullets.forEach(bullet -> {
+            if (bullet.getY()<=0){
+                bullet.setDead();
+                deadBullets.add(bullet);
+            }
+        });
+        enemyBullets.forEach(bullet -> {
+            if(bullet.getY()>=Attributes.H){
+                bullet.setDead();
+                deadEnemyBullets.add(bullet);
+            }
+        });
+        deadBullets.forEach(bullet -> {
+            player1bullets.remove(bullet);
+            player2bullets.remove(bullet);
+        });
+        bullets.removeAll(deadBullets);
     }
 
     // handles all collisions
     public void handleCollisions() {
+        int playerIndex = 1;
+        enemyBulletTree.clear();
         bulletTree1.clear();
         bulletTree2.clear();
         playerTree.clear();
@@ -583,33 +665,19 @@ public class GameEngine {
         deadBullets.clear();
         deadEnemies.clear();
         returnObjects1.clear();
+        returnObjects2.clear();
 
+        for (Asteroid asteroid : asteroids) asteroidTree.insert(asteroid);
+        for (Enemy enemy : enemies) enemyTree.insert(enemy);
+        for (Bullet bullet : player1bullets) bulletTree1.insert(bullet);
+        for (Bullet bullet : player2bullets) bulletTree2.insert(bullet);
+        for (Player player : players) playerTree.insert(player);
+        for (Bullet bullet : enemyBullets) enemyBulletTree.insert(bullet);
 
-        for (Asteroid asteroid : asteroids) {
-            asteroidTree.insert(asteroid);
-        }
-        for (Enemy enemy : enemies) {
-            enemyTree.insert(enemy);
-        }
-        for (Bullet bullet : player1bullets) {
-            bulletTree1.insert(bullet);
-        }
-        for (Bullet bullet : player2bullets) {
-            bulletTree2.insert(bullet);
-        }
-        for (Player player : players) {
-            playerTree.insert(player);
-        }
 
 
         for (Player player : players) {
-            //asteroidTree.insert(player);
             asteroidTree.retrieve(returnObjects1, player);
-
-            // Testing output
-            System.out.println("Player index = " + playerTree.getIndex(player));
-            System.out.println(returnObjects1.size() + " asteroids with same index");
-            // Test end
 
             for (GameObject asteroid : returnObjects1) {
                 if (player.intersects(asteroid)) {
@@ -627,7 +695,7 @@ public class GameEngine {
             System.out.println("______");
             enemyTree.retrieve(returnObjects1, player);
 
-            for (GameObject enemy : enemies){
+            for (GameObject enemy : returnObjects1){
                 if (player.intersects(enemy)) {
                     player.setHealth(player.getHealth() - 30);
                     if (player.getHealth() <= 0)
@@ -639,85 +707,76 @@ public class GameEngine {
                     player.setAnimations(3);
                 }
             }
+            returnObjects1.clear();
+
+            enemyBulletTree.retrieve(returnObjects1, player);
+
+            for (GameObject bullet : returnObjects1){
+                if (player.intersects(bullet)){
+                    player.setHealth(player.getHealth() - 5);
+                    if (player.getHealth() <= 0)
+                        resetPlayer(player);
+                    playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Projects/SpaceWars/src/sources/Sounds/explosion_x.wav").toURI().toString())));
+                    deadEnemyBullets.add(bullet);
+                    bullet.setDead();
+                    player.setColliding(true);
+                    player.setAnimations(3);
+                }
+            }
+            // End player collision checks
         }
+        returnObjects1.clear();
+
+        asteroidCollisions(player1bullets, firstPlayer);
+        asteroidCollisions(player2bullets, secondPlayer);
+        enemyCollisions(player1bullets,firstPlayer);
+        enemyCollisions(player2bullets,secondPlayer);
 
 
         System.out.println("*****");
+    }
 
-
-
-/*
-        for (Player player : players){
-            try {
-                for (Asteroid asteroid : asteroids){
-                    player.setColliding(false);
-                    if (player.intersects(asteroid)) {
-                        player.setHealth(player.getHealth() - asteroid.getDamage());
-                        if (player.getHealth() <= 0)
-                            resetPlayer(player);
-                        playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Documents/CSC/CSC 413/csc413-secondgame-Team02-ScriptKiddie19/Invaders/src/sample/sources.Sounds/explosion_x.wav").toURI().toString())));
-                        deadAsteroids.add(asteroid);
-                        asteroid.setDead(true);
-                        player.setColliding(true);
-                        player.setAnimations(3);
-                    }
-
-                }
-                for (Enemy enemy : enemies) {
-                    player.setColliding(false);
-                    if (player.intersects(enemy)) {
-                        player.setColliding(true);
-                        player.setX(player.getX()+8); player.setY(player.getY()+8);
-                        player.setHealth(player.getHealth() - 20);
-                        enemy.setDead(true);
-                        playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Documents/CSC/CSC 413/csc413-secondgame-Team02-ScriptKiddie19/Invaders/src/sample/sources.Sounds/explosion_x.wav").toURI().toString())));
-                    }
-                }
-            } catch (Exception ignored){ }
-            player.setColliding(false);
-        }
-        for (Bullet bullet : bullets){
-            for (Asteroid asteroid : asteroids){
-                if (bullet.intersects(asteroid)){
-                    deadAsteroids.add(asteroid);
-                    deadBullets.add(bullet);
-                    playMedia(new MediaPlayer(new Media(new File("/Users/hashimjacobs/OneDrive/Documents/CSC/CSC 413/csc413-secondgame-Team02-ScriptKiddie19/Invaders/src/sample/sources.Sounds/shottyToDaBody.wav").toURI().toString())));
-                    if (player1bullets.contains(bullet)){
-                        player1bullets.remove(bullet);
-                        firstPlayer.setScore(firstPlayer.getScore() + 10);
-                    }
-                    if (player2bullets.contains(bullet)){
-                        player2bullets.remove(bullet);
-                        secondPlayer.setScore(secondPlayer.getScore() + 10);
-                    }
-                }
-            }
-            for (Enemy enemy : enemies){
-                if (bullet.intersects(enemy)){
+    private void enemyCollisions(List<Bullet> playerbullets, Player player) {
+        playerbullets.forEach(bullet -> {
+            enemyTree.retrieve(returnObjects1, bullet);
+            for (GameObject enemy : returnObjects1) {
+                if (bullet.intersects(enemy)) {
+                    bullet.setDead();
                     deadBullets.add(bullet);
                     enemy.setHealth(enemy.getHealth()-10);
-                    if (enemy.getHealth() == 0){
-                        deadEnemies.add(enemy);
-                        enemyTotal-=1;
-                        if (player1bullets.contains(bullet)){
-                            player1bullets.remove(bullet);
-                            firstPlayer.setScore(firstPlayer.getScore()+50);
-                            firstPlayer.setEnemiesKilled(firstPlayer.getEnemiesKilled()+1);
-                        }
-                        else {
-                            player2bullets.remove(bullet);
-                            secondPlayer.setScore(secondPlayer.getScore()+50);
-                            secondPlayer.setEnemiesKilled(secondPlayer.getEnemiesKilled()+1);
-                        }
+                    if(enemy.getHealth() <= 0){
+                        player.setScore(player.getScore() + 20);
+                        enemy.setDead(); deadEnemies.add(enemy);
+                        player.setEnemiesKilled(player.getEnemiesKilled() + 1);
+                        animations.add(new Animation("/Users/hashimjacobs/OneDrive/Projects/SpaceWars/src/sources/Sprites/explosion2 sheet",enemy,4));
                     }
                 }
             }
-        }
-        */
+            returnObjects1.clear();
+            asteroids.removeAll(deadAsteroids);
+            bullets.removeAll(deadBullets);
+            playerbullets.removeAll(deadBullets);
+        });
+    }
 
-        asteroids.removeAll(deadAsteroids);
-        enemies.removeAll(deadEnemies);
-        bullets.removeAll(deadBullets);
+    private void asteroidCollisions(List<Bullet> playerBullets, Player player) {
+        playerBullets.forEach(bullet -> {
+            asteroidTree.retrieve(returnObjects1, bullet);
+            for (GameObject asteroid : returnObjects1) {
+                if (bullet.intersects(asteroid)) {
+                    bullet.setDead();
+                    deadBullets.add(bullet);
+                    player.setScore(player.getScore() + 10);
+                    asteroid.setDead();deadAsteroids.add(asteroid);
+                    player.setAsteroidsDestroyed(player.getAsteroidsDestroyed() + 1);
+                    animations.add(new Animation("/Users/hashimjacobs/OneDrive/Projects/SpaceWars/src/sources/Sprites/explosion",asteroid,3));
+                }
+            }
+            returnObjects1.clear();
+            asteroids.removeAll(deadAsteroids);
+            bullets.removeAll(deadBullets);
+            playerBullets.removeAll(deadBullets);
+        });
     }
 
 
@@ -742,9 +801,8 @@ public class GameEngine {
     }
 
 
-
     // control soundFX
-    public static void playMedia(MediaPlayer mp) {
+    public  void playMedia(MediaPlayer mp) {
         //mp.setAutoPlay(true);
         mp.play();
         mp.setOnEndOfMedia(new Runnable() {
@@ -755,8 +813,18 @@ public class GameEngine {
         });
     }
 
+    public void pauseMedia(MediaPlayer mp){
+        mp.pause();
+    }
+
+    public AnimationTimer getTimer(){
+        return this.timer;
+    }
+
     // return scene
     public Scene getScene() {
         return scene;
     }
+
+
 }

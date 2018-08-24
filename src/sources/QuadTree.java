@@ -129,4 +129,8 @@ public class QuadTree<T>{
         return returnObjects;
     }
 
+    public boolean isEmpty(){
+        return this.trees==null;
+    }
+
 }
