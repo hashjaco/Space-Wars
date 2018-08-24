@@ -28,6 +28,7 @@ public class Player extends GameObject {
 
 
     private List<Bullet> liveBullets;
+    private List<PowerUp> powerUps;
     private QuadTree<Bullet> bulletQuadTree;
 
     private boolean fireReady;
@@ -43,8 +44,9 @@ public class Player extends GameObject {
         asteroidsDestroyed = 0;
         enemiesKilled = 0;
         timeBetweenFire = 0;
-        firePowerLevel = 1;
+        firePowerLevel = 0;
         liveBullets = new ArrayList<>();
+        powerUps = new ArrayList<>();
         bulletQuadTree = new QuadTree<>(1, new Rectangle());
             this.setVelocity(new Point2D(0, 0));
             this.setHb(10, 20);
@@ -172,7 +174,7 @@ public class Player extends GameObject {
     }
 
     // Returns the list of live bullets
-    public List getLiveBullets() {
+    public List<Bullet> getLiveBullets() {
         return liveBullets;
     }
 

@@ -13,6 +13,8 @@ import javafx.scene.layout.Pane;
 
     protected Image image;
 
+    protected Animation animation;
+
 
     protected int timeBetweenFire = 0;
     protected int firePowerLevel = 1;
@@ -30,6 +32,7 @@ import javafx.scene.layout.Pane;
 
     protected GameObject(Node view){
         this.view = view;
+
     }
 
     // return x-coordinate in fourth quadrant
@@ -198,10 +201,12 @@ import javafx.scene.layout.Pane;
         return animations;
     }
 
-    protected void insert(Pane root, double x, double y){
-        this.getView().setTranslateX(x);
-        this.getView().setTranslateY(y);
-        root.getChildren().add(this.getView());
+    protected void setSpriteAnimation(Animation animation){
+        this.animation = animation;
+    }
+
+    protected Animation getAnimation(){
+        return this.animation;
     }
 
 }
