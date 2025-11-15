@@ -1,27 +1,168 @@
-# Space-Wars
+# Space Wars
+
 Original single or multiplayer space wars game with scrolling background, stimulating music, and enemy AI. Destroy asteroids, shoot up enemy ships, and defeat bosses!
 
-Thank you for checking out my game, Space Wars. This is a personal project I decided to begin to gain a little more comfort before putting my own Game Engine together and also because I found that I have to be creative to be content. Building my own projects has allowed me to be original in design and implementation. Using the knowledge of building full applications along with the many resources available to me, including the stack overflow community, I developed this game from the ground up. Most of the code is reusable and I am working on a separate game developmenttemplate using said code and additional objects. The template is nearly finished and will be uploaded to github soon. Space Wars, which was renamed to Space Case, is a 2D shooter developed using the JavaFX library and Java 9. JetBrains IntelliJ was used to compile this project.
+Space Wars is a 2D shooter developed using the JavaFX library. This game features a complete start menu, two-player gameplay, and an engaging space combat experience.
 
+## Prerequisites
 
-Running the application:
-At the moment, the game can be run in IntelliJ and maybe Netbeans. Clone the package and open as a new project, then run Main class.
+Before building and running Space Wars, ensure you have:
 
-Controls:
-The game is two player until I finished the start menu, so below are the controls for each player. Sorry for that. It is being updated.
+- **Java Development Kit (JDK) 11 or higher** - Check with `java -version`
+- **JavaFX SDK** - Required for the GUI components
 
-Player 1:
-W - UP
-A - LEFT
-S - DOWN
-D - RIGHT
-SHIFT - FIRE
+### Installing JavaFX
 
-Player 2:
-UP arrow - UP
-LEFT arrow - LEFT
-DOWN arrow - DOWN
-RIGHT arrow - you guessed it, RIGHT
-COMMA - FIRE
+**On Ubuntu/Debian:**
+```bash
+sudo apt-get update
+sudo apt-get install openjfx
+```
 
-ESCAPE - PAUSE/RESUME Game
+**On macOS (using Homebrew):**
+```bash
+brew install openjfx
+```
+
+**On Windows or Manual Installation:**
+1. Download JavaFX SDK from [https://openjfx.io/](https://openjfx.io/)
+2. Extract it to a location like `~/javafx-sdk` or `C:\javafx-sdk`
+3. Set the `JAVAFX_PATH` environment variable to point to the `lib` directory
+
+## Building the Game
+
+### Quick Build (Recommended)
+
+Simply run the provided build script:
+
+```bash
+./build.sh
+```
+
+This script will:
+- Create an `out` directory for compiled classes
+- Automatically detect JavaFX installation
+- Compile all Java source files
+- Handle JavaFX module dependencies
+
+### Manual Build
+
+If you prefer to build manually:
+
+```bash
+# Create output directory
+mkdir -p out
+
+# Compile (adjust JAVAFX_PATH to your installation)
+javac --module-path /usr/share/openjfx/lib \
+      --add-modules javafx.controls,javafx.media,javafx.graphics \
+      -d out \
+      -sourcepath . \
+      sources/*.java
+```
+
+## Running the Game
+
+### Quick Run (Recommended)
+
+After building, simply run:
+
+```bash
+./run.sh
+```
+
+### Manual Run
+
+If you prefer to run manually:
+
+```bash
+java --module-path /usr/share/openjfx/lib \
+     --add-modules javafx.controls,javafx.media,javafx.graphics \
+     -cp out:sources \
+     sources.Main
+```
+
+## Game Features
+
+### Start Menu
+- **START GAME** - Begin playing immediately
+- **INSTRUCTIONS** - View game controls and objectives
+- **EXIT** - Quit the game
+
+### Gameplay
+- Two-player split-screen gameplay
+- Scrolling space background
+- Enemy AI that targets players
+- Asteroid destruction
+- Power-ups and special weapons
+- Score tracking
+- Health and lives system
+
+## Controls
+
+### Player 1:
+- **W** - Move Up
+- **A** - Move Left
+- **S** - Move Down
+- **D** - Move Right
+- **SHIFT** - Fire
+
+### Player 2:
+- **UP Arrow** - Move Up
+- **LEFT Arrow** - Move Left
+- **DOWN Arrow** - Move Down
+- **RIGHT Arrow** - Move Right
+- **COMMA (,)** - Fire
+
+### General:
+- **ESCAPE** - Pause/Resume Game
+
+## Game Objective
+
+Survive as long as possible by:
+- Destroying asteroids (10 points each)
+- Defeating enemy ships (20 points each)
+- Avoiding collisions with enemies and their projectiles
+- Collecting power-ups to enhance your ship
+
+## Troubleshooting
+
+### Build Fails with "JavaFX not found"
+- Install JavaFX using your package manager (see Prerequisites)
+- Or download JavaFX SDK manually and set `JAVAFX_PATH` environment variable
+
+### Game won't start
+- Ensure you've run `./build.sh` first
+- Check that Java version is 11 or higher: `java -version`
+- Verify JavaFX is properly installed
+
+### Resources not loading (images/sounds)
+- Ensure you're running from the project root directory
+- Check that `sources/Sprites/` and `sources/Sounds/` directories exist
+
+## Project Structure
+
+```
+Space-Wars/
+├── sources/           # Java source files
+│   ├── Sprites/      # Game sprite images
+│   └── Sounds/       # Game sound effects
+├── out/              # Compiled classes (created by build)
+├── build.sh          # Build script
+├── run.sh            # Run script
+└── README.md         # This file
+```
+
+## Development Notes
+
+This game was originally developed 5 years ago and has been updated to:
+- Include a functional start menu
+- Fix compilation issues
+- Add proper build and run scripts
+- Improve resource loading
+
+The game uses JavaFX for rendering and requires JavaFX modules to be included at both compile and runtime.
+
+## License
+
+This is a personal project. Feel free to explore and learn from the code!

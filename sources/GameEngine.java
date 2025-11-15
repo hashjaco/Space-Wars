@@ -105,7 +105,15 @@ public class GameEngine {
 
     public GameEngine() {
         scene = new Scene(createContent(), W, H, Color.BLACK);
-        scene.getStylesheets().add(GameEngine.class.getResource("../styles.css").toExternalForm());
+        try {
+            java.net.URL cssUrl = GameEngine.class.getResource("/styles.css");
+            if (cssUrl != null) {
+                scene.getStylesheets().add(cssUrl.toExternalForm());
+            }
+        } catch (Exception e) {
+            // CSS file not critical, continue without it
+            System.out.println("Note: Could not load styles.css - continuing without styles");
+        }
     }
 
 
