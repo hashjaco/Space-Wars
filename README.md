@@ -13,6 +13,13 @@ Before building and running Space Wars, ensure you have:
 
 ### Installing JavaFX
 
+**Quick Install (Ubuntu/Debian):**
+```bash
+./install-javafx.sh
+```
+
+**Manual Installation:**
+
 **On Ubuntu/Debian:**
 ```bash
 sudo apt-get update
@@ -26,8 +33,17 @@ brew install openjfx
 
 **On Windows or Manual Installation:**
 1. Download JavaFX SDK from [https://openjfx.io/](https://openjfx.io/)
+   - Make sure to download the version that matches your Java version
+   - For Java 21, download JavaFX 21
 2. Extract it to a location like `~/javafx-sdk` or `C:\javafx-sdk`
-3. Set the `JAVAFX_PATH` environment variable to point to the `lib` directory
+3. Set the `JAVAFX_PATH` environment variable:
+   ```bash
+   export JAVAFX_PATH=~/javafx-sdk/lib
+   ```
+   Or on Windows:
+   ```cmd
+   set JAVAFX_PATH=C:\javafx-sdk\lib
+   ```
 
 ## Building the Game
 
@@ -128,8 +144,25 @@ Survive as long as possible by:
 ## Troubleshooting
 
 ### Build Fails with "JavaFX not found"
-- Install JavaFX using your package manager (see Prerequisites)
-- Or download JavaFX SDK manually and set `JAVAFX_PATH` environment variable
+
+**Solution 1 - Use the installation helper:**
+```bash
+./install-javafx.sh
+```
+
+**Solution 2 - Install manually:**
+- On Ubuntu/Debian: `sudo apt-get install openjfx`
+- Or download JavaFX SDK manually from [https://openjfx.io/](https://openjfx.io/)
+- Set `JAVAFX_PATH` environment variable to point to the `lib` directory
+
+**Solution 3 - Verify JavaFX installation:**
+```bash
+# Check if JavaFX is installed
+ls /usr/share/openjfx/lib/javafx.base.jar
+
+# If not found, check other locations
+find /usr -name "javafx.base.jar" 2>/dev/null
+```
 
 ### Game won't start
 - Ensure you've run `./build.sh` first
@@ -144,13 +177,14 @@ Survive as long as possible by:
 
 ```
 Space-Wars/
-├── sources/           # Java source files
-│   ├── Sprites/      # Game sprite images
-│   └── Sounds/       # Game sound effects
-├── out/              # Compiled classes (created by build)
-├── build.sh          # Build script
-├── run.sh            # Run script
-└── README.md         # This file
+├── sources/              # Java source files
+│   ├── Sprites/         # Game sprite images
+│   └── Sounds/          # Game sound effects
+├── out/                 # Compiled classes (created by build)
+├── build.sh             # Build script
+├── run.sh               # Run script
+├── install-javafx.sh    # JavaFX installation helper
+└── README.md            # This file
 ```
 
 ## Development Notes
