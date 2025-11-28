@@ -219,6 +219,16 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXFrameworksBuildPhase section */
+		1A1A1A1A1A1A1A13 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		1A1A1A1A1A1A1A12 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -313,6 +323,9 @@
 			};
 			name = Release;
 		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCBuildConfigurationList section */
 		1A1A1A1A1A1A1A4E /* Build configuration list for PBXNativeTarget "SpaceCase" */ = {
 			isa = XCBuildConfigurationList;
 			buildConfigurations = (
@@ -331,7 +344,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-/* End XCBuildConfiguration section */
+/* End XCBuildConfigurationList section */
 	};
 	rootObject = 1A1A1A1A1A1A1A0F /* Project object */;
 }
