@@ -1,0 +1,79 @@
+{
+  "levelNumber": 1,
+  "name": "First Contact",
+  "description": "Your first mission into deep space. Encounter basic enemy patrols and navigate through asteroid fields.",
+  "numberOfWaves": 3,
+  "waves": [
+    {
+      "waveNumber": 1,
+      "enemySpawnRate": 3,
+      "asteroidSpawnRate": 8,
+      "maxEnemies": 3,
+      "maxAsteroids": 8,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 100
+        }
+      ],
+      "powerUpChance": 3,
+      "duration": 45.0
+    },
+    {
+      "waveNumber": 2,
+      "enemySpawnRate": 5,
+      "asteroidSpawnRate": 12,
+      "maxEnemies": 5,
+      "maxAsteroids": 12,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 80
+        },
+        {
+          "type": "fast",
+          "health": 30,
+          "damage": 8,
+          "speed": 3.5,
+          "spawnWeight": 20
+        }
+      ],
+      "powerUpChance": 5,
+      "duration": 60.0
+    },
+    {
+      "waveNumber": 3,
+      "enemySpawnRate": 7,
+      "asteroidSpawnRate": 15,
+      "maxEnemies": 7,
+      "maxAsteroids": 15,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 70
+        },
+        {
+          "type": "fast",
+          "health": 30,
+          "damage": 8,
+          "speed": 3.5,
+          "spawnWeight": 30
+        }
+      ],
+      "powerUpChance": 7,
+      "duration": 75.0
+    }
+  ],
+  "backgroundImage": "spaceBackground",
+  "backgroundMusic": "background_music",
+  "boss": null
+}

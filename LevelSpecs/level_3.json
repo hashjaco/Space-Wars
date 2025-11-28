@@ -1,0 +1,135 @@
+{
+  "levelNumber": 3,
+  "name": "Enemy Stronghold",
+  "description": "Approach the enemy stronghold. Heavy resistance expected. Prepare for a boss encounter.",
+  "numberOfWaves": 5,
+  "waves": [
+    {
+      "waveNumber": 1,
+      "enemySpawnRate": 6,
+      "asteroidSpawnRate": 5,
+      "maxEnemies": 6,
+      "maxAsteroids": 5,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 60,
+          "damage": 12,
+          "speed": 2.5,
+          "spawnWeight": 70
+        },
+        {
+          "type": "fast",
+          "health": 35,
+          "damage": 10,
+          "speed": 4.0,
+          "spawnWeight": 30
+        }
+      ],
+      "powerUpChance": 5,
+      "duration": 50.0
+    },
+    {
+      "waveNumber": 2,
+      "enemySpawnRate": 8,
+      "asteroidSpawnRate": 8,
+      "maxEnemies": 8,
+      "maxAsteroids": 8,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 60,
+          "damage": 12,
+          "speed": 2.5,
+          "spawnWeight": 60
+        },
+        {
+          "type": "fast",
+          "health": 35,
+          "damage": 10,
+          "speed": 4.0,
+          "spawnWeight": 40
+        }
+      ],
+      "powerUpChance": 6,
+      "duration": 60.0
+    },
+    {
+      "waveNumber": 3,
+      "enemySpawnRate": 10,
+      "asteroidSpawnRate": 10,
+      "maxEnemies": 10,
+      "maxAsteroids": 10,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 70,
+          "damage": 15,
+          "speed": 3.0,
+          "spawnWeight": 50
+        },
+        {
+          "type": "fast",
+          "health": 40,
+          "damage": 12,
+          "speed": 4.5,
+          "spawnWeight": 50
+        }
+      ],
+      "powerUpChance": 7,
+      "duration": 70.0
+    },
+    {
+      "waveNumber": 4,
+      "enemySpawnRate": 12,
+      "asteroidSpawnRate": 12,
+      "maxEnemies": 12,
+      "maxAsteroids": 12,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 80,
+          "damage": 18,
+          "speed": 3.0,
+          "spawnWeight": 50
+        },
+        {
+          "type": "fast",
+          "health": 45,
+          "damage": 15,
+          "speed": 5.0,
+          "spawnWeight": 50
+        }
+      ],
+      "powerUpChance": 8,
+      "duration": 80.0
+    },
+    {
+      "waveNumber": 5,
+      "enemySpawnRate": 5,
+      "asteroidSpawnRate": 3,
+      "maxEnemies": 3,
+      "maxAsteroids": 3,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 100,
+          "damage": 20,
+          "speed": 3.5,
+          "spawnWeight": 100
+        }
+      ],
+      "powerUpChance": 10,
+      "duration": 30.0
+    }
+  ],
+  "backgroundImage": "spaceBackground",
+  "backgroundMusic": "boss_music",
+  "boss": {
+    "name": "Stronghold Commander",
+    "health": 500,
+    "damage": 25,
+    "attackPatterns": ["spiral", "burst", "charge"],
+    "spriteName": "boss_sprite"
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "levelNumber": 2,
+  "name": "Asteroid Field",
+  "description": "Navigate through a dense asteroid field while fending off enemy scouts. Survival is key.",
+  "numberOfWaves": 4,
+  "waves": [
+    {
+      "waveNumber": 1,
+      "enemySpawnRate": 2,
+      "asteroidSpawnRate": 20,
+      "maxEnemies": 2,
+      "maxAsteroids": 20,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 100
+        }
+      ],
+      "powerUpChance": 4,
+      "duration": 50.0
+    },
+    {
+      "waveNumber": 2,
+      "enemySpawnRate": 4,
+      "asteroidSpawnRate": 25,
+      "maxEnemies": 4,
+      "maxAsteroids": 25,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 70
+        },
+        {
+          "type": "fast",
+          "health": 30,
+          "damage": 8,
+          "speed": 3.5,
+          "spawnWeight": 30
+        }
+      ],
+      "powerUpChance": 5,
+      "duration": 60.0
+    },
+    {
+      "waveNumber": 3,
+      "enemySpawnRate": 6,
+      "asteroidSpawnRate": 30,
+      "maxEnemies": 6,
+      "maxAsteroids": 30,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 50,
+          "damage": 10,
+          "speed": 2.0,
+          "spawnWeight": 60
+        },
+        {
+          "type": "fast",
+          "health": 30,
+          "damage": 8,
+          "speed": 3.5,
+          "spawnWeight": 40
+        }
+      ],
+      "powerUpChance": 6,
+      "duration": 70.0
+    },
+    {
+      "waveNumber": 4,
+      "enemySpawnRate": 8,
+      "asteroidSpawnRate": 35,
+      "maxEnemies": 8,
+      "maxAsteroids": 35,
+      "enemyTypes": [
+        {
+          "type": "basic",
+          "health": 60,
+          "damage": 12,
+          "speed": 2.5,
+          "spawnWeight": 50
+        },
+        {
+          "type": "fast",
+          "health": 35,
+          "damage": 10,
+          "speed": 4.0,
+          "spawnWeight": 50
+        }
+      ],
+      "powerUpChance": 8,
+      "duration": 80.0
+    }
+  ],
+  "backgroundImage": "spaceBackground",
+  "backgroundMusic": "background_music",
+  "boss": null
+}
