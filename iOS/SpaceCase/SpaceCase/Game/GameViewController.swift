@@ -41,7 +41,13 @@ class GameViewController: UIViewController {
         skView.showsNodeCount = true
         view.addSubview(skView)
         
-        gameScene = GameScene(size: view.bounds.size, gameMode: gameMode)
+        // Ensure landscape size
+        let landscapeSize = CGSize(
+            width: max(view.bounds.width, view.bounds.height),
+            height: min(view.bounds.width, view.bounds.height)
+        )
+        
+        gameScene = GameScene(size: landscapeSize, gameMode: gameMode)
         gameScene?.scaleMode = .aspectFill
         
         if gameMode == .multiplayer {
@@ -53,7 +59,48 @@ class GameViewController: UIViewController {
         skView.presentScene(gameScene)
     }
     
+    override func viewWillLayoutSubviews() {
+        super.viewWillLayoutSubviews()
+        
+        // Update scene size when layout changes
+        if let skView = view.subviews.first as? SKView,
+           let scene = gameScene {
+            let landscapeSize = CGSize(
+                width: max(view.bounds.width, view.bounds.height),
+                height: min(view.bounds.width, view.bounds.height)
+            )
+            scene.size = landscapeSize
+        }
+    }
+    
     override var prefersStatusBarHidden: Bool {
         return true
+    }
+    
+    // MARK: - Orientation Support
+    
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        return .landscape
+    }
+    
+    override var preferredInterfaceOrientationForPresentation: UIInterfaceOrientation {
+        return .landscapeLeft
+    }
+    
+    override var shouldAutorotate: Bool {
+        return false
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // Force landscape orientation
+        if #available(iOS 16.0, *) {
+            setNeedsUpdateOfSupportedInterfaceOrientations()
+        } else {
+            // For iOS 15 and earlier
+            let value = UIInterfaceOrientation.landscapeLeft.rawValue
+            UIDevice.current.setValue(value, forKey: "orientation")
+        }
     }
 }

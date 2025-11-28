@@ -25,6 +25,9 @@
 		1A1A1A1A1A1A1A38 /* Level.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A37 /* Level.swift */; };
 		1A1A1A1A1A1A1A3A /* LevelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A39 /* LevelManager.swift */; };
 		1A1A1A1A1A1A1A3C /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A3B /* SettingsViewController.swift */; };
+		1A1A1A1A1A1A1A42 /* JoystickNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A42 /* JoystickNode.swift */; };
+		1A1A1A1A1A1A1A43 /* ControlButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A43 /* ControlButton.swift */; };
+		1A1A1A1A1A1A1A44 /* GameControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A44 /* GameControlsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -49,6 +52,9 @@
 		1A1A1A1A1A1A1A3B /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsViewController.swift; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A3D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A3E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A42 /* JoystickNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/JoystickNode.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A43 /* ControlButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/ControlButton.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A44 /* GameControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/GameControlsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -101,8 +107,19 @@
 				1A1A1A1A1A1A1A23 /* GameScene.swift */,
 				1A1A1A1A1A1A1A25 /* GameEngine.swift */,
 				1A1A1A1A1A1A1A45 /* Entities */,
+				1A1A1A1A1A1A1A46 /* Controls */,
 			);
 			path = Game;
+			sourceTree = "<group>";
+		};
+		1A1A1A1A1A1A1A46 /* Controls */ = {
+			isa = PBXGroup;
+			children = (
+				1A1A1A1A1A1A1A42 /* JoystickNode.swift */,
+				1A1A1A1A1A1A1A43 /* ControlButton.swift */,
+				1A1A1A1A1A1A1A44 /* GameControlsView.swift */,
+			);
+			path = Controls;
 			sourceTree = "<group>";
 		};
 		1A1A1A1A1A1A1A45 /* Entities */ = {
@@ -225,6 +242,9 @@
 				1A1A1A1A1A1A1A38 /* Level.swift in Sources */,
 				1A1A1A1A1A1A1A3A /* LevelManager.swift in Sources */,
 				1A1A1A1A1A1A1A3C /* SettingsViewController.swift in Sources */,
+				1A1A1A1A1A1A1A42 /* JoystickNode.swift in Sources */,
+				1A1A1A1A1A1A1A43 /* ControlButton.swift in Sources */,
+				1A1A1A1A1A1A1A44 /* GameControlsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

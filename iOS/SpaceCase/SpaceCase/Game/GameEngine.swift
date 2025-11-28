@@ -40,6 +40,9 @@ class GameEngine {
     }
     
     func update(deltaTime: TimeInterval) {
+        // Update players first (movement and firing)
+        updatePlayers(deltaTime: deltaTime)
+        
         // Update all game entities
         updateEnemies(deltaTime: deltaTime)
         updateBullets(deltaTime: deltaTime)
@@ -47,6 +50,13 @@ class GameEngine {
         updatePowerUps(deltaTime: deltaTime)
         spawnEntities()
         checkWaveCompletion()
+    }
+    
+    private func updatePlayers(deltaTime: TimeInterval) {
+        players.forEach { player in
+            player.updateMovement(deltaTime: deltaTime)
+            player.updateFiring(deltaTime: deltaTime)
+        }
     }
     
     private func updateEnemies(deltaTime: TimeInterval) {

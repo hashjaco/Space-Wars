@@ -15,6 +15,7 @@ class GameScene: SKScene {
     private var background: SKSpriteNode?
     private var lastUpdateTime: TimeInterval = 0
     private var deltaTime: TimeInterval = 0
+    private var gameControls: GameControlsView?
     
     var multiplayerManager: MultiplayerManager?
     let gameMode: GameMode
@@ -56,6 +57,33 @@ class GameScene: SKScene {
         // Setup physics world
         physicsWorld.gravity = CGVector.zero
         physicsWorld.contactDelegate = self
+        
+        // Setup game controls
+        setupControls()
+    }
+    
+    private func setupControls() {
+        gameControls = GameControlsView(size: size)
+        gameControls?.controlsDelegate = self
+        gameControls?.zPosition = 1000 // Ensure controls are on top
+        addChild(gameControls!)
+        
+        // Update control positions when scene size changes
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(sceneSizeChanged),
+            name: UIDevice.orientationDidChangeNotification,
+            object: nil
+        )
+    }
+    
+    @objc private func sceneSizeChanged() {
+        // Update control positions for new size
+        gameControls?.updateControlPositions(size: size)
+    }
+    
+    deinit {
+        NotificationCenter.default.removeObserver(self)
     }
     
     private func setupBackground() {
@@ -124,19 +152,58 @@ class GameScene: SKScene {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
         
-        // Handle touch for player movement or shooting
-        player?.handleTouch(at: location)
+        // Forward touch to controls
+        _ = gameControls?.handleTouchBegan(touch, location: location)
     }
     
     override func touchesMoved(_ touches: Set<UITouch>, with event: UIEvent?) {
         guard let touch = touches.first else { return }
         let location = touch.location(in: self)
-        player?.moveTo(location)
+        
+        // Forward touch to controls
+        gameControls?.handleTouchMoved(touch, location: location)
+    }
+    
+    override func touchesEnded(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        
+        // Forward touch to controls
+        gameControls?.handleTouchEnded(touch)
+    }
+    
+    override func touchesCancelled(_ touches: Set<UITouch>, with event: UIEvent?) {
+        guard let touch = touches.first else { return }
+        gameControls?.handleTouchEnded(touch)
     }
 }
 
 extension GameScene: SKPhysicsContactDelegate {
     func didBegin(_ contact: SKPhysicsContact) {
         gameEngine?.handleCollision(contact: contact)
+    }
+}
+
+extension GameScene: GameControlsDelegate {
+    func joystickDidUpdate(velocity: CGVector) {
+        // Update player movement based on joystick
+        player?.setVelocity(velocity)
+    }
+    
+    func fireButtonPressed() {
+        // Continuous firing while button is held
+        player?.startFiring()
+    }
+    
+    func fireButtonReleased() {
+        player?.stopFiring()
+    }
+    
+    func specialButtonPressed() {
+        // Special ability (e.g., bomb, shield)
+        player?.useSpecialAbility()
+    }
+    
+    func specialButtonReleased() {
+        // Can be used for hold-to-activate abilities
     }
 }

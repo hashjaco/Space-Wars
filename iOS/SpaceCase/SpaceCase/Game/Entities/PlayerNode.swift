@@ -17,6 +17,9 @@ class PlayerNode: SKSpriteNode {
     private var firePowerLevel: Int = 0
     private var lastFireTime: TimeInterval = 0
     private let fireCooldown: TimeInterval = 0.3
+    private var isFiring = false
+    private var movementVelocity: CGVector = .zero
+    private let movementSpeed: CGFloat = 300.0
     
     var isDead: Bool {
         return health <= 0 && lives <= 0
@@ -44,17 +47,41 @@ class PlayerNode: SKSpriteNode {
         physicsBody?.isDynamic = true
     }
     
-    func handleTouch(at location: CGPoint) {
-        moveTo(location)
+    // MARK: - Joystick Control
+    
+    func setVelocity(_ velocity: CGVector) {
+        movementVelocity = velocity
+    }
+    
+    func updateMovement(deltaTime: TimeInterval) {
+        // Apply movement based on joystick velocity
+        let moveX = movementVelocity.dx * movementSpeed * CGFloat(deltaTime)
+        let moveY = movementVelocity.dy * movementSpeed * CGFloat(deltaTime)
+        
+        // Clamp position to screen bounds
+        let newX = max(size.width / 2, min((scene?.size.width ?? 0) - size.width / 2, position.x + moveX))
+        let newY = max(size.height / 2, min((scene?.size.height ?? 0) - size.height / 2, position.y + moveY))
+        
+        position = CGPoint(x: newX, y: newY)
+    }
+    
+    // MARK: - Fire Control
+    
+    func startFiring() {
+        isFiring = true
+        fire() // Fire immediately
+    }
+    
+    func stopFiring() {
+        isFiring = false
+    }
+    
+    func updateFiring(deltaTime: TimeInterval) {
+        guard isFiring else { return }
         fire()
     }
     
-    func moveTo(_ location: CGPoint) {
-        let moveAction = SKAction.move(to: location, duration: 0.1)
-        run(moveAction)
-    }
-    
-    func fire() {
+    private func fire() {
         let currentTime = CACurrentMediaTime()
         guard currentTime - lastFireTime >= fireCooldown else { return }
         lastFireTime = currentTime
@@ -71,6 +98,29 @@ class PlayerNode: SKSpriteNode {
         }
         
         // Play sound effect
+        SoundManager.shared.playSound(.laser)
+    }
+    
+    // MARK: - Special Abilities
+    
+    func useSpecialAbility() {
+        // Implement special ability (e.g., bomb, shield, etc.)
+        // For now, fire a powerful burst
+        fireBurst()
+    }
+    
+    private func fireBurst() {
+        // Fire multiple bullets in a spread pattern
+        for i in -1...1 {
+            let bullet = BulletNode(isEnemyBullet: false, damage: 15 + firePowerLevel * 5)
+            bullet.position = CGPoint(x: position.x + CGFloat(i * 10), y: position.y + size.height / 2)
+            bullet.zPosition = 1
+            parent?.addChild(bullet)
+            
+            if let scene = scene as? GameScene {
+                scene.gameEngineRef?.addBullet(bullet)
+            }
+        }
         SoundManager.shared.playSound(.laser)
     }
     
