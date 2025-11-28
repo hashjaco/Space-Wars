@@ -25,9 +25,9 @@
 		1A1A1A1A1A1A1A38 /* Level.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A37 /* Level.swift */; };
 		1A1A1A1A1A1A1A3A /* LevelManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A39 /* LevelManager.swift */; };
 		1A1A1A1A1A1A1A3C /* SettingsViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A3B /* SettingsViewController.swift */; };
-		1A1A1A1A1A1A1A42 /* JoystickNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A42 /* JoystickNode.swift */; };
-		1A1A1A1A1A1A1A43 /* ControlButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A43 /* ControlButton.swift */; };
-		1A1A1A1A1A1A1A44 /* GameControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A44 /* GameControlsView.swift */; };
+		1A1A1A1A1A1A1A56 /* JoystickNode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A53 /* JoystickNode.swift */; };
+		1A1A1A1A1A1A1A57 /* ControlButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A54 /* ControlButton.swift */; };
+		1A1A1A1A1A1A1A58 /* GameControlsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A1A1A1A1A1A1A55 /* GameControlsView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -52,9 +52,9 @@
 		1A1A1A1A1A1A1A3B /* SettingsViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Views/SettingsViewController.swift; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A3D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		1A1A1A1A1A1A1A3E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		1A1A1A1A1A1A1A42 /* JoystickNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/JoystickNode.swift; sourceTree = "<group>"; };
-		1A1A1A1A1A1A1A43 /* ControlButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/ControlButton.swift; sourceTree = "<group>"; };
-		1A1A1A1A1A1A1A44 /* GameControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/GameControlsView.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A53 /* JoystickNode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/JoystickNode.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A54 /* ControlButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/ControlButton.swift; sourceTree = "<group>"; };
+		1A1A1A1A1A1A1A55 /* GameControlsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Game/Controls/GameControlsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -81,9 +81,9 @@
 				1A1A1A1A1A1A1A1B /* SceneDelegate.swift */,
 				1A1A1A1A1A1A1A40 /* Views */,
 				1A1A1A1A1A1A1A41 /* Game */,
-				1A1A1A1A1A1A1A42 /* Multiplayer */,
-				1A1A1A1A1A1A1A43 /* Levels */,
-				1A1A1A1A1A1A1A44 /* Utilities */,
+				1A1A1A1A1A1A1A50 /* Multiplayer */,
+				1A1A1A1A1A1A1A4C /* Levels */,
+				1A1A1A1A1A1A1A4D /* Utilities */,
 				1A1A1A1A1A1A1A3D /* Info.plist */,
 				1A1A1A1A1A1A1A3E /* Assets.xcassets */,
 			);
@@ -115,9 +115,9 @@
 		1A1A1A1A1A1A1A46 /* Controls */ = {
 			isa = PBXGroup;
 			children = (
-				1A1A1A1A1A1A1A42 /* JoystickNode.swift */,
-				1A1A1A1A1A1A1A43 /* ControlButton.swift */,
-				1A1A1A1A1A1A1A44 /* GameControlsView.swift */,
+				1A1A1A1A1A1A1A53 /* JoystickNode.swift */,
+				1A1A1A1A1A1A1A54 /* ControlButton.swift */,
+				1A1A1A1A1A1A1A55 /* GameControlsView.swift */,
 			);
 			path = Controls;
 			sourceTree = "<group>";
@@ -134,7 +134,7 @@
 			path = Entities;
 			sourceTree = "<group>";
 		};
-		1A1A1A1A1A1A1A42 /* Multiplayer */ = {
+		1A1A1A1A1A1A1A50 /* Multiplayer */ = {
 			isa = PBXGroup;
 			children = (
 				1A1A1A1A1A1A1A31 /* MultiplayerManager.swift */,
@@ -143,7 +143,7 @@
 			path = Multiplayer;
 			sourceTree = "<group>";
 		};
-		1A1A1A1A1A1A1A43 /* Levels */ = {
+		1A1A1A1A1A1A1A4C /* Levels */ = {
 			isa = PBXGroup;
 			children = (
 				1A1A1A1A1A1A1A37 /* Level.swift */,
@@ -152,7 +152,7 @@
 			path = Levels;
 			sourceTree = "<group>";
 		};
-		1A1A1A1A1A1A1A44 /* Utilities */ = {
+		1A1A1A1A1A1A1A4D /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
 				1A1A1A1A1A1A1A35 /* SoundManager.swift */,
@@ -165,7 +165,7 @@
 /* Begin PBXNativeTarget section */
 		1A1A1A1A1A1A1A15 /* SpaceCase */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 1A1A1A1A1A1A1A46 /* Build configuration list for PBXNativeTarget "SpaceCase" */;
+			buildConfigurationList = 1A1A1A1A1A1A1A4E /* Build configuration list for PBXNativeTarget "SpaceCase" */;
 			buildPhases = (
 				1A1A1A1A1A1A1A12 /* Sources */,
 				1A1A1A1A1A1A1A13 /* Frameworks */,
@@ -224,7 +224,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1A1A1A1A1A1A1A19 /* AppDelegate.swift in Sources */,
+				1A1A1A1A1A1A1A1A /* AppDelegate.swift in Sources */,
 				1A1A1A1A1A1A1A1C /* SceneDelegate.swift in Sources */,
 				1A1A1A1A1A1A1A1E /* IntroViewController.swift in Sources */,
 				1A1A1A1A1A1A1A20 /* MainMenuViewController.swift in Sources */,
@@ -242,16 +242,16 @@
 				1A1A1A1A1A1A1A38 /* Level.swift in Sources */,
 				1A1A1A1A1A1A1A3A /* LevelManager.swift in Sources */,
 				1A1A1A1A1A1A1A3C /* SettingsViewController.swift in Sources */,
-				1A1A1A1A1A1A1A42 /* JoystickNode.swift in Sources */,
-				1A1A1A1A1A1A1A43 /* ControlButton.swift in Sources */,
-				1A1A1A1A1A1A1A44 /* GameControlsView.swift in Sources */,
+				1A1A1A1A1A1A1A56 /* JoystickNode.swift in Sources */,
+				1A1A1A1A1A1A1A57 /* ControlButton.swift in Sources */,
+				1A1A1A1A1A1A1A58 /* GameControlsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		1A1A1A1A1A1A1A47 /* Debug */ = {
+		1A1A1A1A1A1A1A51 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -282,7 +282,7 @@
 			};
 			name = Debug;
 		};
-		1A1A1A1A1A1A1A48 /* Release */ = {
+		1A1A1A1A1A1A1A52 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -313,11 +313,11 @@
 			};
 			name = Release;
 		};
-		1A1A1A1A1A1A1A46 /* Build configuration list for PBXNativeTarget "SpaceCase" */ = {
+		1A1A1A1A1A1A1A4E /* Build configuration list for PBXNativeTarget "SpaceCase" */ = {
 			isa = XCBuildConfigurationList;
 			buildConfigurations = (
-				1A1A1A1A1A1A1A47 /* Debug */,
-				1A1A1A1A1A1A1A48 /* Release */,
+				1A1A1A1A1A1A1A51 /* Debug */,
+				1A1A1A1A1A1A1A52 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -325,8 +325,8 @@
 		1A1A1A1A1A1A1A18 /* Build configuration list for PBXProject "SpaceCase" */ = {
 			isa = XCBuildConfigurationList;
 			buildConfigurations = (
-				1A1A1A1A1A1A1A47 /* Debug */,
-				1A1A1A1A1A1A1A48 /* Release */,
+				1A1A1A1A1A1A1A51 /* Debug */,
+				1A1A1A1A1A1A1A52 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
