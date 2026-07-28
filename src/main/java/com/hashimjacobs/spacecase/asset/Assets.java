@@ -20,7 +20,16 @@ public final class Assets {
 
     private static final Map<Sprite, Image> IMAGES = new EnumMap<>(Sprite.class);
     private static final Map<Explosion, List<Image>> EXPLOSION_FRAMES = new EnumMap<>(Explosion.class);
-    private static final String FONT_PATH = "/fonts/Lugosi.ttf";
+
+    /**
+     * Display faces for menu headings, most wanted first.
+     *
+     * These are referenced from whatever the host already has rather than bundled: a font file is an
+     * asset like any other, and most freely downloadable faces are not licensed for redistribution.
+     */
+    private static final List<String> DISPLAY_FONTS =
+            List.of("Impact", "Haettenschweiler", "Arial Black", "Franklin Gothic Heavy",
+                    "DejaVu Sans Condensed", "Verdana");
 
     private static boolean loaded;
     private static String displayFontFamily = "Serif";
@@ -87,16 +96,14 @@ public final class Assets {
         return image;
     }
 
+    /** First preferred display face the host actually has, else a generic serif. */
     private static String loadDisplayFont() {
-        InputStream stream = Assets.class.getResourceAsStream(FONT_PATH);
-        if (stream == null) {
-            return "Serif";
+        List<String> installed = Font.getFamilies();
+        for (String candidate : DISPLAY_FONTS) {
+            if (installed.contains(candidate)) {
+                return candidate;
+            }
         }
-        Font font = Font.loadFont(stream, 48);
-        if (font == null) {
-            return "Serif";
-        }
-        String family = font.getFamily();
-        return family;
+        return "Serif";
     }
 }

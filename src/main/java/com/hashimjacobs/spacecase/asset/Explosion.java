@@ -9,8 +9,8 @@ package com.hashimjacobs.spacecase.asset;
  */
 public enum Explosion {
 
-    SMALL("explosion", 25, 2),
-    LARGE("explosion2", 49, 1);
+    SMALL("explosion-small", 25, 2),
+    LARGE("explosion-large", 49, 1);
 
     private final String directory;
     private final int frameCount;
