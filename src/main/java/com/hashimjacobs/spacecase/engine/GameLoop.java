@@ -33,6 +33,7 @@ public final class GameLoop {
     private final List<ShipController> controllers = new ArrayList<>();
     private final Consumer<RoundResult> onRoundOver;
 
+    private final FixedTimestep timestep = new FixedTimestep();
     private AnimationTimer timer;
     private boolean paused;
     private boolean finished;
@@ -46,7 +47,7 @@ public final class GameLoop {
         this.settings = settings;
         this.onRoundOver = onRoundOver;
         this.director = new SpawnDirector(random, settings.difficulty(), mode.rules());
-        this.collisions = new CollisionSystem(sounds);
+        this.collisions = new CollisionSystem(sounds, random);
         attachControllers();
     }
 
@@ -65,10 +66,26 @@ public final class GameLoop {
         timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
-                step();
+                frame(now);
             }
         };
         timer.start();
+    }
+
+    /**
+     * Advances the simulation by however many fixed steps the elapsed time earned, then draws once.
+     * Rendering every frame while stepping at a fixed rate is what keeps the game the same speed on
+     * a 60Hz and a 120Hz display.
+     */
+    private void frame(long frameNanos) {
+        if (paused || finished) {
+            return;
+        }
+        int steps = timestep.stepsFor(frameNanos);
+        for (int i = 0; i < steps && !finished; i++) {
+            step();
+        }
+        renderer.draw(world, director);
     }
 
     public void stop() {
@@ -77,11 +94,8 @@ public final class GameLoop {
         }
     }
 
+    /** One simulation step. Deliberately does no drawing -- {@link #frame} owns that. */
     private void step() {
-        if (paused || finished) {
-            return;
-        }
-
         for (ShipController controller : controllers) {
             controller.apply(input, world, sounds);
         }
@@ -91,13 +105,12 @@ public final class GameLoop {
         director.update(world);
         collisions.resolve(world);
         world.sweep();
-        renderer.draw(world, director);
 
         checkRoundOver();
     }
 
     private void driveEnemies() {
-        int cooldown = settings.difficulty().enemyFireCooldown();
+        int difficultyCooldown = settings.difficulty().enemyFireCooldown();
         for (EnemyShip enemy : world.enemies()) {
             PlayerShip target = world.nearestPlayer(enemy);
             if (target == null) {
@@ -105,19 +118,12 @@ public final class GameLoop {
             }
             enemy.trackHorizontally(target);
             boolean onScreen = enemy.y() > -enemy.height() / 2;
+            int cooldown = EnemyWeapons.cooldownFor(enemy, difficultyCooldown);
             if (!onScreen || !enemy.tickWeapon(cooldown)) {
                 continue;
             }
-            fireEnemyShot(enemy);
+            EnemyWeapons.fire(world, enemy, target);
         }
-    }
-
-    private void fireEnemyShot(EnemyShip enemy) {
-        double x = enemy.centerX() - Sprite.ENEMY_BULLET.width() / 2;
-        double y = enemy.y() + enemy.height();
-        Bullet bullet = new Bullet(Sprite.ENEMY_BULLET, x, y, 0,
-                GameConfig.ENEMY_BULLET_SPEED, null, GameConfig.ENEMY_BULLET_DAMAGE);
-        world.addBullet(bullet);
     }
 
     private void checkRoundOver() {
@@ -141,7 +147,10 @@ public final class GameLoop {
         if (paused) {
             renderer.drawPausedVeil();
             input.clear();
+            return;
         }
+        // Forget the paused interval so it is not replayed as simulation debt on resume.
+        timestep.reset();
     }
 
     public boolean isPaused() {
