@@ -1,0 +1,53 @@
+name: Bug report
+description: Something behaves wrongly, crashes, or looks broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Start the game
+        2. Multiplayer -> Battle
+        3. ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Which mode
+      options: [Single Player, Co-op, Battle, Menus, Not mode specific]
+    validations:
+      required: true
+
+  - type: textarea
+    id: stacktrace
+    attributes:
+      label: Console output
+      description: Any stack trace printed to the terminal. Paste the whole thing.
+      render: text
+
+  - type: input
+    id: java
+    attributes:
+      label: Java version
+      description: Output of `java -version`
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: OS, and display refresh rate if the problem looks speed related
+      placeholder: macOS 26.5 on a 120Hz display
+    validations:
+      required: true

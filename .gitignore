@@ -1,2 +1,7 @@
 *.class
 target/
+
+# Intermediates from tools/GenerateAssets.java; the committed tracks are the MP3s that
+# tools/generate-assets.sh produces from these.
+src/main/resources/sounds/main-theme.wav
+src/main/resources/sounds/battle-theme.wav
