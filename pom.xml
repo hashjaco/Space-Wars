@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.hashimjacobs</groupId>
+  <artifactId>space-case</artifactId>
+  <version>1.0</version>
+  <packaging>jar</packaging>
+  <name>Space Case</name>
+
+  <properties>
+    <maven.compiler.release>21</maven.compiler.release>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- JavaFX ships separately from the JDK since Java 11. Its major version must
+         track the JDK it runs on: JavaFX 26 requires a JDK 26 runtime. -->
+    <javafx.version>26.0.2</javafx.version>
+  </properties>
+
+  <dependencies>
+    <!-- ScrollPane, SplitPane, MenuBar -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-controls</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+    <!-- Media/MediaPlayer for the .wav soundtrack and SFX -->
+    <dependency>
+      <groupId>org.openjfx</groupId>
+      <artifactId>javafx-media</artifactId>
+      <version>${javafx.version}</version>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- Package `sources` maps to ./sources, so the source root is the repo root. -->
+    <sourceDirectory>${project.basedir}</sourceDirectory>
+
+    <!-- Sprites.java loads images off the classloader ("sources/Sprites/x.png"), while
+         Sound.java and Animation.java read the same tree via java.io.File relative to the
+         working directory. Assets must stay reachable both ways, so they are copied to
+         the classpath under their original paths rather than moved into src/main/resources. -->
+    <resources>
+      <resource>
+        <directory>${project.basedir}</directory>
+        <includes>
+          <include>styles.css</include>
+          <include>sources/Sprites/**</include>
+          <include>sources/Sounds/**</include>
+          <include>sources/*.ttf</include>
+        </includes>
+      </resource>
+    </resources>
+
+    <plugins>
+      <plugin>
+        <groupId>org.openjfx</groupId>
+        <artifactId>javafx-maven-plugin</artifactId>
+        <version>0.0.8</version>
+        <configuration>
+          <mainClass>sources.Main</mainClass>
+          <options>
+            <!-- JavaFX loads native libs and binds native methods. Unapproved native
+                 access only warns today but is slated to be blocked outright. -->
+            <option>--enable-native-access=javafx.graphics,javafx.media</option>
+          </options>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>
