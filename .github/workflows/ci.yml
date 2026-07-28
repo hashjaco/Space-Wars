@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+
+      # The suite is deliberately free of JavaFX toolkit dependencies, so it needs no
+      # virtual display or audio device on the runner.
+      - name: Build and test
+        run: mvn -B --no-transfer-progress verify
+
+      - name: Check the asset generator still runs
+        run: java tools/GenerateAssets.java
+
+      # Generated assets are committed, and the generator is seeded. If regenerating changes
+      # anything, the committed assets and the generator have drifted apart.
+      - name: Verify generated assets are reproducible
+        run: |
+          if [ -n "$(git status --porcelain src/main/resources/sprites)" ]; then
+            echo "Regenerating assets changed the working tree:"
+            git status --porcelain src/main/resources/sprites
+            echo "Run tools/generate-assets.sh and commit the result."
+            exit 1
+          fi

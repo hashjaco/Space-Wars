@@ -1,0 +1,43 @@
+name: Feature or gameplay idea
+description: Suggest something new, or a change to how the game plays
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+    validations:
+      required: true
+
+  - type: textarea
+    id: why
+    attributes:
+      label: Why it would make the game better
+      description: What is unsatisfying today that this would fix.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Gameplay or balance
+        - New mode
+        - Enemies or boss
+        - Power-ups
+        - Menus or UI
+        - Art or audio
+        - Engine or build
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: assets
+    attributes:
+      label: Assets
+      description: >
+        If this needs new art or audio, please read ASSETS.md first. Everything bundled has to be
+        licensable under MIT.
+      options:
+        - label: This needs no new assets, or I can supply ones I made myself

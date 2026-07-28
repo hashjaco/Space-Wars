@@ -3,7 +3,6 @@ import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.RadialGradientPaint;
 import java.awt.RenderingHints;
-import java.awt.geom.AffineTransform;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.image.BufferedImage;
@@ -55,7 +54,6 @@ public final class GenerateAssets {
         boss();
         pickups();
         background();
-        explosions();
 
         music("main-theme", false);
         music("battle-theme", true);
@@ -500,149 +498,6 @@ public final class GenerateAssets {
             g.dispose();
             write(image, SPRITES.resolve(names[layer] + ".png"));
         }
-    }
-
-    /**
-     * Radial burst sequences at higher resolution than the originals, written to explosion-small/
-     * and explosion-large/ so both can be compared before one is chosen.
-     */
-    private static void explosions() throws IOException {
-        generateExplosion("explosion-small", 25, 96, 1500L);
-        generateExplosion("explosion-large", 49, 160, 2500L);
-    }
-
-    /**
-     * A billowing fireball rather than a single radial glow: overlapping lobes that expand and cool,
-     * a hot core flash, smoke late in the sequence, and sparks thrown clear. A plain gradient reads
-     * as a lens flare, which is what the first attempt looked like.
-     */
-    private static void generateExplosion(String dir, int frames, int size, long seed)
-            throws IOException {
-        Path target = SPRITES.resolve(dir);
-        Files.createDirectories(target);
-        Random random = new Random(seed);
-        double centre = size / 2.0;
-
-        int lobeCount = 9;
-        double[] lobeAngle = new double[lobeCount];
-        double[] lobeDistance = new double[lobeCount];
-        double[] lobeScale = new double[lobeCount];
-        for (int i = 0; i < lobeCount; i++) {
-            lobeAngle[i] = random.nextDouble() * Math.PI * 2;
-            lobeDistance[i] = 0.15 + random.nextDouble() * 0.6;
-            lobeScale[i] = 0.4 + random.nextDouble() * 0.4;
-        }
-
-        int sparkCount = 16;
-        double[] sparkAngle = new double[sparkCount];
-        double[] sparkSpeed = new double[sparkCount];
-        for (int i = 0; i < sparkCount; i++) {
-            sparkAngle[i] = random.nextDouble() * Math.PI * 2;
-            sparkSpeed[i] = 0.6 + random.nextDouble() * 0.5;
-        }
-
-        for (int frame = 1; frame <= frames; frame++) {
-            double t = (frame - 1) / (double) (frames - 1);
-
-            // Fast expansion that eases out, so the blast punches then settles.
-            double spread = Math.pow(t, 0.55);
-            double radius = size * (0.10 + 0.38 * spread);
-            double fade = Math.pow(1 - t, 1.4);
-
-            // Light accumulates additively: where lobes overlap the fire saturates toward white,
-            // which is what makes it read as fire rather than as a translucent smudge.
-            double[] light = new double[size * size * 3];
-
-            for (int i = 0; i < lobeCount; i++) {
-                double lr = radius * lobeScale[i];
-                if (lr < 0.6) {
-                    continue;
-                }
-                double lx = centre + Math.cos(lobeAngle[i]) * radius * lobeDistance[i];
-                double ly = centre + Math.sin(lobeAngle[i]) * radius * lobeDistance[i];
-                double heat = Math.max(0, 1 - t * 0.8 - lobeDistance[i] * 0.3);
-                // Hot cores are yellow-white, cooler edges deep orange-red.
-                double r = 1.0;
-                double gg = 0.28 + 0.6 * heat;
-                double bb = 0.06 + 0.42 * heat * heat;
-                addLight(light, size, lx, ly, lr, r, gg, bb, 1.15 * fade);
-            }
-
-            if (t < 0.34) {
-                double flash = 1 - t / 0.34;
-                double cr = radius * (0.4 + 0.3 * flash);
-                addLight(light, size, centre, centre, cr, 1.0, 0.96, 0.84, 1.9 * flash);
-            }
-
-            for (int i = 0; i < sparkCount; i++) {
-                double distance = size * 0.47 * spread * sparkSpeed[i];
-                double sx = centre + Math.cos(sparkAngle[i]) * distance;
-                double sy = centre + Math.sin(sparkAngle[i]) * distance;
-                double sr = size * 0.022 * (1 - t) * sparkSpeed[i];
-                if (sr < 0.4) {
-                    continue;
-                }
-                addLight(light, size, sx, sy, sr, 1.0, 0.86, 0.55, 1.5 * fade);
-            }
-
-            BufferedImage image = toImage(light, size);
-            write(image, target.resolve(frame + ".png"));
-        }
-    }
-
-    /** Adds a soft radial light source into the accumulation buffer. */
-    private static void addLight(double[] light, int size, double cx, double cy, double radius,
-                                 double r, double g, double b, double strength) {
-        int minX = Math.max(0, (int) Math.floor(cx - radius));
-        int maxX = Math.min(size - 1, (int) Math.ceil(cx + radius));
-        int minY = Math.max(0, (int) Math.floor(cy - radius));
-        int maxY = Math.min(size - 1, (int) Math.ceil(cy + radius));
-
-        for (int y = minY; y <= maxY; y++) {
-            for (int x = minX; x <= maxX; x++) {
-                double dx = x + 0.5 - cx;
-                double dy = y + 0.5 - cy;
-                double distance = Math.sqrt(dx * dx + dy * dy) / radius;
-                if (distance >= 1) {
-                    continue;
-                }
-                // Smooth quadratic falloff; no hard rim.
-                double falloff = (1 - distance) * (1 - distance) * strength;
-                int index = (y * size + x) * 3;
-                light[index] += r * falloff;
-                light[index + 1] += g * falloff;
-                light[index + 2] += b * falloff;
-            }
-        }
-    }
-
-    /**
-     * Converts accumulated light to straight ARGB. Alpha follows the brightest channel and the
-     * colour is normalised by it, so heavily overlapped areas go white-hot instead of clipping to
-     * a flat orange.
-     */
-    private static BufferedImage toImage(double[] light, int size) {
-        BufferedImage image = blank(size, size);
-        for (int y = 0; y < size; y++) {
-            for (int x = 0; x < size; x++) {
-                int index = (y * size + x) * 3;
-                double r = light[index];
-                double g = light[index + 1];
-                double b = light[index + 2];
-                double peak = Math.max(r, Math.max(g, b));
-                if (peak <= 0.004) {
-                    continue;
-                }
-                double alpha = Math.min(1, peak);
-                double scale = 1 / peak;
-                int ri = (int) Math.round(Math.min(1, r * scale) * 255);
-                int gi = (int) Math.round(Math.min(1, g * scale) * 255);
-                int bi = (int) Math.round(Math.min(1, b * scale) * 255);
-                int ai = (int) Math.round(alpha * 255);
-                image.setRGB(x, y, (ai << 24) | (ri << 16) | (gi << 8) | bi);
-            }
-        }
-        return image;
     }
 
     // ----------------------------------------------------------------- audio
