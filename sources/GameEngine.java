@@ -860,10 +860,10 @@ public class GameEngine {
                 }
             }
             returnObjects1.clear();
-            asteroids.removeAll(deadAsteroids);
-            bullets.removeAll(deadBullets);
-            playerbullets.removeAll(deadBullets);
         });
+        asteroids.removeAll(deadAsteroids);
+        bullets.removeAll(deadBullets);
+        playerbullets.removeAll(deadBullets);
     }
 
     private void asteroidCollisions(List<Bullet> playerBullets, Player player) {
@@ -880,10 +880,10 @@ public class GameEngine {
                 }
             }
             returnObjects1.clear();
-            asteroids.removeAll(deadAsteroids);
-            bullets.removeAll(deadBullets);
-            playerBullets.removeAll(deadBullets);
         });
+        asteroids.removeAll(deadAsteroids);
+        bullets.removeAll(deadBullets);
+        playerBullets.removeAll(deadBullets);
     }
 
 
