@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.engine;
 
 import java.util.EnumSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 import javafx.beans.value.ChangeListener;
 import javafx.scene.Scene;
@@ -23,6 +24,7 @@ public final class InputState {
     };
     private Scene attachedScene;
     private ChangeListener<Boolean> focusListener;
+    private Predicate<KeyCode> menuRouter;
 
     /** Installs the handlers. The scene must already belong to a window. */
     public void attachTo(Scene scene) {
@@ -31,6 +33,11 @@ public final class InputState {
 
         scene.setOnKeyPressed(event -> {
             KeyCode code = event.getCode();
+            // While an overlay menu is up it gets first refusal, so Escape and the arrows drive the
+            // menu rather than the ship.
+            if (menuRouter != null && menuRouter.test(code)) {
+                return;
+            }
             if (code == KeyCode.ESCAPE) {
                 onPausePressed.run();
                 return;
@@ -71,6 +78,15 @@ public final class InputState {
 
     public void setOnPausePressed(Runnable handler) {
         this.onPausePressed = handler;
+    }
+
+    /**
+     * Diverts key presses to an overlay menu. Pass null to hand control back to the ships. The
+     * predicate returns true for keys it consumed.
+     */
+    public void setMenuRouter(Predicate<KeyCode> menuRouter) {
+        this.menuRouter = menuRouter;
+        held.clear();
     }
 
     public boolean isHeld(KeyCode code) {

@@ -52,7 +52,9 @@ public final class SpawnDirector {
             maybeSpawnBoss(world);
             maybeSpawnEnemy(world);
         }
-        if (rules.spawnPowerUps()) {
+        // Where enemies exist they drop the pickups; ambient drops are for battle mode, which
+        // has no enemies to drop them.
+        if (rules.spawnPowerUps() && !rules.spawnEnemies()) {
             maybeSpawnPowerUp(world);
         }
     }

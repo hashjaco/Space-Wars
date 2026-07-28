@@ -20,6 +20,7 @@ final class SettingsPanel extends VBox {
     private final MenuButton musicRow;
     private final MenuButton sfxRow;
     private final MenuButton difficultyRow;
+    private final MenuPanel rows;
 
     SettingsPanel(Settings settings, SoundBank sounds, Runnable onBack) {
         this.settings = settings;
@@ -35,8 +36,16 @@ final class SettingsPanel extends VBox {
 
         refreshLabels();
 
+        rows = new MenuPanel(musicRow, sfxRow, difficultyRow, backRow);
         setAlignment(Pos.CENTER);
-        getChildren().add(new MenuPanel(musicRow, sfxRow, difficultyRow, backRow));
+        getChildren().add(rows);
+    }
+
+    /** Keyboard navigation over the settings rows, with Escape wired to the back action. */
+    MenuNavigator navigator(Runnable onBack) {
+        MenuNavigator navigator = rows.navigator();
+        navigator.setOnBack(onBack);
+        return navigator;
     }
 
     private void cycleMusicVolume() {

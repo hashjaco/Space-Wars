@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.engine;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import javafx.geometry.Rectangle2D;
 
@@ -27,12 +28,23 @@ public final class CollisionSystem {
     private static final Rectangle2D ARENA =
             new Rectangle2D(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
 
+    /** Chance a defeated ordinary enemy leaves a pickup behind, in percent. */
+    private static final int DROP_CHANCE_PERCENT = 28;
+    /** How many pickups a defeated boss leaves. */
+    private static final int BOSS_DROPS = 3;
+
     private final QuadTree hazardTree = new QuadTree(ARENA);
     private final List<Entity> candidates = new ArrayList<>();
     private final SoundPlayer sounds;
+    private final Random random;
 
     public CollisionSystem(SoundPlayer sounds) {
+        this(sounds, new Random());
+    }
+
+    public CollisionSystem(SoundPlayer sounds, Random random) {
         this.sounds = sounds;
+        this.random = random;
     }
 
     public void resolve(World world) {
@@ -106,6 +118,32 @@ public final class CollisionSystem {
         shooter.recordEnemyKill();
         world.addExplosion(enemy, Explosion.LARGE);
         sounds.play(SoundFx.EXPLOSION);
+        dropLoot(world, enemy);
+    }
+
+    /**
+     * Pickups come from defeated enemies rather than falling out of empty sky, so they read as a
+     * reward. Battle mode has no enemies, so {@link SpawnDirector} still drops them ambiently there.
+     */
+    private void dropLoot(World world, EnemyShip enemy) {
+        if (!world.rules().spawnPowerUps()) {
+            return;
+        }
+        int drops = enemy.isBoss() ? BOSS_DROPS : rollOrdinaryDrop();
+        for (int i = 0; i < drops; i++) {
+            PowerUp.Kind[] kinds = PowerUp.Kind.values();
+            PowerUp.Kind kind = kinds[random.nextInt(kinds.length)];
+            // Fan multiple drops out so they do not stack into a single collectable.
+            double offset = (i - (drops - 1) / 2.0) * 46;
+            double x = enemy.centerX() - kind.sprite().width() / 2 + offset;
+            PowerUp powerUp = new PowerUp(kind, x, enemy.centerY());
+            world.addPowerUp(powerUp);
+        }
+    }
+
+    private int rollOrdinaryDrop() {
+        int drops = random.nextInt(100) < DROP_CHANCE_PERCENT ? 1 : 0;
+        return drops;
     }
 
     private void hitOpposingPlayer(World world, Bullet bullet) {

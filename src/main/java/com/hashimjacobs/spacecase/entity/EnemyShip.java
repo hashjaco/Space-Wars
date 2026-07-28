@@ -18,11 +18,26 @@ public class EnemyShip extends Entity {
         setVelocity(0, kind.descentSpeed());
     }
 
+    /** Height at which the boss stops descending and holds station to fight. */
+    private static final double BOSS_HOLD_Y = 90;
+
     /** Nudges horizontally toward the target. Returns nothing; movement applies on the next update. */
     public void trackHorizontally(Entity target) {
         double dx = target.centerX() - centerX();
         double step = Math.signum(dx) * kind.trackSpeed();
-        setVelocity(step, velocityY());
+        setVelocity(step, descentSpeed());
+    }
+
+    /**
+     * The boss takes station near the top of the arena instead of drifting out of the bottom, which
+     * would otherwise let it leave -- and be culled -- mid-fight.
+     */
+    private double descentSpeed() {
+        if (kind != EnemyKind.BOSS) {
+            return kind.descentSpeed();
+        }
+        double speed = y() >= BOSS_HOLD_Y ? 0 : kind.descentSpeed();
+        return speed;
     }
 
     /** Counts down the weapon timer and reports whether the ship may fire this tick. */

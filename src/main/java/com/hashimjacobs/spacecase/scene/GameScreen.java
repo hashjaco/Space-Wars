@@ -32,6 +32,8 @@ final class GameScreen {
     private final VBox settingsLayer;
     private final InputState input = new InputState();
     private final GameLoop loop;
+    private MenuNavigator pauseNavigator;
+    private MenuNavigator settingsNavigator;
 
     GameScreen(GameMode mode, Settings settings, SoundBank sounds, Random random,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver) {
@@ -57,12 +59,13 @@ final class GameScreen {
             loop.stop();
             onQuitToMenu.run();
         });
+        MenuPanel panel = new MenuPanel(back, settingsButton, quit);
+        pauseNavigator = panel.navigator();
+        pauseNavigator.setOnBack(this::resume);
 
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
-        layer.getChildren().addAll(
-                new MenuTitle("Paused", 38, 380, 62),
-                new MenuPanel(back, settingsButton, quit));
+        layer.getChildren().addAll(new MenuTitle("Paused", 38, 380, 62), panel);
         layer.setBackground(veil());
         layer.setVisible(false);
         return layer;
@@ -72,6 +75,7 @@ final class GameScreen {
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
         SettingsPanel panel = new SettingsPanel(settings, sounds, this::showPauseMenu);
+        settingsNavigator = panel.navigator(this::showPauseMenu);
         layer.getChildren().addAll(new MenuTitle("Settings", 38, 380, 62), panel);
         layer.setBackground(veil());
         layer.setVisible(false);
@@ -112,24 +116,26 @@ final class GameScreen {
 
     private void pause() {
         loop.setPaused(true);
-        pauseLayer.setVisible(true);
-        settingsLayer.setVisible(false);
+        showPauseMenu();
     }
 
     private void resume() {
         pauseLayer.setVisible(false);
         settingsLayer.setVisible(false);
+        input.setMenuRouter(null);
         loop.setPaused(false);
     }
 
     private void showSettings() {
         pauseLayer.setVisible(false);
         settingsLayer.setVisible(true);
+        input.setMenuRouter(settingsNavigator::handleKey);
     }
 
     private void showPauseMenu() {
         settingsLayer.setVisible(false);
         pauseLayer.setVisible(true);
+        input.setMenuRouter(pauseNavigator::handleKey);
     }
 
     StackPane root() {

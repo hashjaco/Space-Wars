@@ -22,7 +22,9 @@ public final class Main extends Application {
 
         stage.setTitle("Space Case");
         stage.getIcons().add(Assets.image(Sprite.P1_STRAIGHT));
-        stage.setResizable(false);
+        stage.setMinWidth(560);
+        stage.setMinHeight(500);
+        stage.setFullScreenExitHint("Press F11 to leave fullscreen");
 
         SceneRouter router = new SceneRouter(stage, settings, sounds, highScores);
         router.showStartMenu();
