@@ -105,13 +105,14 @@ public class GameEngine {
 
     public GameEngine() {
         scene = new Scene(createContent(), W, H, Color.BLACK);
-        scene.getStylesheets().add(GameEngine.class.getResource("../styles.css").toExternalForm());
+        scene.getStylesheets().add(GameEngine.class.getResource("/styles.css").toExternalForm());
     }
 
 
     // Creates all static content for both screens
     private Parent createContent() {
         backgroundMusic = Sound.sounds.get("background music");
+        backgroundMusic.setCycleCount(MediaPlayer.INDEFINITE);
         playMedia(backgroundMusic);
         isPaused = false;
         sounds = new Sound();
@@ -467,7 +468,7 @@ public class GameEngine {
                 timer.stop(); isPaused=true; pauseMedia(backgroundMusic);
             }
             else {
-                timer.start(); isPaused=false;
+                timer.start(); isPaused=false; backgroundMusic.play();
             }
         }
     }
@@ -908,15 +909,11 @@ public class GameEngine {
 
 
     // control soundFX
+    // MediaPlayers are shared singletons out of Sound.sounds, so a clip must be rewound
+    // rather than disposed - dispose() releases it permanently and silences it for good.
     public  void playMedia(MediaPlayer mp) {
-        //mp.setAutoPlay(true);
+        mp.stop();
         mp.play();
-        mp.setOnEndOfMedia(new Runnable() {
-            @Override
-            public void run() {
-                mp.dispose();
-            }
-        });
     }
 
     public void pauseMedia(MediaPlayer mp){

@@ -5,7 +5,17 @@ Thank you for checking out my game, Space Wars. This is a personal project I dec
 
 
 Running the application:
-At the moment, the game can be run in IntelliJ and maybe Netbeans. Clone the package and open as a new project, then run Main class.
+
+    brew install maven      # macOS; any JDK 26 + Maven works
+    mvn javafx:run
+
+JavaFX stopped shipping inside the JDK in Java 11, so `pom.xml` pulls it from Maven Central
+(including the platform-specific natives) and puts it on the module path. `javafx.version` in the
+pom tracks the JDK major version — JavaFX 26 needs a JDK 26 runtime.
+
+The game reads its sprites and sounds from paths relative to the project directory, so run it from
+the repo root (which is what `mvn javafx:run` does). Importing `pom.xml` into IntelliJ also works;
+the old `.iml` files predate the pom and are unused.
 
 Controls:
 The game is two player until I finished the start menu, so below are the controls for each player. Sorry for that. It is being updated.
