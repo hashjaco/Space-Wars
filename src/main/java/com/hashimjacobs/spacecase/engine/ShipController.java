@@ -1,7 +1,7 @@
 package com.hashimjacobs.spacecase.engine;
 
 import com.hashimjacobs.spacecase.GameConfig;
-import com.hashimjacobs.spacecase.asset.SoundBank;
+import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
@@ -21,7 +21,7 @@ public final class ShipController {
         this.controls = controls;
     }
 
-    public void apply(InputState input, World world, SoundBank sounds) {
+    public void apply(InputState input, World world, SoundPlayer sounds) {
         if (ship.isOut()) {
             ship.setVelocity(0, 0);
             return;
@@ -69,7 +69,7 @@ public final class ShipController {
         ship.setLean(lean);
     }
 
-    private void applyFire(InputState input, World world, SoundBank sounds) {
+    private void applyFire(InputState input, World world, SoundPlayer sounds) {
         boolean firing = controls.anyHeld(input, controls.fire());
         if (!firing || !ship.canFire()) {
             return;

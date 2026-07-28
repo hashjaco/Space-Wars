@@ -126,12 +126,12 @@ final class Hud {
     private void drawBossBar(EnemyShip boss) {
         double width = 420;
         double x = GameConfig.WIDTH / 2 - width / 2;
-        double y = 38;
+        double y = 54;
 
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(smallFont);
         gc.setFill(Color.web("#ff6b6b"));
-        gc.fillText("BOSS", GameConfig.WIDTH / 2, y - 14);
+        gc.fillText("BOSS", GameConfig.WIDTH / 2, 38);
 
         gc.setFill(Color.web("#2a1620"));
         gc.fillRoundRect(x, y, width, 10, 5, 5);

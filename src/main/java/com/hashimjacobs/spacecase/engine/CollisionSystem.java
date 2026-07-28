@@ -7,7 +7,7 @@ import javafx.geometry.Rectangle2D;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Explosion;
-import com.hashimjacobs.spacecase.asset.SoundBank;
+import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Bullet;
@@ -29,9 +29,9 @@ public final class CollisionSystem {
 
     private final QuadTree hazardTree = new QuadTree(ARENA);
     private final List<Entity> candidates = new ArrayList<>();
-    private final SoundBank sounds;
+    private final SoundPlayer sounds;
 
-    public CollisionSystem(SoundBank sounds) {
+    public CollisionSystem(SoundPlayer sounds) {
         this.sounds = sounds;
     }
 

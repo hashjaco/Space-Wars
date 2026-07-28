@@ -16,16 +16,14 @@ import com.hashimjacobs.spacecase.asset.Explosion;
  */
 public final class ActiveExplosion {
 
-    private final List<Image> frames;
-    private final int ticksPerFrame;
+    private final Explosion explosion;
     private final double centerX;
     private final double centerY;
     private final double size;
     private int tick;
 
     public ActiveExplosion(Explosion explosion, double centerX, double centerY, double size) {
-        this.frames = Assets.explosionFrames(explosion);
-        this.ticksPerFrame = explosion.ticksPerFrame();
+        this.explosion = explosion;
         this.centerX = centerX;
         this.centerY = centerY;
         this.size = size;
@@ -36,18 +34,23 @@ public final class ActiveExplosion {
     }
 
     public boolean isFinished() {
-        boolean finished = frameIndex() >= frames.size();
+        boolean finished = frameIndex() >= explosion.frameCount();
         return finished;
     }
 
+    /**
+     * Resolved at draw time rather than in the constructor, so spawning an explosion needs no
+     * decoded images and the simulation stays testable without the JavaFX toolkit.
+     */
     public Image currentFrame() {
+        List<Image> frames = Assets.explosionFrames(explosion);
         int index = Math.min(frameIndex(), frames.size() - 1);
         Image frame = frames.get(index);
         return frame;
     }
 
     private int frameIndex() {
-        int index = tick / ticksPerFrame;
+        int index = tick / explosion.ticksPerFrame();
         return index;
     }
 

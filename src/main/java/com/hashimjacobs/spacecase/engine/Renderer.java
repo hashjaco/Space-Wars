@@ -81,7 +81,10 @@ public final class Renderer {
         if (player.hasEffect(PowerUp.Kind.SHIELD)) {
             Image aura = Assets.image(Sprite.SHIELD_AURA);
             double size = Math.max(player.width(), player.height()) * 1.5;
+            // The shield art is near-opaque, so fade it to keep the ship underneath readable.
+            gc.setGlobalAlpha(0.45);
             gc.drawImage(aura, player.centerX() - size / 2, player.centerY() - size / 2, size, size);
+            gc.setGlobalAlpha(1.0);
         }
         drawSprite(player, player.facing());
     }
