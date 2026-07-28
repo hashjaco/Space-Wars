@@ -16,7 +16,7 @@ import com.hashimjacobs.spacecase.prefs.Settings;
  * Sound effects use AudioClip, which starts a fresh voice per call, so rapid fire overlaps instead
  * of each shot cutting off the previous one. Music uses MediaPlayer because it needs pause/resume.
  */
-public final class SoundBank {
+public final class SoundBank implements SoundPlayer {
 
     private final Map<SoundFx, AudioClip> clips = new EnumMap<>(SoundFx.class);
     private final Map<MusicTrack, MediaPlayer> music = new EnumMap<>(MusicTrack.class);
@@ -38,6 +38,7 @@ public final class SoundBank {
         applyVolumes();
     }
 
+    @Override
     public void play(SoundFx effect) {
         AudioClip clip = clips.get(effect);
         double volume = effect.baseVolume() * settings.sfxVolume();

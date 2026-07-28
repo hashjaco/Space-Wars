@@ -1,37 +1,76 @@
-# Space-Wars
-Original single or multiplayer space wars game with scrolling background, stimulating music, and enemy AI. Destroy asteroids, shoot up enemy ships, and defeat bosses!
+# Space Case
 
-Thank you for checking out my game, Space Wars. This is a personal project I decided to begin to gain a little more comfort before putting my own Game Engine together and also because I found that I have to be creative to be content. Building my own projects has allowed me to be original in design and implementation. Using the knowledge of building full applications along with the many resources available to me, including the stack overflow community, I developed this game from the ground up. Most of the code is reusable and I am working on a separate game developmenttemplate using said code and additional objects. The template is nearly finished and will be uploaded to github soon. Space Wars, which was renamed to Space Case, is a 2D shooter developed using the JavaFX library and Java 9. JetBrains IntelliJ was used to compile this project.
+A 2D space shooter: fly, dodge asteroids, shoot up enemy ships, fight bosses — or turn on each
+other in Battle mode. Originally written as *Space Wars* to get comfortable before building a game
+engine from scratch.
 
-
-Running the application:
+## Running it
 
     brew install maven      # macOS; any JDK 26 + Maven works
     mvn javafx:run
 
 JavaFX stopped shipping inside the JDK in Java 11, so `pom.xml` pulls it from Maven Central
-(including the platform-specific natives) and puts it on the module path. `javafx.version` in the
-pom tracks the JDK major version — JavaFX 26 needs a JDK 26 runtime.
+(including the platform-specific natives) and puts it on the module path. `javafx.version` tracks
+the JDK major version — JavaFX 26 needs a JDK 26 runtime.
 
-The game reads its sprites and sounds from paths relative to the project directory, so run it from
-the repo root (which is what `mvn javafx:run` does). Importing `pom.xml` into IntelliJ also works;
-the old `.iml` files predate the pom and are unused.
+Other useful targets:
 
-Controls:
-The game is two player until I finished the start menu, so below are the controls for each player. Sorry for that. It is being updated.
+    mvn test        # unit tests (no display or audio device needed)
+    mvn package     # builds target/space-case-2.0.jar
 
-Player 1:
-W - UP
-A - LEFT
-S - DOWN
-D - RIGHT
-SHIFT - FIRE
+All assets load through the classloader, so the game runs from any working directory.
 
-Player 2:
-UP arrow - UP
-LEFT arrow - LEFT
-DOWN arrow - DOWN
-RIGHT arrow - you guessed it, RIGHT
-COMMA - FIRE
+## Modes
 
-ESCAPE - PAUSE/RESUME Game
+| Mode | Players | Enemies | Friendly fire | Ends when |
+|---|---|---|---|---|
+| Single Player | 1 | yes | no | you run out of lives |
+| Co-op | 2 | yes | no | both players are out |
+| Battle | 2 | none | **yes** | one player is left |
+
+In Battle, player two starts at the top of the arena facing down, both players' shots hurt each
+other, and asteroids and power-ups keep arriving as shared hazards and prizes.
+
+## Controls
+
+| | Move | Fire |
+|---|---|---|
+| Player 1 | `W` `A` `S` `D` | `SHIFT` |
+| Player 2 | arrow keys | `,` |
+
+Single player accepts either WASD or the arrow keys, and fires with `SHIFT` or `SPACE`.
+`ESCAPE` opens the pause menu.
+
+## Power-ups
+
+Tri-shot, mega laser, shield, health refill, speed boost, and an extra life. The timed ones show a
+countdown in the HUD.
+
+## Layout
+
+```
+src/main/java/com/hashimjacobs/spacecase/
+  Main.java  Launcher.java  GameConfig.java
+  scene/   SceneRouter and every screen (start, multiplayer, settings, help,
+           pause overlay, game over) plus the menu widgets
+  mode/    GameMode + ModeRules — what differs between the three modes, as data
+  engine/  GameLoop, World, CollisionSystem, Renderer, Hud, InputState,
+           QuadTree, SpawnDirector, ShipController
+  entity/  Entity, PlayerShip, EnemyShip, Asteroid, Bullet, PowerUp, Facing
+  asset/   Assets + the Sprite / SoundFx / MusicTrack / Explosion enums, SoundBank
+  prefs/   Settings and HighScores, persisted via java.util.prefs
+src/main/resources/   sprites/  sounds/  fonts/
+src/test/java/...     JUnit 5
+```
+
+Two invariants worth knowing before changing the engine:
+
+- **`World` is the only place entities are added or removed.** Collision handling never removes
+  anything; it calls `kill()`, and `World.sweep()` clears the dead once per frame after all handling
+  has finished. Removing an entity mid-iteration is what used to throw
+  `ConcurrentModificationException` every frame.
+- **Sprites and sounds are enums, not string keys.** A missing asset is a compile error rather than
+  a null that reaches `drawImage` and takes down the render thread.
+
+Settings and high scores live in the platform preference store, so they survive a reinstall of the
+game but are per-user.
