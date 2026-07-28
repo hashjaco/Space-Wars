@@ -54,6 +54,7 @@ public class Sprites {
         sprites.put("player1RightDamage", player1rightDamage);
         sprites.put("player1right", player1right);
         sprites.put("player2left", player2left);
+        sprites.put("player2LeftDamage", player2leftDamage);
         sprites.put("player2straight", player2straight);
         sprites.put("player2right", player2right);
         sprites.put("bullet", bullet);
