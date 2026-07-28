@@ -42,7 +42,7 @@ final class MenuScreen {
     }
 
     private static Background starfield() {
-        Image image = Assets.image(Sprite.BACKGROUND);
+        Image image = Assets.image(Sprite.BACKGROUND_MID);
         BackgroundImage backdrop = new BackgroundImage(
                 image,
                 BackgroundRepeat.REPEAT,

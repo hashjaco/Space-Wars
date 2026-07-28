@@ -210,10 +210,6 @@ public final class World {
         return null;
     }
 
-    public Sprite backgroundSprite() {
-        return Sprite.BACKGROUND;
-    }
-
     public GameMode mode() {
         return mode;
     }
