@@ -16,7 +16,7 @@ import javafx.scene.paint.Color;
 import javafx.stage.Stage;
 
 import com.hashimjacobs.spacecase.GameConfig;
-import com.hashimjacobs.spacecase.asset.MusicTrack;
+import com.hashimjacobs.spacecase.asset.MusicCue;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -62,7 +62,7 @@ public final class SceneRouter {
 
     public void showStartMenu() {
         stopActiveGame();
-        sounds.playMusic(MusicTrack.MAIN);
+        sounds.playMusic(MusicCue.MENU);
 
         MenuButton single = new MenuButton("Single Player", () -> startGame(GameMode.SOLO));
         MenuButton multi = new MenuButton("Multiplayer", this::showMultiplayerMenu);
@@ -156,6 +156,7 @@ public final class SceneRouter {
 
     private void showGameOver(RoundResult result) {
         stopActiveGame();
+        sounds.playMusic(MusicCue.MENU);
         sounds.play(SoundFx.GAME_OVER);
 
         boolean record = highScores.submit(result.mode(), result.bestScore());

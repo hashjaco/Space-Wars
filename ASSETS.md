@@ -31,12 +31,35 @@ Two origins appear below:
 | `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons |
 | `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | Pickup icons |
 
-## Audio
+## Music
+
+Composed by Hashim Jacobs using [Suno](https://suno.com), and tagged as such in each file's
+metadata. All instrumental.
+
+Which track plays when is decided by `asset/MusicCue`, not by the file names — a cue holds several
+suitable tracks and picks one per round so replaying a mode does not always sound the same.
+
+All six are encoded at 128 kbps to keep the download reasonable; the soundtrack would otherwise be
+most of it. The higher-bitrate exports are in git history.
+
+| File | Origin | Cue |
+|---|---|---|
+| `arcade-womps.mp3` | Composed by Hashim Jacobs (Suno) | `MENU` |
+| `pixel-womp-run.mp3` | Composed by Hashim Jacobs (Suno) | `GAMEPLAY` |
+| `bassline-riot-remastered.mp3` | Composed by Hashim Jacobs (Suno) | `GAMEPLAY` |
+| `grime-quest.mp3` | Composed by Hashim Jacobs (Suno) | `BATTLE` |
+| `bassline-riot-remastered-variant.mp3` | Composed by Hashim Jacobs (Suno) | `BATTLE` |
+| `grime-quest-remix.mp3` | Composed by Hashim Jacobs (Suno) | `BOSS` |
+
+> **Before publishing, confirm the Suno plan these were made under grants the right to license them
+> onward.** Suno's paid tiers generally assign ownership of generations to the creator while the free
+> tier is non-commercial only; MIT is a commercial-use grant, so the distinction matters. This is the
+> one asset row that rests on an account term rather than on something checkable from the file.
+
+## Sound effects
 
 | File | Origin | Notes |
 |---|---|---|
-| `main-theme.mp3` | Generated | Chiptune: square lead over an arpeggiated triangle bass |
-| `battle-theme.mp3` | Generated | As above, faster and in a minor key |
 | `laser.wav` | Generated | Downward pitch sweep |
 | `explosion.wav` | Generated | Filtered noise burst with a low rumble |
 | `collision.wav` | Generated | Short thud |
@@ -59,6 +82,8 @@ mistaken for vandalism, and so nobody restores these files from history:
 |---|---|
 | `Katdrop-Call-The-Cops.wav` | Commercial music recording |
 | `ZHU-Nero-Dreams(Tank Trim).wav` | Commercial music recording |
+| `main-theme.mp3`, `battle-theme.mp3` | Placeholder chiptunes, superseded by the composed soundtrack above |
+| `bassline-riot.mp3`, `bassline-riot-remix.mp3` | Earlier mixes, superseded by the two remastered takes |
 | `TITANIC-FLUTE-FAIL-…​.wav` | Ripped from a YouTube sound-effects compilation. Also 172 seconds long, where a game-over sting was wanted |
 | `redbull.png` | Depicts a Red Bull can — active trademark |
 | `invader-animated-red.gif` | Space Invaders sprite — Taito intellectual property |

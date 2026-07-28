@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import javafx.animation.AnimationTimer;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.MusicCue;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
@@ -37,6 +38,7 @@ public final class GameLoop {
     private AnimationTimer timer;
     private boolean paused;
     private boolean finished;
+    private boolean bossMusicPlaying;
 
     public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
                     Settings settings, Random random, Consumer<RoundResult> onRoundOver) {
@@ -106,7 +108,19 @@ public final class GameLoop {
         collisions.resolve(world);
         world.sweep();
 
+        updateBossMusic();
         checkRoundOver();
+    }
+
+    /** Swaps to the boss track while a boss is on screen, and back to the mode's track after. */
+    private void updateBossMusic() {
+        boolean bossOnScreen = world.bossPresent();
+        if (bossOnScreen == bossMusicPlaying) {
+            return;
+        }
+        bossMusicPlaying = bossOnScreen;
+        MusicCue track = bossOnScreen ? MusicCue.BOSS : world.mode().music();
+        sounds.playMusic(track);
     }
 
     private void driveEnemies() {
