@@ -24,11 +24,10 @@ import javax.imageio.ImageIO;
  * Run with:  java tools/GenerateAssets.java
  *
  * Output is deterministic: every random draw comes from a fixed seed, so re-running reproduces the
- * same assets byte for byte. Music is emitted as WAV; convert to MP3 with tools/generate-assets.sh,
- * which is the only step that needs ffmpeg.
+ * same assets byte for byte, which is what CI checks.
  *
- * The player ships and projectiles are deliberately NOT generated. They are the author's own pixel
- * art and nothing here would improve on them.
+ * Deliberately NOT generated, because they are the author's own work and better than anything here
+ * would produce: the player ships, the projectiles, the explosion frame sequences, and the music.
  */
 public final class GenerateAssets {
 
@@ -55,8 +54,6 @@ public final class GenerateAssets {
         pickups();
         background();
 
-        music("main-theme", false);
-        music("battle-theme", true);
         laser();
         explosionSound();
         thud();
@@ -502,53 +499,6 @@ public final class GenerateAssets {
 
     // ----------------------------------------------------------------- audio
 
-    /**
-     * Chiptune: a square-wave lead over an arpeggiated triangle bass. The battle track is faster and
-     * in a minor key.
-     */
-    private static void music(String name, boolean battle) throws IOException {
-        double bpm = battle ? 148 : 112;
-        double beat = 60.0 / bpm;
-        int bars = 16;
-        double duration = bars * 4 * beat;
-
-        // Scale degrees as semitone offsets from the root.
-        int[] major = {0, 2, 4, 7, 9, 12, 14, 16};
-        int[] minor = {0, 3, 5, 7, 10, 12, 15, 17};
-        int[] scale = battle ? minor : major;
-        int root = battle ? 45 : 52;
-        int[] leadPattern = battle
-                ? new int[]{0, 3, 2, 4, 0, 5, 4, 2, 1, 3, 5, 4, 0, 2, 3, 1}
-                : new int[]{0, 2, 4, 2, 5, 4, 2, 0, 3, 5, 4, 3, 1, 2, 4, 5};
-
-        int sampleCount = (int) (duration * SAMPLE_RATE);
-        double[] mix = new double[sampleCount];
-
-        double leadStep = beat / 2;
-        for (int i = 0; sampleCount > 0 && i * leadStep < duration; i++) {
-            int degree = leadPattern[i % leadPattern.length];
-            int octave = (i / leadPattern.length) % 2 == 1 ? 12 : 0;
-            double freq = pitch(root + scale[degree % scale.length] + octave + 12);
-            addTone(mix, i * leadStep, leadStep * 0.92, freq, 0.19, Wave.SQUARE);
-        }
-
-        double bassStep = beat / 2;
-        int[] bassArp = {0, 4, 2, 4};
-        for (int i = 0; i * bassStep < duration; i++) {
-            int degree = bassArp[i % bassArp.length];
-            double freq = pitch(root + scale[degree % scale.length] - 12);
-            addTone(mix, i * bassStep, bassStep * 0.96, freq, 0.26, Wave.TRIANGLE);
-        }
-
-        // Backbeat noise hat, and a kick on the downbeat.
-        for (int i = 0; i * beat < duration; i++) {
-            addNoise(mix, i * beat + beat / 2, 0.045, 0.07);
-            addTone(mix, i * beat, 0.1, 62, 0.3, Wave.SINE);
-        }
-
-        writeWav(mix, SOUNDS.resolve(name + ".wav"));
-    }
-
     private static void laser() throws IOException {
         double duration = 0.2;
         double[] mix = new double[(int) (duration * SAMPLE_RATE)];
@@ -640,21 +590,6 @@ public final class GenerateAssets {
                 envelope = (length - i) / (double) release;
             }
             mix[index] += sample * amplitude * envelope;
-        }
-    }
-
-    private static void addNoise(double[] mix, double startSeconds, double durationSeconds,
-                                double amplitude) {
-        int start = (int) (startSeconds * SAMPLE_RATE);
-        int length = (int) (durationSeconds * SAMPLE_RATE);
-        Random random = new Random(start);
-        for (int i = 0; i < length; i++) {
-            int index = start + i;
-            if (index < 0 || index >= mix.length) {
-                continue;
-            }
-            double envelope = 1 - i / (double) length;
-            mix[index] += (random.nextDouble() * 2 - 1) * amplitude * envelope;
         }
     }
 

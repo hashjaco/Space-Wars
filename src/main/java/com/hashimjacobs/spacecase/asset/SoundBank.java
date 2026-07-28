@@ -1,6 +1,7 @@
 package com.hashimjacobs.spacecase.asset;
 
 import java.net.URL;
+import java.util.Random;
 import java.util.EnumMap;
 import java.util.Map;
 
@@ -21,7 +22,9 @@ public final class SoundBank implements SoundPlayer {
     private final Map<SoundFx, AudioClip> clips = new EnumMap<>(SoundFx.class);
     private final Map<MusicTrack, MediaPlayer> music = new EnumMap<>(MusicTrack.class);
     private final Settings settings;
-    private MusicTrack current;
+    private final Random random = new Random();
+    private MusicCue currentCue;
+    private MusicTrack currentTrack;
 
     public SoundBank(Settings settings) {
         this.settings = settings;
@@ -29,13 +32,22 @@ public final class SoundBank implements SoundPlayer {
             AudioClip clip = new AudioClip(resolve(effect.resourcePath()));
             clips.put(effect, clip);
         }
-        for (MusicTrack track : MusicTrack.values()) {
-            Media media = new Media(resolve(track.resourcePath()));
-            MediaPlayer player = new MediaPlayer(media);
-            player.setCycleCount(MediaPlayer.INDEFINITE);
-            music.put(track, player);
-        }
+        // Music players are created on first use rather than up front: the tracks are several
+        // minutes each, and a run typically touches two of them.
         applyVolumes();
+    }
+
+    private MediaPlayer playerFor(MusicTrack track) {
+        MediaPlayer existing = music.get(track);
+        if (existing != null) {
+            return existing;
+        }
+        Media media = new Media(resolve(track.resourcePath()));
+        MediaPlayer player = new MediaPlayer(media);
+        player.setCycleCount(MediaPlayer.INDEFINITE);
+        player.setVolume(settings.musicVolume());
+        music.put(track, player);
+        return player;
     }
 
     @Override
@@ -45,42 +57,55 @@ public final class SoundBank implements SoundPlayer {
         clip.play(volume);
     }
 
-    public void playMusic(MusicTrack track) {
-        if (current == track) {
-            MediaPlayer already = music.get(track);
+    /**
+     * Starts the music for a situation, choosing among the cue's tracks. Re-requesting the cue that
+     * is already playing leaves it alone rather than restarting it, so returning to the menu from a
+     * submenu does not jump the track back to the beginning.
+     */
+    public void playMusic(MusicCue cue) {
+        if (currentCue == cue && currentTrack != null) {
+            MediaPlayer already = playerFor(currentTrack);
             already.play();
             return;
         }
         stopMusic();
-        current = track;
-        MediaPlayer player = music.get(track);
+        currentCue = cue;
+        currentTrack = cue.pick(random);
+        MediaPlayer player = playerFor(currentTrack);
         player.seek(player.getStartTime());
         player.play();
     }
 
+    /** The track currently selected, or null when nothing is playing. */
+    public MusicTrack currentMusic() {
+        return currentTrack;
+    }
+
     public void pauseMusic() {
-        if (current == null) {
+        if (currentTrack == null) {
             return;
         }
-        MediaPlayer player = music.get(current);
+        MediaPlayer player = music.get(currentTrack);
         player.pause();
     }
 
     public void resumeMusic() {
-        if (current == null) {
+        if (currentTrack == null) {
             return;
         }
-        MediaPlayer player = music.get(current);
+        MediaPlayer player = music.get(currentTrack);
         player.play();
     }
 
     public void stopMusic() {
-        if (current == null) {
+        if (currentTrack == null) {
+            currentCue = null;
             return;
         }
-        MediaPlayer player = music.get(current);
+        MediaPlayer player = music.get(currentTrack);
         player.stop();
-        current = null;
+        currentCue = null;
+        currentTrack = null;
     }
 
     /** Call after the user changes a volume so the change is audible immediately. */
