@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 
 /**
  * How a round ended.
@@ -11,19 +12,24 @@ import com.hashimjacobs.spacecase.mode.GameMode;
  * @param mode                the mode that was played
  * @param winningPlayerNumber 1 or 2 in battle mode; 0 when there is no winner to name
  * @param scores              final score per player, in player order
- * @param wavesSurvived       waves reached before the round ended
+ * @param wavesSurvived       waves cleared across the whole run before it ended
+ * @param level               level being fought when the round ended
+ * @param loop                pass through the eight levels it ended on, counting from one
  */
 public record RoundResult(
         GameMode mode,
         int winningPlayerNumber,
         List<Integer> scores,
-        int wavesSurvived) {
+        int wavesSurvived,
+        Level level,
+        int loop) {
 
-    public static RoundResult of(World world, int wave) {
+    public static RoundResult of(World world, SpawnDirector director) {
         List<PlayerShip> players = world.players();
         int winner = resolveWinner(world, players);
         List<Integer> scores = players.stream().map(PlayerShip::score).toList();
-        RoundResult result = new RoundResult(world.mode(), winner, scores, wave);
+        RoundResult result = new RoundResult(world.mode(), winner, scores,
+                director.wavesSurvived(), director.level(), director.loop());
         return result;
     }
 

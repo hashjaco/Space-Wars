@@ -6,7 +6,8 @@ public enum SoundFx {
     LASER("laser.wav", 0.35),
     EXPLOSION("explosion.wav", 0.55),
     COLLISION("collision.wav", 0.6),
-    GAME_OVER("game-over.wav", 0.8);
+    GAME_OVER("game-over.wav", 0.8),
+    LEVEL_CLEAR("level-clear.wav", 0.8);
 
     private final String fileName;
     private final double baseVolume;

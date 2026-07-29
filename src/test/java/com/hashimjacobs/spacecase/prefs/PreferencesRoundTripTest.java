@@ -63,6 +63,48 @@ class PreferencesRoundTripTest {
     }
 
     @Test
+    void gamepadSettingsSurviveAReload() {
+        Settings saved = Settings.load(scratch);
+        saved.setGamepadEnabled(false);
+        saved.setGamepadDeadzone(0.45);
+        saved.setGamepadFireButton(PadButton.RIGHT_BUMPER);
+        saved.setGamepadPauseButton(PadButton.BACK);
+        saved.save();
+
+        Settings reloaded = Settings.load(scratch);
+
+        assertFalse(reloaded.gamepadEnabled());
+        assertEquals(0.45, reloaded.gamepadDeadzone(), 1e-9);
+        assertEquals(PadButton.RIGHT_BUMPER, reloaded.gamepadFireButton());
+        assertEquals(PadButton.BACK, reloaded.gamepadPauseButton());
+    }
+
+    @Test
+    void theDeadzoneIsClampedToAUsableRange() {
+        Settings settings = Settings.load(scratch);
+
+        settings.setGamepadDeadzone(0);
+        assertTrue(settings.gamepadDeadzone() > 0, "a zero deadzone reads a resting stick as held");
+
+        settings.setGamepadDeadzone(1.0);
+        assertTrue(settings.gamepadDeadzone() < 1.0, "the stick must still be able to reach it");
+    }
+
+    @Test
+    void anUnknownStoredPadButtonFallsBackToTheDefault() {
+        scratch.put("gamepadFireButton", "PADDLE_7");
+        Settings settings = Settings.load(scratch);
+        assertEquals(PadButton.A, settings.gamepadFireButton());
+    }
+
+    @Test
+    void padButtonsCycleThroughEveryChoiceAndWrap() {
+        assertEquals(PadButton.B, PadButton.A.next());
+        PadButton[] all = PadButton.values();
+        assertEquals(PadButton.A, all[all.length - 1].next(), "cycling wraps around");
+    }
+
+    @Test
     void onlyABetterScoreIsRecorded() {
         HighScores scores = HighScores.load(scratch);
         assertEquals(0, scores.best(GameMode.SOLO));

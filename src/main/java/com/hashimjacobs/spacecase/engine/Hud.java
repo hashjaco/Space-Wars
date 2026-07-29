@@ -14,6 +14,7 @@ import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.mode.Level;
 
 /** Score, lives, health and active power-ups for each player, plus the wave and boss bars. */
 final class Hud {
@@ -41,12 +42,16 @@ final class Hud {
             drawPlayerPanel(player, x);
         }
 
+        // Battle mode has no enemies, so it has no level and no boss to progress through either.
         if (world.rules().spawnEnemies()) {
-            drawWave(director.wave());
+            drawLevelAndWave(director);
         }
         EnemyShip boss = world.boss();
         if (boss != null) {
             drawBossBar(boss);
+        }
+        if (director.bossWarning()) {
+            drawFlagshipWarning(world.tick());
         }
     }
 
@@ -116,11 +121,39 @@ final class Hud {
         return name;
     }
 
-    private void drawWave(int wave) {
+    /**
+     * One line, because the boss name and bar claim the rows directly underneath.
+     *
+     * Names the level's number and how far through its waves you are, so a second pass through
+     * somewhere is distinguishable from the first -- the old single global wave counter read "WAVE 19"
+     * on the last level and looked identical whichever loop it was.
+     */
+    private void drawLevelAndWave(SpawnDirector director) {
+        Level level = director.level();
+        StringBuilder heading = new StringBuilder()
+                .append("LEVEL ").append(level.number())
+                .append("   ").append(level.label().toUpperCase())
+                .append("   WAVE ").append(director.waveInLevel())
+                .append('/').append(level.wavesBeforeBoss());
+        if (director.loop() > 1) {
+            heading.append("   LOOP ").append(director.loop());
+        }
+
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(labelFont);
-        gc.setFill(Color.web("#7f8ca6"));
-        gc.fillText("WAVE " + wave, GameConfig.WIDTH / 2, 14);
+        gc.setFill(Color.web("#b388ff"));
+        gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 14);
+    }
+
+    /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
+    private void drawFlagshipWarning(int tick) {
+        if ((tick / 14) % 2 == 0) {
+            return;
+        }
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFont(valueFont);
+        gc.setFill(Color.web("#ff6b6b"));
+        gc.fillText("FLAGSHIP INBOUND", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
     }
 
     private void drawBossBar(EnemyShip boss) {
@@ -131,7 +164,7 @@ final class Hud {
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(smallFont);
         gc.setFill(Color.web("#ff6b6b"));
-        gc.fillText("BOSS", GameConfig.WIDTH / 2, 38);
+        gc.fillText(boss.boss().label().toUpperCase(), GameConfig.WIDTH / 2, 38);
 
         gc.setFill(Color.web("#2a1620"));
         gc.fillRoundRect(x, y, width, 10, 5, 5);

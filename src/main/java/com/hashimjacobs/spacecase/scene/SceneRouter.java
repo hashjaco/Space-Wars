@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.scene;
 
 import java.util.List;
 import java.util.Random;
+import java.util.function.Predicate;
 
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -20,9 +21,11 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
+import com.hashimjacobs.spacecase.engine.Gamepad;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.prefs.HighScores;
+import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Settings;
 
 /**
@@ -40,6 +43,7 @@ public final class SceneRouter {
     private final Settings settings;
     private final SoundBank sounds;
     private final HighScores highScores;
+    private final Pilots pilots;
     private final Random random = new Random();
 
     /** Black surround; whatever is left over when the window is not exactly 996x864. */
@@ -48,12 +52,15 @@ public final class SceneRouter {
     private final Group stage2d = new Group();
 
     private GameScreen activeGame;
+    private Gamepad gamepad;
 
-    public SceneRouter(Stage stage, Settings settings, SoundBank sounds, HighScores highScores) {
+    public SceneRouter(Stage stage, Settings settings, SoundBank sounds, HighScores highScores,
+                       Pilots pilots) {
         this.stage = stage;
         this.settings = settings;
         this.sounds = sounds;
         this.highScores = highScores;
+        this.pilots = pilots;
 
         shell.setStyle("-fx-background-color: black;");
         shell.setAlignment(Pos.CENTER);
@@ -66,10 +73,11 @@ public final class SceneRouter {
 
         MenuButton single = new MenuButton("Single Player", () -> startGame(GameMode.SOLO));
         MenuButton multi = new MenuButton("Multiplayer", this::showMultiplayerMenu);
+        MenuButton pilotsButton = new MenuButton("Pilots", this::showPilots);
         MenuButton settingsButton = new MenuButton("Settings", () -> showSettings(this::showStartMenu));
         MenuButton help = new MenuButton("Help", this::showHelp);
         MenuButton exit = new MenuButton("Exit", this::exit);
-        MenuPanel panel = new MenuPanel(single, multi, settingsButton, help, exit);
+        MenuPanel panel = new MenuPanel(single, multi, pilotsButton, settingsButton, help, exit);
 
         HBox ships = new HBox(28,
                 MenuScreen.decal(Sprite.P1_STRAIGHT, 54),
@@ -83,7 +91,17 @@ public final class SceneRouter {
                         Color.web("#6d7a90")),
                 MenuScreen.caption("↑↓ move    Enter select    F11 fullscreen", 11,
                         Color.web("#4c586c")));
-        show(root, panel.navigator());
+        MenuNavigator navigator = panel.navigator();
+        show(root, navigator::handleKey);
+    }
+
+    public void showPilots() {
+        NameEntryPanel panel = new NameEntryPanel(pilots, this::showStartMenu);
+        StackPane root = MenuScreen.build("PILOTS",
+                panel,
+                MenuScreen.caption("Names show under your ship. Rank is earned across every run.", 12,
+                        Color.web("#6d7a90")));
+        show(root, panel::handleKey);
     }
 
     public void showMultiplayerMenu() {
@@ -98,13 +116,13 @@ public final class SceneRouter {
         StackPane root = MenuScreen.build("MULTIPLAYER",
                 panel,
                 MenuScreen.caption("Two players, one keyboard", 12, Color.web("#6d7a90")));
-        show(root, navigator);
+        show(root, navigator::handleKey);
     }
 
     public void showSettings(Runnable onBack) {
         SettingsPanel panel = new SettingsPanel(settings, sounds, onBack);
         StackPane root = MenuScreen.build("SETTINGS", panel);
-        show(root, panel.navigator(onBack));
+        show(root, panel.navigator(onBack)::handleKey);
     }
 
     public void showHelp() {
@@ -121,10 +139,21 @@ public final class SceneRouter {
                 "F11             fullscreen",
                 "MENUS           arrows or W/S, Enter to choose",
                 "",
+                "CONTROLLERS     stick or d-pad to move, A to fire,",
+                "                Start to pause. The first pad plays as",
+                "                player one, the second as player two.",
+                "                Buttons and stick deadzone are in Settings.",
+                "",
                 "Shoot asteroids and enemy ships for points. Enemies drop",
                 "pickups: tri-shot, mega laser, shield, speed, health or",
-                "an extra life. A boss arrives every fourth wave and",
-                "changes attack pattern as you wear it down.",
+                "an extra life. Each of the eight levels fields its own",
+                "defenders and ends with its own flagship, which changes",
+                "attack pattern as you wear it down. Kill it for a debrief,",
+                "bonuses and rank, then the warp to the next level.",
+                "",
+                "PILOTS          name both seats from the start menu. Level",
+                "                bonuses build a career score, and that sets",
+                "                your rank. Type letters, Backspace deletes.",
                 "",
                 "In Battle, player two starts at the top facing down and",
                 "friendly fire is on. Last player with lives wins.");
@@ -138,14 +167,14 @@ public final class SceneRouter {
         navigator.setOnBack(this::showStartMenu);
 
         StackPane root = MenuScreen.build("HELP", lines, panel);
-        show(root, navigator);
+        show(root, navigator::handleKey);
     }
 
     public void startGame(GameMode mode) {
         stopActiveGame();
         sounds.playMusic(mode.music());
 
-        GameScreen screen = new GameScreen(mode, settings, sounds, random,
+        GameScreen screen = new GameScreen(mode, settings, sounds, pilots, random,
                 this::showStartMenu, this::showGameOver);
         activeGame = screen;
         show(screen.root(), null);
@@ -171,8 +200,10 @@ public final class SceneRouter {
             String row = "Player " + (i + 1) + " score   " + result.scores().get(i);
             summary.getChildren().add(MenuScreen.caption(row, 15, Color.WHITE));
         }
-        summary.getChildren().add(MenuScreen.caption("Waves survived   " + result.wavesSurvived(),
-                13, Color.web("#8b98ad")));
+        String progress = "Level " + result.level().number() + "   " + result.level().label()
+                + "   -   " + result.wavesSurvived() + " waves"
+                + (result.loop() > 1 ? "   -   loop " + result.loop() : "");
+        summary.getChildren().add(MenuScreen.caption(progress, 13, Color.web("#8b98ad")));
         if (record) {
             summary.getChildren().add(MenuScreen.caption("NEW BEST", 15, Color.web("#0ec417")));
         } else {
@@ -187,13 +218,21 @@ public final class SceneRouter {
         navigator.setOnBack(this::showStartMenu);
 
         StackPane root = MenuScreen.build(heading, summary, panel);
-        show(root, navigator);
+        show(root, navigator::handleKey);
     }
 
     public void exit() {
         stopActiveGame();
         settings.save();
         stage.close();
+    }
+
+    /** Shuts SDL down with the window. Does nothing if no Scene was ever shown. */
+    public void shutdown() {
+        if (gamepad != null) {
+            gamepad.stop();
+            gamepad = null;
+        }
     }
 
     private void stopActiveGame() {
@@ -204,10 +243,15 @@ public final class SceneRouter {
     }
 
     /**
-     * Installs a screen. A navigator, when supplied, receives key presses; game screens pass null
-     * because {@link com.hashimjacobs.spacecase.engine.InputState} takes the keyboard instead.
+     * Installs a screen. The handler, when supplied, receives key presses and reports whether it used
+     * them; game screens pass null because {@link com.hashimjacobs.spacecase.engine.InputState} takes
+     * the keyboard instead.
+     *
+     * A predicate rather than a {@link MenuNavigator} so a screen can compose one with something else
+     * -- the pilots screen puts letter capture in front of the navigator, since W and S are both
+     * navigation keys and letters that belong in a name.
      */
-    private void show(Parent root, MenuNavigator navigator) {
+    private void show(Parent root, Predicate<KeyCode> keys) {
         stage2d.getChildren().setAll(root);
 
         Scene scene = stage.getScene();
@@ -216,15 +260,17 @@ public final class SceneRouter {
             stage.setScene(scene);
             installFullscreenShortcut(scene);
             trackWindowSize(scene);
+            // Feeds this Scene rather than any one screen, so it needs no re-attaching between
+            // rounds -- unlike InputState, whose handlers the screens swap.
+            gamepad = Gamepad.start(scene, settings);
         }
         scene.setOnKeyReleased(null);
-        if (navigator == null) {
+        if (keys == null) {
             scene.setOnKeyPressed(null);
             return;
         }
-        MenuNavigator active = navigator;
         scene.setOnKeyPressed(event -> {
-            if (active.handleKey(event.getCode())) {
+            if (keys.test(event.getCode())) {
                 event.consume();
             }
         });

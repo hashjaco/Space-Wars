@@ -16,6 +16,8 @@
     <!-- JavaFX ships separately from the JDK since Java 11. Its major version must
          track the JDK it runs on: JavaFX 26 requires a JDK 26 runtime. -->
     <javafx.version>26.0.2</javafx.version>
+    <!-- Version tracks the SDL release it wraps: 2.30.0.0 is SDL 2.30.0. -->
+    <jamepad.version>2.30.0.0</jamepad.version>
     <junit.version>5.11.4</junit.version>
   </properties>
 
@@ -29,6 +31,14 @@
       <groupId>org.openjfx</groupId>
       <artifactId>javafx-media</artifactId>
       <version>${javafx.version}</version>
+    </dependency>
+
+    <!-- JavaFX has no controller API. Jamepad wraps SDL's, and carries every platform's
+         native in the one artifact, so the per-OS release jars need no extra profile. -->
+    <dependency>
+      <groupId>com.badlogicgames.jamepad</groupId>
+      <artifactId>jamepad</artifactId>
+      <version>${jamepad.version}</version>
     </dependency>
 
     <dependency>
@@ -55,8 +65,9 @@
           <mainClass>com.hashimjacobs.spacecase.Main</mainClass>
           <options>
             <!-- JavaFX loads native libs and binds native methods. Unapproved native
-                 access only warns today but is slated to be blocked outright. -->
-            <option>--enable-native-access=javafx.graphics,javafx.media</option>
+                 access only warns today but is slated to be blocked outright. Jamepad does
+                 the same from the classpath, which is the unnamed module. -->
+            <option>--enable-native-access=ALL-UNNAMED,javafx.graphics,javafx.media</option>
           </options>
         </configuration>
       </plugin>

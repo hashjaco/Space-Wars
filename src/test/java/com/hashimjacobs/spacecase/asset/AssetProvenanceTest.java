@@ -120,6 +120,20 @@ class AssetProvenanceTest {
     }
 
     @Test
+    void everyBossFrameExists() {
+        List<String> missing = new ArrayList<>();
+        for (BossArt art : BossArt.values()) {
+            for (int frame = 1; frame <= art.frameCount(); frame++) {
+                Path file = RESOURCES.resolve(art.framePath(frame).substring(1));
+                if (!Files.exists(file)) {
+                    missing.add(art.framePath(frame));
+                }
+            }
+        }
+        assertTrue(missing.isEmpty(), "boss animation frames are missing: " + missing);
+    }
+
+    @Test
     void noFontIsBundled() throws IOException {
         List<String> fonts = new ArrayList<>();
         for (Path file : bundledFiles()) {

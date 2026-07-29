@@ -1,5 +1,7 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.Random;
+
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
@@ -7,6 +9,8 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
+import com.hashimjacobs.spacecase.mode.Level;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -76,7 +80,9 @@ class BattleFriendlyFireTest {
         }
 
         assertTrue(loser.isOut());
-        RoundResult result = RoundResult.of(world, 1);
+        SpawnDirector director = new SpawnDirector(
+                new Random(1), Difficulty.NORMAL, GameMode.BATTLE.rules());
+        RoundResult result = RoundResult.of(world, director);
         assertEquals(1, result.winningPlayerNumber(), "the surviving player should be named");
         assertFalse(world.players().get(0).isOut());
     }

@@ -1,6 +1,7 @@
 package com.hashimjacobs.spacecase.entity;
 
 import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 
 import com.hashimjacobs.spacecase.GameConfig;
@@ -10,6 +11,7 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 public final class PlayerShip extends Entity {
 
     private final int playerNumber;
+    private final String name;
     private final Skin skin;
     private final Facing facing;
     private final double spawnX;
@@ -22,14 +24,18 @@ public final class PlayerShip extends Entity {
     private int score;
     private int enemiesKilled;
     private int asteroidsDestroyed;
+    private int shotsFired;
+    private int shotsHit;
+    private int damageTaken;
     private int fireCooldown;
     private int invulnerableTicks;
     private int hitFlashTicks;
     private Lean lean = Lean.NONE;
 
-    public PlayerShip(int playerNumber, Facing facing, double spawnX, double spawnY) {
+    public PlayerShip(int playerNumber, String name, Facing facing, double spawnX, double spawnY) {
         super(playerNumber == 1 ? Sprite.P1_STRAIGHT : Sprite.P2_STRAIGHT, spawnX, spawnY);
         this.playerNumber = playerNumber;
+        this.name = name;
         this.skin = playerNumber == 1 ? Skin.PLAYER_ONE : Skin.PLAYER_TWO;
         this.facing = facing;
         this.spawnX = spawnX;
@@ -70,6 +76,7 @@ public final class PlayerShip extends Entity {
             return false;
         }
         health -= amount;
+        damageTaken += amount;
         hitFlashTicks = 18;
         if (health > 0) {
             return false;
@@ -124,6 +131,13 @@ public final class PlayerShip extends Entity {
         setLean(lean);
     }
 
+    /** Puts the ship back where it started between levels, keeping health, lives and score. */
+    public void returnToSpawn() {
+        setPosition(spawnX, spawnY);
+        setVelocity(0, 0);
+        setLean(Lean.NONE);
+    }
+
     public boolean isOut() {
         boolean out = lives <= 0;
         return out;
@@ -136,6 +150,11 @@ public final class PlayerShip extends Entity {
 
     public int playerNumber() {
         return playerNumber;
+    }
+
+    /** The pilot flying it, drawn under the hull and credited with the career score. */
+    public String name() {
+        return name;
     }
 
     public Facing facing() {
@@ -174,42 +193,64 @@ public final class PlayerShip extends Entity {
         asteroidsDestroyed++;
     }
 
-    /** Horizontal banking, which selects the ship's sprite. */
+    public int shotsFired() {
+        return shotsFired;
+    }
+
+    /** Counts one trigger pull, not one projectile: a tri-shot volley is a single shot to hit with. */
+    public void recordShot() {
+        shotsFired++;
+    }
+
+    public int shotsHit() {
+        return shotsHit;
+    }
+
+    public void recordHit() {
+        shotsHit++;
+    }
+
+    /** Damage absorbed across the run, which the debrief pays an untouched bonus against. */
+    public int damageTaken() {
+        return damageTaken;
+    }
+
+    /**
+     * Horizontal banking, which selects the ship's sprite.
+     *
+     * Declaration order matters: {@link Skin} indexes its pose lists by ordinal, so these run from
+     * hardest left to hardest right.
+     */
     public enum Lean {
-        LEFT, NONE, RIGHT
+        HARD_LEFT, LEFT, NONE, RIGHT, HARD_RIGHT
     }
 
     /** Per-player sprite sets, including the scorched variants shown briefly after a hit. */
     private enum Skin {
 
-        PLAYER_ONE(Sprite.P1_STRAIGHT, Sprite.P1_LEFT, Sprite.P1_RIGHT,
-                Sprite.P1_STRAIGHT_HIT, Sprite.P1_LEFT_HIT, Sprite.P1_RIGHT_HIT),
-        PLAYER_TWO(Sprite.P2_STRAIGHT, Sprite.P2_LEFT, Sprite.P2_RIGHT,
-                Sprite.P2_STRAIGHT_HIT, Sprite.P2_LEFT_HIT, Sprite.P2_RIGHT_HIT);
+        PLAYER_ONE(
+                List.of(Sprite.P1_BANK_LEFT, Sprite.P1_LEFT, Sprite.P1_STRAIGHT,
+                        Sprite.P1_RIGHT, Sprite.P1_BANK_RIGHT),
+                List.of(Sprite.P1_BANK_LEFT_HIT, Sprite.P1_LEFT_HIT, Sprite.P1_STRAIGHT_HIT,
+                        Sprite.P1_RIGHT_HIT, Sprite.P1_BANK_RIGHT_HIT)),
+        PLAYER_TWO(
+                List.of(Sprite.P2_BANK_LEFT, Sprite.P2_LEFT, Sprite.P2_STRAIGHT,
+                        Sprite.P2_RIGHT, Sprite.P2_BANK_RIGHT),
+                List.of(Sprite.P2_BANK_LEFT_HIT, Sprite.P2_LEFT_HIT, Sprite.P2_STRAIGHT_HIT,
+                        Sprite.P2_RIGHT_HIT, Sprite.P2_BANK_RIGHT_HIT));
 
-        private final Sprite straight;
-        private final Sprite left;
-        private final Sprite right;
-        private final Sprite straightHit;
-        private final Sprite leftHit;
-        private final Sprite rightHit;
+        private final List<Sprite> poses;
+        private final List<Sprite> scorched;
 
-        Skin(Sprite straight, Sprite left, Sprite right,
-             Sprite straightHit, Sprite leftHit, Sprite rightHit) {
-            this.straight = straight;
-            this.left = left;
-            this.right = right;
-            this.straightHit = straightHit;
-            this.leftHit = leftHit;
-            this.rightHit = rightHit;
+        Skin(List<Sprite> poses, List<Sprite> scorched) {
+            this.poses = poses;
+            this.scorched = scorched;
         }
 
+        /** Indexed by lean, so both lists must stay in {@link Lean}'s declaration order. */
         Sprite spriteFor(Lean lean, boolean hit) {
-            Sprite chosen = switch (lean) {
-                case LEFT -> hit ? leftHit : left;
-                case RIGHT -> hit ? rightHit : right;
-                case NONE -> hit ? straightHit : straight;
-            };
+            List<Sprite> set = hit ? scorched : poses;
+            Sprite chosen = set.get(lean.ordinal());
             return chosen;
         }
     }

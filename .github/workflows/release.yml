@@ -9,8 +9,9 @@ permissions:
   contents: write
 
 jobs:
-  # JavaFX natives are platform specific, so one jar cannot run everywhere. Each runner builds a
-  # self-contained jar for its own platform.
+  # JavaFX and SDL natives are platform specific, so one build cannot run everywhere. Each runner
+  # produces an installer carrying its own runtime, plus the bare jar for anyone who already has a
+  # JDK.
   jars:
     strategy:
       fail-fast: false
@@ -18,10 +19,16 @@ jobs:
         include:
           - os: macos-latest
             label: macos
+            installer: dmg
+            installerArgs: ""
           - os: ubuntu-latest
             label: linux
+            installer: deb
+            installerArgs: "--linux-shortcut"
           - os: windows-latest
             label: windows
+            installer: msi
+            installerArgs: "--win-shortcut --win-menu"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -39,13 +46,37 @@ jobs:
       - name: Name the artifact
         shell: bash
         run: |
-          mkdir -p dist
+          mkdir -p dist staging
           cp target/space-case-*-all.jar "dist/space-case-${{ matrix.label }}.jar"
+          cp target/space-case-*-all.jar staging/
+
+      # jpackage builds a .deb through fakeroot, which the runner image does not always carry.
+      - name: Install Linux packaging tools
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get update && sudo apt-get install -y fakeroot
+
+      # jpackage ships inside the JDK. It bundles a cut-down runtime with the app, so the installer
+      # needs no Java on the player's machine.
+      - name: Build installer
+        shell: bash
+        run: |
+          jar=$(basename staging/*.jar)
+          version=$(echo "$jar" | sed 's/space-case-\(.*\)-all\.jar/\1/')
+          jpackage --type ${{ matrix.installer }} \
+            --name SpaceCase --app-version "$version" \
+            --input staging --main-jar "$jar" \
+            --main-class com.hashimjacobs.spacecase.Launcher \
+            --java-options "--enable-native-access=ALL-UNNAMED" \
+            --dest dist ${{ matrix.installerArgs }}
 
       - uses: actions/upload-artifact@v4
         with:
           name: space-case-${{ matrix.label }}
-          path: dist/*.jar
+          path: |
+            dist/*.jar
+            dist/*.dmg
+            dist/*.deb
+            dist/*.msi
 
   publish:
     needs: jars
@@ -56,14 +87,33 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Attach jars to the release
+      - name: Attach installers and jars to the release
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.jar
+          files: |
+            artifacts/*.dmg
+            artifacts/*.deb
+            artifacts/*.msi
+            artifacts/*.jar
           generate_release_notes: true
           body: |
-            Run with a JDK 26 runtime:
+            ## Install
+
+            Download the one for your machine. Java is included — you do not need to install it.
+
+            | | |
+            |---|---|
+            | macOS | `SpaceCase-*.dmg` |
+            | Windows | `SpaceCase-*.msi` |
+            | Linux | `spacecase_*.deb` |
+
+            The builds are unsigned. macOS will refuse the first launch: right-click the app and
+            choose **Open**, then confirm. Windows may show a SmartScreen notice — **More info**,
+            then **Run anyway**.
+
+            ## Already have a JDK 26?
 
                 java -jar space-case-<your-platform>.jar
 
-            Each jar bundles the JavaFX runtime for one platform, so pick the one matching your OS.
+            Each jar carries the JavaFX and controller natives for one platform, so pick the one
+            matching your OS.

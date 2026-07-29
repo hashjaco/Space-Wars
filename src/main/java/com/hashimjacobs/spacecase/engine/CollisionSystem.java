@@ -94,6 +94,7 @@ public final class CollisionSystem {
             }
             PlayerShip shooter = bullet.owner();
             bullet.kill();
+            shooter.recordHit();
 
             if (target instanceof EnemyShip enemy) {
                 enemy.takeDamage(bullet.damage());

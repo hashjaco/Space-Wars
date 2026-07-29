@@ -34,6 +34,6 @@ jobs:
           if [ -n "$(git status --porcelain src/main/resources/sprites)" ]; then
             echo "Regenerating assets changed the working tree:"
             git status --porcelain src/main/resources/sprites
-            echo "Run tools/generate-assets.sh and commit the result."
+            echo "Run 'java tools/GenerateAssets.java' and commit the result."
             exit 1
           fi

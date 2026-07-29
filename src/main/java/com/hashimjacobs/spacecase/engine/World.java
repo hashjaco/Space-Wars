@@ -36,17 +36,27 @@ public final class World {
 
     private int tick;
 
+    /** Names shown under the ships when nobody has been to the pilots screen. */
+    private static final List<String> UNNAMED_PILOTS = List.of("PILOT 1", "PILOT 2");
+
     public World(GameMode mode) {
-        this.mode = mode;
-        spawnPlayers();
+        this(mode, UNNAMED_PILOTS);
     }
 
-    private void spawnPlayers() {
+    /** @param pilotNames one per player slot, player one first */
+    public World(GameMode mode, List<String> pilotNames) {
+        this.mode = mode;
+        spawnPlayers(pilotNames);
+    }
+
+    private void spawnPlayers(List<String> pilotNames) {
         ModeRules rules = mode.rules();
         boolean headToHead = rules.lastPlayerStanding();
+        String firstName = pilotNames.get(0);
+        String secondName = pilotNames.get(1);
 
         if (rules.playerCount() == 1) {
-            PlayerShip solo = new PlayerShip(1, Facing.UP,
+            PlayerShip solo = new PlayerShip(1, firstName, Facing.UP,
                     GameConfig.WIDTH / 2 - 28, GameConfig.HEIGHT - 130);
             players.add(solo);
             return;
@@ -54,9 +64,9 @@ public final class World {
 
         if (headToHead) {
             // Battle: facing each other down the long axis of the arena.
-            PlayerShip bottom = new PlayerShip(1, Facing.UP,
+            PlayerShip bottom = new PlayerShip(1, firstName, Facing.UP,
                     GameConfig.WIDTH / 2 - 28, GameConfig.HEIGHT - 130);
-            PlayerShip top = new PlayerShip(2, Facing.DOWN,
+            PlayerShip top = new PlayerShip(2, secondName, Facing.DOWN,
                     GameConfig.WIDTH / 2 - 28, 70);
             players.add(bottom);
             players.add(top);
@@ -64,9 +74,9 @@ public final class World {
         }
 
         // Co-op: side by side, both pushing up the arena.
-        PlayerShip left = new PlayerShip(1, Facing.UP,
+        PlayerShip left = new PlayerShip(1, firstName, Facing.UP,
                 GameConfig.WIDTH / 3 - 28, GameConfig.HEIGHT - 130);
-        PlayerShip right = new PlayerShip(2, Facing.UP,
+        PlayerShip right = new PlayerShip(2, secondName, Facing.UP,
                 2 * GameConfig.WIDTH / 3 - 28, GameConfig.HEIGHT - 130);
         players.add(left);
         right.setLean(PlayerShip.Lean.NONE);
@@ -75,7 +85,7 @@ public final class World {
 
     /** Moves everything and expires anything that has left the arena. Does not remove. */
     public void update() {
-        tick++;
+        tickScenery();
 
         for (PlayerShip player : players) {
             player.tickTimers();
@@ -94,11 +104,42 @@ public final class World {
         for (PowerUp powerUp : powerUps) {
             powerUp.update();
         }
+        killWhatLeftTheArena();
+    }
+
+    /**
+     * Advances the clock and the burning wreckage, and nothing else.
+     *
+     * The between-levels victory lap runs this instead of {@link #update()}: the backdrop keeps
+     * scrolling and the explosions keep burning, while nothing is moved or -- crucially --
+     * expired, since {@link #killWhatLeftTheArena()} would delete the players as they fly off the top.
+     */
+    public void tickScenery() {
+        tick++;
         for (ActiveExplosion explosion : explosions) {
             explosion.tick();
         }
+    }
 
-        killWhatLeftTheArena();
+    /**
+     * Ends the fight: destroys everything hostile still on the field and clears every shot in the air,
+     * so the victory lap flies through empty sky.
+     */
+    public void clearBattlefield() {
+        for (EnemyShip enemy : enemies) {
+            if (!enemy.isAlive()) {
+                continue;
+            }
+            addExplosion(enemy, Explosion.LARGE);
+            enemy.kill();
+        }
+        for (Bullet bullet : bullets) {
+            bullet.kill();
+        }
+        for (Asteroid asteroid : asteroids) {
+            asteroid.kill();
+        }
+        sweep();
     }
 
     private void killWhatLeftTheArena() {

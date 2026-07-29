@@ -5,9 +5,11 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The injected Random is what makes any of this assertable. */
@@ -64,26 +66,179 @@ class SpawnDirectorTest {
         SpawnDirector director = new SpawnDirector(
                 new Random(11), Difficulty.NORMAL, GameMode.SOLO.rules());
 
-        assertEquals(1, director.wave());
+        assertEquals(1, director.waveInLevel());
         for (int i = 0; i < 3100; i++) {
             director.update(world);
         }
-        assertTrue(director.wave() > 1, "waves should advance as ticks accumulate");
+        assertTrue(director.waveInLevel() > 1, "waves should advance as ticks accumulate");
     }
 
     @Test
-    void aBossArrivesOnTheFourthWave() {
+    void theLevelBossArrivesOnceItsWavesHaveBeenFought() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+        Level first = director.level();
+
+        boolean sawBoss = runUntilBoss(director, world, 12000);
+
+        assertTrue(sawBoss, "the level boss should arrive after its waves");
+        assertEquals(first.boss(), world.boss().boss(), "the level's own boss should be the one that came");
+    }
+
+    @Test
+    void theBossDoesNotArriveBeforeItsWavesAreFought() {
         World world = new World(GameMode.SOLO);
         SpawnDirector director = new SpawnDirector(
                 new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
 
-        boolean sawBoss = false;
-        // Four waves at 1500 ticks each, with headroom.
-        for (int i = 0; i < 7000 && !sawBoss; i++) {
+        // One tick short of the wave count the first level asks for.
+        int ticks = Level.values()[0].wavesBeforeBoss() * 1500 - 1;
+        for (int i = 0; i < ticks; i++) {
             director.update(world);
-            sawBoss = world.bossPresent();
         }
-        assertTrue(sawBoss, "a boss should appear by the fourth wave");
+
+        assertTrue(!world.bossPresent(), "the boss must wait until the level's waves are done");
+    }
+
+    @Test
+    void killingTheBossFlagsTheLevelClearedWithoutAdvancingIt() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+        Level first = director.level();
+
+        runUntilBoss(director, world, 12000);
+        assertFalse(director.levelCleared(), "the level is not cleared while the boss lives");
+
+        killBoss(world);
+        director.update(world);
+
+        assertTrue(director.levelCleared(), "killing the boss should raise the cleared flag");
+        assertEquals(first, director.level(),
+                "the director must hold position so the loop can run its debrief");
+    }
+
+    @Test
+    void advancingAfterAClearMovesToTheNextLevelAndResetsItsWaves() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+        Level first = director.level();
+
+        runUntilBoss(director, world, 12000);
+        killBoss(world);
+        director.update(world);
+        director.advanceLevel();
+
+        assertEquals(first.next(), director.level(), "advancing should move to the next level");
+        assertFalse(director.levelCleared(), "advancing should clear the flag");
+        assertEquals(1, director.waveInLevel(), "each level starts again at its first wave");
+    }
+
+    @Test
+    void wavesSurvivedKeepsCountingAcrossLevels() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+
+        runUntilBoss(director, world, 12000);
+        int beforeAdvance = director.wavesSurvived();
+        killBoss(world);
+        director.update(world);
+        director.advanceLevel();
+
+        assertTrue(beforeAdvance > 1, "the first level takes several waves");
+        assertEquals(beforeAdvance, director.wavesSurvived(),
+                "the run total must not reset when the per-level counter does");
+    }
+
+    @Test
+    void theLevelDoesNotAdvanceWhileTheBossIsAlive() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+        Level first = director.level();
+
+        runUntilBoss(director, world, 12000);
+        for (int i = 0; i < 5000; i++) {
+            director.update(world);
+        }
+
+        assertEquals(first, director.level(), "an unfought boss must block progress indefinitely");
+    }
+
+    @Test
+    void clearingEveryLevelWrapsBackToTheFirst() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+
+        for (int level = 0; level < Level.values().length; level++) {
+            boolean sawBoss = runUntilBoss(director, world, 20000);
+            assertTrue(sawBoss, "level " + (level + 1) + " should field its boss");
+            clearLevel(director, world);
+        }
+
+        assertEquals(Level.values()[0], director.level(),
+                "past the last level the run should loop rather than end");
+    }
+
+    @Test
+    void loopingRaisesSpawnPressure() {
+        int firstPass = countEnemiesSpawnedOnLevel(0);
+        int secondPass = countEnemiesSpawnedOnLevel(Level.values().length);
+        assertTrue(secondPass > firstPass,
+                "a second pass should spawn harder; first " + firstPass + " later " + secondPass);
+    }
+
+    /** Enemies spawned over a fixed window after clearing the given number of levels. */
+    private int countEnemiesSpawnedOnLevel(int levelsToClear) {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+
+        for (int i = 0; i < levelsToClear; i++) {
+            runUntilBoss(director, world, 20000);
+            clearLevel(director, world);
+        }
+
+        int spawned = 0;
+        for (int i = 0; i < FRAMES; i++) {
+            int before = world.enemies().size();
+            director.update(world);
+            spawned += Math.max(0, world.enemies().size() - before);
+            // Keep the arena clear so the difficulty cap never masks the spawn rate.
+            world.enemies().forEach(enemy -> {
+                if (!enemy.isBoss()) {
+                    enemy.kill();
+                }
+            });
+            world.sweep();
+        }
+        return spawned;
+    }
+
+    private boolean runUntilBoss(SpawnDirector director, World world, int maxTicks) {
+        for (int i = 0; i < maxTicks; i++) {
+            director.update(world);
+            if (world.bossPresent()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private void killBoss(World world) {
+        world.boss().kill();
+        world.sweep();
+    }
+
+    /** Kills the boss and takes the level turnover the game loop would otherwise run. */
+    private void clearLevel(SpawnDirector director, World world) {
+        killBoss(world);
+        director.update(world);
+        director.advanceLevel();
     }
 
     private int countAsteroids(long seed, Difficulty difficulty) {

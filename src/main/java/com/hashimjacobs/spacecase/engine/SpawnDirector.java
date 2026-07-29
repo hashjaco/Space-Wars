@@ -5,31 +5,54 @@ import java.util.Random;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
+import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 /**
- * Decides what appears and when: asteroids, enemy waves, the boss, and pickups.
+ * Decides what appears and when: asteroids, enemy waves, the level boss, and pickups.
+ *
+ * Levels advance by killing bosses, not by running a clock: each {@link Level} fields its waves, its
+ * boss arrives, and the level only turns over once that boss is dead. Past the last level the run
+ * wraps to the first with more spawn pressure, so it stays endless.
+ *
+ * Detecting a cleared level and moving on are deliberately separate: {@link #levelCleared()} raises
+ * the flag and {@link #advanceLevel()} acts on it, so the game loop can run a victory lap and a
+ * debrief in between instead of the sky changing mid-flight.
  *
  * The Random is injected rather than taken from Math.random(), so spawn behaviour is reproducible
  * under test.
  */
 public final class SpawnDirector {
 
-    /** Ticks between waves; a boss arrives at the end of every fourth wave. */
     private static final int WAVE_LENGTH_TICKS = 1500;
-    private static final int WAVES_PER_BOSS = 4;
     private static final int POWERUP_CHANCE_PER_THOUSAND = 3;
+
+    /** How long the incoming-flagship banner stays up after the boss spawns. */
+    private static final int BOSS_WARNING_TICKS = 180;
+
+    /** Boss-fight allowance in a level's reference clear time: a minute, at 60 steps a second. */
+    private static final int BOSS_PAR_TICKS = 3600;
+
+    /** Added to the difficulty's per-thousand spawn chances for each full pass through the levels. */
+    private static final int LOOP_SPAWN_BONUS = 3;
 
     private final Random random;
     private final Difficulty difficulty;
     private final ModeRules rules;
 
-    private int wave = 1;
+    private Level level = Level.values()[0];
+    private int wavesSurvived = 1;
+    private int wavesIntoLevel;
+    private int loopsCompleted;
     private int ticksIntoWave;
-    private boolean bossSpawnedThisWave;
+    private int ticksIntoLevel;
+    private int bossWarningTicks;
+    private boolean awaitingBossKill;
+    private boolean levelCleared;
 
     public SpawnDirector(Random random, Difficulty difficulty, ModeRules rules) {
         this.random = random;
@@ -38,18 +61,18 @@ public final class SpawnDirector {
     }
 
     public void update(World world) {
-        ticksIntoWave++;
-        if (ticksIntoWave >= WAVE_LENGTH_TICKS) {
-            ticksIntoWave = 0;
-            wave++;
-            bossSpawnedThisWave = false;
+        ticksIntoLevel++;
+        if (bossWarningTicks > 0) {
+            bossWarningTicks--;
         }
+        advanceWaveClock();
 
         if (rules.spawnAsteroids()) {
             maybeSpawnAsteroid(world);
         }
         if (rules.spawnEnemies()) {
             maybeSpawnBoss(world);
+            checkLevelCleared(world);
             maybeSpawnEnemy(world);
         }
         // Where enemies exist they drop the pickups; ambient drops are for battle mode, which
@@ -59,8 +82,25 @@ public final class SpawnDirector {
         }
     }
 
+    /**
+     * Waves stop advancing once the boss is on the field, so a player who dodges the fight instead of
+     * finishing it cannot inflate the wave counter, and with it the end-of-round score, indefinitely.
+     */
+    private void advanceWaveClock() {
+        if (awaitingBossKill) {
+            return;
+        }
+        ticksIntoWave++;
+        if (ticksIntoWave < WAVE_LENGTH_TICKS) {
+            return;
+        }
+        ticksIntoWave = 0;
+        wavesSurvived++;
+        wavesIntoLevel++;
+    }
+
     private void maybeSpawnAsteroid(World world) {
-        if (!rolls(difficulty.asteroidChance())) {
+        if (!rolls(escalated(difficulty.asteroidChance()))) {
             return;
         }
         int size = random.nextInt(10);
@@ -79,18 +119,19 @@ public final class SpawnDirector {
         if (world.enemies().size() >= difficulty.maxEnemies()) {
             return;
         }
-        if (!rolls(difficulty.enemyChance())) {
+        if (!rolls(escalated(difficulty.enemyChance()))) {
             return;
         }
         EnemyShip.EnemyKind kind = pickEnemyKind();
-        EnemyShip enemy = new EnemyShip(kind, randomX(kind.sprite().width()), -kind.sprite().height());
+        Sprite art = level.enemySprite(kind);
+        EnemyShip enemy = new EnemyShip(kind, art, randomX(art.width()), -art.height());
         world.addEnemy(enemy);
     }
 
     /** Tougher archetypes become available as the waves progress. */
     private EnemyShip.EnemyKind pickEnemyKind() {
         int roll = random.nextInt(100);
-        if (wave >= 3 && roll < 25) {
+        if (wavesSurvived >= 3 && roll < 25) {
             return EnemyShip.EnemyKind.CRUISER;
         }
         if (roll < 55) {
@@ -100,15 +141,50 @@ public final class SpawnDirector {
     }
 
     private void maybeSpawnBoss(World world) {
-        boolean bossWave = wave % WAVES_PER_BOSS == 0;
-        boolean lateInWave = ticksIntoWave > WAVE_LENGTH_TICKS / 2;
-        if (!bossWave || !lateInWave || bossSpawnedThisWave || world.bossPresent()) {
+        if (awaitingBossKill || wavesIntoLevel < level.wavesBeforeBoss()) {
             return;
         }
-        bossSpawnedThisWave = true;
-        double x = GameConfig.WIDTH / 2 - Sprite.BOSS.width() / 2;
-        EnemyShip boss = new EnemyShip(EnemyShip.EnemyKind.BOSS, x, -Sprite.BOSS.height());
+        awaitingBossKill = true;
+        bossWarningTicks = BOSS_WARNING_TICKS;
+        Boss flagship = level.boss();
+        double width = flagship.art().width();
+        double x = GameConfig.WIDTH / 2 - width / 2;
+        EnemyShip boss = new EnemyShip(flagship, x, -flagship.art().height());
         world.addEnemy(boss);
+    }
+
+    /**
+     * The boss dying is what ends a level.
+     *
+     * Raises the flag but does not act on it: {@link #advanceLevel()} does that, once the game loop
+     * has run its victory lap and debrief.
+     *
+     * Safe against a boss that is dead but not yet swept, because the world only reports it absent
+     * after {@code World.sweep()}, which runs after this in the frame.
+     */
+    private void checkLevelCleared(World world) {
+        if (!awaitingBossKill || world.bossPresent()) {
+            return;
+        }
+        awaitingBossKill = false;
+        levelCleared = true;
+    }
+
+    /** Whether the current level's flagship is dead and the level is waiting to turn over. */
+    public boolean levelCleared() {
+        return levelCleared;
+    }
+
+    /** Moves on to the next place. Called by the game loop once it has finished celebrating. */
+    public void advanceLevel() {
+        levelCleared = false;
+        wavesIntoLevel = 0;
+        ticksIntoWave = 0;
+        ticksIntoLevel = 0;
+        level = level.next();
+        if (level == Level.values()[0]) {
+            loopsCompleted++;
+        }
     }
 
     private void maybeSpawnPowerUp(World world) {
@@ -148,7 +224,47 @@ public final class SpawnDirector {
         return hit;
     }
 
-    public int wave() {
-        return wave;
+    /** The chosen difficulty's spawn chance, raised once per completed pass through the levels. */
+    private int escalated(int chancePerThousand) {
+        int raised = chancePerThousand + loopsCompleted * LOOP_SPAWN_BONUS;
+        return raised;
+    }
+
+    /** Waves cleared across the whole run, never reset. What the end-of-round summary reports. */
+    public int wavesSurvived() {
+        return wavesSurvived;
+    }
+
+    /** Which wave of the current level is being fought, counting from one. */
+    public int waveInLevel() {
+        int position = wavesIntoLevel + 1;
+        return position;
+    }
+
+    /** Ticks spent in the current level, for the debrief's clear-time bonus. */
+    public int ticksIntoLevel() {
+        return ticksIntoLevel;
+    }
+
+    /** Reference clear time for the current level: its wave clock plus an allowance for the boss. */
+    public int parTicks() {
+        int par = level.wavesBeforeBoss() * WAVE_LENGTH_TICKS + BOSS_PAR_TICKS;
+        return par;
+    }
+
+    /** Passes completed through all eight levels, counting from one. */
+    public int loop() {
+        int pass = loopsCompleted + 1;
+        return pass;
+    }
+
+    /** Whether the incoming-flagship banner should still be up. */
+    public boolean bossWarning() {
+        boolean warning = bossWarningTicks > 0;
+        return warning;
+    }
+
+    public Level level() {
+        return level;
     }
 }
