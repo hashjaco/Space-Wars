@@ -13,6 +13,9 @@ public final class ShipController {
 
     private static final double TRI_SHOT_SPREAD = 3.4;
 
+    /** Above this share of full horizontal speed the ship banks hard rather than merely tilting. */
+    private static final double HARD_BANK_THRESHOLD = 0.85;
+
     private final PlayerShip ship;
     private final PlayerControls controls;
 
@@ -59,14 +62,24 @@ public final class ShipController {
             dy *= diagonal;
         }
         ship.setVelocity(dx * speed, dy * speed);
+        ship.setLean(leanFor(dx));
+    }
 
-        PlayerShip.Lean lean = PlayerShip.Lean.NONE;
-        if (dx < 0) {
-            lean = PlayerShip.Lean.LEFT;
-        } else if (dx > 0) {
-            lean = PlayerShip.Lean.RIGHT;
+    /**
+     * How hard the ship banks, from the horizontal share of its movement.
+     *
+     * Input is digital, so this comes out of the normalisation above for free: holding left alone
+     * gives the full dx and banks hard, while a diagonal splits it and only tilts.
+     */
+    private static PlayerShip.Lean leanFor(double dx) {
+        if (dx == 0) {
+            return PlayerShip.Lean.NONE;
         }
-        ship.setLean(lean);
+        boolean hard = Math.abs(dx) > HARD_BANK_THRESHOLD;
+        if (dx < 0) {
+            return hard ? PlayerShip.Lean.HARD_LEFT : PlayerShip.Lean.LEFT;
+        }
+        return hard ? PlayerShip.Lean.HARD_RIGHT : PlayerShip.Lean.RIGHT;
     }
 
     private void applyFire(InputState input, World world, SoundPlayer sounds) {
@@ -106,6 +119,9 @@ public final class ShipController {
     }
 
     private Bullet bullet(Sprite sprite, double velocityX, int damage) {
+        // Counted here rather than per trigger pull, so a tri-shot's three projectiles are three
+        // chances to hit and accuracy cannot come out above 100%.
+        ship.recordShot();
         int direction = ship.facing().yDirection();
         double x = ship.centerX() - sprite.width() / 2;
         // Emerge from the nose, which is the top edge facing up and the bottom edge facing down.

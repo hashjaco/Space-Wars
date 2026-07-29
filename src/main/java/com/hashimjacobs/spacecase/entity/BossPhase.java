@@ -1,43 +1,45 @@
 package com.hashimjacobs.spacecase.entity;
 
 /**
- * How the boss fights, chosen by how much health it has left.
+ * How a boss fights during one third of its health bar.
  *
- * The boss used to fire the same single shot as the weakest scout, which made a 600-health enemy a
- * pure damage sponge rather than a fight.
+ * Which three phases a boss uses, and in what order, is {@link Boss}'s business -- a phase only
+ * describes a pattern. Bosses used to fire the same single shot as the weakest scout, which made a
+ * 600-health enemy a damage sponge rather than a fight.
  */
 public enum BossPhase {
 
-    /** Opening: a wide, sparse spread that is easy to read and slip between. */
-    SPREAD(3, 26, 0.36, 44),
+    /** A wide, sparse spread that is easy to read and slip between. */
+    SPREAD(3, 26, 0.36),
 
-    /** Middle: a fan that sweeps side to side, so standing still stops working. */
-    SWEEPING_FAN(5, 18, 0.22, 30),
+    /** A fan that sweeps side to side, so standing still stops working. */
+    SWEEPING_FAN(5, 18, 0.22),
 
-    /** Final: tight bursts aimed at the nearest player, fired fast. */
-    AIMED_BURST(3, 12, 0.14, 18);
+    /** Tight bursts aimed at the nearest player, fired fast. */
+    AIMED_BURST(3, 12, 0.14),
+
+    /**
+     * A half-circle curtain covering everything below the boss.
+     *
+     * A full 360 degree ring would send half its shots off the top of the arena to be culled
+     * immediately, so this spans the downward half only: {@code shots - 1} gaps across pi radians.
+     */
+    RING(9, 34, Math.PI / 8),
+
+    /** A narrow stream whose angle rotates continuously, painting an arc across the arena. */
+    SPIRAL(4, 10, 0.30),
+
+    /** Fires nothing and calls in escort fighters instead. */
+    SPAWNER(0, 150, 0);
 
     private final int shots;
     private final int cooldownTicks;
     private final double spreadRadians;
-    private final int aimJitterDegrees;
 
-    BossPhase(int shots, int cooldownTicks, double spreadRadians, int aimJitterDegrees) {
+    BossPhase(int shots, int cooldownTicks, double spreadRadians) {
         this.shots = shots;
         this.cooldownTicks = cooldownTicks;
         this.spreadRadians = spreadRadians;
-        this.aimJitterDegrees = aimJitterDegrees;
-    }
-
-    /** Phase for a boss at the given 0..1 remaining-health fraction. */
-    public static BossPhase forHealthFraction(double fraction) {
-        if (fraction > 0.66) {
-            return SPREAD;
-        }
-        if (fraction > 0.33) {
-            return SWEEPING_FAN;
-        }
-        return AIMED_BURST;
     }
 
     public int shots() {
@@ -51,10 +53,6 @@ public enum BossPhase {
     /** Angle between adjacent shots, in radians. */
     public double spreadRadians() {
         return spreadRadians;
-    }
-
-    public int aimJitterDegrees() {
-        return aimJitterDegrees;
     }
 
     /** True when the whole pattern should rotate over time rather than firing straight down. */

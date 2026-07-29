@@ -20,6 +20,7 @@ import com.hashimjacobs.spacecase.engine.InputState;
 import com.hashimjacobs.spacecase.engine.Renderer;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Settings;
 
 /**
@@ -35,13 +36,13 @@ final class GameScreen {
     private MenuNavigator pauseNavigator;
     private MenuNavigator settingsNavigator;
 
-    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Random random,
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots, Random random,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver) {
         Canvas canvas = new Canvas(GameConfig.WIDTH, GameConfig.HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
         Renderer renderer = new Renderer(gc);
 
-        this.loop = new GameLoop(mode, renderer, input, sounds, settings, random, onRoundOver);
+        this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random, onRoundOver);
         this.pauseLayer = buildPauseLayer(onQuitToMenu);
         this.settingsLayer = buildSettingsLayer(settings, sounds);
 
@@ -105,6 +106,11 @@ final class GameScreen {
     private void togglePause() {
         if (settingsLayer.isVisible()) {
             showPauseMenu();
+            return;
+        }
+        // Between levels the loop is running its own sequence; pausing into it would strand the
+        // players mid-flight with a menu over a screen they cannot act on.
+        if (!loop.isPaused() && !loop.isPausable()) {
             return;
         }
         if (loop.isPaused()) {

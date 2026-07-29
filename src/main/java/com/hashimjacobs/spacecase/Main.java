@@ -7,6 +7,7 @@ import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.prefs.HighScores;
+import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.scene.SceneRouter;
 
@@ -19,6 +20,7 @@ public final class Main extends Application {
         Settings settings = Settings.load();
         SoundBank sounds = new SoundBank(settings);
         HighScores highScores = HighScores.load();
+        Pilots pilots = Pilots.load();
 
         stage.setTitle("Space Case");
         stage.getIcons().add(Assets.image(Sprite.P1_STRAIGHT));
@@ -26,10 +28,13 @@ public final class Main extends Application {
         stage.setMinHeight(500);
         stage.setFullScreenExitHint("Press F11 to leave fullscreen");
 
-        SceneRouter router = new SceneRouter(stage, settings, sounds, highScores);
+        SceneRouter router = new SceneRouter(stage, settings, sounds, highScores, pilots);
         router.showStartMenu();
 
-        stage.setOnHidden(event -> settings.save());
+        stage.setOnHidden(event -> {
+            settings.save();
+            router.shutdown();
+        });
         stage.show();
     }
 

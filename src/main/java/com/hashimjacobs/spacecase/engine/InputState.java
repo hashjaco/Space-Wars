@@ -94,6 +94,17 @@ public final class InputState {
         return down;
     }
 
+    /**
+     * Whether any key at all is down, for the debrief's press-any-button prompt.
+     *
+     * Escape never lands in the set -- it is routed to pause -- so it cannot dismiss the debrief. The
+     * gamepad layer synthesises real key presses onto the scene, so controllers count for free.
+     */
+    public boolean anyHeld() {
+        boolean down = !held.isEmpty();
+        return down;
+    }
+
     public void clear() {
         held.clear();
     }
