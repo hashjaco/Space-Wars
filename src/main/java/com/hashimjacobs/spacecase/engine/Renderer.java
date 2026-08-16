@@ -11,6 +11,7 @@ import javafx.scene.paint.CycleMethod;
 import javafx.scene.paint.Paint;
 import javafx.scene.paint.RadialGradient;
 import javafx.scene.paint.Stop;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
@@ -20,12 +21,16 @@ import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
+import com.hashimjacobs.spacecase.entity.BossHead;
 import com.hashimjacobs.spacecase.entity.Bullet;
+import com.hashimjacobs.spacecase.entity.BurrowingWorm;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
+import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Standing;
@@ -44,7 +49,25 @@ public final class Renderer {
     private static final Paint PLAYER_HALO = halo(Color.web("#7ce8ff"));
     private static final Paint ENEMY_HALO = halo(Color.web("#ff8a5a"));
 
+    /** Burst of red around a ship that just took damage; pairs with the scorched hull frames. */
+    private static final Paint HIT_HALO = halo(Color.web("#ff3b3b"));
+
+    /**
+     * Acid gets its own glow, in the same murky yellow-green as the blob.
+     *
+     * Not the bright green of the ordinary bolt's halo -- the whole point of the separate art is
+     * that the two must not read as the same projectile.
+     */
+    private static final Paint ACID_HALO = halo(Color.web("#a8b81e"));
+
+    /** Hydra necks: a dark edge under a hide-coloured core, matching the generated torso. */
+    private static final Color NECK_OUTLINE = Color.web("#131c10");
+    private static final Color NECK_HIDE = Color.web("#24361f");
+
     private static final Font PILOT_NAME_FONT = Font.font("Verdana", FontWeight.BOLD, 11);
+
+    /** One frame at 60Hz. Above this the readout goes red. */
+    private static final double FRAME_BUDGET_MS = 1000.0 / 60;
 
     private static Paint halo(Color core) {
         RadialGradient gradient = new RadialGradient(
@@ -58,11 +81,13 @@ public final class Renderer {
     private final GraphicsContext gc;
     private final Hud hud;
     private final DebriefOverlay debriefOverlay;
+    private final GarageOverlay garageOverlay;
 
     public Renderer(GraphicsContext gc) {
         this.gc = gc;
         this.hud = new Hud(gc);
         this.debriefOverlay = new DebriefOverlay(gc);
+        this.garageOverlay = new GarageOverlay(gc);
     }
 
     public void draw(World world, SpawnDirector director) {
@@ -95,10 +120,30 @@ public final class Renderer {
         hud.draw(world, director);
     }
 
+    /**
+     * Worst frame of the last second, in milliseconds, with the step count that came with it.
+     *
+     * Toggled with F3 and drawn last so it sits over every overlay. Green while the worst frame
+     * still fits in a 60Hz budget, red once it does not -- the point is to be readable at a glance
+     * mid-fight, not to be precise.
+     */
+    public void drawFrameMeter(double worstMs, int steps) {
+        gc.setFont(PILOT_NAME_FONT);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setTextBaseline(VPos.BOTTOM);
+        gc.setFill(worstMs <= FRAME_BUDGET_MS ? Color.web("#0ec417") : Color.web("#ff2b2b"));
+        gc.fillText(String.format("worst %.1f ms  x%d", worstMs, steps), 16, GameConfig.HEIGHT - 12);
+    }
+
     /** The between-levels report, over a frozen world. */
     public void drawDebrief(Level level, List<Debrief> debriefs, List<Standing> standings,
                             boolean armed) {
         debriefOverlay.draw(level, debriefs, standings, armed);
+    }
+
+    /** The between-levels garage, over a frozen world. */
+    public void drawGarage(GarageSession session, int tick) {
+        garageOverlay.draw(session, tick);
     }
 
     /** Blackout during the warp, at the given 0..1 opacity. */
@@ -123,14 +168,21 @@ public final class Renderer {
         gc.setFill(Color.web("#0a0e1a"));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
 
+        Orientation facing = level.orientation();
+        // The trailing copy sits one arena back along whichever way the level runs.
+        double backX = facing.vx(facing.arenaDepth(), 0);
+        double backY = facing.vy(facing.arenaDepth(), 0);
+
         List<Sprite> layers = level.layers();
         for (int layer = 0; layer < layers.size(); layer++) {
             Image image = Assets.image(layers.get(layer));
             double scrolled = tick * GameConfig.BACKGROUND_SCROLL_SPEED * LAYER_SPEEDS[layer];
-            double y = Math.floor(scrolled % GameConfig.HEIGHT);
-            // Two copies chase each other down the screen so a layer never shows a seam.
-            gc.drawImage(image, 0, y - GameConfig.HEIGHT, GameConfig.WIDTH, GameConfig.HEIGHT);
-            gc.drawImage(image, 0, y, GameConfig.WIDTH, GameConfig.HEIGHT);
+            double travelled = Math.floor(scrolled % facing.arenaDepth());
+            double ox = facing.vx(travelled, 0);
+            double oy = facing.vy(travelled, 0);
+            // Two copies chase each other across the screen so a layer never shows a seam.
+            gc.drawImage(image, ox - backX, oy - backY, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.drawImage(image, ox, oy, GameConfig.WIDTH, GameConfig.HEIGHT);
         }
     }
 
@@ -140,10 +192,62 @@ public final class Renderer {
      * than off a counter on the ship keeps every boss on screen in step and needs no per-entity state.
      */
     private void drawBoss(EnemyShip boss, int tick) {
-        BossArt art = boss.boss().art();
+        if (boss instanceof BossHead head) {
+            // Under the head, so the neck disappears behind the skull rather than crossing it.
+            drawNeck(head);
+        } else if (boss instanceof BurrowingWorm worm) {
+            drawWormBody(worm);
+        }
+        BossArt art = boss.bossArt();
         List<Image> frames = Assets.bossFrames(art);
         Image frame = frames.get(art.frameIndexAt(tick));
         gc.drawImage(frame, boss.x(), boss.y(), boss.width(), boss.height());
+    }
+
+    /**
+     * A neck, as two stroked passes of one curve: dark outline, then flesh over it.
+     *
+     * Drawn live rather than baked into the boss frames, so it follows the head at sixty steps a
+     * second instead of the eight frames the torso animates through. The control point is pushed
+     * out sideways from the midpoint so the neck bows instead of reading as a stick.
+     *
+     * ponytail: no taper. If it looks like plumbing, stroke it as four segments of falling width.
+     */
+    private void drawNeck(BossHead head) {
+        double rootX = head.neckRootX();
+        double rootY = head.neckRootY();
+        double tipX = head.centerX();
+        double tipY = head.centerY();
+        double controlX = (rootX + tipX) / 2 + (tipY - rootY) * 0.18;
+        double controlY = (rootY + tipY) / 2 + (rootX - tipX) * 0.18;
+
+        gc.save();
+        gc.setLineCap(StrokeLineCap.ROUND);
+        for (int pass = 0; pass < 2; pass++) {
+            gc.setStroke(pass == 0 ? NECK_OUTLINE : NECK_HIDE);
+            gc.setLineWidth(pass == 0 ? 30 : 22);
+            gc.beginPath();
+            gc.moveTo(rootX, rootY);
+            gc.quadraticCurveTo(controlX, controlY, tipX, tipY);
+            gc.stroke();
+        }
+        gc.restore();
+    }
+
+    /**
+     * The worm's body, trailing back into its burrow.
+     *
+     * Furthest ring first so each overlaps the one behind it, and tapering toward the tail. The
+     * positions are a pure function of the worm's age, so none of this is simulated or stored.
+     */
+    private void drawWormBody(BurrowingWorm worm) {
+        Image ring = Assets.image(Sprite.WORM_SEGMENT);
+        double widest = Sprite.WORM_SEGMENT.width();
+        for (int k = BurrowingWorm.SEGMENTS; k >= 1; k--) {
+            // Tapering toward the tail, but never so far that the last rings read as pebbles.
+            double size = widest * (1 - 0.055 * k);
+            gc.drawImage(ring, worm.trailX(k) - size / 2, worm.trailY(k) - size / 2, size, size);
+        }
     }
 
     private void drawPlayer(PlayerShip player, int tick) {
@@ -163,7 +267,22 @@ public final class Renderer {
             gc.drawImage(aura, player.centerX() - size / 2, player.centerY() - size / 2, size, size);
             gc.setGlobalAlpha(1.0);
         }
+        // Under the hull rather than over it, so the flash frames the ship instead of hiding it.
+        if (player.justHit()) {
+            double flash = Math.max(player.width(), player.height()) * 1.6;
+            gc.save();
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
+            gc.setFill(HIT_HALO);
+            gc.fillOval(player.centerX() - flash / 2, player.centerY() - flash / 2, flash, flash);
+            gc.restore();
+        }
         drawSprite(player, player.facing());
+        Sprite kit = player.kitOverlay();
+        if (kit != null) {
+            // Drawn at the hull's own size and rotation so the decal tracks the pose and, in
+            // battle mode, turns with a player two who is facing the other way.
+            drawSprite(kit, player, player.facing());
+        }
         drawPilotName(player);
     }
 
@@ -189,7 +308,11 @@ public final class Renderer {
      * sprite instead of haloing it.
      */
     private void drawBullet(Bullet bullet) {
-        Paint halo = bullet.firedByPlayer() ? PLAYER_HALO : ENEMY_HALO;
+        // ponytail: keyed off the sprite. If a third hostile projectile colour turns up, put the
+        // halo on Sprite itself rather than growing this chain.
+        Paint halo = bullet.firedByPlayer() ? PLAYER_HALO
+                : bullet.sprite() == Sprite.ACID_BALL ? ACID_HALO
+                : ENEMY_HALO;
         double size = Math.max(bullet.width(), bullet.height()) * 1.35;
 
         gc.save();
@@ -206,7 +329,12 @@ public final class Renderer {
     }
 
     private void drawSprite(Entity entity, Facing facing) {
-        Image image = Assets.image(entity.sprite());
+        drawSprite(entity.sprite(), entity, facing);
+    }
+
+    /** Draws any sprite at an entity's box, so a hull and its kit decal share one transform. */
+    private void drawSprite(Sprite sprite, Entity entity, Facing facing) {
+        Image image = Assets.image(sprite);
         if (facing == Facing.UP) {
             gc.drawImage(image, entity.x(), entity.y(), entity.width(), entity.height());
             return;

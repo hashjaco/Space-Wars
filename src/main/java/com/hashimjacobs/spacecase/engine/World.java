@@ -11,6 +11,7 @@ import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
+import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.GameMode;
@@ -34,6 +35,9 @@ public final class World {
     private final List<PowerUp> powerUps = new ArrayList<>();
     private final List<ActiveExplosion> explosions = new ArrayList<>();
 
+    /** Which way the current level runs. Re-stamped on every level change; see setOrientation. */
+    private Orientation orientation = Orientation.TOP_DOWN;
+
     private int tick;
 
     /** Names shown under the ships when nobody has been to the pilots screen. */
@@ -50,37 +54,58 @@ public final class World {
     }
 
     private void spawnPlayers(List<String> pilotNames) {
+        players.add(new PlayerShip(1, pilotNames.get(0), Facing.UP, 0, 0));
+        if (mode.rules().playerCount() > 1) {
+            players.add(new PlayerShip(2, pilotNames.get(1), Facing.UP, 0, 0));
+        }
+        placeSpawns();
+    }
+
+    /**
+     * Sets which way this level runs and re-lays the player spawns to match.
+     *
+     * Called between levels, never during one.
+     */
+    public void setOrientation(Orientation orientation) {
+        this.orientation = orientation;
+        placeSpawns();
+    }
+
+    public Orientation orientation() {
+        return orientation;
+    }
+
+    /**
+     * Where each pilot starts, in arena terms rather than screen terms.
+     *
+     * A hundred and thirty back from the far edge, spread across the lane. Written this way the
+     * co-op layout needs no special case: "side by side at a third and two thirds of the breadth"
+     * is shoulder to shoulder in a top-down level and stacked one above the other in a side view,
+     * which is the correct arrangement in both.
+     */
+    private void placeSpawns() {
         ModeRules rules = mode.rules();
         boolean headToHead = rules.lastPlayerStanding();
-        String firstName = pilotNames.get(0);
-        String secondName = pilotNames.get(1);
+        Facing near = orientation.playerFacing();
 
-        if (rules.playerCount() == 1) {
-            PlayerShip solo = new PlayerShip(1, firstName, Facing.UP,
-                    GameConfig.WIDTH / 2 - 28, GameConfig.HEIGHT - 130);
-            players.add(solo);
-            return;
+        for (PlayerShip player : players) {
+            boolean second = player.playerNumber() == 2;
+            boolean opposed = headToHead && second;
+            double w = player.width();
+            double h = player.height();
+
+            double lane = rules.playerCount() == 1 || headToHead
+                    ? orientation.arenaBreadth() / 2
+                    : orientation.arenaBreadth() * (second ? 2 : 1) / 3;
+            double across = lane - orientation.acrossExtent(w, h) / 2;
+            // Battle's second seat starts at the far end facing back down the arena.
+            double depth = opposed ? 70 : orientation.arenaDepth() - 130;
+
+            player.setSpawn(orientation.atX(depth, across, w, h),
+                    orientation.atY(depth, across, w, h),
+                    opposed ? near.opposite() : near);
+            player.returnToSpawn();
         }
-
-        if (headToHead) {
-            // Battle: facing each other down the long axis of the arena.
-            PlayerShip bottom = new PlayerShip(1, firstName, Facing.UP,
-                    GameConfig.WIDTH / 2 - 28, GameConfig.HEIGHT - 130);
-            PlayerShip top = new PlayerShip(2, secondName, Facing.DOWN,
-                    GameConfig.WIDTH / 2 - 28, 70);
-            players.add(bottom);
-            players.add(top);
-            return;
-        }
-
-        // Co-op: side by side, both pushing up the arena.
-        PlayerShip left = new PlayerShip(1, firstName, Facing.UP,
-                GameConfig.WIDTH / 3 - 28, GameConfig.HEIGHT - 130);
-        PlayerShip right = new PlayerShip(2, secondName, Facing.UP,
-                2 * GameConfig.WIDTH / 3 - 28, GameConfig.HEIGHT - 130);
-        players.add(left);
-        right.setLean(PlayerShip.Lean.NONE);
-        players.add(right);
     }
 
     /** Moves everything and expires anything that has left the arena. Does not remove. */
@@ -142,30 +167,64 @@ public final class World {
         sweep();
     }
 
+    /**
+     * Co-op only: a partner who finished the level alone buys back everyone who ran out of lives.
+     *
+     * Not battle mode, where outlasting the other player is the win condition and reviving them
+     * would undo it. Not solo either, and that exclusion is load-bearing rather than tidy: the game
+     * loop tests for a cleared level before it tests for a finished round, so a lone player killed
+     * on the very tick the flagship dies reaches the victory lap while out of lives. Without the
+     * player-count guard that player is handed three free lives instead of a game over.
+     */
+    public void reviveFallenAllies() {
+        ModeRules rules = rules();
+        if (rules.lastPlayerStanding() || rules.playerCount() < 2) {
+            return;
+        }
+        for (PlayerShip player : players) {
+            if (player.isOut()) {
+                player.revive();
+            }
+        }
+    }
+
     private void killWhatLeftTheArena() {
         double margin = 140;
         for (Bullet bullet : bullets) {
-            boolean gone = bullet.y() + bullet.height() < 0 || bullet.y() > GameConfig.HEIGHT;
+            // Both axes, not just the vertical one. Tri-shot spread, every boss fan and curtain
+            // pattern, and every rocket already carry sideways velocity, so a y-only test leaks
+            // anything that drifts off the left or right edge instead of the bottom.
+            boolean gone = bullet.y() + bullet.height() < 0 || bullet.y() > GameConfig.HEIGHT
+                    || bullet.x() + bullet.width() < 0 || bullet.x() > GameConfig.WIDTH;
             if (gone) {
                 bullet.kill();
             }
         }
+        // Hazards and pickups are culled directionally, not on all four sides like bullets: they
+        // spawn off-screen on the entry side and have to survive the trip in. A boss arrives at a
+        // depth of about -190, which any symmetric margin would kill on the spot.
+        double arenaDepth = orientation.arenaDepth();
         for (Asteroid asteroid : asteroids) {
-            boolean gone = asteroid.y() > GameConfig.HEIGHT
-                    || asteroid.x() + asteroid.width() < -margin
-                    || asteroid.x() > GameConfig.WIDTH + margin;
+            double across = orientation.across(asteroid.x(), asteroid.y());
+            double acrossExtent = orientation.acrossExtent(asteroid.width(), asteroid.height());
+            boolean gone = orientation.depth(asteroid.x(), asteroid.y(),
+                            asteroid.width(), asteroid.height()) > arenaDepth
+                    || across + acrossExtent < -margin
+                    || across > orientation.arenaBreadth() + margin;
             if (gone) {
                 asteroid.kill();
             }
         }
         for (EnemyShip enemy : enemies) {
-            boolean gone = enemy.y() > GameConfig.HEIGHT;
+            boolean gone = orientation.depth(enemy.x(), enemy.y(),
+                    enemy.width(), enemy.height()) > arenaDepth;
             if (gone) {
                 enemy.kill();
             }
         }
         for (PowerUp powerUp : powerUps) {
-            boolean gone = powerUp.y() > GameConfig.HEIGHT;
+            boolean gone = orientation.depth(powerUp.x(), powerUp.y(),
+                    powerUp.width(), powerUp.height()) > arenaDepth;
             if (gone) {
                 powerUp.kill();
             }
@@ -196,7 +255,9 @@ public final class World {
         bullets.add(bullet);
     }
 
+    /** Points the arrival down this level's lane before it joins the fight. */
     public void addEnemy(EnemyShip enemy) {
+        enemy.enter(orientation);
         enemies.add(enemy);
     }
 
@@ -204,7 +265,16 @@ public final class World {
         asteroids.add(asteroid);
     }
 
+    /**
+     * Sets the pickup drifting down this level's lane.
+     *
+     * Stamped here rather than in the PowerUp constructor, which hard-codes a downward drift: both
+     * the ambient drops and the ones enemies leave behind come through this one method, so it is
+     * the only place that has to know which way is down-arena.
+     */
     public void addPowerUp(PowerUp powerUp) {
+        powerUp.setVelocity(orientation.vx(GameConfig.POWERUP_DRIFT_SPEED, 0),
+                orientation.vy(GameConfig.POWERUP_DRIFT_SPEED, 0));
         powerUps.add(powerUp);
     }
 
@@ -233,6 +303,14 @@ public final class World {
         return nearest;
     }
 
+    /**
+     * Whether the level still has a flagship to kill.
+     *
+     * Counts parts as well as bodies, deliberately. A hydra's heads always die before its torso --
+     * the torso is untouchable until they have -- so this is already correct, and counting them
+     * makes it the safety net if that invariant is ever broken: a level cannot clear while
+     * anything belonging to the flagship is still alive and shooting.
+     */
     public boolean bossPresent() {
         for (EnemyShip enemy : enemies) {
             if (enemy.isBoss()) {
@@ -242,13 +320,35 @@ public final class World {
         return false;
     }
 
+    /**
+     * The flagship itself, for the HUD bar and the boss music.
+     *
+     * Prefers the torso rather than trusting insertion order: a hydra's heads are flagships by
+     * every other test, and the health bar has to read the torso whichever one the list happens to
+     * reach first.
+     *
+     * Falls back to a surviving part instead of returning null, which is what pairs this with
+     * {@link #bossPresent}. A head only notices its torso has died on the next {@code update()},
+     * so there is one step -- between the sweep that removes the torso and that update -- where
+     * {@code bossPresent()} is true and there is no torso to find. Returning null there made the
+     * boss music read {@code world.boss().boss().music()} on nothing, and blanked the HUD bar for a
+     * frame while the heads were still on screen. A part carries its parent's {@code Boss}, so
+     * answering with one is right rather than merely non-null.
+     */
     public EnemyShip boss() {
+        EnemyShip part = null;
         for (EnemyShip enemy : enemies) {
-            if (enemy.isBoss()) {
+            if (!enemy.isBoss()) {
+                continue;
+            }
+            if (!enemy.isBossPart()) {
                 return enemy;
             }
+            if (part == null) {
+                part = enemy;
+            }
         }
-        return null;
+        return part;
     }
 
     public GameMode mode() {

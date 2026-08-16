@@ -15,7 +15,11 @@ public enum MusicTrack {
     BASSLINE_RIOT("bassline-riot-remastered.mp3"),
     BASSLINE_RIOT_VARIANT("bassline-riot-remastered-variant.mp3"),
     GRIME_QUEST("grime-quest.mp3"),
-    GRIME_QUEST_REMIX("grime-quest-remix.mp3");
+    GRIME_QUEST_REMIX("grime-quest-remix.mp3"),
+    STARLIGHT_CIRCUIT("starlight-circuit.mp3"),
+    GARAGE_MUSIC("garage-music.mp3"),
+    DEATH_METAL("death-metal.mp3"),
+    DEATH_PUNK("death-punk.mp3");
 
     private final String fileName;
 

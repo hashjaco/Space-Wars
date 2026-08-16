@@ -32,7 +32,8 @@ final class DebriefOverlay {
 
     private static final double PANEL_WIDTH = 396;
     private static final double PANEL_TOP = 150;
-    private static final double PANEL_HEIGHT = 520;
+    /** Tall enough for six bonus rows plus the credits line; the ladders can field two at once. */
+    private static final double PANEL_HEIGHT = 560;
 
     private final GraphicsContext gc;
     private final Font titleFont = Font.font("Verdana", FontWeight.BOLD, 30);
@@ -126,7 +127,18 @@ final class DebriefOverlay {
         gc.fillText("TOTAL", left, y);
         gc.setTextAlign(TextAlignment.RIGHT);
         gc.fillText("+" + debrief.totalBonus(), right, y);
-        y += 34;
+        y += 26;
+
+        // What the level paid into the garage. A summary line under the rule rather than another
+        // stat row, because it is the one number here that buys something.
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setFont(rowFont);
+        gc.setFill(LABEL);
+        gc.fillText("CREDITS EARNED", left, y);
+        gc.setTextAlign(TextAlignment.RIGHT);
+        gc.setFill(Color.WHITE);
+        gc.fillText("+" + debrief.credits() + " CR", right, y);
+        y += 32;
 
         if (standing != null) {
             drawStanding(left, right, y, standing);

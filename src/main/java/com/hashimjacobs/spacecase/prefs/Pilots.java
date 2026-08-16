@@ -14,16 +14,22 @@ public final class Pilots {
 
     private static final String SLOT_KEY_PREFIX = "player";
     private static final String CAREER_NODE = "career";
+    private static final String CREDITS_NODE = "credits";
+    private static final String LOADOUT_NODE = "loadout";
 
     /** Longest name the entry screen accepts, and what the HUD is laid out for. */
     public static final int MAX_NAME_LENGTH = 10;
 
     private final Preferences store;
     private final Preferences careers;
+    private final Preferences credits;
+    private final Preferences loadouts;
 
     private Pilots(Preferences store) {
         this.store = store;
         this.careers = store.node(CAREER_NODE);
+        this.credits = store.node(CREDITS_NODE);
+        this.loadouts = store.node(LOADOUT_NODE);
     }
 
     public static Pilots load() {
@@ -91,6 +97,46 @@ public final class Pilots {
         careers.putInt(pilotName, total);
         flush(careers);
         return total;
+    }
+
+    /**
+     * The pilot's garage balance.
+     *
+     * Kept apart from career score rather than spent out of it: career score sets {@link Rank} and
+     * feeds the high-score table, and buying a paint job should not cost someone their standing.
+     */
+    public int credits(String pilotName) {
+        int balance = credits.getInt(pilotName, 0);
+        return balance;
+    }
+
+    /** Credits a level's earnings and returns the new balance. */
+    public int addCredits(String pilotName, int amount) {
+        int total = credits(pilotName) + Math.max(0, amount);
+        setCredits(pilotName, total);
+        return total;
+    }
+
+    /** Writes a balance outright, for the garage handing back what a pilot did not spend. */
+    public void setCredits(String pilotName, int balance) {
+        credits.putInt(pilotName, Math.max(0, balance));
+        flush(credits);
+    }
+
+    /**
+     * The pilot's ship as {@code garage.Loadout} encoded it, or empty if they never bought anything.
+     *
+     * Stored as an opaque string on purpose: this class knows how to keep a pilot's things, not
+     * what an upgrade is, so the garage can change shape without touching preferences code.
+     */
+    public String loadoutCode(String pilotName) {
+        String stored = loadouts.get(pilotName, "");
+        return stored;
+    }
+
+    public void setLoadoutCode(String pilotName, String code) {
+        loadouts.put(pilotName, code);
+        flush(loadouts);
     }
 
     private static void flush(Preferences node) {

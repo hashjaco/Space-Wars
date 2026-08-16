@@ -24,16 +24,25 @@ public final class ShipController {
         this.controls = controls;
     }
 
+    public PlayerShip ship() {
+        return ship;
+    }
+
+    /** The garage drives each bay with the keys that pilot flies with, so it needs these too. */
+    public PlayerControls controls() {
+        return controls;
+    }
+
     public void apply(InputState input, World world, SoundPlayer sounds) {
         if (ship.isOut()) {
             ship.setVelocity(0, 0);
             return;
         }
-        applyMovement(input);
+        applyMovement(input, world);
         applyFire(input, world, sounds);
     }
 
-    private void applyMovement(InputState input) {
+    private void applyMovement(InputState input, World world) {
         boolean up = controls.anyHeld(input, controls.up());
         boolean down = controls.anyHeld(input, controls.down());
         boolean left = controls.anyHeld(input, controls.left());
@@ -62,21 +71,27 @@ public final class ShipController {
             dy *= diagonal;
         }
         ship.setVelocity(dx * speed, dy * speed);
-        ship.setLean(leanFor(dx));
+        // Banking keys off movement across the lane, not off screen-x. In a side view the hull is
+        // drawn turned ninety degrees, so the ship's own left and right are world up and down --
+        // pushing down produces a ship-local right bank, which after the rotation reads as a
+        // downward bank. The rotation and the lean compose correctly and need no new art.
+        ship.setLean(leanFor(world.orientation().across(dx, dy)));
     }
 
     /**
-     * How hard the ship banks, from the horizontal share of its movement.
+     * How hard the ship banks, from the share of its movement running across the lane.
      *
-     * Input is digital, so this comes out of the normalisation above for free: holding left alone
-     * gives the full dx and banks hard, while a diagonal splits it and only tilts.
+     * Input is digital, so this comes out of the normalisation above for free: holding one
+     * direction alone gives the full component and banks hard, while a diagonal splits it and
+     * only tilts. Movement up and down the lane produces no bank, which is right -- a ship does
+     * not roll because it accelerated.
      */
-    private static PlayerShip.Lean leanFor(double dx) {
-        if (dx == 0) {
+    private static PlayerShip.Lean leanFor(double across) {
+        if (across == 0) {
             return PlayerShip.Lean.NONE;
         }
-        boolean hard = Math.abs(dx) > HARD_BANK_THRESHOLD;
-        if (dx < 0) {
+        boolean hard = Math.abs(across) > HARD_BANK_THRESHOLD;
+        if (across < 0) {
             return hard ? PlayerShip.Lean.HARD_LEFT : PlayerShip.Lean.LEFT;
         }
         return hard ? PlayerShip.Lean.HARD_RIGHT : PlayerShip.Lean.RIGHT;
@@ -118,16 +133,27 @@ public final class ShipController {
         world.addBullet(right);
     }
 
-    private Bullet bullet(Sprite sprite, double velocityX, int damage) {
+    /**
+     * @param spread sideways offset for the tri-shot, perpendicular to whichever way the nose
+     *               points -- so the fan turns with the ship instead of always splaying on x
+     */
+    private Bullet bullet(Sprite sprite, double spread, int damage) {
         // Counted here rather than per trigger pull, so a tri-shot's three projectiles are three
         // chances to hit and accuracy cannot come out above 100%.
         ship.recordShot();
-        int direction = ship.facing().yDirection();
-        double x = ship.centerX() - sprite.width() / 2;
-        // Emerge from the nose, which is the top edge facing up and the bottom edge facing down.
-        double y = direction < 0 ? ship.y() - sprite.height() : ship.y() + ship.height();
-        double velocityY = GameConfig.BULLET_SPEED * direction;
-        Bullet created = new Bullet(sprite, x, y, velocityX, velocityY, ship, damage);
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
+        // Emerge from the nose, whichever edge that is.
+        double x = ship.centerX() - sprite.width() / 2
+                + dirX * (ship.width() + sprite.width()) / 2;
+        double y = ship.centerY() - sprite.height() / 2
+                + dirY * (ship.height() + sprite.height()) / 2;
+        double velocityX = dirX * GameConfig.BULLET_SPEED - dirY * spread;
+        double velocityY = dirY * GameConfig.BULLET_SPEED + dirX * spread;
+        // Firepower is applied here rather than at the three call sites, so the single, tri and
+        // mega shots all benefit and none of them can be forgotten.
+        Bullet created = new Bullet(sprite, x, y, velocityX, velocityY, ship,
+                ship.damageFor(damage));
         return created;
     }
 }

@@ -115,6 +115,30 @@ class WorldSweepTest {
         });
     }
 
+    /**
+     * A bullet that drifts off the side is culled like one that flies off the top.
+     *
+     * Tri-shot spread and every boss fan already produce these, so they were accumulating for the
+     * length of a run before this was fixed.
+     */
+    @Test
+    void bulletsThatLeaveSidewaysAreCulled() {
+        World world = new World(GameMode.SOLO);
+        Bullet offLeft = new Bullet(Sprite.PLAYER_BULLET, -40, 400, -4, 0, null, 10);
+        Bullet offRight = new Bullet(Sprite.PLAYER_BULLET,
+                com.hashimjacobs.spacecase.GameConfig.WIDTH + 10, 400, 4, 0, null, 10);
+        Bullet inside = new Bullet(Sprite.PLAYER_BULLET, 400, 400, 4, 0, null, 10);
+        world.addBullet(offLeft);
+        world.addBullet(offRight);
+        world.addBullet(inside);
+
+        world.update();
+        world.sweep();
+
+        assertEquals(1, world.bullets().size(), "only the bullet still in the arena should remain");
+        assertTrue(world.bullets().contains(inside));
+    }
+
     private static Bullet bullet(double x, double y) {
         Bullet created = new Bullet(Sprite.PLAYER_BULLET, x, y, 0, -1, null, 10);
         return created;

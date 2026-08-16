@@ -14,7 +14,7 @@ import com.hashimjacobs.spacecase.mode.Level;
  * @param scores              final score per player, in player order
  * @param wavesSurvived       waves cleared across the whole run before it ended
  * @param level               level being fought when the round ended
- * @param loop                pass through the eight levels it ended on, counting from one
+ * @param loop                pass through the run it ended on, counting from one
  */
 public record RoundResult(
         GameMode mode,

@@ -15,6 +15,8 @@ public final class Main extends Application {
 
     @Override
     public void start(Stage stage) {
+        // First, so a hang during asset loading is reported too.
+        FreezeWatchdog.install();
         Assets.load();
 
         Settings settings = Settings.load();

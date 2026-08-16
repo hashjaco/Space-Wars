@@ -5,6 +5,7 @@ import java.util.List;
 
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.effect.BlendMode;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
@@ -23,6 +24,15 @@ final class Hud {
     private static final double BAR_HEIGHT = 14;
     private static final Color BRAND = Color.web("#0ec417");
 
+    /** Share of full health below which the bar starts pulsing. Mirrored by GameLoop's alarm. */
+    private static final double LOW_HEALTH_FRACTION = 0.25;
+
+    /** Lives at or below which the counter starts flashing. One means the next death ends it. */
+    private static final int LOW_LIVES = 1;
+
+    private static final Color DANGER = Color.web("#ff2b2b");
+    private static final Color LIVES_NORMAL = Color.web("#9fb0c9");
+
     private final GraphicsContext gc;
     private final Font labelFont = Font.font("Verdana", FontWeight.BOLD, 15);
     private final Font valueFont = Font.font("Verdana", FontWeight.BOLD, 22);
@@ -39,7 +49,7 @@ final class Hud {
         for (PlayerShip player : players) {
             boolean rightAligned = player.playerNumber() == 2;
             double x = rightAligned ? GameConfig.WIDTH - PANEL_WIDTH - 16 : 16;
-            drawPlayerPanel(player, x);
+            drawPlayerPanel(player, x, world.tick());
         }
 
         // Battle mode has no enemies, so it has no level and no boss to progress through either.
@@ -55,7 +65,7 @@ final class Hud {
         }
     }
 
-    private void drawPlayerPanel(PlayerShip player, double x) {
+    private void drawPlayerPanel(PlayerShip player, double x, int tick) {
         double y = 14;
 
         gc.setTextAlign(TextAlignment.LEFT);
@@ -68,10 +78,10 @@ final class Hud {
         gc.fillText(String.valueOf(player.score()), x, y + 20);
 
         double barY = y + 50;
-        drawHealthBar(player, x, barY);
+        drawHealthBar(player, x, barY, tick);
 
         gc.setFont(smallFont);
-        gc.setFill(Color.web("#9fb0c9"));
+        gc.setFill(livesColour(player, tick));
         gc.fillText("LIVES  " + Math.max(0, player.lives()), x, barY + BAR_HEIGHT + 6);
 
         List<String> effects = activeEffectLabels(player);
@@ -82,8 +92,22 @@ final class Hud {
         }
     }
 
-    private void drawHealthBar(PlayerShip player, double x, double y) {
-        double fraction = Math.max(0, player.health()) / (double) GameConfig.PLAYER_HEALTH;
+    /**
+     * Flashes the counter once a player is one death from being out.
+     *
+     * Alternates the colour rather than the visibility on purpose: a number that vanishes half the
+     * time is harder to read at a glance, and this way the count stays legible to anyone who does
+     * not register the flash at all.
+     */
+    private Color livesColour(PlayerShip player, int tick) {
+        if (player.lives() > LOW_LIVES || player.isOut()) {
+            return LIVES_NORMAL;
+        }
+        return (tick / 20) % 2 == 0 ? Color.web("#ff4d4d") : LIVES_NORMAL;
+    }
+
+    private void drawHealthBar(PlayerShip player, double x, double y, int tick) {
+        double fraction = Math.max(0, player.health()) / (double) player.maxHealth();
 
         gc.setFill(Color.web("#22283a"));
         gc.fillRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
@@ -92,9 +116,28 @@ final class Hud {
         gc.setFill(fill);
         gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
 
-        gc.setStroke(Color.web("#3b4560"));
-        gc.setLineWidth(1);
+        if (fraction <= LOW_HEALTH_FRACTION && !player.isOut()) {
+            drawLowHealthGlow(x, y, fraction, tick);
+        }
+
+        // White on impact, so a hit reads on the bar as well as on the hull. Eighteen ticks is
+        // short enough to register as a flash without needing to blink.
+        boolean hit = player.justHit();
+        gc.setStroke(hit ? Color.WHITE : Color.web("#3b4560"));
+        gc.setLineWidth(hit ? 2 : 1);
         gc.strokeRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
+        gc.setLineWidth(1);
+    }
+
+    /** A breathing red wash over the remaining health, additive so it reads as a glow. */
+    private void drawLowHealthGlow(double x, double y, double fraction, int tick) {
+        double pulse = 0.35 + 0.35 * Math.sin(tick * 0.22);
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        gc.setGlobalAlpha(pulse);
+        gc.setFill(DANGER);
+        gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
+        gc.restore();
     }
 
     private List<String> activeEffectLabels(PlayerShip player) {

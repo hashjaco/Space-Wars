@@ -147,7 +147,7 @@ src/main/java/com/hashimjacobs/spacecase/
   scene/   SceneRouter and every screen (start, multiplayer, settings, help,
            pause overlay, game over) plus the menu widgets and navigator
   mode/    GameMode + ModeRules — what differs between the three modes, as data;
-           Level — the eight places; Debrief — what clearing one pays
+           Level — the ten places; Debrief — what clearing one pays
   engine/  GameLoop, FixedTimestep, World, CollisionSystem, Renderer, Hud,
            InputState, Gamepad, GamepadMapping, PadState, QuadTree,
            SpawnDirector, ShipController, EnemyWeapons, DebriefOverlay
