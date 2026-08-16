@@ -58,6 +58,9 @@ public final class SoundBank implements SoundPlayer {
 
     /** Touched only on the audio thread, from here down. */
     private final Map<SoundFx, AudioClip> clips = new EnumMap<>(SoundFx.class);
+    private final VoiceLimiter voices = new VoiceLimiter();
+    /** A per-effect ceiling as well, so one repeater cannot take the whole global budget. */
+    private final Map<SoundFx, VoiceLimiter> perEffectVoices = new EnumMap<>(SoundFx.class);
     /**
      * One player per track, kept for the life of the process.
      *
@@ -87,6 +90,7 @@ public final class SoundBank implements SoundPlayer {
         for (SoundFx effect : SoundFx.values()) {
             AudioClip clip = new AudioClip(resolve(effect.resourcePath()));
             clips.put(effect, clip);
+            perEffectVoices.put(effect, new VoiceLimiter(VoiceLimiter.MAX_VOICES_PER_EFFECT));
         }
     }
 
@@ -97,9 +101,23 @@ public final class SoundBank implements SoundPlayer {
         double volume = effect.baseVolume() * settings.sfxVolume();
         audio.execute(() -> {
             AudioClip clip = clips.get(effect);
-            if (clip != null) {
-                clip.play(volume);
+            if (clip == null) {
+                return;
             }
+            // Dropped rather than played once too many voices are already sounding. Each one holds
+            // a native media player open, and enough of them at once hangs the window.
+            long now = System.nanoTime();
+            long duration = (long) (effect.seconds() * 1_000_000_000L);
+            // Global ceiling checked before the per-effect slot is taken, so a sound that is about
+            // to be dropped does not spend its own effect's budget on the way out.
+            if (!voices.hasFree(now)) {
+                return;
+            }
+            if (!perEffectVoices.get(effect).claim(now, duration)) {
+                return;
+            }
+            voices.claim(now, duration);
+            clip.play(volume);
         });
     }
 

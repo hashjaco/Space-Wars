@@ -7,6 +7,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+import javax.sound.sampled.AudioFileFormat;
+import javax.sound.sampled.AudioSystem;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -103,6 +106,36 @@ class AssetProvenanceTest {
             }
         }
         assertTrue(missing.isEmpty(), "audio references files that do not exist: " + missing);
+    }
+
+    /**
+     * The declared length of every effect has to match the file it names.
+     *
+     * {@code VoiceLimiter} frees a slot on the strength of {@link SoundFx#seconds()}, so a sample
+     * re-cut without updating the number would silently break the ceiling that keeps native media
+     * players from piling up and hanging the window. Nothing else here would notice: the manifest
+     * check matches filenames, never contents.
+     *
+     * Read through {@code javax.sound.sampled}, which is in the JDK, so this stays runnable in a
+     * suite that never starts the JavaFX toolkit. It cannot decode MP3, so the one MP3 effect is
+     * checked for existence only, above.
+     */
+    @Test
+    void everySoundConstantDeclaresTheLengthOfItsFile() throws Exception {
+        List<String> wrong = new ArrayList<>();
+        for (SoundFx effect : SoundFx.values()) {
+            if (effect.resourcePath().endsWith(".mp3")) {
+                continue;
+            }
+            Path file = RESOURCES.resolve(effect.resourcePath().substring(1));
+            AudioFileFormat format = AudioSystem.getAudioFileFormat(file.toFile());
+            double actual = format.getFrameLength() / format.getFormat().getFrameRate();
+            if (Math.abs(actual - effect.seconds()) > 0.05) {
+                wrong.add(String.format("%s declares %.2fs but %s is %.2fs",
+                        effect, effect.seconds(), file.getFileName(), actual));
+            }
+        }
+        assertTrue(wrong.isEmpty(), "declared sound lengths are out of date: " + wrong);
     }
 
     @Test
