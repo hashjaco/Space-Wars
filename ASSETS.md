@@ -86,9 +86,9 @@ most of it. The higher-bitrate exports are in git history.
 
 | File | Origin | Notes |
 |---|---|---|
-| `punchy-laser.wav` | Hashim Jacobs | `LASER` — the player's default weapon, at its full two seconds. It was briefly trimmed to 0.35 s to stop voices stacking during sustained fire; that made it inaudible, so the original is what ships |
+| `punchy-laser.wav` | Hashim Jacobs | `LASER` — the player's default weapon, cut to 0.5 s. The authored file ran two seconds but everything after 0.45 s was digital silence, and a voice holds a native media player open through silence exactly as long as through sound. An earlier trim to 0.35 s was reverted as inaudible: that cut landed on the sample's loudest point, since it swells rather than striking. The audible part is untouched — same peak, same mean. Full-length original in git history |
 | `explosion.wav` | Generated | Filtered noise burst with a low rumble. `EXPLOSION`, kept for asteroids |
-| `spaceship-explosion.wav` | Hashim Jacobs | `SHIP_EXPLOSION`, ship and flagship kills only. Nine seconds long, which is why asteroids keep the short generated burst above |
+| `spaceship-explosion.wav` | Hashim Jacobs | `SHIP_EXPLOSION`, ship and flagship kills only. Three seconds, still long enough that asteroids keep the short generated burst above. The authored file ran nine, of which the last six were a tail under −20 dB that cost six seconds of open native player per kill; it now fades out from 2.6 s. Body of the sound is unchanged. Full-length original in git history |
 | `machine-gun-burst.mp3` | Hashim Jacobs | `BOSS_GUN`, the flagship's phase pattern |
 | `mega-boss-cannon.wav` | Hashim Jacobs | `BOSS_ROCKET`, the flagship's rocket salvo |
 | `collision.wav` | Generated | Short thud |
