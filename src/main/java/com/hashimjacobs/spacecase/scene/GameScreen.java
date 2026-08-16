@@ -20,7 +20,10 @@ import com.hashimjacobs.spacecase.engine.InputState;
 import com.hashimjacobs.spacecase.engine.Renderer;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
+import com.hashimjacobs.spacecase.prefs.SaveGames;
+import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.Settings;
 
 /**
@@ -31,22 +34,30 @@ final class GameScreen {
     private final StackPane root;
     private final VBox pauseLayer;
     private final VBox settingsLayer;
+    private final VBox saveLayer;
     private final InputState input = new InputState();
     private final GameLoop loop;
+    private final SaveGames saves;
+    private final MenuButton[] slotButtons = new MenuButton[SaveGames.SLOTS];
     private MenuNavigator pauseNavigator;
     private MenuNavigator settingsNavigator;
+    private MenuNavigator saveNavigator;
 
-    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots, Random random,
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver) {
         Canvas canvas = new Canvas(GameConfig.WIDTH, GameConfig.HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
         Renderer renderer = new Renderer(gc);
 
-        this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random, onRoundOver);
+        this.saves = saves;
+        this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
+                onRoundOver, highScores, saves, resume);
         this.pauseLayer = buildPauseLayer(onQuitToMenu);
         this.settingsLayer = buildSettingsLayer(settings, sounds);
+        this.saveLayer = buildSaveLayer();
 
-        root = new StackPane(canvas, pauseLayer, settingsLayer);
+        root = new StackPane(canvas, pauseLayer, settingsLayer, saveLayer);
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
@@ -55,12 +66,13 @@ final class GameScreen {
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
         MenuButton back = new MenuButton("Back", this::resume);
+        MenuButton saveButton = new MenuButton("Save Game", this::showSaveMenu);
         MenuButton settingsButton = new MenuButton("Settings", this::showSettings);
         MenuButton quit = new MenuButton("Quit Game", () -> {
             loop.stop();
             onQuitToMenu.run();
         });
-        MenuPanel panel = new MenuPanel(back, settingsButton, quit);
+        MenuPanel panel = new MenuPanel(back, saveButton, settingsButton, quit);
         pauseNavigator = panel.navigator();
         pauseNavigator.setOnBack(this::resume);
 
@@ -81,6 +93,49 @@ final class GameScreen {
         layer.setBackground(veil());
         layer.setVisible(false);
         return layer;
+    }
+
+    /**
+     * The three manual slots.
+     *
+     * Rows are labelled from what is in them, so no naming screen is needed and the choice to
+     * overwrite is already an informed one.
+     */
+    private VBox buildSaveLayer() {
+        MenuButton[] rows = new MenuButton[SaveGames.SLOTS + 1];
+        for (int i = 0; i < SaveGames.SLOTS; i++) {
+            int number = i + 1;
+            slotButtons[i] = new MenuButton("", () -> {
+                saves.save(number, loop.checkpoint());
+                showPauseMenu();
+            });
+            rows[i] = slotButtons[i];
+        }
+        rows[SaveGames.SLOTS] = new MenuButton("Back", this::showPauseMenu);
+
+        MenuPanel panel = new MenuPanel(rows);
+        saveNavigator = panel.navigator();
+        saveNavigator.setOnBack(this::showPauseMenu);
+
+        VBox layer = new VBox(16);
+        layer.setAlignment(Pos.CENTER);
+        layer.getChildren().addAll(new MenuTitle("Save Game", 38, 380, 62), panel,
+                MenuScreen.caption("Saves the start of this level", 12, Color.web("#8b98ad")));
+        layer.setBackground(veil());
+        layer.setVisible(false);
+        return layer;
+    }
+
+    private void showSaveMenu() {
+        // Refreshed on open rather than at build time: a slot may have been written since.
+        for (int i = 0; i < SaveGames.SLOTS; i++) {
+            String held = saves.slot(i + 1).map(SaveSlot::describe).orElse("empty");
+            slotButtons[i].setText((i + 1) + "   " + held);
+        }
+        pauseLayer.setVisible(false);
+        settingsLayer.setVisible(false);
+        saveLayer.setVisible(true);
+        input.setMenuRouter(saveNavigator::handleKey);
     }
 
     private static Background veil() {
@@ -104,7 +159,7 @@ final class GameScreen {
     }
 
     private void togglePause() {
-        if (settingsLayer.isVisible()) {
+        if (settingsLayer.isVisible() || saveLayer.isVisible()) {
             showPauseMenu();
             return;
         }
@@ -128,6 +183,7 @@ final class GameScreen {
     private void resume() {
         pauseLayer.setVisible(false);
         settingsLayer.setVisible(false);
+        saveLayer.setVisible(false);
         input.setMenuRouter(null);
         loop.setPaused(false);
     }
@@ -140,6 +196,7 @@ final class GameScreen {
 
     private void showPauseMenu() {
         settingsLayer.setVisible(false);
+        saveLayer.setVisible(false);
         pauseLayer.setVisible(true);
         input.setMenuRouter(pauseNavigator::handleKey);
     }

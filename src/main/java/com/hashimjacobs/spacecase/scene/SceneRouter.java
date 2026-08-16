@@ -1,6 +1,8 @@
 package com.hashimjacobs.spacecase.scene;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Random;
 import java.util.function.Predicate;
 
@@ -24,8 +26,11 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.engine.Gamepad;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
+import com.hashimjacobs.spacecase.prefs.SaveGames;
+import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.Settings;
 
 /**
@@ -44,6 +49,7 @@ public final class SceneRouter {
     private final SoundBank sounds;
     private final HighScores highScores;
     private final Pilots pilots;
+    private final SaveGames saves = SaveGames.load();
     private final Random random = new Random();
 
     /** Black surround; whatever is left over when the window is not exactly 996x864. */
@@ -71,13 +77,23 @@ public final class SceneRouter {
         stopActiveGame();
         sounds.playMusic(MusicCue.MENU);
 
-        MenuButton single = new MenuButton("Single Player", () -> startGame(GameMode.SOLO));
-        MenuButton multi = new MenuButton("Multiplayer", this::showMultiplayerMenu);
-        MenuButton pilotsButton = new MenuButton("Pilots", this::showPilots);
-        MenuButton settingsButton = new MenuButton("Settings", () -> showSettings(this::showStartMenu));
-        MenuButton help = new MenuButton("Help", this::showHelp);
-        MenuButton exit = new MenuButton("Exit", this::exit);
-        MenuPanel panel = new MenuPanel(single, multi, pilotsButton, settingsButton, help, exit);
+        // Continue and Level Select only exist once there is a run to continue, so a first-time
+        // player sees the menu they always saw.
+        List<MenuButton> rows = new ArrayList<>();
+        Optional<SaveSlot> held = saves.checkpoint();
+        held.ifPresent(save -> {
+            rows.add(new MenuButton("Continue  -  " + save.describe(),
+                    () -> startGame(save.mode(), save)));
+            rows.add(new MenuButton("Level Select", () -> showLevelSelect(save)));
+        });
+        rows.add(new MenuButton("Single Player", () -> startGame(GameMode.SOLO)));
+        rows.add(new MenuButton("Multiplayer", this::showMultiplayerMenu));
+        rows.add(new MenuButton("Load Game", this::showLoadMenu));
+        rows.add(new MenuButton("Pilots", this::showPilots));
+        rows.add(new MenuButton("Settings", () -> showSettings(this::showStartMenu)));
+        rows.add(new MenuButton("Help", this::showHelp));
+        rows.add(new MenuButton("Exit", this::exit));
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
 
         HBox ships = new HBox(28,
                 MenuScreen.decal(Sprite.P1_STRAIGHT, 54),
@@ -92,6 +108,65 @@ public final class SceneRouter {
                 MenuScreen.caption("↑↓ move    Enter select    F11 fullscreen", 11,
                         Color.web("#4c586c")));
         MenuNavigator navigator = panel.navigator();
+        show(root, navigator::handleKey);
+    }
+
+    /**
+     * Replay anywhere you have been, in the ship you have now.
+     *
+     * Unlocks come off the checkpoint alone rather than a separate furthest-reached key, so there
+     * is nothing extra to keep in sync. Once the campaign has been looped, everything is open.
+     *
+     * ponytail: a plain MenuPanel column. Fits about fifteen levels at 42px a row; past that, wrap
+     * the panel in a ScrollPane rather than inventing paging.
+     */
+    public void showLevelSelect(SaveSlot from) {
+        List<MenuButton> rows = new ArrayList<>();
+        for (Level level : Level.values()) {
+            boolean unlocked = from.loop() > 1 || level.ordinal() <= from.level().ordinal();
+            if (!unlocked) {
+                continue;
+            }
+            int best = highScores.best(from.mode(), level);
+            String label = level.number() + "   " + level.label()
+                    + (best > 0 ? "   best " + best : "");
+            rows.add(new MenuButton(label,
+                    () -> startGame(from.mode(), SaveSlot.forReplay(from.mode(), level))));
+        }
+        rows.add(new MenuButton("Back", this::showStartMenu));
+
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showStartMenu);
+
+        StackPane root = MenuScreen.build("LEVEL SELECT", panel,
+                MenuScreen.caption("Fly a cleared level again in your current ship. "
+                        + "Reach a level to unlock it.", 12, Color.web("#6d7a90")));
+        show(root, navigator::handleKey);
+    }
+
+    /** The three manual slots, labelled by what is in them. */
+    public void showLoadMenu() {
+        List<MenuButton> rows = new ArrayList<>();
+        for (int number = 1; number <= SaveGames.SLOTS; number++) {
+            Optional<SaveSlot> held = saves.slot(number);
+            String label = number + "   " + held.map(SaveSlot::describe).orElse("empty");
+            // An empty slot does nothing when chosen, which is the right amount of feedback for
+            // a row that says "empty".
+            Runnable action = held.<Runnable>map(save -> () -> startGame(save.mode(), save))
+                    .orElse(() -> {
+                    });
+            rows.add(new MenuButton(label, action));
+        }
+        rows.add(new MenuButton("Back", this::showStartMenu));
+
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showStartMenu);
+
+        StackPane root = MenuScreen.build("LOAD GAME", panel,
+                MenuScreen.caption("Save to a slot from the pause menu during a run", 12,
+                        Color.web("#6d7a90")));
         show(root, navigator::handleKey);
     }
 
@@ -135,25 +210,27 @@ public final class SceneRouter {
                 "Single player accepts either WASD or the arrow keys,",
                 "and fires with SHIFT or SPACE.",
                 "",
-                "ESCAPE          pause / resume",
-                "F11             fullscreen",
+                "ESCAPE          pause / resume        F11   fullscreen",
                 "MENUS           arrows or W/S, Enter to choose",
-                "",
-                "CONTROLLERS     stick or d-pad to move, A to fire,",
-                "                Start to pause. The first pad plays as",
-                "                player one, the second as player two.",
-                "                Buttons and stick deadzone are in Settings.",
+                "CONTROLLERS     stick or d-pad, A to fire, Start to pause.",
+                "                First pad is player one. Buttons and",
+                "                deadzone are in Settings.",
                 "",
                 "Shoot asteroids and enemy ships for points. Enemies drop",
-                "pickups: tri-shot, mega laser, shield, speed, health or",
-                "an extra life. Each of the eight levels fields its own",
-                "defenders and ends with its own flagship, which changes",
-                "attack pattern as you wear it down. Kill it for a debrief,",
-                "bonuses and rank, then the warp to the next level.",
+                "pickups: tri-shot, mega laser, shield, speed, health or an",
+                "extra life. Each of the ten levels fields its own defenders",
+                "and ends with its own flagship, which changes attack pattern",
+                "as you wear it down. Level nine is flown side-on. Kill the",
+                "flagship for a debrief, bonuses, rank and the garage.",
+                "",
+                "SAVING          checkpoints each level. Continue resumes;",
+                "                Level Select replays anywhere you reached,",
+                "                in the ship you have now. Pause to save to",
+                "                one of three slots.",
                 "",
                 "PILOTS          name both seats from the start menu. Level",
-                "                bonuses build a career score, and that sets",
-                "                your rank. Type letters, Backspace deletes.",
+                "                bonuses build a career score and your rank,",
+                "                and buy upgrades in the garage.",
                 "",
                 "In Battle, player two starts at the top facing down and",
                 "friendly fire is on. Last player with lives wins.");
@@ -171,11 +248,16 @@ public final class SceneRouter {
     }
 
     public void startGame(GameMode mode) {
+        startGame(mode, null);
+    }
+
+    /** @param resume a checkpoint or level-select replay to start from, or null for level one */
+    public void startGame(GameMode mode, SaveSlot resume) {
         stopActiveGame();
         sounds.playMusic(mode.music());
 
-        GameScreen screen = new GameScreen(mode, settings, sounds, pilots, random,
-                this::showStartMenu, this::showGameOver);
+        GameScreen screen = new GameScreen(mode, settings, sounds, pilots, highScores, saves,
+                random, resume, this::showStartMenu, this::showGameOver);
         activeGame = screen;
         show(screen.root(), null);
         // The scene must already be on the stage before input attaches; it listens for focus loss.
@@ -227,12 +309,13 @@ public final class SceneRouter {
         stage.close();
     }
 
-    /** Shuts SDL down with the window. Does nothing if no Scene was ever shown. */
+    /** Shuts SDL and the audio thread down with the window. */
     public void shutdown() {
         if (gamepad != null) {
             gamepad.stop();
             gamepad = null;
         }
+        sounds.shutdown();
     }
 
     private void stopActiveGame() {

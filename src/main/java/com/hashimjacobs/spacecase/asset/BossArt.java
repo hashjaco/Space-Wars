@@ -19,7 +19,21 @@ public enum BossArt {
     FOUNDRY_WARDEN("boss-foundry-warden", 8, 6, 230, 163),
     VOID_WEAVER("boss-void-weaver", 8, 6, 206, 172),
     CORE_TYRANT("boss-core-tyrant", 8, 6, 250, 185),
-    EXODUS_DREADNOUGHT("boss-exodus-dreadnought", 8, 6, 250, 188);
+    EXODUS_DREADNOUGHT("boss-exodus-dreadnought", 8, 6, 250, 188),
+
+    /** Level 9, drawn side-on and opening leftward into the player. */
+    DUNE_LEVIATHAN("boss-dune-leviathan", 8, 6, 214, 153),
+
+    /** Level 10's torso. The necks and heads are not in these frames; they are drawn live. */
+    HYDRA("boss-hydra", 8, 6, 236, 154),
+
+    /**
+     * One hydra head. Three are on screen at once, each its own target.
+     *
+     * Faster than the flagship frame rate: a jaw working at six ticks a frame reads as sluggish
+     * where a hull throbbing at the same rate reads as idling.
+     */
+    HYDRA_HEAD("boss-hydra-head", 8, 4, 64, 64);
 
     private final String directory;
     private final int frameCount;

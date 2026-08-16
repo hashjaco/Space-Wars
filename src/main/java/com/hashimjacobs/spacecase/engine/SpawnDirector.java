@@ -6,7 +6,9 @@ import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Boss;
+import com.hashimjacobs.spacecase.entity.BurrowingWorm;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
@@ -60,6 +62,24 @@ public final class SpawnDirector {
         this.rules = rules;
     }
 
+    /**
+     * Starts a run partway in, from a saved checkpoint or a level-select replay.
+     *
+     * A constructor rather than setters, so it is structurally impossible to move the level out
+     * from under a fight already in progress. Everything the three-argument form leaves at zero
+     * stays at zero, which is correct because a checkpoint is only ever taken at a level boundary
+     * -- see {@link #advanceLevel()} for the same list of fields being reset.
+     *
+     * @param loop passes through the levels, counting from one, matching {@link #loop()}
+     */
+    public SpawnDirector(Random random, Difficulty difficulty, ModeRules rules,
+                         Level level, int wavesSurvived, int loop) {
+        this(random, difficulty, rules);
+        this.level = level;
+        this.wavesSurvived = Math.max(1, wavesSurvived);
+        this.loopsCompleted = Math.max(0, loop - 1);
+    }
+
     public void update(World world) {
         ticksIntoLevel++;
         if (bossWarningTicks > 0) {
@@ -103,16 +123,33 @@ public final class SpawnDirector {
         if (!rolls(escalated(difficulty.asteroidChance()))) {
             return;
         }
+        Orientation facing = level.orientation();
+        // The random draw order is load-bearing: SpawnDirectorTest runs on a fixed seed.
         int size = random.nextInt(10);
-        Asteroid asteroid = switch (size) {
-            case 0, 1 -> new Asteroid(Sprite.ASTEROID_HUGE, randomX(88), -90, 70, 22, 30);
-            case 2, 3, 4 -> new Asteroid(Sprite.ASTEROID_BIG, randomX(56), -60, 40, 15, 20);
-            default -> new Asteroid(Sprite.ASTEROID_SMALL, randomX(34), -40, 20, 9, 10);
+        double extent = switch (size) {
+            case 0, 1 -> 88;
+            case 2, 3, 4 -> 56;
+            default -> 34;
         };
+        double across = randomAcross(extent);
         double drift = (random.nextDouble() - 0.5) * 1.6;
         double fall = 1.6 + random.nextDouble() * 1.8;
-        asteroid.setVelocity(drift, fall);
+
+        Asteroid asteroid = switch (size) {
+            case 0, 1 -> asteroidAt(facing, Sprite.ASTEROID_HUGE, -90, across, 70, 22, 30);
+            case 2, 3, 4 -> asteroidAt(facing, Sprite.ASTEROID_BIG, -60, across, 40, 15, 20);
+            default -> asteroidAt(facing, Sprite.ASTEROID_SMALL, -40, across, 20, 9, 10);
+        };
+        asteroid.setVelocity(facing.vx(fall, drift), facing.vy(fall, drift));
         world.addAsteroid(asteroid);
+    }
+
+    private static Asteroid asteroidAt(Orientation facing, Sprite art, double depth, double across,
+                                       int health, int contactDamage, int score) {
+        double w = art.width();
+        double h = art.height();
+        return new Asteroid(art, facing.atX(depth, across, w, h), facing.atY(depth, across, w, h),
+                health, contactDamage, score);
     }
 
     private void maybeSpawnEnemy(World world) {
@@ -122,9 +159,15 @@ public final class SpawnDirector {
         if (!rolls(escalated(difficulty.enemyChance()))) {
             return;
         }
+        Orientation facing = level.orientation();
         EnemyShip.EnemyKind kind = pickEnemyKind();
         Sprite art = level.enemySprite(kind);
-        EnemyShip enemy = new EnemyShip(kind, art, randomX(art.width()), -art.height());
+        double w = art.width();
+        double h = art.height();
+        double across = randomAcross(facing.acrossExtent(w, h));
+        double depth = -facing.alongExtent(w, h);
+        EnemyShip enemy = new EnemyShip(kind, art,
+                facing.atX(depth, across, w, h), facing.atY(depth, across, w, h));
         world.addEnemy(enemy);
     }
 
@@ -147,10 +190,23 @@ public final class SpawnDirector {
         awaitingBossKill = true;
         bossWarningTicks = BOSS_WARNING_TICKS;
         Boss flagship = level.boss();
-        double width = flagship.art().width();
-        double x = GameConfig.WIDTH / 2 - width / 2;
-        EnemyShip boss = new EnemyShip(flagship, x, -flagship.art().height());
+        Orientation facing = level.orientation();
+        double w = flagship.art().width();
+        double h = flagship.art().height();
+        double across = facing.arenaBreadth() / 2 - facing.acrossExtent(w, h) / 2;
+        double depth = -facing.alongExtent(w, h);
+        // The one place boss difficulty is decided; everything downstream reads it off the ship.
+        double scale = difficulty.bossScale(level.number(), loop());
+        double x = facing.atX(depth, across, w, h);
+        double y = facing.atY(depth, across, w, h);
+        EnemyShip boss = flagship == Boss.DUNE_LEVIATHAN
+                ? new BurrowingWorm(flagship, x, y, scale)
+                : new EnemyShip(flagship, x, y, scale);
+        // Body first, so World.boss() and the HUD find the torso rather than a head.
         world.addEnemy(boss);
+        for (EnemyShip part : boss.parts()) {
+            world.addEnemy(part);
+        }
     }
 
     /**
@@ -191,10 +247,14 @@ public final class SpawnDirector {
         if (!rolls(POWERUP_CHANCE_PER_THOUSAND)) {
             return;
         }
+        Orientation facing = level.orientation();
         PowerUp.Kind[] kinds = PowerUp.Kind.values();
         PowerUp.Kind kind = kinds[random.nextInt(kinds.length)];
-        double x = spawnColumnForPickup(kind);
-        PowerUp powerUp = new PowerUp(kind, x, -40);
+        double w = kind.sprite().width();
+        double h = kind.sprite().height();
+        double across = spawnLaneForPickup(facing, w, h);
+        PowerUp powerUp = new PowerUp(kind,
+                facing.atX(-40, across, w, h), facing.atY(-40, across, w, h));
         world.addPowerUp(powerUp);
     }
 
@@ -202,21 +262,19 @@ public final class SpawnDirector {
      * In battle mode pickups drop down the middle so both players have an equal claim; otherwise
      * anywhere across the arena.
      */
-    private double spawnColumnForPickup(PowerUp.Kind kind) {
-        double spriteWidth = kind.sprite().width();
+    private double spawnLaneForPickup(Orientation facing, double width, double height) {
         if (!rules.lastPlayerStanding()) {
-            return randomX(spriteWidth);
+            return randomAcross(facing.acrossExtent(width, height));
         }
-        double centreBand = GameConfig.WIDTH / 3;
+        double centreBand = facing.arenaBreadth() / 3;
         double offset = random.nextDouble() * centreBand;
-        double x = centreBand + offset;
-        return x;
+        return centreBand + offset;
     }
 
-    private double randomX(double spriteWidth) {
-        double span = GameConfig.WIDTH - spriteWidth;
-        double x = random.nextDouble() * span;
-        return x;
+    /** A position across the lane, leaving room for something this wide. One random draw. */
+    private double randomAcross(double acrossExtent) {
+        double span = level.orientation().arenaBreadth() - acrossExtent;
+        return random.nextDouble() * span;
     }
 
     private boolean rolls(int chancePerThousand) {
@@ -252,7 +310,7 @@ public final class SpawnDirector {
         return par;
     }
 
-    /** Passes completed through all eight levels, counting from one. */
+    /** Passes completed through the whole run, counting from one. */
     public int loop() {
         int pass = loopsCompleted + 1;
         return pass;

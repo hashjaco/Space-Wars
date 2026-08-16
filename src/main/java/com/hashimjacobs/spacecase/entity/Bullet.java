@@ -2,8 +2,13 @@ package com.hashimjacobs.spacecase.entity;
 
 import com.hashimjacobs.spacecase.asset.Sprite;
 
-/** A projectile. {@code owner} is null for enemy fire and identifies the shooter otherwise. */
-public final class Bullet extends Entity {
+/**
+ * A projectile. {@code owner} is null for enemy fire and identifies the shooter otherwise.
+ *
+ * Not final because {@link Rocket} is one: it is a bullet in every way the collision, sweep and
+ * render paths care about, and differs only in steering itself on the way in.
+ */
+public class Bullet extends Entity {
 
     private final PlayerShip owner;
     private final int damage;

@@ -5,16 +5,21 @@ import java.util.List;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Orientation;
 
 /**
  * A place in a run: a sky, the inhabitants that defend it, a flagship, and how long you fight before
  * that flagship arrives.
  *
- * The eight read as a journey -- approach a world, cross its air, its jungle, its canyon, its
- * undercity, then out through the rift, past its star, and clear. Killing the boss is what advances
- * the level; see {@code engine.SpawnDirector}. There is no ninth: {@link #next()} wraps back to the
- * first and the director raises spawn pressure each time round, so the run stays endless and death
- * remains the only way it ends.
+ * The ten read as a journey -- approach a world, cross its air, its jungle, its canyon, its
+ * undercity, then out through the rift, past its star, clear, along a dead world's terminator, and
+ * finally down into the thing that lives under it. Killing the boss is what advances the level; see
+ * {@code engine.SpawnDirector}. There is no eleventh: {@link #next()} wraps back to the first and
+ * the director raises spawn pressure each time round, so the run stays endless and death remains
+ * the only way it ends.
+ *
+ * Nine is the odd one out, and deliberately: it is the only level flown side-on. That is carried by
+ * {@link #orientation()} rather than by a special case anywhere in the engine.
  *
  * Pure data -- no asset loading -- so the enum is usable in tests that never start the JavaFX toolkit.
  */
@@ -58,7 +63,25 @@ public enum Level {
     ESCAPE_VECTOR("Escape Vector",
             Sprite.L8_FAR, Sprite.L8_MID, Sprite.L8_NEAR,
             Sprite.L8_SCOUT, Sprite.L8_FIGHTER, Sprite.L8_CRUISER,
-            Boss.EXODUS_DREADNOUGHT, 5);
+            Boss.EXODUS_DREADNOUGHT, 5),
+
+    /**
+     * The one leg flown side-on, along a dead world's terminator.
+     *
+     * The orientation and the art are a matched pair: this level's backdrop tiles horizontally
+     * and its hulls are cut pointing left, so turning it top-down would seam the sky and leave
+     * every enemy flying sideways.
+     */
+    DUST_REACH("Dust Reach",
+            Sprite.L9_FAR, Sprite.L9_MID, Sprite.L9_NEAR,
+            Sprite.L9_SCOUT, Sprite.L9_FIGHTER, Sprite.L9_CRUISER,
+            Boss.DUNE_LEVIATHAN, 5, Orientation.RIGHT_TO_LEFT),
+
+    /** Where the thing with three heads lives. The last place before the run loops. */
+    HOLLOW_WOMB("Hollow Womb",
+            Sprite.L10_FAR, Sprite.L10_MID, Sprite.L10_NEAR,
+            Sprite.L10_SCOUT, Sprite.L10_FIGHTER, Sprite.L10_CRUISER,
+            Boss.HYDRA, 5);
 
     private final String label;
     private final List<Sprite> layers;
@@ -67,9 +90,18 @@ public enum Level {
     private final Sprite cruiser;
     private final Boss boss;
     private final int wavesBeforeBoss;
+    private final Orientation orientation;
 
+    /** A level that runs top-down, which is all of them but the side-view leg. */
     Level(String label, Sprite far, Sprite mid, Sprite near,
           Sprite scout, Sprite fighter, Sprite cruiser, Boss boss, int wavesBeforeBoss) {
+        this(label, far, mid, near, scout, fighter, cruiser, boss, wavesBeforeBoss,
+                Orientation.TOP_DOWN);
+    }
+
+    Level(String label, Sprite far, Sprite mid, Sprite near,
+          Sprite scout, Sprite fighter, Sprite cruiser, Boss boss, int wavesBeforeBoss,
+          Orientation orientation) {
         this.label = label;
         this.layers = List.of(far, mid, near);
         this.scout = scout;
@@ -77,6 +109,17 @@ public enum Level {
         this.cruiser = cruiser;
         this.boss = boss;
         this.wavesBeforeBoss = wavesBeforeBoss;
+        this.orientation = orientation;
+    }
+
+    /**
+     * Which way this level runs.
+     *
+     * Coupled to the art: a level's backdrop layers tile on one axis only, so flipping this
+     * without regenerating them puts a seam in the sky once per wrap.
+     */
+    public Orientation orientation() {
+        return orientation;
     }
 
     public String label() {

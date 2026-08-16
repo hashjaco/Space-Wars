@@ -4,6 +4,7 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
+import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
@@ -11,6 +12,7 @@ import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
+import com.hashimjacobs.spacecase.entity.Rocket;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 
@@ -181,17 +183,103 @@ class BossAndDropsTest {
         for (int tick = 0; tick < 400; tick++) {
             java.util.List<EnemyShip> enemies = world.enemies();
             for (int i = 0, count = enemies.size(); i < count; i++) {
-                EnemyShip enemy = enemies.get(i);
-                int cooldown = EnemyWeapons.cooldownFor(enemy, 60);
-                if (enemy.tickWeapon(cooldown)) {
-                    EnemyWeapons.fire(world, enemy, target, LEVEL);
-                }
+                // Through driveWeapons rather than fire, so the guard covers the rocket path too.
+                EnemyWeapons.driveWeapons(world, enemies.get(i), target, LEVEL, 60,
+                        SoundPlayer.SILENT);
             }
             world.update();
             world.sweep();
         }
 
         assertTrue(boss.isAlive(), "the boss should still be fighting");
+    }
+
+    @Test
+    void aScaledFlagshipIsTougherThanAnAuthoredOne() {
+        EnemyShip authored = new EnemyShip(Boss.SENTINEL, 400, 90);
+        EnemyShip scaled = new EnemyShip(Boss.SENTINEL, 400, 90, 2.0);
+
+        assertEquals(1.0, authored.scale());
+        assertEquals(2.0, scaled.scale());
+
+        // Same proportional damage takes twice as many points off the scaled one.
+        authored.takeDamage(Boss.SENTINEL.health());
+        assertTrue(!authored.isAlive());
+        scaled.takeDamage(Boss.SENTINEL.health());
+        assertTrue(scaled.isAlive(), "twice the health should survive one authored health bar");
+    }
+
+    @Test
+    void aScaledFlagshipFiresFaster() {
+        EnemyShip authored = new EnemyShip(Boss.SENTINEL, 400, 90);
+        EnemyShip scaled = new EnemyShip(Boss.SENTINEL, 400, 90, 2.0);
+
+        int slow = EnemyWeapons.cooldownFor(authored, 60);
+        int fast = EnemyWeapons.cooldownFor(scaled, 60);
+
+        assertTrue(fast < slow, "scaling should shorten the gap between volleys");
+        assertTrue(fast >= 4, "but never below the floor that keeps a pattern readable");
+    }
+
+    @Test
+    void anOrdinaryEnemyIsNeverScaled() {
+        EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 100, 100);
+
+        assertEquals(1.0, scout.scale());
+        assertEquals(60, EnemyWeapons.cooldownFor(scout, 60), "scouts use the difficulty cooldown");
+    }
+
+    @Test
+    void aFlagshipEventuallyLaunchesTrackingRockets() {
+        World world = new World(GameMode.SOLO);
+        EnemyShip boss = new EnemyShip(Boss.SENTINEL, 400, 90);
+        world.addEnemy(boss);
+        PlayerShip target = world.players().get(0);
+
+        boolean sawRocket = false;
+        for (int tick = 0; tick < 600 && !sawRocket; tick++) {
+            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, SoundPlayer.SILENT);
+            sawRocket = world.bullets().stream().anyMatch(b -> b instanceof Rocket);
+        }
+
+        assertTrue(sawRocket, "the secondary weapon should fire within ten seconds");
+    }
+
+    @Test
+    void rocketsHitHarderAndFlySlowerThanOrdinaryBossFire() {
+        World world = new World(GameMode.SOLO);
+        EnemyShip boss = new EnemyShip(Boss.SENTINEL, 400, 90);
+        world.addEnemy(boss);
+        PlayerShip target = world.players().get(0);
+
+        for (int tick = 0; tick < 600; tick++) {
+            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, SoundPlayer.SILENT);
+        }
+
+        Bullet rocket = world.bullets().stream()
+                .filter(b -> b instanceof Rocket)
+                .findFirst()
+                .orElseThrow();
+
+        assertTrue(rocket.damage() > GameConfig.ENEMY_BULLET_DAMAGE);
+        assertTrue(Math.hypot(rocket.velocityX(), rocket.velocityY())
+                < GameConfig.ENEMY_BULLET_SPEED, "a rocket is the slow, heavy option");
+    }
+
+    /** A spawner is venting escorts, not shooting, so it must not be firing rockets either way. */
+    @Test
+    void anOrdinaryEnemyNeverLaunchesRockets() {
+        World world = new World(GameMode.SOLO);
+        EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 400, 100);
+        world.addEnemy(scout);
+        PlayerShip target = world.players().get(0);
+
+        for (int tick = 0; tick < 600; tick++) {
+            EnemyWeapons.driveWeapons(world, scout, target, LEVEL, 60, SoundPlayer.SILENT);
+        }
+
+        assertTrue(world.bullets().stream().noneMatch(b -> b instanceof Rocket));
+        assertTrue(world.bullets().size() > 0, "it should still be firing ordinary shots");
     }
 
     @Test
@@ -202,7 +290,7 @@ class BossAndDropsTest {
         world.addEnemy(boss);
 
         for (int i = 0; i < 2000; i++) {
-            boss.trackHorizontally(target);
+            boss.trackAcross(target);
             world.update();
             world.sweep();
         }

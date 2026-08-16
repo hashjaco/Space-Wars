@@ -99,6 +99,121 @@ class DebriefTest {
         assertEquals(10, debrief.clearSeconds(), "600 steps at 60 a second is ten seconds");
     }
 
+    /** Kills through the ladder, with the tally holding everything else constant. */
+    private static Debrief afterKilling(int enemies) {
+        Debrief.Tally end = new Debrief.Tally(enemies, 0, 0, 0, 99, 3);
+        return Debrief.of("ACE", 1, PAR, CLEAN_START, end, PAR);
+    }
+
+    /** Damage through the ladder, likewise. */
+    private static Debrief afterTaking(int damage) {
+        Debrief.Tally end = new Debrief.Tally(0, 0, 0, 0, damage, 3);
+        return Debrief.of("ACE", 1, PAR, CLEAN_START, end, PAR);
+    }
+
+    private static int bonusStartingWith(Debrief debrief, String prefix) {
+        return debrief.bonuses().stream()
+                .filter(bonus -> bonus.label().startsWith(prefix))
+                .mapToInt(Debrief.Bonus::points)
+                .findFirst()
+                .orElse(0);
+    }
+
+    @Test
+    void theKillLadderPaysMoreAtEachTier() {
+        assertEquals(0, bonusStartingWith(afterKilling(9), "Purge"), "below the first rung");
+        int sweep = bonusStartingWith(afterKilling(10), "Purge");
+        int strike = bonusStartingWith(afterKilling(20), "Purge");
+        int purge = bonusStartingWith(afterKilling(35), "Purge");
+
+        assertTrue(sweep > 0);
+        assertTrue(strike > sweep);
+        assertTrue(purge > strike);
+        assertEquals(purge, bonusStartingWith(afterKilling(200), "Purge"), "the top rung is the cap");
+    }
+
+    @Test
+    void onlyOneKillTierIsEverAwarded() {
+        long rows = afterKilling(40).bonuses().stream()
+                .filter(bonus -> bonus.label().startsWith("Purge"))
+                .count();
+        assertEquals(1, rows);
+    }
+
+    @Test
+    void theKillBonusNamesTheCountSoANearMissIsLegible() {
+        assertTrue(afterKilling(22).bonuses().stream()
+                .anyMatch(bonus -> bonus.label().equals("Purge  22 kills")));
+    }
+
+    @Test
+    void flyingCleanPaysBestAndEachTierBelowItPaysLess() {
+        int untouched = bonusStartingWith(afterTaking(0), "Untouched");
+        int unscathed = bonusStartingWith(afterTaking(20), "Unscathed");
+        int grazed = bonusStartingWith(afterTaking(60), "Grazed");
+
+        assertTrue(untouched > unscathed);
+        assertTrue(unscathed > grazed);
+        assertTrue(grazed > 0);
+        assertEquals(0, bonusStartingWith(afterTaking(61), "Grazed"), "past the last rung");
+    }
+
+    @Test
+    void exactlyOneDamageTierIsEverAwarded() {
+        for (int damage : new int[]{0, 1, 20, 21, 60, 61, 500}) {
+            long rows = afterTaking(damage).bonuses().stream()
+                    .filter(bonus -> bonus.label().startsWith("Untouched")
+                            || bonus.label().startsWith("Unscathed")
+                            || bonus.label().startsWith("Grazed"))
+                    .count();
+            assertTrue(rows <= 1, "two damage rows at " + damage + " damage");
+        }
+    }
+
+    /** The whole point of the ladder: avoiding damage must never pay less than taking it. */
+    @Test
+    void takingLessDamageNeverPaysLess() {
+        int previous = Integer.MAX_VALUE;
+        for (int damage : new int[]{0, 20, 60, 61}) {
+            int paid = afterTaking(damage).totalBonus();
+            assertTrue(paid <= previous, "taking " + damage + " damage paid more than taking less");
+            previous = paid;
+        }
+    }
+
+    @Test
+    void garageCreditsTrackTheBonusAndTheLevel() {
+        Debrief.Tally end = new Debrief.Tally(0, 0, 0, 0, 99, 3);
+        Debrief early = Debrief.of("ACE", 1, PAR, CLEAN_START, end, PAR);
+        Debrief late = Debrief.of("ACE", 8, PAR, CLEAN_START, end, PAR);
+
+        assertTrue(early.credits() > 0, "even a scrappy clear should buy something");
+        assertTrue(late.credits() > early.credits(),
+                "a later level pays more, matching its bigger bounty");
+        assertTrue(late.credits() < late.totalBonus(),
+                "credits are a fraction of the score bonus, not a second copy of it");
+    }
+
+    /**
+     * The credit rate against what the garage actually charges.
+     *
+     * Loose bounds on purpose -- this is a guard against the divisor being moved without anyone
+     * checking what it does to progression, not a pin on the exact numbers. The first upgrade step
+     * costs 40 and the whole catalogue is roughly 2500.
+     */
+    @Test
+    void aLevelPaysEnoughToBuySomethingButNotTheWholeGarage() {
+        Debrief.Tally decent = new Debrief.Tally(18, 4, 200, 130, 45, 3);
+        Debrief early = Debrief.of("ACE", 1, PAR, CLEAN_START, decent, PAR);
+        Debrief late = Debrief.of("ACE", 8, PAR, CLEAN_START, decent, PAR);
+
+        assertTrue(early.credits() >= 40,
+                "a first-level clear should buy at least one upgrade step, got " + early.credits());
+        assertTrue(late.credits() < 500,
+                "one level should not bankroll a whole track, got " + late.credits());
+        assertTrue(late.credits() > early.credits(), "later levels pay more");
+    }
+
     private static int bountyFor(int levelNumber) {
         Debrief.Tally end = new Debrief.Tally(0, 0, 0, 0, 99, 3);
         Debrief debrief = Debrief.of("ACE", levelNumber, PAR, CLEAN_START, end, PAR);

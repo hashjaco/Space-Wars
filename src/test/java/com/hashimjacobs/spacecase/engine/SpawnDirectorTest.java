@@ -4,6 +4,7 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
+import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
@@ -192,6 +193,76 @@ class SpawnDirectorTest {
                 "a second pass should spawn harder; first " + firstPass + " later " + secondPass);
     }
 
+    /**
+     * Resuming starts on the saved level with the saved counters, and everything else at zero.
+     *
+     * The zeroes are the point: a checkpoint is only taken at a level boundary, so a resumed run
+     * must open on wave one with no boss pending, exactly as advanceLevel would have left it.
+     */
+    @Test
+    void resumingStartsOnTheSavedLevelWithACleanWaveClock() {
+        SpawnDirector director = new SpawnDirector(new Random(1), Difficulty.NORMAL,
+                GameMode.SOLO.rules(), Level.values()[5], 22, 3);
+
+        assertEquals(Level.values()[5], director.level());
+        assertEquals(22, director.wavesSurvived());
+        assertEquals(3, director.loop());
+        assertEquals(1, director.waveInLevel(), "a resumed level opens on its first wave");
+        assertEquals(0, director.ticksIntoLevel());
+        assertFalse(director.levelCleared());
+    }
+
+    @Test
+    void aResumedRunAdvancesNormallyFromWhereItRestarted() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(new Random(2), Difficulty.NORMAL,
+                GameMode.SOLO.rules(), Level.values()[2], 9, 1);
+
+        runUntilBoss(director, world, 20000);
+        clearLevel(director, world);
+
+        assertEquals(Level.values()[3], director.level());
+    }
+
+    /**
+     * The end-to-end version of the boss-scaling knob.
+     *
+     * {@code DifficultyTest} checks the formula; this checks it actually reaches the ship, which is
+     * the part that would silently stop working if the constructor argument were ever dropped.
+     */
+    @Test
+    void loopingMakesFlagshipsTougher() {
+        double firstPass = bossScaleAfterClearing(0);
+        double secondPass = bossScaleAfterClearing(Level.values().length);
+
+        assertTrue(secondPass > firstPass,
+                "level one should be harder on the second pass; first " + firstPass
+                        + " later " + secondPass);
+    }
+
+    @Test
+    void flagshipsGetTougherWithinASinglePass() {
+        double firstLevel = bossScaleAfterClearing(0);
+        double laterLevel = bossScaleAfterClearing(3);
+
+        assertTrue(laterLevel > firstLevel);
+    }
+
+    /** The scale carried by the flagship that arrives after clearing the given number of levels. */
+    private double bossScaleAfterClearing(int levelsToClear) {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(7), Difficulty.NORMAL, GameMode.SOLO.rules());
+
+        for (int i = 0; i < levelsToClear; i++) {
+            runUntilBoss(director, world, 20000);
+            clearLevel(director, world);
+        }
+        runUntilBoss(director, world, 20000);
+
+        return world.boss().scale();
+    }
+
     /** Enemies spawned over a fixed window after clearing the given number of levels. */
     private int countEnemiesSpawnedOnLevel(int levelsToClear) {
         World world = new World(GameMode.SOLO);
@@ -229,8 +300,19 @@ class SpawnDirectorTest {
         return false;
     }
 
+    /**
+     * Destroys the whole flagship, parts included.
+     *
+     * A multi-part boss is not dead until its heads are: the level stays open while any of them
+     * lives, which is the point of them. Killing only the torso here would leave the director
+     * waiting forever.
+     */
     private void killBoss(World world) {
-        world.boss().kill();
+        EnemyShip flagship = world.boss();
+        for (EnemyShip part : flagship.parts()) {
+            part.kill();
+        }
+        flagship.kill();
         world.sweep();
     }
 

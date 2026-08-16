@@ -1,6 +1,7 @@
 package com.hashimjacobs.spacecase.entity;
 
 import com.hashimjacobs.spacecase.asset.BossArt;
+import com.hashimjacobs.spacecase.asset.MusicCue;
 
 /**
  * The flagship that ends a level, and how it fights.
@@ -44,7 +45,26 @@ public enum Boss {
 
     /** Level 8. The last thing between the run and its next loop, and armed like it. */
     EXODUS_DREADNOUGHT("Exodus Dreadnought", BossArt.EXODUS_DREADNOUGHT, 1500, 1500,
-            BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.RING);
+            BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.RING),
+
+    /**
+     * Level 9. A burrowing thing that lunges out of the right-hand wall and withdraws into it.
+     *
+     * The first boss in the run that is alive rather than built, and the first fought side-on.
+     */
+    DUNE_LEVIATHAN("Dune Leviathan", BossArt.DUNE_LEVIATHAN, 1700, 1600,
+            BossPhase.SPREAD, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
+
+    /**
+     * Level 10. Three heads on necks of their own, each its own target.
+     *
+     * The body is armoured until every head is down; killing one silences that head's fire. It
+     * opens on SPAWNER deliberately -- the torso vents crawlers while the heads do the shooting,
+     * so there is never a fourth gun in the mix.
+     */
+    HYDRA("Hydra", BossArt.HYDRA, 2000, 1900,
+            BossPhase.SPAWNER, BossPhase.RING, BossPhase.AIMED_BURST,
+            3, BossArt.HYDRA_HEAD);
 
     private final String label;
     private final BossArt art;
@@ -53,9 +73,18 @@ public enum Boss {
     private final BossPhase openingPhase;
     private final BossPhase middlePhase;
     private final BossPhase finalPhase;
+    private final int heads;
+    private final BossArt headArt;
 
+    /** A flagship that is one piece, which is all of them but the hydra. */
     Boss(String label, BossArt art, int health, int scoreValue,
          BossPhase openingPhase, BossPhase middlePhase, BossPhase finalPhase) {
+        this(label, art, health, scoreValue, openingPhase, middlePhase, finalPhase, 0, null);
+    }
+
+    Boss(String label, BossArt art, int health, int scoreValue,
+         BossPhase openingPhase, BossPhase middlePhase, BossPhase finalPhase,
+         int heads, BossArt headArt) {
         this.label = label;
         this.art = art;
         this.health = health;
@@ -63,6 +92,33 @@ public enum Boss {
         this.openingPhase = openingPhase;
         this.middlePhase = middlePhase;
         this.finalPhase = finalPhase;
+        this.heads = heads;
+        this.headArt = headArt;
+    }
+
+    /** Separately targetable heads on their own necks; zero for a flagship that is one piece. */
+    public int heads() {
+        return heads;
+    }
+
+    /** The frames one head animates through, or null when this flagship has none. */
+    public BossArt headArt() {
+        return headArt;
+    }
+
+    /**
+     * Which cue plays while this flagship is on screen.
+     *
+     * A method rather than a ninth constructor argument, so the eight original constants stay as
+     * they were. Putting the choice on {@code MusicCue} instead would point {@code asset} at
+     * {@code entity} and close a package cycle.
+     */
+    public MusicCue music() {
+        return switch (this) {
+            case HYDRA -> MusicCue.HYDRA_BOSS;
+            case DUNE_LEVIATHAN -> MusicCue.LEVIATHAN_BOSS;
+            default -> MusicCue.BOSS;
+        };
     }
 
     /** Phase for this boss at the given 0..1 remaining-health fraction. */

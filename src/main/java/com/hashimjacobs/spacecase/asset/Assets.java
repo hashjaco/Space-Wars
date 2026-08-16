@@ -99,23 +99,30 @@ public final class Assets {
      * while this runs and poll {@link #warmedUp}. Takes the pieces rather than a level because the
      * asset package cannot depend on {@code mode}, which depends on it.
      */
-    public static void preload(List<Sprite> layers, BossArt art) {
-        requireLoaded(art);
+    public static void preload(List<Sprite> layers, BossArt... arts) {
         WARMING.clear();
         for (Sprite layer : layers) {
             Image image = IMAGES.computeIfAbsent(layer, Assets::decodeInBackground);
             WARMING.add(image);
         }
-        List<Image> frames = BOSS_FRAMES.computeIfAbsent(art, missing -> {
-            List<Image> decoding = new ArrayList<>(missing.frameCount());
-            for (int index = 1; index <= missing.frameCount(); index++) {
-                Image frame = decodeInBackground(missing.framePath(index),
-                        missing.width(), missing.height());
-                decoding.add(frame);
+        // Varargs because a multi-part flagship has more than one set of frames, and its heads
+        // are on screen from the same tick the torso is.
+        for (BossArt art : arts) {
+            if (art == null) {
+                continue;
             }
-            return Collections.unmodifiableList(decoding);
-        });
-        WARMING.addAll(frames);
+            requireLoaded(art);
+            List<Image> frames = BOSS_FRAMES.computeIfAbsent(art, missing -> {
+                List<Image> decoding = new ArrayList<>(missing.frameCount());
+                for (int index = 1; index <= missing.frameCount(); index++) {
+                    Image frame = decodeInBackground(missing.framePath(index),
+                            missing.width(), missing.height());
+                    decoding.add(frame);
+                }
+                return Collections.unmodifiableList(decoding);
+            });
+            WARMING.addAll(frames);
+        }
     }
 
     /**

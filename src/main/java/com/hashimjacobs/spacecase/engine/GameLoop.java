@@ -8,6 +8,7 @@ import java.util.Random;
 import java.util.function.Consumer;
 
 import javafx.animation.AnimationTimer;
+import javafx.scene.input.KeyCode;
 
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.MusicCue;
@@ -15,11 +16,16 @@ import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
+import com.hashimjacobs.spacecase.garage.GarageSession;
+import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Rank;
+import com.hashimjacobs.spacecase.prefs.SaveGames;
+import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
 
@@ -29,13 +35,13 @@ import com.hashimjacobs.spacecase.prefs.Standing;
  * Removal is deliberately a separate step that runs after collision handling, never during it.
  *
  * Clearing a level does not drop straight into the next one. The loop runs a short {@link Phase}
- * sequence instead -- fly off the top, read the debrief, then warp -- which is what turns eight levels
- * into eight places rather than one endless wave stream.
+ * sequence instead -- fly off the top, read the debrief, then warp -- which is what turns ten levels
+ * into ten places rather than one endless wave stream.
  */
 public final class GameLoop {
 
     /** Where the loop is between levels. Everything except FIGHTING is the celebration. */
-    private enum Phase { FIGHTING, VICTORY_LAP, DEBRIEF, WARP }
+    private enum Phase { FIGHTING, VICTORY_LAP, DEBRIEF, GARAGE, WARP }
 
     private static final int VICTORY_LAP_TICKS = 96;
     private static final double VICTORY_LAP_SPEED = 2.5;
@@ -49,6 +55,15 @@ public final class GameLoop {
      */
     private static final int WARP_MINIMUM_TICKS = 78;
 
+    /**
+     * Health at or below which the alarm sounds, and how often it repeats.
+     *
+     * ponytail: the same quarter-health threshold is spelled as a fraction in {@link Hud}. Two
+     * literals in two files beats a shared constant nobody else would ever read.
+     */
+    private static final int LOW_HEALTH = 25;
+    private static final int LOW_HEALTH_ALARM_TICKS = 90;
+
     private final World world;
     private final SpawnDirector director;
     private final CollisionSystem collisions;
@@ -57,6 +72,8 @@ public final class GameLoop {
     private final SoundBank sounds;
     private final Settings settings;
     private final Pilots pilots;
+    private final HighScores highScores;
+    private final SaveGames saves;
     private final List<ShipController> controllers = new ArrayList<>();
     private final Consumer<RoundResult> onRoundOver;
 
@@ -72,21 +89,107 @@ public final class GameLoop {
     private boolean paused;
     private boolean finished;
     private boolean bossMusicPlaying;
+    private GarageSession garage;
+    private SaveSlot levelStartSave;
 
+    /** Toggles the frame-time readout. Held-key edge, so one press flips it rather than sixty. */
+    private static final KeyCode FRAME_METER_KEY = KeyCode.F3;
+    private static final long METER_WINDOW_NANOS = 1_000_000_000L;
+
+    private boolean showFrameMeter;
+    private boolean meterKeyWasDown;
+    private long lastFrameNanos;
+    private long meterWindowStart;
+    private double worstMs;
+    private int worstSteps;
+    private double shownMs;
+    private int shownSteps;
+
+    /** A fresh run from level one, with nothing to restore and nowhere to checkpoint. */
     public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
                     Settings settings, Pilots pilots, Random random,
                     Consumer<RoundResult> onRoundOver) {
+        this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver, null, null, null);
+    }
+
+    /**
+     * @param highScores where per-level bests are recorded; may be null in tests
+     * @param saves      where checkpoints are written; may be null in tests
+     * @param resume     a saved run or a level-select replay to start from, or null for level one
+     */
+    public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
+                    Settings settings, Pilots pilots, Random random,
+                    Consumer<RoundResult> onRoundOver,
+                    HighScores highScores, SaveGames saves, SaveSlot resume) {
         this.world = new World(mode, List.of(pilots.name(1), pilots.name(2)));
         this.renderer = renderer;
         this.input = input;
         this.sounds = sounds;
         this.settings = settings;
         this.pilots = pilots;
+        this.highScores = highScores;
+        this.saves = saves;
         this.onRoundOver = onRoundOver;
-        this.director = new SpawnDirector(random, settings.difficulty(), mode.rules());
+        this.director = resume == null
+                ? new SpawnDirector(random, settings.difficulty(), mode.rules())
+                : new SpawnDirector(random, settings.difficulty(), mode.rules(),
+                        resume.level(), resume.wavesSurvived(), resume.loop());
         this.collisions = new CollisionSystem(sounds, random);
         attachControllers();
+        fitSavedLoadouts();
+        restore(resume);
         snapshotLevelStart();
+        snapshotSave();
+    }
+
+    /**
+     * Puts a saved run's counters back on the ships.
+     *
+     * After {@link #fitSavedLoadouts()} and never touching the loadout: a replay is for flying an
+     * old level in the ship you have now. A level-select replay carries an empty player list, so
+     * the loop bound skips it and no separate branch is needed for that case.
+     */
+    private void restore(SaveSlot resume) {
+        if (resume == null) {
+            return;
+        }
+        List<PlayerShip> players = world.players();
+        for (int i = 0; i < players.size() && i < resume.players().size(); i++) {
+            players.get(i).restore(resume.players().get(i));
+        }
+    }
+
+    /**
+     * Freezes where this level began, for the automatic checkpoint and for a manual save.
+     *
+     * Kept apart from {@link #snapshotLevelStart()}, which captures the same moment for the
+     * debrief to subtract from: one is display arithmetic and the other is persistence, and two
+     * adjacent calls is cheaper than one method that does both jobs.
+     */
+    private void snapshotSave() {
+        levelStartSave = new SaveSlot(world.mode(), director.level(), director.wavesSurvived(),
+                director.loop(), world.players().stream().map(PlayerShip::progress).toList());
+        if (saves != null) {
+            saves.saveCheckpoint(levelStartSave);
+        }
+    }
+
+    /** The current level's opening state, which is what the pause menu writes to a slot. */
+    public SaveSlot checkpoint() {
+        return levelStartSave;
+    }
+
+    /**
+     * Puts each pilot back in the ship they last flew.
+     *
+     * Before the first level rather than after it, so upgrades bought on a previous run are already
+     * fitted when the run opens rather than arriving at the first garage.
+     */
+    private void fitSavedLoadouts() {
+        for (PlayerShip player : world.players()) {
+            String code = pilots.loadoutCode(player.name());
+            player.applyLoadout(Loadout.decode(code, player.playerNumber()));
+        }
     }
 
     private void attachControllers() {
@@ -126,10 +229,48 @@ public final class GameLoop {
         renderer.draw(world, director);
         switch (phase) {
             case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefArmed);
+            case GARAGE -> renderer.drawGarage(garage, phaseTicks);
             case WARP -> renderer.drawWarpVeil(warpOpacity());
             default -> {
             }
         }
+        trackFrame(frameNanos, steps);
+        if (showFrameMeter) {
+            renderer.drawFrameMeter(shownMs, shownSteps);
+        }
+    }
+
+    /**
+     * Records the worst frame of each second, not the mean.
+     *
+     * A run that averages 60fps with one 40ms spike in it reads as smooth on a mean and reads as a
+     * stutter to whoever is playing; the spike is the only number worth showing. The step count that
+     * came with the worst frame rides along, because a frame that ran several simulation steps was
+     * catching up from a stall rather than being slow to draw -- the two want different fixes.
+     */
+    private void trackFrame(long frameNanos, int steps) {
+        if (lastFrameNanos != 0) {
+            double elapsedMs = (frameNanos - lastFrameNanos) / 1_000_000.0;
+            if (elapsedMs > worstMs) {
+                worstMs = elapsedMs;
+                worstSteps = steps;
+            }
+        }
+        lastFrameNanos = frameNanos;
+
+        if (frameNanos - meterWindowStart >= METER_WINDOW_NANOS) {
+            shownMs = worstMs;
+            shownSteps = worstSteps;
+            worstMs = 0;
+            worstSteps = 0;
+            meterWindowStart = frameNanos;
+        }
+
+        boolean down = input.isHeld(FRAME_METER_KEY);
+        if (down && !meterKeyWasDown) {
+            showFrameMeter = !showFrameMeter;
+        }
+        meterKeyWasDown = down;
     }
 
     /**
@@ -155,6 +296,10 @@ public final class GameLoop {
         if (timer != null) {
             timer.stop();
         }
+        // A round can end from inside the garage -- quitting to the menu, for one -- and the router
+        // outlives this loop because the scene does. Leaving it installed hands every keystroke on
+        // the next screen to a garage that is no longer running.
+        input.setMenuRouter(null);
     }
 
     /** One simulation step. Deliberately does no drawing -- {@link #frame} owns that. */
@@ -163,6 +308,7 @@ public final class GameLoop {
             case FIGHTING -> stepFight();
             case VICTORY_LAP -> stepVictoryLap();
             case DEBRIEF -> stepDebrief();
+            case GARAGE -> stepGarage();
             case WARP -> stepWarp();
         }
     }
@@ -178,6 +324,7 @@ public final class GameLoop {
         collisions.resolve(world);
         world.sweep();
 
+        warnLowHealth();
         updateBossMusic();
         if (director.levelCleared()) {
             beginVictoryLap();
@@ -196,6 +343,9 @@ public final class GameLoop {
         phase = Phase.VICTORY_LAP;
         phaseTicks = 0;
         scoreLevel();
+        // After scoring, never before: the debrief subtracts a lives tally, so handing a fallen
+        // player three lives first would report a level they did not fly as one they survived.
+        world.reviveFallenAllies();
         world.clearBattlefield();
         sounds.play(SoundFx.LEVEL_CLEAR);
     }
@@ -215,7 +365,8 @@ public final class GameLoop {
             if (player.isOut()) {
                 continue;
             }
-            player.setPosition(player.x(), player.y() + player.facing().yDirection() * step);
+            player.setPosition(player.x() + player.facing().xDirection() * step,
+                    player.y() + player.facing().yDirection() * step);
         }
         if (phaseTicks >= VICTORY_LAP_TICKS) {
             phase = Phase.DEBRIEF;
@@ -242,11 +393,77 @@ public final class GameLoop {
         if (!input.anyHeld()) {
             return;
         }
+        openGarage();
+        // Started here rather than on the way out of the garage: the next level's art now decodes
+        // while the pilots shop, so the warp afterwards is almost always instant.
+        Level next = director.level().next();
+        // Head art too, or a multi-part flagship stutters through a synchronous decode on arrival.
+        Assets.preload(next.layers(), next.boss().art(), next.boss().headArt());
+    }
+
+    /**
+     * Opens the garage for everyone still flying.
+     *
+     * A pilot who is out gets no bay: they have no lives left, so either a partner is about to
+     * revive them on the next level clear or the round is already over, and either way there is
+     * nothing for them to spend on right now.
+     */
+    private void openGarage() {
+        List<GarageSession.Seat> seats = new ArrayList<>();
+        List<Integer> credits = new ArrayList<>();
+        List<Loadout> loadouts = new ArrayList<>();
+        for (ShipController controller : controllers) {
+            PlayerShip player = controller.ship();
+            if (player.isOut()) {
+                continue;
+            }
+            PlayerControls keys = controller.controls();
+            seats.add(new GarageSession.Seat(player.name(), keys.up(), keys.down(),
+                    keys.left(), keys.right(), keys.fire()));
+            credits.add(pilots.credits(player.name()));
+            loadouts.add(player.loadout());
+        }
+        garage = new GarageSession(seats, credits, loadouts);
+        phase = Phase.GARAGE;
+        phaseTicks = 0;
+        // Takes the keyboard off the ships and clears anything still held, so the button that
+        // dismissed the debrief cannot also buy the first upgrade.
+        input.setMenuRouter(garage::handleKey);
+        sounds.playMusic(MusicCue.GARAGE);
+    }
+
+    /**
+     * Holds until every pilot has launched, then banks what they bought.
+     *
+     * Note this can finish on the tick it starts when nobody has a bay -- a session with no seats
+     * is done by definition -- which is the behaviour wanted: no bays, nothing to wait for.
+     */
+    private void stepGarage() {
+        phaseTicks++;
+        world.tickScenery();
+        if (!garage.everyoneDone()) {
+            return;
+        }
+        commitGarage();
+        garage = null;
+        input.setMenuRouter(null);
         phase = Phase.WARP;
         phaseTicks = 0;
-        input.clear();
-        Level next = director.level().next();
-        Assets.preload(next.layers(), next.boss().art());
+    }
+
+    /** Writes each pilot's spending back to their record and onto the ship they are flying. */
+    private void commitGarage() {
+        for (int bay = 0; bay < garage.bayCount(); bay++) {
+            String pilotName = garage.pilotName(bay);
+            Loadout loadout = garage.loadout(bay);
+            pilots.setCredits(pilotName, garage.credits(bay));
+            pilots.setLoadoutCode(pilotName, loadout.encode());
+            for (PlayerShip player : world.players()) {
+                if (player.name().equals(pilotName)) {
+                    player.applyLoadout(loadout);
+                }
+            }
+        }
     }
 
     /** Blackout while the next level's art decodes, then hand the ships back to the players. */
@@ -257,10 +474,14 @@ public final class GameLoop {
             return;
         }
         director.advanceLevel();
+        // Before the spawns are restored, since arriving at a level that runs the other way moves
+        // where "back of the arena" is.
+        world.setOrientation(director.level().orientation());
         for (PlayerShip player : world.players()) {
             player.returnToSpawn();
         }
         snapshotLevelStart();
+        snapshotSave();
         sounds.playMusic(world.mode().music());
         bossMusicPlaying = false;
         phase = Phase.FIGHTING;
@@ -297,8 +518,36 @@ public final class GameLoop {
             Rank held = pilots.rank(player.name());
             player.addScore(debrief.totalBonus());
             int career = pilots.addCareerScore(player.name(), debrief.totalBonus());
+            // Paid here rather than in the garage, so the balance is already banked by the time
+            // the bay opens a few phases later and a level's work is spendable the same level.
+            pilots.addCredits(player.name(), debrief.credits());
+            if (highScores != null) {
+                // The level's own bonus, not the running score: a replay of level two and a deep
+                // run passing through it have wildly different totals but comparable level work.
+                highScores.submit(world.mode(), director.level(), debrief.totalBonus());
+            }
             Rank earned = Rank.forCareerScore(career);
             standings.add(new Standing(player.name(), earned, career, earned != held));
+        }
+    }
+
+    /**
+     * Beeps while anyone is nearly dead.
+     *
+     * Retriggered on an interval rather than looped: a looping clip would need a stop call, and
+     * with it a decision about every way a fight can end. This carries no state at all, sounds once
+     * for the pair rather than once each, and goes quiet by itself the moment health comes back or
+     * the loop leaves the fight.
+     */
+    private void warnLowHealth() {
+        if (world.tick() % LOW_HEALTH_ALARM_TICKS != 0) {
+            return;
+        }
+        for (PlayerShip player : world.players()) {
+            if (!player.isOut() && player.health() <= LOW_HEALTH) {
+                sounds.play(SoundFx.LOW_HEALTH);
+                return;
+            }
         }
     }
 
@@ -309,7 +558,10 @@ public final class GameLoop {
             return;
         }
         bossMusicPlaying = bossOnScreen;
-        MusicCue track = bossOnScreen ? MusicCue.BOSS : world.mode().music();
+        // The flagship picks its own cue, so the two monsters get their own music instead of the
+        // track every warship shares. World.boss() answers with a surviving part when the torso is
+        // already gone, which is why this can dereference it -- see there.
+        MusicCue track = bossOnScreen ? world.boss().boss().music() : world.mode().music();
         sounds.playMusic(track);
     }
 
@@ -328,13 +580,12 @@ public final class GameLoop {
             if (target == null) {
                 continue;
             }
-            enemy.trackHorizontally(target);
-            boolean onScreen = enemy.y() > -enemy.height() / 2;
-            int cooldown = EnemyWeapons.cooldownFor(enemy, difficultyCooldown);
-            if (!onScreen || !enemy.tickWeapon(cooldown)) {
+            enemy.trackAcross(target);
+            if (!enemy.hasEntered()) {
                 continue;
             }
-            EnemyWeapons.fire(world, enemy, target, director.level());
+            EnemyWeapons.driveWeapons(world, enemy, target, director.level(), difficultyCooldown,
+                    sounds);
         }
     }
 
@@ -367,8 +618,10 @@ public final class GameLoop {
             input.clear();
             return;
         }
-        // Forget the paused interval so it is not replayed as simulation debt on resume.
+        // Forget the paused interval so it is not replayed as simulation debt on resume, and so the
+        // meter does not report the whole pause as one catastrophic frame.
         timestep.reset();
+        lastFrameNanos = 0;
     }
 
     public boolean isPaused() {

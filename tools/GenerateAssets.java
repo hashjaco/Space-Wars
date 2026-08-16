@@ -6,6 +6,7 @@ import java.awt.Rectangle;
 import java.awt.RenderingHints;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -60,6 +61,7 @@ public final class GenerateAssets {
         asteroids();
         enemies();
         bosses();
+        monsters();
         pickups();
         backgrounds();
 
@@ -68,6 +70,7 @@ public final class GenerateAssets {
         thud();
         gameOverSting();
         levelClearSting();
+        lowHealthAlarm();
 
         System.out.println("done");
     }
@@ -112,6 +115,31 @@ public final class GenerateAssets {
     /** The checkerboard is two near-white greys; every ship pixel is tinted or much darker. */
     private static final int CHECKER_MIN_BRIGHTNESS = 238;
 
+    /**
+     * Garage paint jobs, as a hue applied to player one's cut frames.
+     *
+     * A hue rotation rather than a repaint: the sheet's shading and its black outlines survive
+     * untouched, since outlines are unsaturated and a hue swap cannot move them. Chrome is the odd
+     * one out -- it desaturates rather than recolours, so its hue is arbitrary.
+     */
+    private enum Paintwork {
+        AZURE(0.55f, 1.0f),
+        AMBER(0.10f, 1.0f),
+        VIOLET(0.76f, 1.0f),
+        CHROME(0.00f, 0.15f);
+
+        private final float hue;
+        private final float saturationScale;
+
+        Paintwork(float hue, float saturationScale) {
+            this.hue = hue;
+            this.saturationScale = saturationScale;
+        }
+    }
+
+    /** Body kits, drawn as transparent decals so one set serves every paint job. */
+    private static final String[] KITS = {"fins", "armour", "lance"};
+
     private static void players() throws IOException {
         BufferedImage sheet = ImageIO.read(ART.resolve("spritesheet.png").toFile());
         boolean[] background = keyOutCheckerboard(sheet);
@@ -126,6 +154,132 @@ public final class GenerateAssets {
                 write(hitFlash(frame), SPRITES.resolve(name + "-hit.png"));
             }
         }
+
+        // Everything below is bought in the garage. Both sets derive from player one's row, so the
+        // whole cosmetic catalogue costs one extra cut per pose rather than new hand-drawn art.
+        for (int pose = 0; pose < POSES.length; pose++) {
+            Rectangle cell = cells.get(PLAYER_ROWS[0] * POSES.length + pose);
+            BufferedImage hull = cut(sheet, background, cell);
+
+            for (Paintwork paint : Paintwork.values()) {
+                BufferedImage repainted = recolour(hull, paint);
+                String name = "player/" + paint.name().toLowerCase() + "-" + POSES[pose];
+                write(repainted, SPRITES.resolve(name + ".png"));
+                write(hitFlash(repainted), SPRITES.resolve(name + "-hit.png"));
+            }
+            for (int kit = 0; kit < KITS.length; kit++) {
+                BufferedImage decal = kitOverlay(hull, kit);
+                write(decal, SPRITES.resolve("player/kit-" + KITS[kit] + "-" + POSES[pose] + ".png"));
+            }
+        }
+    }
+
+    /** Rotates every opaque pixel's hue, preserving its brightness, shading and alpha. */
+    private static BufferedImage recolour(BufferedImage frame, Paintwork paint) {
+        BufferedImage painted = blank(frame.getWidth(), frame.getHeight());
+        float[] hsb = new float[3];
+        for (int y = 0; y < frame.getHeight(); y++) {
+            for (int x = 0; x < frame.getWidth(); x++) {
+                int argb = frame.getRGB(x, y);
+                int alpha = argb >>> 24;
+                if (alpha == 0) {
+                    continue;
+                }
+                Color.RGBtoHSB((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff, hsb);
+                float saturation = Math.min(1f, hsb[1] * paint.saturationScale);
+                int rgb = Color.HSBtoRGB(paint.hue, saturation, hsb[2]);
+                painted.setRGB(x, y, (alpha << 24) | (rgb & 0xffffff));
+            }
+        }
+        return painted;
+    }
+
+    /**
+     * A body kit decal for one pose, sized and placed from the hull it will sit on.
+     *
+     * Measured off the hull's alpha bounding box rather than drawn at fixed canvas coordinates: the
+     * bank poses are narrower and offset, so a decal at fixed coordinates would float off the wing
+     * on everything except the straight-ahead frame.
+     */
+    private static BufferedImage kitOverlay(BufferedImage hull, int kit) {
+        Rectangle box = opaqueBounds(hull);
+        BufferedImage decal = blank(hull.getWidth(), hull.getHeight());
+        if (box == null) {
+            return decal;
+        }
+        Graphics2D g = paint(decal);
+        switch (kit) {
+            case 0 -> {
+                // Delta fins: swept blades off the trailing corners.
+                g.setColor(HULL_LIGHT);
+                g.fill(finAt(box, -1));
+                g.fill(finAt(box, 1));
+                g.setColor(BRAND);
+                g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.03,
+                        box.getMaxY() - box.height * 0.10, box.width * 0.06, box.height * 0.05));
+            }
+            case 1 -> {
+                // Ablative plates: slabs bolted along both flanks.
+                g.setColor(HULL_MID);
+                double plateW = box.width * 0.13;
+                double plateH = box.height * 0.30;
+                double plateY = box.getCenterY() - plateH / 2;
+                g.fill(new Rectangle2D.Double(box.x + box.width * 0.04, plateY, plateW, plateH));
+                g.fill(new Rectangle2D.Double(box.getMaxX() - box.width * 0.04 - plateW, plateY,
+                        plateW, plateH));
+                g.setColor(HULL_LIGHT);
+                g.setStroke(new BasicStroke((float) Math.max(1, box.width * 0.012)));
+                g.draw(new Rectangle2D.Double(box.x + box.width * 0.04, plateY, plateW, plateH));
+                g.draw(new Rectangle2D.Double(box.getMaxX() - box.width * 0.04 - plateW, plateY,
+                        plateW, plateH));
+            }
+            default -> {
+                // Nose lance: a spike off the prow with a hot tip.
+                g.setColor(HULL_LIGHT);
+                g.fill(path(1, 1, new double[][]{
+                        {box.getCenterX() - box.width * 0.045, box.y + box.height * 0.12},
+                        {box.getCenterX() + box.width * 0.045, box.y + box.height * 0.12},
+                        {box.getCenterX(), box.y - box.height * 0.10}}));
+                g.setColor(BRAND);
+                g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.022,
+                        box.y - box.height * 0.09, box.width * 0.044, box.height * 0.045));
+            }
+        }
+        g.dispose();
+        return decal;
+    }
+
+    /** One swept fin off the hull's trailing edge; side is -1 for left, 1 for right. */
+    private static Path2D finAt(Rectangle box, int side) {
+        double rootX = side < 0 ? box.x + box.width * 0.16 : box.getMaxX() - box.width * 0.16;
+        double tipX = rootX + side * box.width * 0.20;
+        return path(1, 1, new double[][]{
+                {rootX, box.getMaxY() - box.height * 0.30},
+                {rootX, box.getMaxY() - box.height * 0.06},
+                {tipX, box.getMaxY() + box.height * 0.02}});
+    }
+
+    /** Bounding box of everything non-transparent, or null for an empty frame. */
+    private static Rectangle opaqueBounds(BufferedImage frame) {
+        int minX = frame.getWidth();
+        int minY = frame.getHeight();
+        int maxX = -1;
+        int maxY = -1;
+        for (int y = 0; y < frame.getHeight(); y++) {
+            for (int x = 0; x < frame.getWidth(); x++) {
+                if ((frame.getRGB(x, y) >>> 24) == 0) {
+                    continue;
+                }
+                minX = Math.min(minX, x);
+                minY = Math.min(minY, y);
+                maxX = Math.max(maxX, x);
+                maxY = Math.max(maxY, y);
+            }
+        }
+        if (maxX < 0) {
+            return null;
+        }
+        return new Rectangle(minX, minY, maxX - minX + 1, maxY - minY + 1);
     }
 
     /**
@@ -370,7 +524,13 @@ public final class GenerateAssets {
      * @param glow      cockpit and core colour
      * @param style     mechanical navies get barrels and spines, organic ones chitin and segments
      */
-    private record Faction(String directory, Color hull, Color accent, Color glow, HullStyle style) {
+    private record Faction(String directory, Color hull, Color accent, Color glow, HullStyle style,
+                           boolean sideways) {
+
+        /** A faction whose level runs top-down, which is all of them but the side-view leg. */
+        Faction(String directory, Color hull, Color accent, Color glow, HullStyle style) {
+            this(directory, hull, accent, glow, style, false);
+        }
     }
 
     private enum HullStyle { MECHANICAL, ORGANIC }
@@ -392,16 +552,51 @@ public final class GenerateAssets {
                     HullStyle.MECHANICAL),
             new Faction("level-8", new Color(0x34383f), new Color(0x8d94a0), new Color(0x9fd0ff),
                     HullStyle.MECHANICAL),
+            // Level 9 runs sideways, so its hulls are cut pointing left. Organic, to sit with the
+            // burrowing thing that ends the level.
+            new Faction("level-9", new Color(0x3b2f22), new Color(0xc08a2e), new Color(0xffe07a),
+                    HullStyle.ORGANIC, true),
+            new Faction("level-10", new Color(0x241a2e), new Color(0x8a2f5a), new Color(0xff5ea8),
+                    HullStyle.ORGANIC),
     };
 
     /** Three hostile silhouettes per level, angular and pointing down the arena at the player. */
     private static void enemies() throws IOException {
         for (Faction faction : FACTIONS) {
             Path directory = SPRITES.resolve(faction.directory());
-            write(scout(faction), directory.resolve("enemy-scout.png"));
-            write(fighter(faction), directory.resolve("enemy-fighter.png"));
-            write(cruiser(faction), directory.resolve("enemy-cruiser.png"));
+            write(pointed(faction, scout(faction)), directory.resolve("enemy-scout.png"));
+            write(pointed(faction, fighter(faction)), directory.resolve("enemy-fighter.png"));
+            write(pointed(faction, cruiser(faction)), directory.resolve("enemy-cruiser.png"));
         }
+    }
+
+    /**
+     * Turns a hull to point the way its level's hostiles travel.
+     *
+     * Baked into the art rather than rotated at draw time, so the sprite and the collision box
+     * agree to the pixel -- the engine has no facing for enemies and does not need one.
+     */
+    private static BufferedImage pointed(Faction faction, BufferedImage noseDown) {
+        return faction.sideways() ? quarterTurnLeft(noseDown) : noseDown;
+    }
+
+    /**
+     * Nose-down becomes nose-left.
+     *
+     * A pixel copy rather than a rotated draw: no interpolation and no dependence on rendering
+     * hints, so the output is byte-identical on every JDK the build might run on. That matters
+     * because CI regenerates these and fails if anything moved.
+     */
+    private static BufferedImage quarterTurnLeft(BufferedImage source) {
+        int w = source.getWidth();
+        int h = source.getHeight();
+        BufferedImage turned = blank(h, w);
+        for (int x = 0; x < w; x++) {
+            for (int y = 0; y < h; y++) {
+                turned.setRGB(y, w - 1 - x, source.getRGB(x, y));
+            }
+        }
+        return turned;
     }
 
     private static final double[][] SCOUT_MECHANICAL = {
@@ -699,6 +894,292 @@ public final class GenerateAssets {
         }
     }
 
+    // ------------------------------------------------------------------ monsters
+
+    /** Diseased hide, bone and bile: the palette the two monsters share. */
+    private static final Color HIDE = new Color(0x24361f);
+    private static final Color HIDE_DARK = new Color(0x131c10);
+    private static final Color BONE = new Color(0xcfc7a8);
+    private static final Color BILE = new Color(0xb6e24a);
+    private static final Color CHITIN = new Color(0x6a5334);
+    private static final Color CHITIN_DARK = new Color(0x3a2c1a);
+
+    /**
+     * The two organic bosses, which share nothing with the warships above.
+     *
+     * Written as their own methods rather than as another {@code BossProfile}: that record is all
+     * wings, turrets, spine, engines and core, and a monster has none of the five. A style flag
+     * would leave half the record dead and branch {@code bossFrame} through its whole draw order.
+     *
+     * The hydra's necks are deliberately absent from these frames. They are drawn at runtime from
+     * the live head positions, so they move at sixty steps a second instead of eight, and the
+     * eight frames here only have to carry a breath.
+     */
+    private static void monsters() throws IOException {
+        for (int frame = 1; frame <= BOSS_FRAMES; frame++) {
+            write(hydraTorsoFrame(frame), SPRITES.resolve("boss-hydra").resolve(frame + ".png"));
+            write(hydraHeadFrame(frame), SPRITES.resolve("boss-hydra-head").resolve(frame + ".png"));
+            write(wormMawFrame(frame),
+                    SPRITES.resolve("boss-dune-leviathan").resolve(frame + ".png"));
+        }
+        write(wormSegment(), SPRITES.resolve("worm-segment.png"));
+        write(acidBall(), SPRITES.resolve("acid-ball.png"));
+    }
+
+    /**
+     * Where each neck leaves the torso, as fractions of its width and height.
+     *
+     * Must match {@code entity.BossHead}, which roots its necks at the same fractions. If one
+     * moves, the necks detach from their sockets. Low on the body rather than high: the heads
+     * reach down-arena toward the player, so the sockets belong on that edge.
+     */
+    private static final double[] NECK_SOCKETS = {0.30, 0.50, 0.70};
+    private static final double NECK_SOCKET_DEPTH = 0.78;
+
+    /** The hydra's body: a squat sac of a thing on stubby legs, necks rising from three sockets. */
+    private static BufferedImage hydraTorsoFrame(int oneBasedFrame) {
+        int w = 460;
+        int h = 300;
+        BufferedImage image = blank(w, h);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = Math.sin(2 * Math.PI * phase);
+
+        // Legs first, so the mass sits over them.
+        g.setColor(darken(HIDE, 30));
+        for (int side = -1; side <= 1; side += 2) {
+            for (int leg = 0; leg < 3; leg++) {
+                double rootX = 0.5 + side * (0.20 + leg * 0.09);
+                double rootY = 0.46 + leg * 0.10;
+                g.fill(path(w, h, new double[][]{
+                        {rootX, rootY}, {rootX + side * 0.10, rootY + 0.30},
+                        {rootX + side * 0.05, rootY + 0.34}, {rootX, rootY + 0.14}}));
+            }
+        }
+
+        // Body. Many vertices rather than curves: an irregular outline reads as organic where a
+        // smooth one reads as moulded plastic.
+        g.setColor(HIDE);
+        java.awt.geom.Path2D body = path(w, h, new double[][]{
+                {0.50, 0.94}, {0.31, 0.87}, {0.19, 0.71}, {0.14, 0.55}, {0.18, 0.40},
+                {0.26, 0.31}, {0.34, 0.26}, {0.42, 0.30}, {0.50, 0.27}, {0.58, 0.30},
+                {0.66, 0.26}, {0.74, 0.31}, {0.82, 0.40}, {0.86, 0.55}, {0.81, 0.71},
+                {0.69, 0.87}});
+        g.fill(body);
+        g.setColor(HIDE_DARK);
+        g.setStroke(new BasicStroke(5f));
+        g.draw(body);
+
+        // Gut sac, breathing. The organic answer to the warships' reactor core.
+        softBlob(g, w * 0.5, h * 0.62, w * 0.20 * (1 + 0.12 * pulse),
+                h * 0.20 * (1 + 0.12 * pulse), BILE, 150);
+
+        // Ribs pushing through the hide.
+        g.setColor(BONE);
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int rib = 0; rib < 5; rib++) {
+            double y = 0.44 + rib * 0.10;
+            java.awt.geom.Path2D arc = new java.awt.geom.Path2D.Double();
+            arc.moveTo(w * 0.26, h * y);
+            arc.quadTo(w * 0.50, h * (y + 0.07), w * 0.74, h * y);
+            g.draw(arc);
+        }
+
+        // Neck sockets: a dark ring each, so a neck emerges from the body rather than off it.
+        for (double socket : NECK_SOCKETS) {
+            double cx = w * socket;
+            double cy = h * NECK_SOCKET_DEPTH;
+            g.setColor(HIDE_DARK);
+            g.fill(new Ellipse2D.Double(cx - 30, cy - 22, 60, 44));
+            g.setColor(darken(HIDE, 10));
+            g.fill(new Ellipse2D.Double(cx - 22, cy - 16, 44, 32));
+        }
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * One head, pointing down the arena, jaw working on the breath.
+     *
+     * The eyes are the whole trick: black sockets with a pinprick of fire in them. A large glowing
+     * eye reads as a machine, and this is not supposed to be a machine.
+     */
+    private static BufferedImage hydraHeadFrame(int oneBasedFrame) {
+        int size = 150;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = Math.sin(2 * Math.PI * phase);
+        double gape = 0.30 * (0.5 + 0.5 * pulse);
+
+        // Throat glow behind the jaws, brightest at full gape: the tell before it spits.
+        softBlob(g, size * 0.5, size * 0.72, size * 0.20, size * 0.18, BILE,
+                (int) (60 + 150 * (0.5 + 0.5 * pulse)));
+
+        // Lower jaw, swung open about the hinge. Same path as drawn, then transformed -- the
+        // cheapest possible articulation and it never drifts out of register.
+        java.awt.geom.Path2D jaw = path(size, size, new double[][]{
+                {0.30, 0.58}, {0.50, 0.94}, {0.70, 0.58}, {0.58, 0.66}, {0.42, 0.66}});
+        jaw.transform(java.awt.geom.AffineTransform.getRotateInstance(
+                gape, size * 0.5, size * 0.58));
+        g.setColor(darken(HIDE, 20));
+        g.fill(jaw);
+        g.setColor(HIDE_DARK);
+        g.setStroke(new BasicStroke(4f));
+        g.draw(jaw);
+
+        // Skull.
+        java.awt.geom.Path2D skull = path(size, size, new double[][]{
+                {0.50, 0.72}, {0.26, 0.58}, {0.18, 0.36}, {0.28, 0.14}, {0.42, 0.06},
+                {0.58, 0.06}, {0.72, 0.14}, {0.82, 0.36}, {0.74, 0.58}});
+        g.setColor(HIDE);
+        g.fill(skull);
+        g.setColor(HIDE_DARK);
+        g.setStroke(new BasicStroke(4.5f));
+        g.draw(skull);
+
+        // Teeth along the upper jaw.
+        g.setColor(BONE);
+        for (int tooth = 0; tooth < 5; tooth++) {
+            double tx = 0.32 + tooth * 0.09;
+            g.fill(path(size, size, new double[][]{
+                    {tx, 0.60}, {tx + 0.045, 0.60}, {tx + 0.022, 0.70}}));
+        }
+
+        // Eyes: holes first, then a small hot pupil inside each.
+        for (int side = -1; side <= 1; side += 2) {
+            double cx = size * (0.5 + side * 0.14);
+            double cy = size * 0.30;
+            g.setColor(Color.BLACK);
+            g.fill(new Ellipse2D.Double(cx - 15, cy - 13, 30, 26));
+            softBlob(g, cx, cy, 7 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)),
+                    6 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)), new Color(0xffb020), 230);
+        }
+        g.dispose();
+        return image;
+    }
+
+    /** The worm's maw, seen from the side and opening left, into the player. */
+    private static BufferedImage wormMawFrame(int oneBasedFrame) {
+        int w = 420;
+        int h = 300;
+        BufferedImage image = blank(w, h);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = Math.sin(2 * Math.PI * phase);
+        double flare = 0.34 + 0.20 * (0.5 + 0.5 * pulse);
+
+        // Body plates behind the head, receding to the right.
+        g.setColor(CHITIN);
+        for (int plate = 0; plate < 4; plate++) {
+            double x = 0.52 + plate * 0.12;
+            java.awt.geom.Path2D arc = new java.awt.geom.Path2D.Double();
+            arc.moveTo(w * x, h * 0.18);
+            arc.quadTo(w * (x + 0.10), h * 0.50, w * x, h * 0.82);
+            arc.quadTo(w * (x + 0.02), h * 0.50, w * x, h * 0.18);
+            g.fill(arc);
+            g.setColor(CHITIN_DARK);
+            g.setStroke(new BasicStroke(3f));
+            g.draw(arc);
+            g.setColor(CHITIN);
+        }
+
+        // Throat: a black hole the petals open around.
+        g.setColor(Color.BLACK);
+        g.fill(new Ellipse2D.Double(w * 0.24, h * 0.30, w * 0.30, h * 0.40));
+
+        // Four mandible petals, flowering open on the breath.
+        for (int petal = 0; petal < 4; petal++) {
+            double angle = -flare + petal * (2 * flare / 3);
+            java.awt.geom.Path2D blade = path(w, h, new double[][]{
+                    {0.44, 0.50}, {0.06, 0.42}, {0.02, 0.50}, {0.06, 0.58}});
+            blade.transform(java.awt.geom.AffineTransform.getRotateInstance(
+                    angle, w * 0.44, h * 0.50));
+            g.setColor(CHITIN);
+            g.fill(blade);
+            g.setColor(CHITIN_DARK);
+            g.setStroke(new BasicStroke(3.5f));
+            g.draw(blade);
+        }
+
+        // Two rings of teeth inside the throat.
+        g.setColor(BONE);
+        for (int ring = 0; ring < 2; ring++) {
+            double radius = 0.10 - ring * 0.035;
+            for (int tooth = 0; tooth < 12; tooth++) {
+                double angle = tooth * 2 * Math.PI / 12;
+                double tx = 0.39 + Math.cos(angle) * radius * 0.7;
+                double ty = 0.50 + Math.sin(angle) * radius;
+                g.fill(new Ellipse2D.Double(w * tx - 4, h * ty - 4, 8, 8));
+            }
+        }
+        g.dispose();
+        return image;
+    }
+
+    /** One armoured ring of the worm's body. The renderer trails several of these behind the maw. */
+    private static BufferedImage wormSegment() {
+        int size = 120;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+
+        g.setColor(CHITIN);
+        g.fill(new Ellipse2D.Double(size * 0.10, size * 0.16, size * 0.80, size * 0.68));
+        g.setColor(CHITIN_DARK);
+        g.setStroke(new BasicStroke(4f));
+        g.draw(new Ellipse2D.Double(size * 0.10, size * 0.16, size * 0.80, size * 0.68));
+        g.setColor(brighten(CHITIN, 30));
+        g.setStroke(new BasicStroke(3f));
+        g.draw(new Ellipse2D.Double(size * 0.24, size * 0.28, size * 0.52, size * 0.44));
+
+        // Bristles around the underside, so a ring reads as something that grips.
+        g.setColor(BONE);
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int bristle = 0; bristle < 8; bristle++) {
+            double angle = Math.PI * (0.15 + bristle * 0.10);
+            double cx = size * 0.5 + Math.cos(angle) * size * 0.40;
+            double cy = size * 0.5 + Math.sin(angle) * size * 0.34;
+            g.draw(new java.awt.geom.Line2D.Double(cx, cy,
+                    cx + Math.cos(angle) * 12, cy + Math.sin(angle) * 12));
+        }
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * A ball of acid.
+     *
+     * Deliberately not the bright green of an ordinary enemy bolt, which is what it would collide
+     * with visually -- that one is a hot white core inside a green glow. This is the opposite
+     * read: matte, murky yellow-green with a dark olive rim and no highlight, so it looks like a
+     * thrown liquid rather than an energy shot, and a player can tell at a glance which is which.
+     */
+    private static BufferedImage acidBall() {
+        int size = 68;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+
+        Color rim = new Color(0x3f4a10);
+        Color body = new Color(0x9aa81c);
+        Color sheen = new Color(0xc8d24a);
+
+        softBlob(g, size * 0.5, size * 0.5, size * 0.48, size * 0.48, new Color(0x8a9a18), 110);
+        g.setColor(rim);
+        g.fill(new Ellipse2D.Double(size * 0.12, size * 0.12, size * 0.76, size * 0.76));
+        g.setColor(body);
+        g.fill(new Ellipse2D.Double(size * 0.19, size * 0.19, size * 0.62, size * 0.62));
+        // Off-centre sheen rather than a centred hotspot: a wet surface, not a light source.
+        g.setColor(sheen);
+        g.fill(new Ellipse2D.Double(size * 0.30, size * 0.26, size * 0.24, size * 0.20));
+
+        // A couple of drips coming off it, which no bolt in the game has.
+        g.setColor(body);
+        g.fill(new Ellipse2D.Double(size * 0.70, size * 0.62, size * 0.14, size * 0.18));
+        g.fill(new Ellipse2D.Double(size * 0.22, size * 0.68, size * 0.11, size * 0.14));
+        g.dispose();
+        return image;
+    }
+
     /**
      * One frame of a boss's idle animation.
      *
@@ -917,7 +1398,15 @@ public final class GenerateAssets {
      * @param starRed   added to each star's red channel, and likewise green and blue
      */
     private record Theme(String directory, Backdrop kind, long seed, Color tintA, Color tintB,
-                         int blobs, double density, int starRed, int starGreen, int starBlue) {
+                         int blobs, double density, int starRed, int starGreen, int starBlue,
+                         boolean sideways) {
+
+        /** A level that scrolls top to bottom, which is all of them but the side-view leg. */
+        Theme(String directory, Backdrop kind, long seed, Color tintA, Color tintB,
+              int blobs, double density, int starRed, int starGreen, int starBlue) {
+            this(directory, kind, seed, tintA, tintB, blobs, density,
+                    starRed, starGreen, starBlue, false);
+        }
     }
 
     /**
@@ -965,6 +1454,17 @@ public final class GenerateAssets {
             new Theme("level-8", Backdrop.PLANET_RISE, 4270,
                     new Color(0x25, 0x1c, 0x2c, 30), new Color(0x2f, 0x1a, 0x14, 24),
                     4, 0.8, 10, 4, 10),
+            // Dust Reach: the side-view leg, flown along a dead world's terminator.
+            // Open space on purpose -- ATMOSPHERE, SURFACE and CAVERN all have a built-in up
+            // (lit sky bands, ground along the bottom edge, walls left and right), and scrolled
+            // sideways they read as nonsense. Stars look the same lying on their side.
+            new Theme("level-9", Backdrop.STARFIELD, 4280,
+                    new Color(0x4a, 0x33, 0x14, 32), new Color(0x2a, 0x1d, 0x0c, 24),
+                    5, 0.9, 22, 8, -14, true),
+            // Hollow Womb: where the thing with three heads lives.
+            new Theme("level-10", Backdrop.CAVERN, 4290,
+                    new Color(0x28, 0x14, 0x1e), new Color(0x8a, 0x2f, 0x5a),
+                    8, 1.3, 0, 0, 0),
     };
 
     /** Three parallax layers per level, scrolled at different rates by the renderer. */
@@ -1050,7 +1550,7 @@ public final class GenerateAssets {
         Color body = opaque(theme.tintA());
         Color rim = opaque(theme.tintB());
 
-        wrapped(g, h, copy -> {
+        wrapped(g, theme, copy -> {
             // Lit from the upper left, so the terminator reads as a sphere. Kept dim on purpose: the
             // planet covers a third of the arena, and at full brightness bullets crossing it stop
             // reading.
@@ -1100,7 +1600,7 @@ public final class GenerateAssets {
             double ry = rx * DECK_FLATTEN[layer] * (0.7 + random.nextDouble() * 0.7);
             Color tint = i % 2 == 0 ? brighten(low, 78) : brighten(high, 58);
             int deckAlpha = DECK_ALPHAS[layer];
-            wrapped(g, h, copy -> {
+            wrapped(g, theme, copy -> {
                 softBlob(copy, cx, cy, rx, ry, tint, deckAlpha);
                 // A brighter, tighter top so the deck has a lit crown rather than one flat wash.
                 softBlob(copy, cx - rx * 0.15, cy - ry * 0.45, rx * 0.6, ry * 0.55,
@@ -1127,7 +1627,7 @@ public final class GenerateAssets {
                 double cx = random.nextDouble() * w;
                 double cy = random.nextDouble() * h;
                 double rx = w * (0.16 + random.nextDouble() * 0.26);
-                wrapped(g, h, copy -> softBlob(copy, cx, cy, rx, rx * 0.7, growth, 96));
+                wrapped(g, theme, copy -> softBlob(copy, cx, cy, rx, rx * 0.7, growth, 96));
             }
         }
 
@@ -1148,7 +1648,7 @@ public final class GenerateAssets {
                 lobe[2] = 0.62 + random.nextDouble() * 0.5;
             }
 
-            wrapped(g, h, copy -> {
+            wrapped(g, theme, copy -> {
                 copy.setColor(alpha(darken(tint, 48), tintAlpha));
                 for (double[] lobe : lobes) {
                     double lr = r * lobe[2];
@@ -1199,7 +1699,7 @@ public final class GenerateAssets {
             double lx = w * (i % 2 == 0 ? reach * 0.5 : 1 - reach * 0.5);
             double ly = random.nextDouble() * h;
             double r = w * 0.007;
-            wrapped(g, h, copy -> {
+            wrapped(g, theme, copy -> {
                 softBlob(copy, lx, ly, r * 9, r * 9, lamp, 110);
                 copy.setColor(brighten(lamp, 80));
                 copy.fill(new java.awt.geom.RoundRectangle2D.Double(
@@ -1267,10 +1767,15 @@ public final class GenerateAssets {
      * or bottom edge has to reappear on the other side or the join shows as a hard line once per
      * cycle. Stars get away without this because they are barely a pixel across; nothing larger does.
      */
-    private static void wrapped(Graphics2D g, int h, java.util.function.Consumer<Graphics2D> body) {
+    private static void wrapped(Graphics2D g, Theme theme,
+                                java.util.function.Consumer<Graphics2D> body) {
+        // Along whichever axis the renderer wraps this level on. A top-down level shifts by the
+        // image height exactly as it always did, so every existing backdrop is unchanged.
+        int dx = theme.sideways() ? BACKDROP_WIDTH : 0;
+        int dy = theme.sideways() ? 0 : BACKDROP_HEIGHT;
         for (int copy = -1; copy <= 1; copy++) {
             Graphics2D shifted = (Graphics2D) g.create();
-            shifted.translate(0, copy * h);
+            shifted.translate(copy * dx, copy * dy);
             body.accept(shifted);
             shifted.dispose();
         }
@@ -1396,6 +1901,22 @@ public final class GenerateAssets {
         addTone(mix, 0.8, 0.7, pitch(74), 0.26, Wave.SQUARE);
         addTone(mix, 0.8, 0.7, pitch(62), 0.16, Wave.TRIANGLE);
         writeWav(mix, SOUNDS.resolve("level-clear.wav"));
+    }
+
+    /**
+     * A two-note warble for a nearly-dead ship.
+     *
+     * Deliberately short and unlooped: the game retriggers it on a tick interval while health is
+     * low, which needs no stop call and stops on its own the moment health recovers. A falling
+     * interval rather than a rising one, so it reads as an alarm and not as a pickup.
+     */
+    private static void lowHealthAlarm() throws IOException {
+        double duration = 0.5;
+        double[] mix = new double[(int) (duration * SAMPLE_RATE)];
+        addTone(mix, 0.00, 0.16, pitch(81), 0.28, Wave.SQUARE);
+        addTone(mix, 0.20, 0.16, pitch(76), 0.28, Wave.SQUARE);
+        addTone(mix, 0.20, 0.16, pitch(64), 0.12, Wave.TRIANGLE);
+        writeWav(mix, SOUNDS.resolve("low-health.wav"));
     }
 
     private enum Wave { SQUARE, TRIANGLE, SINE }
