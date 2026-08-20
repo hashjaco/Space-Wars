@@ -3,12 +3,14 @@ package com.hashimjacobs.spacecase.mode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
+import com.hashimjacobs.spacecase.entity.EnemyShip;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -76,6 +78,33 @@ class LevelTest {
         for (Level level : Level.values()) {
             assertTrue(level.label() != null && !level.label().isBlank(),
                     level + " needs a label for the HUD");
+        }
+    }
+
+    /**
+     * Every level's six sprites must point at its own directory, in the right order.
+     *
+     * The one error class that nothing else catches. Writing L23_MID("level-23/near.png") compiles,
+     * points at a file that exists so provenance passes, is unique so everyLevelHasItsOwnSky passes
+     * -- and ships a level whose mid and near layers are the same image. Same for a hull pasted from
+     * the level above with its number left behind. With six constants per level to hand-write, that
+     * is a matter of time rather than of care.
+     */
+    @Test
+    void everyLevelsArtFollowsTheNamingConvention() {
+        String[] layerNames = {"far", "mid", "near"};
+        for (Level level : Level.values()) {
+            String directory = "/sprites/level-" + level.number() + "/";
+            for (int layer = 0; layer < layerNames.length; layer++) {
+                assertEquals(directory + layerNames[layer] + ".png",
+                        level.layers().get(layer).resourcePath(),
+                        level + " layer " + layerNames[layer] + " points somewhere else");
+            }
+            for (EnemyShip.EnemyKind kind : EnemyShip.EnemyKind.values()) {
+                String expected = directory + "enemy-" + kind.name().toLowerCase(Locale.ROOT) + ".png";
+                assertEquals(expected, level.enemySprite(kind).resourcePath(),
+                        level + " " + kind + " hull points somewhere else");
+            }
         }
     }
 }

@@ -5,10 +5,12 @@ import java.util.Random;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Explosion;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
+import com.hashimjacobs.spacecase.mode.WorldTemplate;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 
@@ -25,6 +27,15 @@ public final class CollisionSystem {
     /** How many pickups a defeated boss leaves. */
     private static final int BOSS_DROPS = 3;
 
+    /**
+     * Chance a heavy hull or a flagship gives up its beam, in percent.
+     *
+     * Below one-in-six, which is what each of the six common pickups is worth once a drop happens,
+     * so the beam is rarer than any of them as well as being restricted to the enemies worth
+     * killing for it.
+     */
+    private static final int MEGA_LASER_CHANCE_PERCENT = 12;
+
     private final SoundPlayer sounds;
     private final Random random;
 
@@ -38,16 +49,118 @@ public final class CollisionSystem {
     }
 
     public void resolve(World world) {
+        resolveBeams(world);
         resolveBullets(world);
         resolveContact(world);
+        resolveTerrain(world);
         resolvePickups(world);
+    }
+
+    /**
+     * Scraping the tunnel wall: pushed out always, hurt on the ram grace period.
+     *
+     * The two halves are deliberately on different rules. The push has to happen even during the
+     * grace window -- skip it and the ship sinks into the rock for eighteen ticks and then pops back
+     * out, which looks like the collision is broken rather than like mercy. The damage uses the same
+     * grace as ramming an enemy, because being pinned against a wall should cost about what being
+     * pinned against a cruiser costs.
+     *
+     * Ambient damage keeps its own clock rather than reusing that grace. {@code takeDamage} sets the
+     * hit flash, and {@code resolveContact} skips a player who was just hit -- so heat ticking on the
+     * grace window would leave a pilot in a lava level permanently immune to being rammed.
+     */
+    private void resolveTerrain(World world) {
+        Terrain terrain = world.terrain();
+        if (terrain.isEmpty()) {
+            return;
+        }
+        WorldTemplate template = terrain.template();
+        for (PlayerShip player : world.players()) {
+            if (!player.isAlive()) {
+                continue;
+            }
+            boolean scraped = terrain.pushInside(player);
+            if (scraped && !player.justHit() && template.contactDamage() > 0) {
+                player.takeDamage(template.contactDamage());
+                sounds.play(SoundFx.COLLISION);
+            }
+            if (template.ambientDamage() > 0 && world.tick() % 60 == 0) {
+                player.takeDamage(template.ambientDamage());
+            }
+        }
+    }
+
+    /**
+     * The mega laser: it burns everything standing in the lane, every tick, and stops at nothing.
+     *
+     * Deliberately unlike {@link #hitHazards}, which kills the round and returns on its first
+     * contact. A beam has nothing to spend and nowhere to stop, so there is no {@code return} here
+     * -- a column of six enemies all take the tick. That, and not the damage figure, is what makes
+     * the weapon feel like an incinerator rather than a fast gun.
+     *
+     * ponytail: an AABB against every hazard, same straight scan hitHazards documents as having
+     * beaten a quadtree by 3.3x at this game's entity counts. One player's beam is one pass.
+     */
+    private void resolveBeams(World world) {
+        for (PlayerShip player : world.players()) {
+            if (player.isOut() || !player.isFiringBeam()) {
+                continue;
+            }
+            double[] beam = player.beamBox();
+            // One shot a tick, not one per thing burned: otherwise standing in a dense wave would
+            // report an accuracy of several hundred percent.
+            player.recordShot();
+            int damage = player.damageFor(GameConfig.BEAM_DAMAGE_PER_TICK);
+
+            for (EnemyShip enemy : world.enemies()) {
+                if (!enemy.isAlive() || !overlaps(beam, enemy)) {
+                    continue;
+                }
+                player.recordHit();
+                enemy.takeDamage(damage);
+                if (!enemy.isAlive()) {
+                    awardKill(world, player, enemy);
+                }
+            }
+
+            for (Asteroid asteroid : world.asteroids()) {
+                if (!asteroid.isAlive() || !overlaps(beam, asteroid)) {
+                    continue;
+                }
+                player.recordHit();
+                asteroid.takeDamage(damage);
+                if (!asteroid.isAlive()) {
+                    player.addScore(asteroid.scoreValue());
+                    player.recordAsteroidKill();
+                    world.addExplosion(asteroid, Explosion.SMALL);
+                    sounds.play(SoundFx.EXPLOSION);
+                }
+            }
+        }
+    }
+
+    /** {@code box} is {@code {x, y, width, height}}, as {@code PlayerShip.beamBox} returns it. */
+    private static boolean overlaps(double[] box, Entity entity) {
+        boolean hit = box[0] < entity.x() + entity.width()
+                && box[0] + box[2] > entity.x()
+                && box[1] < entity.y() + entity.height()
+                && box[1] + box[3] > entity.y();
+        return hit;
     }
 
     private void resolveBullets(World world) {
         boolean friendlyFire = world.rules().friendlyFire();
 
+        Terrain terrain = world.terrain();
         for (Bullet bullet : world.bullets()) {
             if (!bullet.isAlive()) {
+                continue;
+            }
+
+            // Rock eats shots from either side. One check rather than a rule per shooter, because
+            // "you cannot shoot through a wall" is not a thing that depends on who fired.
+            if (terrain.solidAt(bullet.centerX(), bullet.centerY())) {
+                bullet.kill();
                 continue;
             }
 
@@ -133,14 +246,27 @@ public final class CollisionSystem {
         boolean flagship = enemy.isBoss() && !enemy.isBossPart();
         int drops = flagship ? BOSS_DROPS : rollOrdinaryDrop();
         for (int i = 0; i < drops; i++) {
-            PowerUp.Kind[] kinds = PowerUp.Kind.values();
-            PowerUp.Kind kind = kinds[random.nextInt(kinds.length)];
+            PowerUp.Kind kind = rollKind(enemy);
             // Fan multiple drops out so they do not stack into a single collectable.
             double offset = (i - (drops - 1) / 2.0) * 46;
             double x = enemy.centerX() - kind.sprite().width() / 2 + offset;
             PowerUp powerUp = new PowerUp(kind, x, enemy.centerY());
             world.addPowerUp(powerUp);
         }
+    }
+
+    /**
+     * What this enemy leaves behind. Scouts and fighters never carry the beam.
+     *
+     * Rolled per drop rather than per kill, so a flagship's three-pickup haul gets three separate
+     * chances at it -- which is the point of fighting one.
+     */
+    private PowerUp.Kind rollKind(EnemyShip enemy) {
+        boolean heavy = enemy.isBoss() || enemy.kind() == EnemyShip.EnemyKind.CRUISER;
+        if (heavy && random.nextInt(100) < MEGA_LASER_CHANCE_PERCENT) {
+            return PowerUp.Kind.MEGA_LASER;
+        }
+        return PowerUp.Kind.randomCommon(random);
     }
 
     private int rollOrdinaryDrop() {

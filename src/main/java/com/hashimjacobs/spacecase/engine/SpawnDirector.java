@@ -131,7 +131,7 @@ public final class SpawnDirector {
             case 2, 3, 4 -> 56;
             default -> 34;
         };
-        double across = randomAcross(extent);
+        double across = randomAcross(world, extent);
         double drift = (random.nextDouble() - 0.5) * 1.6;
         double fall = 1.6 + random.nextDouble() * 1.8;
 
@@ -164,7 +164,7 @@ public final class SpawnDirector {
         Sprite art = level.enemySprite(kind);
         double w = art.width();
         double h = art.height();
-        double across = randomAcross(facing.acrossExtent(w, h));
+        double across = randomAcross(world, facing.acrossExtent(w, h));
         double depth = -facing.alongExtent(w, h);
         EnemyShip enemy = new EnemyShip(kind, art,
                 facing.atX(depth, across, w, h), facing.atY(depth, across, w, h));
@@ -248,11 +248,12 @@ public final class SpawnDirector {
             return;
         }
         Orientation facing = level.orientation();
-        PowerUp.Kind[] kinds = PowerUp.Kind.values();
-        PowerUp.Kind kind = kinds[random.nextInt(kinds.length)];
+        // Battle mode has nothing strong enough to be carrying a beam, so it cannot fall out of an
+        // empty sky either.
+        PowerUp.Kind kind = PowerUp.Kind.randomCommon(random);
         double w = kind.sprite().width();
         double h = kind.sprite().height();
-        double across = spawnLaneForPickup(facing, w, h);
+        double across = spawnLaneForPickup(world, facing, w, h);
         PowerUp powerUp = new PowerUp(kind,
                 facing.atX(-40, across, w, h), facing.atY(-40, across, w, h));
         world.addPowerUp(powerUp);
@@ -262,19 +263,41 @@ public final class SpawnDirector {
      * In battle mode pickups drop down the middle so both players have an equal claim; otherwise
      * anywhere across the arena.
      */
-    private double spawnLaneForPickup(Orientation facing, double width, double height) {
+    private double spawnLaneForPickup(World world, Orientation facing, double width, double height) {
         if (!rules.lastPlayerStanding()) {
-            return randomAcross(facing.acrossExtent(width, height));
+            return randomAcross(world, facing.acrossExtent(width, height));
         }
         double centreBand = facing.arenaBreadth() / 3;
         double offset = random.nextDouble() * centreBand;
         return centreBand + offset;
     }
 
-    /** A position across the lane, leaving room for something this wide. One random draw. */
-    private double randomAcross(double acrossExtent) {
+    /**
+     * A position across the lane, leaving room for something this wide. One random draw.
+     *
+     * In a tunnel the drawn position is pulled into the open lane afterwards, rather than drawn from
+     * a narrower range. That distinction is load-bearing: the draw order and the values consumed
+     * from the generator stay exactly as they were, so the fixed-seed run every spawn test is pinned
+     * against is unchanged. Drawing differently would have re-rolled the whole game.
+     *
+     * The lane is read at the entry edge, which is where a spawn appears. Enemies are pushed clear
+     * every tick after that, and asteroids that drift into rock are culled, so nothing needs the
+     * lane to be tracked as it descends.
+     */
+    private double randomAcross(World world, double acrossExtent) {
         double span = level.orientation().arenaBreadth() - acrossExtent;
-        return random.nextDouble() * span;
+        double drawn = random.nextDouble() * span;
+
+        Terrain terrain = world.terrain();
+        if (terrain.isEmpty()) {
+            return drawn;
+        }
+        double low = terrain.laneLow(0);
+        double high = terrain.laneHigh(0) - acrossExtent;
+        if (high < low) {
+            return drawn;
+        }
+        return Math.max(low, Math.min(high, drawn));
     }
 
     private boolean rolls(int chancePerThousand) {

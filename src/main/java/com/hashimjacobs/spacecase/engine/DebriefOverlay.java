@@ -5,12 +5,14 @@ import java.util.List;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.paint.Color;
-import javafx.scene.shape.StrokeLineCap;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Rank;
@@ -24,11 +26,14 @@ import com.hashimjacobs.spacecase.prefs.Standing;
  */
 final class DebriefOverlay {
 
-    private static final Color BRAND = Color.web("#0ec417");
-    private static final Color LABEL = Color.web("#b388ff");
-    private static final Color MUTED = Color.web("#9fb0c9");
-    private static final Color PANEL = Color.web("#0c1120");
-    private static final Color PANEL_EDGE = Color.web("#3b4560");
+    private static final Color BRAND = Tokens.BRAND;
+
+    /** Marks a badge can carry. Tiers run longer than this; the extra ranks share the top badge. */
+    private static final int MOST_MARKS = 4;
+    private static final Color LABEL = Tokens.LABEL;
+    private static final Color MUTED = Tokens.TEXT_SECONDARY;
+    private static final Color PANEL = Tokens.SURFACE_1;
+    private static final Color PANEL_EDGE = Tokens.EDGE_STRONG;
 
     private static final double PANEL_WIDTH = 396;
     private static final double PANEL_TOP = 150;
@@ -36,11 +41,11 @@ final class DebriefOverlay {
     private static final double PANEL_HEIGHT = 560;
 
     private final GraphicsContext gc;
-    private final Font titleFont = Font.font("Verdana", FontWeight.BOLD, 30);
-    private final Font headingFont = Font.font("Verdana", FontWeight.BOLD, 17);
-    private final Font rowFont = Font.font("Verdana", FontWeight.NORMAL, 13);
-    private final Font valueFont = Font.font("Verdana", FontWeight.BOLD, 15);
-    private final Font promptFont = Font.font("Verdana", FontWeight.BOLD, 16);
+    private final Font titleFont = Font.font(Tokens.BODY, FontWeight.BOLD, 30);
+    private final Font headingFont = Font.font(Tokens.BODY, FontWeight.BOLD, 17);
+    private final Font rowFont = Font.font(Tokens.BODY, FontWeight.NORMAL, 13);
+    private final Font valueFont = Font.font(Tokens.BODY, FontWeight.BOLD, 15);
+    private final Font promptFont = Font.font(Tokens.BODY, FontWeight.BOLD, 16);
 
     DebriefOverlay(GraphicsContext gc) {
         this.gc = gc;
@@ -51,7 +56,7 @@ final class DebriefOverlay {
      *              until it is, so it never invites a press that is already being held
      */
     void draw(Level level, List<Debrief> debriefs, List<Standing> standings, boolean armed) {
-        gc.setFill(Color.color(0, 0, 0, 0.78));
+        gc.setFill(Tokens.veil(0.78));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
 
         gc.setTextBaseline(VPos.TOP);
@@ -185,7 +190,7 @@ final class DebriefOverlay {
 
         // Progress toward the next rank, or a full bar at the top of the ladder.
         double width = right - left;
-        gc.setFill(Color.web("#22283a"));
+        gc.setFill(Tokens.TRACK);
         gc.fillRoundRect(left, y, width, 8, 4, 4);
         gc.setFill(BRAND);
         gc.fillRoundRect(left, y, width * standing.progress(), 8, 4, 4);
@@ -200,42 +205,35 @@ final class DebriefOverlay {
     }
 
     /**
-     * Rank insignia, drawn from the rank's tier rather than loaded as art.
+     * Every insignia frame, addressed by tier and mark count.
      *
-     * ponytail: twenty-six PNGs for something this small is not worth generating. Replace with real
-     * insignia if the drawn marks ever read as placeholder.
+     * Looked up by name rather than listed in a switch: the generator writes one file per cell of
+     * exactly this grid, so a hand-written mapping would only be somewhere for the two to drift.
      */
-    private void drawInsignia(double x, double y, Rank rank) {
-        int marks = Math.min(4, rank.insigniaCount());
-        gc.setStroke(BRAND);
-        gc.setFill(BRAND);
-        gc.setLineWidth(2);
-        gc.setLineCap(StrokeLineCap.ROUND);
+    private static final Sprite[][] INSIGNIA = insigniaFrames();
 
-        for (int mark = 0; mark < marks; mark++) {
-            double offset = mark * 5;
-            switch (rank.insignia()) {
-                case CHEVRONS -> {
-                    gc.strokeLine(x, y + 10 - offset, x + 8, y + 3 - offset);
-                    gc.strokeLine(x + 8, y + 3 - offset, x + 16, y + 10 - offset);
-                }
-                case RODS -> gc.fillRoundRect(x + mark * 7, y, 4, 13, 2, 2);
-                case BARS -> gc.fillRect(x + mark * 7, y + 2, 5, 11);
-                case STARS -> drawStar(x + mark * 11 + 5, y + 7, 5);
+    private static Sprite[][] insigniaFrames() {
+        Rank.Insignia[] tiers = Rank.Insignia.values();
+        Sprite[][] frames = new Sprite[tiers.length][MOST_MARKS + 1];
+        for (Rank.Insignia tier : tiers) {
+            for (int marks = 1; marks <= MOST_MARKS; marks++) {
+                frames[tier.ordinal()][marks] =
+                        Sprite.valueOf("INSIGNIA_" + tier.name() + "_" + marks);
             }
         }
+        return frames;
     }
 
-    private void drawStar(double cx, double cy, double radius) {
-        double[] xs = new double[10];
-        double[] ys = new double[10];
-        for (int point = 0; point < 10; point++) {
-            // Alternate outer and inner radius, starting at the top.
-            double reach = point % 2 == 0 ? radius : radius * 0.42;
-            double angle = -Math.PI / 2 + point * Math.PI / 5;
-            xs[point] = cx + Math.cos(angle) * reach;
-            ys[point] = cy + Math.sin(angle) * reach;
-        }
-        gc.fillPolygon(xs, ys, 10);
+    /**
+     * Rank insignia.
+     *
+     * The marks used to be strokes drawn here, which is what the art replaced. The clamp stays:
+     * a tier runs longer than four ranks, and past the fourth the badge stops gaining marks and
+     * the rank's own name carries the difference.
+     */
+    private void drawInsignia(double x, double y, Rank rank) {
+        int marks = Math.min(MOST_MARKS, rank.insigniaCount());
+        Sprite badge = INSIGNIA[rank.insignia().ordinal()][marks];
+        gc.drawImage(Assets.image(badge), x, y - 4, badge.width(), badge.height());
     }
 }

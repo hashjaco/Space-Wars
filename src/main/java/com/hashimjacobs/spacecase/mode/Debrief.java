@@ -10,7 +10,7 @@ import java.util.List;
  * without a world, a renderer or the JavaFX toolkit.
  *
  * @param pilotName          who flew it
- * @param levelNumber        position of the level in the run, counting from one
+ * @param levelNumber        position of the level within its galaxy, one to ten
  * @param enemiesKilled      enemies destroyed during this level alone
  * @param asteroidsDestroyed asteroids destroyed during this level alone
  * @param shotsFired         projectiles launched during this level alone
@@ -42,6 +42,19 @@ public record Debrief(
     }
 
     private static final int FLAGSHIP_BOUNTY_PER_LEVEL = 250;
+
+    /**
+     * How much richer each galaxy is than the one before it, as a fraction.
+     *
+     * The level number the bounty is paid on runs one to ten <em>within a galaxy</em>, not one to
+     * fifty across the campaign -- otherwise the fiftieth flagship would pay five times what the
+     * garage was priced against, and the last galaxy would buy the whole catalogue in two levels.
+     * Escalation across galaxies belongs here instead, where it is one number and can be seen.
+     *
+     * At a fifth per galaxy the fifth pays 1.8x, so a clean level-ten run there banks around 320
+     * credits -- still under the ceiling {@code DebriefTest} holds it to.
+     */
+    private static final double GALAXY_BOUNTY_STEP = 0.20;
     private static final int MARKSMAN_PER_PERCENT = 5;
     private static final int UNBROKEN_BONUS = 500;
     private static final int SWIFT_PER_TICK_SAVED = 2;
@@ -100,6 +113,17 @@ public record Debrief(
      */
     public static Debrief of(String pilotName, int levelNumber, int parTicks,
                              Tally before, Tally after, int clearTicks) {
+        return of(pilotName, levelNumber, 1, parTicks, before, after, clearTicks);
+    }
+
+    /**
+     * As above, for a level in a later galaxy.
+     *
+     * @param levelNumber position of the level <em>within its galaxy</em>, one to ten
+     * @param galaxy      position of the galaxy in the campaign, counting from one
+     */
+    public static Debrief of(String pilotName, int levelNumber, int galaxy, int parTicks,
+                             Tally before, Tally after, int clearTicks) {
         int enemies = after.enemiesKilled() - before.enemiesKilled();
         int asteroids = after.asteroidsDestroyed() - before.asteroidsDestroyed();
         int shots = after.shotsFired() - before.shotsFired();
@@ -110,7 +134,9 @@ public record Debrief(
         int ticksSaved = Math.max(0, parTicks - clearTicks);
 
         List<Bonus> bonuses = new ArrayList<>();
-        bonuses.add(new Bonus("Flagship bounty", FLAGSHIP_BOUNTY_PER_LEVEL * levelNumber));
+        double galaxyPremium = 1 + GALAXY_BOUNTY_STEP * (Math.max(1, galaxy) - 1);
+        int bounty = (int) Math.round(FLAGSHIP_BOUNTY_PER_LEVEL * levelNumber * galaxyPremium);
+        bonuses.add(new Bonus("Flagship bounty", bounty));
         bonuses.add(new Bonus("Marksman  " + accuracy + "%", accuracy * MARKSMAN_PER_PERCENT));
         // Both ladders carry their number in the label, as Marksman does, so a near miss reads as
         // a near miss rather than as nothing at all.

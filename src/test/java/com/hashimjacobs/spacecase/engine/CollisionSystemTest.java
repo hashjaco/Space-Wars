@@ -4,12 +4,14 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
+import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
+import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.GameMode;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -133,6 +135,50 @@ class CollisionSystemTest {
     }
 
     /** Health is private; a scout's remaining fraction against its archetype maximum stands in. */
+    /**
+     * The mega laser, which is the one weapon that does not stop at what it hits.
+     *
+     * Two enemies stacked in the same column both take the tick. A bullet fired at the same pair
+     * would hit exactly one -- {@code aShotStopsAtTheFirstThingItHits} above pins that -- so this
+     * is the difference between the beam and everything else, and the thing most likely to be
+     * quietly broken by a change to the collision pass.
+     */
+    @Test
+    void theBeamBurnsEverythingInTheLaneRatherThanStoppingAtTheFirst() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        EnemyShip near = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT,
+                player.centerX() - 20, player.y() - 120);
+        EnemyShip far = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT,
+                player.centerX() - 20, player.y() - 300);
+        world.addEnemy(near);
+        world.addEnemy(far);
+        player.collect(PowerUp.Kind.MEGA_LASER);
+        player.setFiringBeam(true);
+
+        system().resolve(world);
+
+        int expected = EnemyShip.EnemyKind.SCOUT.health()
+                - player.damageFor(GameConfig.BEAM_DAMAGE_PER_TICK);
+        assertEquals(expected, healthOf(near), "the near enemy burns");
+        assertEquals(expected, healthOf(far), "and so does the one behind it");
+    }
+
+    /** Nothing burns when the trigger is up, however long the pickup has been held. */
+    @Test
+    void anIdleBeamDamagesNothing() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        EnemyShip enemy = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT,
+                player.centerX() - 20, player.y() - 120);
+        world.addEnemy(enemy);
+        player.collect(PowerUp.Kind.MEGA_LASER);
+
+        system().resolve(world);
+
+        assertEquals(EnemyShip.EnemyKind.SCOUT.health(), healthOf(enemy));
+    }
+
     private static int healthOf(EnemyShip ship) {
         int max = ship.kind().health();
         return (int) Math.round(ship.remainingHealthFraction() * max);

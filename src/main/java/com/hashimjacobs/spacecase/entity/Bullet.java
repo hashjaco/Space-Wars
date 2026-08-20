@@ -34,4 +34,20 @@ public class Bullet extends Entity {
     public int damage() {
         return damage;
     }
+
+    /**
+     * Degrees to turn the nose-up art by so it points where the round is actually going.
+     *
+     * Read off the velocity rather than off a level's {@link Orientation} so one expression covers
+     * every case: the four axis-aligned ones, the tri-shot's fanned rounds, and a {@link Rocket}
+     * that changes heading every tick.
+     *
+     * Note the argument order. This is {@code atan2(vx, -vy)}, not the textbook
+     * {@code atan2(dy, dx)}: zero degrees has to mean straight up, because that is how the
+     * projectiles are drawn, and the canvas turns clockwise. See Rocket's own note on the two
+     * conventions in play here.
+     */
+    public double headingDegrees() {
+        return Math.toDegrees(Math.atan2(velocityX(), -velocityY()));
+    }
 }

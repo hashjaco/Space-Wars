@@ -11,6 +11,7 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -26,12 +27,12 @@ import com.hashimjacobs.spacecase.garage.Loadout;
  */
 final class GarageOverlay {
 
-    private static final Color BRAND = Color.web("#0ec417");
-    private static final Color LABEL = Color.web("#b388ff");
-    private static final Color MUTED = Color.web("#9fb0c9");
-    private static final Color LOCKED = Color.web("#6d7a90");
-    private static final Color PANEL = Color.web("#0c1120");
-    private static final Color PANEL_EDGE = Color.web("#3b4560");
+    private static final Color BRAND = Tokens.BRAND;
+    private static final Color LABEL = Tokens.LABEL;
+    private static final Color MUTED = Tokens.TEXT_SECONDARY;
+    private static final Color LOCKED = Tokens.TEXT_FAINT;
+    private static final Color PANEL = Tokens.SURFACE_1;
+    private static final Color PANEL_EDGE = Tokens.EDGE_STRONG;
 
     private static final double PANEL_WIDTH = 396;
     private static final double PANEL_TOP = 132;
@@ -46,11 +47,11 @@ final class GarageOverlay {
     private static final double SHOWCASE_SCALE = 2.2;
 
     private final GraphicsContext gc;
-    private final Font titleFont = Font.font("Verdana", FontWeight.BOLD, 30);
-    private final Font headingFont = Font.font("Verdana", FontWeight.BOLD, 17);
-    private final Font rowFont = Font.font("Verdana", FontWeight.NORMAL, 13);
-    private final Font valueFont = Font.font("Verdana", FontWeight.BOLD, 15);
-    private final Font promptFont = Font.font("Verdana", FontWeight.BOLD, 13);
+    private final Font titleFont = Font.font(Tokens.BODY, FontWeight.BOLD, 30);
+    private final Font headingFont = Font.font(Tokens.BODY, FontWeight.BOLD, 17);
+    private final Font rowFont = Font.font(Tokens.BODY, FontWeight.NORMAL, 13);
+    private final Font valueFont = Font.font(Tokens.BODY, FontWeight.BOLD, 15);
+    private final Font promptFont = Font.font(Tokens.BODY, FontWeight.BOLD, 13);
 
     GarageOverlay(GraphicsContext gc) {
         this.gc = gc;
@@ -62,7 +63,7 @@ final class GarageOverlay {
      *             would spin the ship twice as fast on a 120 Hz monitor
      */
     void draw(GarageSession session, int tick) {
-        gc.setFill(Color.color(0, 0, 0, 0.82));
+        gc.setFill(Tokens.veil(0.82));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
 
         gc.setTextBaseline(VPos.TOP);
@@ -117,7 +118,7 @@ final class GarageOverlay {
         if (!message.isEmpty()) {
             gc.setTextAlign(TextAlignment.LEFT);
             gc.setFont(rowFont);
-            gc.setFill(Color.web("#ff6b6b"));
+            gc.setFill(Tokens.DANGER_SOFT);
             gc.fillText(message, left, y + 8);
         }
 
@@ -152,8 +153,8 @@ final class GarageOverlay {
         gc.restore();
 
         // Lean.NONE is index 2: the straight-ahead pose, which is the one worth showing off.
-        Sprite hull = loadout.livery().pose(2, false);
-        Sprite kit = loadout.kit().overlay(2);
+        Sprite hull = loadout.livery().pose(2, false, false);
+        Sprite kit = loadout.kit().overlay(2, false);
 
         gc.save();
         gc.translate(centreX, centreY);
@@ -170,7 +171,7 @@ final class GarageOverlay {
     private double drawRow(double left, double right, double y, GarageSession.Row row,
                            boolean focused, boolean isLaunch) {
         if (focused) {
-            gc.setFill(Color.web("#1b2440"));
+            gc.setFill(Tokens.SURFACE_2);
             gc.fillRoundRect(left - 10, y - 4, right - left + 20, 22, 5, 5);
         }
 

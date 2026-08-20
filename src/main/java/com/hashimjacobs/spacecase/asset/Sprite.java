@@ -1,5 +1,8 @@
 package com.hashimjacobs.spacecase.asset;
 
+import java.util.EnumMap;
+import java.util.Map;
+
 import com.hashimjacobs.spacecase.GameConfig;
 
 /**
@@ -119,6 +122,99 @@ public enum Sprite {
     KIT_LANCE_BANK_RIGHT("player/kit-lance-bank-right.png", Draw.PLAYER_W, Draw.PLAYER_H),
 
     /**
+     * The same hulls cut for a level flown side-on.
+     *
+     * A quarter turn of the frames above, baked by the generator rather than applied at draw time,
+     * so the art and the collision box are the same shape -- see the transposed dimensions, and
+     * {@code L9_SCOUT} below for the hostiles that made the same bargain first. Pixel-identical to
+     * what the renderer used to produce by rotating; what changes is that nothing has to rotate.
+     */
+    P1_BANK_LEFT_SIDE("player/p1-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_LEFT_SIDE("player/p1-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_STRAIGHT_SIDE("player/p1-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_RIGHT_SIDE("player/p1-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_BANK_RIGHT_SIDE("player/p1-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_BANK_LEFT_HIT_SIDE("player/p1-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_LEFT_HIT_SIDE("player/p1-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_STRAIGHT_HIT_SIDE("player/p1-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_RIGHT_HIT_SIDE("player/p1-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P1_BANK_RIGHT_HIT_SIDE("player/p1-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    P2_BANK_LEFT_SIDE("player/p2-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_LEFT_SIDE("player/p2-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_STRAIGHT_SIDE("player/p2-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_RIGHT_SIDE("player/p2-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_BANK_RIGHT_SIDE("player/p2-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_BANK_LEFT_HIT_SIDE("player/p2-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_LEFT_HIT_SIDE("player/p2-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_STRAIGHT_HIT_SIDE("player/p2-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_RIGHT_HIT_SIDE("player/p2-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    P2_BANK_RIGHT_HIT_SIDE("player/p2-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    AZURE_BANK_LEFT_SIDE("player/azure-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_LEFT_SIDE("player/azure-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_STRAIGHT_SIDE("player/azure-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_RIGHT_SIDE("player/azure-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_BANK_RIGHT_SIDE("player/azure-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_BANK_LEFT_HIT_SIDE("player/azure-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_LEFT_HIT_SIDE("player/azure-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_STRAIGHT_HIT_SIDE("player/azure-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_RIGHT_HIT_SIDE("player/azure-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AZURE_BANK_RIGHT_HIT_SIDE("player/azure-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    AMBER_BANK_LEFT_SIDE("player/amber-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_LEFT_SIDE("player/amber-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_STRAIGHT_SIDE("player/amber-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_RIGHT_SIDE("player/amber-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_BANK_RIGHT_SIDE("player/amber-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_BANK_LEFT_HIT_SIDE("player/amber-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_LEFT_HIT_SIDE("player/amber-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_STRAIGHT_HIT_SIDE("player/amber-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_RIGHT_HIT_SIDE("player/amber-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    AMBER_BANK_RIGHT_HIT_SIDE("player/amber-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    VIOLET_BANK_LEFT_SIDE("player/violet-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_LEFT_SIDE("player/violet-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_STRAIGHT_SIDE("player/violet-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_RIGHT_SIDE("player/violet-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_BANK_RIGHT_SIDE("player/violet-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_BANK_LEFT_HIT_SIDE("player/violet-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_LEFT_HIT_SIDE("player/violet-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_STRAIGHT_HIT_SIDE("player/violet-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_RIGHT_HIT_SIDE("player/violet-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    VIOLET_BANK_RIGHT_HIT_SIDE("player/violet-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    CHROME_BANK_LEFT_SIDE("player/chrome-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_LEFT_SIDE("player/chrome-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_STRAIGHT_SIDE("player/chrome-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_RIGHT_SIDE("player/chrome-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_BANK_RIGHT_SIDE("player/chrome-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_BANK_LEFT_HIT_SIDE("player/chrome-bank-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_LEFT_HIT_SIDE("player/chrome-left-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_STRAIGHT_HIT_SIDE("player/chrome-straight-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_RIGHT_HIT_SIDE("player/chrome-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    CHROME_BANK_RIGHT_HIT_SIDE("player/chrome-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    KIT_FINS_BANK_LEFT_SIDE("player/kit-fins-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_FINS_LEFT_SIDE("player/kit-fins-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_FINS_STRAIGHT_SIDE("player/kit-fins-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_FINS_RIGHT_SIDE("player/kit-fins-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_FINS_BANK_RIGHT_SIDE("player/kit-fins-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    KIT_ARMOUR_BANK_LEFT_SIDE("player/kit-armour-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_ARMOUR_LEFT_SIDE("player/kit-armour-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_ARMOUR_STRAIGHT_SIDE("player/kit-armour-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_ARMOUR_RIGHT_SIDE("player/kit-armour-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_ARMOUR_BANK_RIGHT_SIDE("player/kit-armour-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+    KIT_LANCE_BANK_LEFT_SIDE("player/kit-lance-bank-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_LANCE_LEFT_SIDE("player/kit-lance-left-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_LANCE_STRAIGHT_SIDE("player/kit-lance-straight-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_LANCE_RIGHT_SIDE("player/kit-lance-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+    KIT_LANCE_BANK_RIGHT_SIDE("player/kit-lance-bank-right-side.png", Draw.PLAYER_H, Draw.PLAYER_W),
+
+
+    /**
      * Enemy hulls, one faction per level.
      *
      * The three archetypes keep their sizes across every level, so a scout is the same target
@@ -208,13 +304,15 @@ public enum Sprite {
 
     /** One ring of the Dune Leviathan's body; the renderer trails several behind the maw. */
     WORM_SEGMENT("worm-segment.png", 104, 104),
-    MEGA_BULLET("MegaLaser.png", 26, 40),
+    /** The rocket pickup's projectile. Was the mega laser's round; the beam replaced it. */
+    ROCKET("MegaLaser.png", 26, 40),
     TRI_BULLET_LEFT("triBulletL.png", 18, 24),
     TRI_BULLET_UP("triBulletU.png", 18, 26),
     TRI_BULLET_RIGHT("triBulletR.png", 18, 24),
 
     PICKUP_TRI_SHOT("pickup-tri-shot.png", 36, 36),
     PICKUP_MEGA_LASER("pickup-mega-laser.png", 36, 36),
+    PICKUP_ROCKET("pickup-rocket.png", 36, 36),
     PICKUP_SHIELD("pickup-shield.png", 36, 36),
     PICKUP_HEALTH("pickup-health.png", 36, 36),
     PICKUP_SPEED("pickup-speed.png", 36, 36),
@@ -262,6 +360,34 @@ public enum Sprite {
     L8_NEAR("level-8/near.png"),
 
     /** Level 9's sky tiles horizontally, since that is the axis its level scrolls on. */
+
+    /**
+     * Rank insignia for the debrief: four tiers, one to four marks each.
+     *
+     * Sixteen frames rather than twenty-six, because {@code prefs.Rank} already folds the ladder
+     * onto a tier plus a count of marks. Named so {@code engine.DebriefOverlay} can look one up
+     * from those two without a switch.
+     */
+    INSIGNIA_CHEVRONS_1("insignia/chevrons-1.png", 48, 22),
+    INSIGNIA_CHEVRONS_2("insignia/chevrons-2.png", 48, 22),
+    INSIGNIA_CHEVRONS_3("insignia/chevrons-3.png", 48, 22),
+    INSIGNIA_CHEVRONS_4("insignia/chevrons-4.png", 48, 22),
+
+    INSIGNIA_RODS_1("insignia/rods-1.png", 48, 22),
+    INSIGNIA_RODS_2("insignia/rods-2.png", 48, 22),
+    INSIGNIA_RODS_3("insignia/rods-3.png", 48, 22),
+    INSIGNIA_RODS_4("insignia/rods-4.png", 48, 22),
+
+    INSIGNIA_BARS_1("insignia/bars-1.png", 48, 22),
+    INSIGNIA_BARS_2("insignia/bars-2.png", 48, 22),
+    INSIGNIA_BARS_3("insignia/bars-3.png", 48, 22),
+    INSIGNIA_BARS_4("insignia/bars-4.png", 48, 22),
+
+    INSIGNIA_STARS_1("insignia/stars-1.png", 48, 22),
+    INSIGNIA_STARS_2("insignia/stars-2.png", 48, 22),
+    INSIGNIA_STARS_3("insignia/stars-3.png", 48, 22),
+    INSIGNIA_STARS_4("insignia/stars-4.png", 48, 22),
+
     L9_FAR("level-9/far.png"),
     L9_MID("level-9/mid.png"),
     L9_NEAR("level-9/near.png"),
@@ -314,6 +440,39 @@ public enum Sprite {
     public String resourcePath() {
         String path = "/sprites/" + fileName;
         return path;
+    }
+
+
+    /**
+     * Each frame's side-on twin, matched by name.
+     *
+     * Derived rather than declared: the generator writes a hull's nose-up and turned cuts in one
+     * pass, so a hand-written table would only be a second place for them to fall out of step.
+     * Anything without a side-on cut maps to itself, which is what lets a caller ask any sprite
+     * without checking first.
+     */
+    private static final Map<Sprite, Sprite> SIDE_CUTS = sideCuts();
+
+    private static Map<Sprite, Sprite> sideCuts() {
+        Map<Sprite, Sprite> cuts = new EnumMap<>(Sprite.class);
+        for (Sprite sprite : values()) {
+            Sprite turned = named(sprite.name() + "_SIDE");
+            cuts.put(sprite, turned == null ? sprite : turned);
+        }
+        return cuts;
+    }
+
+    private static Sprite named(String name) {
+        try {
+            return valueOf(name);
+        } catch (IllegalArgumentException noSuchFrame) {
+            return null;
+        }
+    }
+
+    /** This frame as cut for a level flown side-on, or this frame where there is no turned cut. */
+    public Sprite sideOn() {
+        return SIDE_CUTS.get(this);
     }
 
     public double width() {

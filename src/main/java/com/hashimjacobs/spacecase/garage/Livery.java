@@ -72,11 +72,14 @@ public enum Livery {
      * Takes the ordinal rather than {@code entity.PlayerShip.Lean} so this package stays clear of
      * {@code entity} -- the dependency runs the other way. Both lists are therefore in that enum's
      * declaration order, hardest left to hardest right, and must stay that way.
+     *
+     * {@code sideOn} picks the turned cut of whichever frame the lists name, so a level flown
+     * side-on costs no second pair of lists here.
      */
-    public Sprite pose(int leanIndex, boolean hit) {
+    public Sprite pose(int leanIndex, boolean hit, boolean sideOn) {
         List<Sprite> set = hit ? scorched : poses;
         Sprite chosen = set.get(leanIndex);
-        return chosen;
+        return sideOn ? chosen.sideOn() : chosen;
     }
 
     public String label() {

@@ -15,6 +15,7 @@ import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
 
 /**
@@ -38,7 +39,24 @@ public final class World {
     /** Which way the current level runs. Re-stamped on every level change; see setOrientation. */
     private Orientation orientation = Orientation.TOP_DOWN;
 
+    /** What shape the current level is. Open space until a level says otherwise. */
+    private Terrain terrain = Terrain.NONE;
+
     private int tick;
+
+    /**
+     * How hard the camera is being thrown, and when the throw started.
+     *
+     * Amplitude decays linearly over {@link #SHAKE_TICKS} rather than being stepped down each
+     * update, so the kick is a pure function of the tick -- the same rule the parallax and the
+     * garage turntable follow, and for the same reason: draws are refresh-bound and steps are not.
+     *
+     * Started a full window in the past so a fresh world is already settled without a null case.
+     */
+    private static final int SHAKE_TICKS = 18;
+    private static final double SHAKE_MAX = 14;
+    private int shakeStartTick = -SHAKE_TICKS;
+    private double shakeAmplitude;
 
     /** Names shown under the ships when nobody has been to the pilots screen. */
     private static final List<String> UNNAMED_PILOTS = List.of("PILOT 1", "PILOT 2");
@@ -66,9 +84,27 @@ public final class World {
      *
      * Called between levels, never during one.
      */
+    /**
+     * Takes on a level's shape: which way it runs, and what rock is in it.
+     *
+     * The one call the loop makes at a level boundary. {@link #setOrientation} stays public and
+     * separate because several tests set only the axis, and because a level's rock is seeded from
+     * its position in the campaign -- which a test that only cares about direction should not have
+     * to know about.
+     */
+    public void enterLevel(Level level) {
+        setOrientation(level.orientation());
+        terrain = new Terrain(level.template(), level.orientation(), level.ordinal());
+    }
+
     public void setOrientation(Orientation orientation) {
         this.orientation = orientation;
         placeSpawns();
+    }
+
+    /** The rock in this level, or {@link Terrain#NONE} in the open ones. Never null. */
+    public Terrain terrain() {
+        return terrain;
     }
 
     public Orientation orientation() {
@@ -115,10 +151,17 @@ public final class World {
         for (PlayerShip player : players) {
             player.tickTimers();
             player.update();
+            applyPull(player);
             clampToArena(player);
         }
         for (EnemyShip enemy : enemies) {
             enemy.update();
+            // Kept out of the rock, but never hurt by it: an enemy grinding along a wall is scenery,
+            // an enemy killing itself on one is the level playing itself. Bosses are exempt because
+            // the chamber is opening for them anyway.
+            if (!enemy.isBoss()) {
+                terrain.pushInside(enemy);
+            }
         }
         for (Asteroid asteroid : asteroids) {
             asteroid.update();
@@ -141,6 +184,10 @@ public final class World {
      */
     public void tickScenery() {
         tick++;
+        // Scrolls the rock and opens the boss chamber. Here rather than in update() so it keeps
+        // running through the victory lap, which calls this and nothing else -- the chamber has to
+        // stay open while the ships fly out through it.
+        terrain.tick(bossPresent());
         for (ActiveExplosion explosion : explosions) {
             explosion.tick();
         }
@@ -210,7 +257,12 @@ public final class World {
             boolean gone = orientation.depth(asteroid.x(), asteroid.y(),
                             asteroid.width(), asteroid.height()) > arenaDepth
                     || across + acrossExtent < -margin
-                    || across > orientation.arenaBreadth() + margin;
+                    || across > orientation.arenaBreadth() + margin
+                    // Buried in the tunnel wall. Not pushed aside like an enemy -- a clamped
+                    // asteroid stops reading as something falling freely -- and killed without an
+                    // explosion, because addExplosion kicks the camera and a stream of rocks
+                    // grinding into the wall would shake the screen without stopping.
+                    || terrain.solidAt(asteroid.centerX(), asteroid.centerY());
             if (gone) {
                 asteroid.kill();
             }
@@ -229,6 +281,21 @@ public final class World {
                 powerUp.kill();
             }
         }
+    }
+
+    /**
+     * Drags a ship down-arena: an undertow, a gravity well, a solar wind.
+     *
+     * Applied after the ship has moved, so it reads as being pulled rather than as sluggish
+     * controls, and left well below PLAYER_SPEED so the pull can always be flown against.
+     */
+    private void applyPull(PlayerShip player) {
+        double pull = terrain.template().pull();
+        if (pull == 0) {
+            return;
+        }
+        player.setPosition(player.x() + orientation.vx(pull, 0),
+                player.y() + orientation.vy(pull, 0));
     }
 
     private void clampToArena(PlayerShip player) {
@@ -282,6 +349,30 @@ public final class World {
         double extent = Math.max(source.width(), source.height()) * 1.6;
         ActiveExplosion explosion = new ActiveExplosion(size, source.centerX(), source.centerY(), extent);
         explosions.add(explosion);
+        // Scaled off the thing that blew up rather than special-cased per caller: a flagship is an
+        // order of magnitude bigger than a scout, so "how big was it" already separates a boss
+        // going up from an asteroid popping, and every explosion in the game routes through here.
+        double kick = extent * (size == Explosion.LARGE ? 0.05 : 0.025);
+        shake(Math.min(SHAKE_MAX, kick));
+    }
+
+    /** Throws the camera. The hardest kick still in flight wins; a weaker one does not cut it short. */
+    public void shake(double amplitude) {
+        if (amplitude <= shakeRemaining()) {
+            return;
+        }
+        shakeAmplitude = amplitude;
+        shakeStartTick = tick;
+    }
+
+    /** How far the camera should still be thrown, in pixels. Zero once the kick has settled. */
+    public double shakeRemaining() {
+        int elapsed = tick - shakeStartTick;
+        if (elapsed >= SHAKE_TICKS) {
+            return 0;
+        }
+        double remaining = shakeAmplitude * (1 - elapsed / (double) SHAKE_TICKS);
+        return remaining;
     }
 
     /** The living player closest to the given enemy, or null when everyone is out. */
@@ -298,6 +389,31 @@ public final class World {
             if (distanceSquared < bestDistanceSquared) {
                 bestDistanceSquared = distanceSquared;
                 nearest = player;
+            }
+        }
+        return nearest;
+    }
+
+    /**
+     * The living enemy closest to the given entity, or null when the lane is clear.
+     *
+     * Mirrors {@link #nearestPlayer(Entity)} the other way round, for a player's rockets. Null is a
+     * normal answer, not an error: {@link com.hashimjacobs.spacecase.entity.Rocket} flies straight
+     * when it has nothing to chase, so a rocket launched into an empty sky simply leaves it.
+     */
+    public EnemyShip nearestEnemy(Entity to) {
+        EnemyShip nearest = null;
+        double bestDistanceSquared = Double.MAX_VALUE;
+        for (EnemyShip enemy : enemies) {
+            if (!enemy.isAlive()) {
+                continue;
+            }
+            double dx = enemy.centerX() - to.centerX();
+            double dy = enemy.centerY() - to.centerY();
+            double distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared < bestDistanceSquared) {
+                bestDistanceSquared = distanceSquared;
+                nearest = enemy;
             }
         }
         return nearest;

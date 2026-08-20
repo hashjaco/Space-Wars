@@ -7,6 +7,7 @@ import java.awt.RenderingHints;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
+import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -32,6 +33,18 @@ import javax.imageio.ImageIO;
  *
  * Output is deterministic: every random draw comes from a fixed seed, so re-running reproduces the
  * same assets byte for byte, which is what CI checks.
+ *
+ * Three rules keep that true, and CI only catches a breach of them once someone builds on a
+ * different machine:
+ *
+ *   1. Trig goes through {@link StrictMath}, never {@code Math}. Math.sin, cos and pow are allowed
+ *      one ulp of error and may differ between JVM implementations; only StrictMath is specified
+ *      bit for bit. Math.min/max/abs/sqrt are exact and fine.
+ *   2. Never draw text. Graphics2D.drawString depends on which fonts the host has installed, so a
+ *      rendered glyph is not reproducible. Every mark here is a shape -- see insignia() for how to
+ *      draw a symbol without a font.
+ *   3. One Random per image, seeded from its own constant. Sharing a Random across images makes
+ *      every image depend on the order the others were drawn in.
  *
  * Deliberately NOT generated, because they are the author's own work and better than anything here
  * would produce: the projectiles, the explosion frame sequences, and the music. The player ships are
@@ -63,6 +76,7 @@ public final class GenerateAssets {
         bosses();
         monsters();
         pickups();
+        insignia();
         backgrounds();
 
         laser();
@@ -150,8 +164,7 @@ public final class GenerateAssets {
                 Rectangle cell = cells.get(PLAYER_ROWS[player] * POSES.length + pose);
                 BufferedImage frame = cut(sheet, background, cell);
                 String name = "player/p" + (player + 1) + "-" + POSES[pose];
-                write(frame, SPRITES.resolve(name + ".png"));
-                write(hitFlash(frame), SPRITES.resolve(name + "-hit.png"));
+                writeHull(frame, name);
             }
         }
 
@@ -164,14 +177,36 @@ public final class GenerateAssets {
             for (Paintwork paint : Paintwork.values()) {
                 BufferedImage repainted = recolour(hull, paint);
                 String name = "player/" + paint.name().toLowerCase() + "-" + POSES[pose];
-                write(repainted, SPRITES.resolve(name + ".png"));
-                write(hitFlash(repainted), SPRITES.resolve(name + "-hit.png"));
+                writeHull(repainted, name);
             }
             for (int kit = 0; kit < KITS.length; kit++) {
                 BufferedImage decal = kitOverlay(hull, kit);
-                write(decal, SPRITES.resolve("player/kit-" + KITS[kit] + "-" + POSES[pose] + ".png"));
+                String name = "player/kit-" + KITS[kit] + "-" + POSES[pose];
+                write(decal, SPRITES.resolve(name + ".png"));
+                write(quarterTurnLeft(decal), SPRITES.resolve(name + "-side.png"));
             }
         }
+    }
+
+    /**
+     * A hull pose in all four cuts it is flown in: clean and scorched, nose-up and turned.
+     *
+     * The turned pair exists because the side-view level draws its ships without a render-time
+     * rotation, so the frame and the collision box can be the same shape -- the same bargain the
+     * level-9 hostiles make. {@link #quarterTurnLeft} takes a nose-up hull to a nose-right one,
+     * which is the way a pilot faces down a right-to-left arena.
+     *
+     * Note this is the same rotation the renderer used to apply per frame, so the side cuts are
+     * pixel-identical to what was on screen before. What they buy is the box, not the look.
+     */
+    private static void writeHull(BufferedImage frame, String name) throws IOException {
+        write(frame, SPRITES.resolve(name + ".png"));
+        write(hitFlash(frame), SPRITES.resolve(name + "-hit.png"));
+        BufferedImage side = quarterTurnLeft(frame);
+        write(side, SPRITES.resolve(name + "-side.png"));
+        // "-hit-side" rather than "-side-hit": the Sprite constants derive a turned frame's name by
+        // suffixing "_SIDE", so the turn has to be the last thing in the name.
+        write(hitFlash(side), SPRITES.resolve(name + "-hit-side.png"));
     }
 
     /** Rotates every opaque pixel's hue, preserving its brightness, shading and alpha. */
@@ -474,8 +509,8 @@ public final class GenerateAssets {
             for (int i = 0; i < points; i++) {
                 double angle = 2 * Math.PI * i / points;
                 double wobble = radius * (0.76 + random.nextDouble() * 0.3);
-                double x = size / 2.0 + Math.cos(angle) * wobble;
-                double y = size / 2.0 + Math.sin(angle) * wobble;
+                double x = size / 2.0 + StrictMath.cos(angle) * wobble;
+                double y = size / 2.0 + StrictMath.sin(angle) * wobble;
                 if (i == 0) {
                     outline.moveTo(x, y);
                 } else {
@@ -581,7 +616,7 @@ public final class GenerateAssets {
     }
 
     /**
-     * Nose-down becomes nose-left.
+     * A quarter turn clockwise: nose-down becomes nose-left, and nose-up becomes nose-right.
      *
      * A pixel copy rather than a rotated draw: no interpolation and no dependence on rendering
      * hints, so the output is byte-identical on every JDK the build might run on. That matters
@@ -593,7 +628,7 @@ public final class GenerateAssets {
         BufferedImage turned = blank(h, w);
         for (int x = 0; x < w; x++) {
             for (int y = 0; y < h; y++) {
-                turned.setRGB(y, w - 1 - x, source.getRGB(x, y));
+                turned.setRGB(h - 1 - y, x, source.getRGB(x, y));
             }
         }
         return turned;
@@ -943,7 +978,7 @@ public final class GenerateAssets {
         BufferedImage image = blank(w, h);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
-        double pulse = Math.sin(2 * Math.PI * phase);
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
 
         // Legs first, so the mass sits over them.
         g.setColor(darken(HIDE, 30));
@@ -1009,7 +1044,7 @@ public final class GenerateAssets {
         BufferedImage image = blank(size, size);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
-        double pulse = Math.sin(2 * Math.PI * phase);
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
         double gape = 0.30 * (0.5 + 0.5 * pulse);
 
         // Throat glow behind the jaws, brightest at full gape: the tell before it spits.
@@ -1066,7 +1101,7 @@ public final class GenerateAssets {
         BufferedImage image = blank(w, h);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
-        double pulse = Math.sin(2 * Math.PI * phase);
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
         double flare = 0.34 + 0.20 * (0.5 + 0.5 * pulse);
 
         // Body plates behind the head, receding to the right.
@@ -1108,8 +1143,8 @@ public final class GenerateAssets {
             double radius = 0.10 - ring * 0.035;
             for (int tooth = 0; tooth < 12; tooth++) {
                 double angle = tooth * 2 * Math.PI / 12;
-                double tx = 0.39 + Math.cos(angle) * radius * 0.7;
-                double ty = 0.50 + Math.sin(angle) * radius;
+                double tx = 0.39 + StrictMath.cos(angle) * radius * 0.7;
+                double ty = 0.50 + StrictMath.sin(angle) * radius;
                 g.fill(new Ellipse2D.Double(w * tx - 4, h * ty - 4, 8, 8));
             }
         }
@@ -1137,10 +1172,10 @@ public final class GenerateAssets {
         g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
         for (int bristle = 0; bristle < 8; bristle++) {
             double angle = Math.PI * (0.15 + bristle * 0.10);
-            double cx = size * 0.5 + Math.cos(angle) * size * 0.40;
-            double cy = size * 0.5 + Math.sin(angle) * size * 0.34;
+            double cx = size * 0.5 + StrictMath.cos(angle) * size * 0.40;
+            double cy = size * 0.5 + StrictMath.sin(angle) * size * 0.34;
             g.draw(new java.awt.geom.Line2D.Double(cx, cy,
-                    cx + Math.cos(angle) * 12, cy + Math.sin(angle) * 12));
+                    cx + StrictMath.cos(angle) * 12, cy + StrictMath.sin(angle) * 12));
         }
         g.dispose();
         return image;
@@ -1190,7 +1225,7 @@ public final class GenerateAssets {
         int w = profile.width();
         int h = profile.height();
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
-        double pulse = Math.sin(2 * Math.PI * phase);
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
 
         BufferedImage image = blank(w, h);
         Graphics2D g = paint(image);
@@ -1289,92 +1324,292 @@ public final class GenerateAssets {
         return path;
     }
 
+
+    // ------------------------------------------------------------- rank insignia
+
+    /** The four insignia tiers, in {@code prefs.Rank.Insignia} declaration order. */
+    private static final String[] INSIGNIA_TIERS = {"chevrons", "rods", "bars", "stars"};
+
+    /** Drawn at 4x the size the debrief shows them at, so the marks stay crisp when scaled down. */
+    private static final int BADGE_WIDTH = 192;
+    private static final int BADGE_HEIGHT = 88;
+
+    /**
+     * Rank insignia: four tiers, one to four marks each.
+     *
+     * Sixteen files rather than one per rank. {@code prefs.Rank} already folds twenty-six ranks
+     * onto this grid -- a tier from where you are on the ladder, a count of marks within it -- so
+     * a badge per rank would be ten copies of the same picture.
+     *
+     * Marks on a plate rather than alone on the backdrop, which is the whole difference between
+     * this and the strokes it replaces: the plate is what makes them read as pinned to a uniform.
+     */
+    private static void insignia() throws IOException {
+        for (int tier = 0; tier < INSIGNIA_TIERS.length; tier++) {
+            for (int marks = 1; marks <= 4; marks++) {
+                write(badge(tier, marks),
+                        SPRITES.resolve("insignia/" + INSIGNIA_TIERS[tier] + "-" + marks + ".png"));
+            }
+        }
+    }
+
+    private static BufferedImage badge(int tier, int marks) {
+        BufferedImage image = blank(BADGE_WIDTH, BADGE_HEIGHT);
+        Graphics2D g = paint(image);
+
+        // Plate: a dark field with a lit edge, and a highlight along the top that gives it a face.
+        RoundRectangle2D plate =
+                new RoundRectangle2D.Double(4, 4, BADGE_WIDTH - 8, BADGE_HEIGHT - 8, 18, 18);
+        g.setColor(new Color(0x0f1626));
+        g.fill(plate);
+        g.setColor(BRAND.darker());
+        g.setStroke(new BasicStroke(5f));
+        g.draw(plate);
+        g.setColor(new Color(255, 255, 255, 26));
+        g.setStroke(new BasicStroke(3f));
+        g.draw(new RoundRectangle2D.Double(12, 12, BADGE_WIDTH - 24, BADGE_HEIGHT - 24, 12, 12));
+
+        // Marks twice: a dark pass offset down and right, then the bright one over it. Cheaper than
+        // a blur and it is what stops the marks reading as flat against the plate.
+        g.translate(2, 3);
+        g.setColor(new Color(0, 0, 0, 128));
+        marks(g, tier, marks);
+        g.translate(-2, -3);
+        g.setColor(BRAND);
+        marks(g, tier, marks);
+
+        g.dispose();
+        return image;
+    }
+
+    /** The marks themselves, centred on the plate. Shapes follow prefs.Rank.Insignia's four tiers. */
+    private static void marks(Graphics2D g, int tier, int count) {
+        double midX = BADGE_WIDTH / 2.0;
+        double midY = BADGE_HEIGHT / 2.0;
+        switch (INSIGNIA_TIERS[tier]) {
+            case "chevrons" -> {
+                double pitch = 17;
+                double top = midY - (count - 1) * pitch / 2 - 8;
+                g.setStroke(new BasicStroke(9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                for (int i = 0; i < count; i++) {
+                    double y = top + i * pitch;
+                    Path2D chevron = new Path2D.Double();
+                    chevron.moveTo(midX - 30, y + 16);
+                    chevron.lineTo(midX, y);
+                    chevron.lineTo(midX + 30, y + 16);
+                    g.draw(chevron);
+                }
+            }
+            case "rods" -> forEachMark(g, count, 24, midX, x ->
+                    g.fill(new RoundRectangle2D.Double(x - 6, midY - 26, 12, 52, 8, 8)));
+            case "bars" -> forEachMark(g, count, 26, midX, x ->
+                    g.fill(new Rectangle2D.Double(x - 8, midY - 22, 16, 44)));
+            default -> forEachMark(g, count, 40, midX, x -> star(g, x, midY, 19));
+        }
+    }
+
+    /** Lays marks out in a row centred on {@code midX}, so one, three and four all sit balanced. */
+    private static void forEachMark(Graphics2D g, int count, double pitch, double midX,
+                                    java.util.function.DoubleConsumer mark) {
+        double first = midX - (count - 1) * pitch / 2;
+        for (int i = 0; i < count; i++) {
+            mark.accept(first + i * pitch);
+        }
+    }
+
+    /** A five-pointed star, alternating outer and inner radius from the top. */
+    private static void star(Graphics2D g, double cx, double cy, double radius) {
+        Path2D path = new Path2D.Double();
+        for (int point = 0; point < 10; point++) {
+            double reach = point % 2 == 0 ? radius : radius * 0.42;
+            double angle = -Math.PI / 2 + point * Math.PI / 5;
+            double x = cx + StrictMath.cos(angle) * reach;
+            double y = cy + StrictMath.sin(angle) * reach;
+            if (point == 0) {
+                path.moveTo(x, y);
+            } else {
+                path.lineTo(x, y);
+            }
+        }
+        path.closePath();
+        g.fill(path);
+    }
+
     /** Pickup icons: readable at 36px, and none of them a trademark. */
     private static void pickups() throws IOException {
         write(icon(g -> {
             // Three chevrons: speed.
-            g.setColor(BRAND);
+            capsule(g, BRAND);
+            g.setColor(brighten(BRAND, 90));
+            g.setStroke(new BasicStroke(10f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
             for (int i = 0; i < 3; i++) {
                 Path2D chevron = new Path2D.Double();
-                double y = 26 + i * 26;
-                chevron.moveTo(28, y + 18);
+                double y = 38 + i * 22;
+                chevron.moveTo(38, y + 16);
                 chevron.lineTo(64, y);
-                chevron.lineTo(100, y + 18);
-                g.setStroke(new BasicStroke(11f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                chevron.lineTo(90, y + 16);
                 g.draw(chevron);
             }
         }), SPRITES.resolve("pickup-speed.png"));
 
         write(icon(g -> {
             // Medkit cross.
+            Color red = new Color(0xd6263c);
+            capsule(g, red);
             g.setColor(new Color(0xe8f1f2));
-            g.fillRoundRect(18, 18, 92, 92, 22, 22);
-            g.setColor(new Color(0xd6263c));
-            g.fillRect(56, 34, 16, 60);
-            g.fillRect(34, 56, 60, 16);
+            g.fillRoundRect(56, 34, 16, 60, 8, 8);
+            g.fillRoundRect(34, 56, 60, 16, 8, 8);
+            g.setColor(alpha(red, 200));
+            g.setStroke(new BasicStroke(3f));
+            g.drawRoundRect(56, 34, 16, 60, 8, 8);
+            g.drawRoundRect(34, 56, 60, 16, 8, 8);
         }), SPRITES.resolve("pickup-health.png"));
 
         write(icon(g -> {
             // Shield outline.
+            Color blue = new Color(0x5aa6ff);
+            capsule(g, blue);
             Path2D shield = new Path2D.Double();
-            shield.moveTo(64, 14);
-            shield.lineTo(110, 34);
-            shield.curveTo(110, 88, 90, 106, 64, 116);
-            shield.curveTo(38, 106, 18, 88, 18, 34);
+            shield.moveTo(64, 26);
+            shield.lineTo(100, 42);
+            shield.curveTo(100, 84, 84, 98, 64, 106);
+            shield.curveTo(44, 98, 28, 84, 28, 42);
             shield.closePath();
             g.setColor(new Color(0x2a4f8f));
             g.fill(shield);
             g.setColor(new Color(0x9fd0ff));
-            g.setStroke(new BasicStroke(7f));
+            g.setStroke(new BasicStroke(6f));
             g.draw(shield);
+            // A band across it, so the plate is not a flat silhouette at 36px.
+            g.setColor(alpha(new Color(0xdfefff), 120));
+            g.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(new java.awt.geom.Line2D.Double(40, 56, 88, 56));
         }), SPRITES.resolve("pickup-shield.png"));
 
         write(icon(g -> {
             // Three bolts fanning upward, with heads, so it reads as outgoing fire rather than a
             // download arrow.
-            g.setColor(new Color(0x7ce8ff));
-            double[][] tips = {{34, 34}, {64, 20}, {94, 34}};
+            Color cyan = new Color(0x7ce8ff);
+            capsule(g, cyan);
+            g.setColor(cyan);
+            double[][] tips = {{38, 32}, {64, 24}, {90, 32}};
             for (double[] tip : tips) {
-                g.setStroke(new BasicStroke(9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g.draw(new java.awt.geom.Line2D.Double(64, 108, tip[0], tip[1] + 16));
+                g.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g.draw(new java.awt.geom.Line2D.Double(64, 102, tip[0], tip[1] + 16));
                 Path2D head = new Path2D.Double();
                 head.moveTo(tip[0], tip[1]);
-                head.lineTo(tip[0] - 11, tip[1] + 20);
-                head.lineTo(tip[0] + 11, tip[1] + 20);
+                head.lineTo(tip[0] - 10, tip[1] + 18);
+                head.lineTo(tip[0] + 10, tip[1] + 18);
                 head.closePath();
                 g.fill(head);
             }
         }), SPRITES.resolve("pickup-tri-shot.png"));
 
         write(icon(g -> {
-            // Thick beam with a flared muzzle: mega laser.
-            g.setColor(new Color(0xff8ae0));
-            g.fillRoundRect(50, 20, 28, 78, 12, 12);
+            // A red column with a white-hot core: the beam this pickup actually fires. Red, not
+            // pink, because the drawn beam is red and the icon has to promise the right weapon.
+            Color red = new Color(0xff2a2a);
+            capsule(g, red);
+            g.setColor(alpha(red, 200));
+            g.fillRoundRect(50, 22, 28, 66, 12, 12);
+            g.setColor(new Color(0xff8a6a));
+            g.fillRoundRect(57, 24, 14, 62, 7, 7);
             g.setColor(new Color(0xffffff));
-            g.fillRoundRect(58, 28, 12, 54, 6, 6);
-            g.setColor(new Color(0xff8ae0));
+            g.fillRoundRect(61, 26, 6, 58, 3, 3);
+            // The muzzle flare beneath, so the column reads as leaving something rather than
+            // floating.
+            g.setColor(alpha(red, 235));
             Path2D flare = new Path2D.Double();
-            flare.moveTo(36, 104);
-            flare.lineTo(64, 88);
-            flare.lineTo(92, 104);
+            flare.moveTo(28, 108);
+            flare.lineTo(64, 84);
+            flare.lineTo(100, 108);
             flare.closePath();
             g.fill(flare);
         }), SPRITES.resolve("pickup-mega-laser.png"));
 
         write(icon(g -> {
+            // A missile: nose cone, body, fins, exhaust. The pickup that inherited the old mega
+            // laser's projectile art.
+            Color orange = new Color(0xff9a3c);
+            capsule(g, orange);
+            // Fins first, so the body is drawn over their roots.
+            g.setColor(new Color(0xc7411f));
+            Path2D fins = new Path2D.Double();
+            fins.moveTo(52, 66);
+            fins.lineTo(36, 92);
+            fins.lineTo(52, 88);
+            fins.closePath();
+            g.fill(fins);
+            Path2D right = new Path2D.Double();
+            right.moveTo(76, 66);
+            right.lineTo(92, 92);
+            right.lineTo(76, 88);
+            right.closePath();
+            g.fill(right);
+
+            g.setColor(new Color(0xe8eef5));
+            g.fillRoundRect(52, 40, 24, 50, 10, 10);
+            Path2D nose = new Path2D.Double();
+            nose.moveTo(64, 18);
+            nose.lineTo(78, 46);
+            nose.lineTo(50, 46);
+            nose.closePath();
+            g.setColor(new Color(0xd6263c));
+            g.fill(nose);
+            // A band, which is what separates a missile from a plain capsule at icon size.
+            g.setColor(new Color(0x9aa7b8));
+            g.fillRect(52, 58, 24, 8);
+
+            g.setPaint(new RadialGradientPaint(64f, 100f, 20f,
+                    new float[]{0f, 0.5f, 1f},
+                    new Color[]{new Color(255, 244, 214, 255), alpha(orange, 200),
+                            alpha(orange, 0)}));
+            g.fill(new Ellipse2D.Double(44, 80, 40, 40));
+        }), SPRITES.resolve("pickup-rocket.png"));
+
+        write(icon(g -> {
             // A small ship outline plus a plus sign: an extra life.
-            g.setColor(BRAND);
+            capsule(g, BRAND);
+            g.setColor(brighten(BRAND, 80));
             Path2D ship = new Path2D.Double();
-            ship.moveTo(52, 24);
-            ship.lineTo(78, 70);
-            ship.lineTo(64, 62);
-            ship.lineTo(50, 70);
+            ship.moveTo(64, 26);
+            ship.lineTo(80, 66);
+            ship.lineTo(64, 58);
+            ship.lineTo(48, 66);
             ship.closePath();
             g.fill(ship);
             g.setStroke(new BasicStroke(9f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-            g.drawLine(64, 82, 64, 112);
-            g.drawLine(49, 97, 79, 97);
+            g.drawLine(64, 80, 64, 106);
+            g.drawLine(51, 93, 77, 93);
         }), SPRITES.resolve("pickup-extra-life.png"));
+    }
+
+    /**
+     * The housing every pickup glyph sits in: bloom, dark plate, tinted rim, top highlight.
+     *
+     * The glyphs on their own were flat marks on nothing, which at 36px in a busy arena read as
+     * clip-art rather than as objects worth flying into. One shared body makes them a set -- and
+     * the tint carries which pickup it is even when the glyph is too small to resolve.
+     */
+    private static void capsule(Graphics2D g, Color tint) {
+        g.setPaint(new RadialGradientPaint(64f, 64f, 64f,
+                new float[]{0f, 0.6f, 1f},
+                new Color[]{alpha(tint, 130), alpha(tint, 55), alpha(tint, 0)}));
+        g.fill(new Ellipse2D.Double(0, 0, 128, 128));
+
+        RoundRectangle2D body = new RoundRectangle2D.Double(14, 14, 100, 100, 34, 34);
+        g.setPaint(new java.awt.GradientPaint(0f, 14f, new Color(0x1d2537), 0f, 114f,
+                new Color(0x090d17)));
+        g.fill(body);
+        g.setPaint(alpha(tint, 235));
+        g.setStroke(new BasicStroke(5f));
+        g.draw(body);
+
+        // A sheen along the top edge. Without it the plate is a hole rather than a surface. Hugging
+        // the rim rather than floating inside it, or it reads as a smudge on the glyph.
+        g.setPaint(new Color(255, 255, 255, 55));
+        g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new java.awt.geom.QuadCurve2D.Double(28, 34, 64, 20, 100, 34));
     }
 
     private static BufferedImage icon(java.util.function.Consumer<Graphics2D> body) {
@@ -1749,7 +1984,7 @@ public final class GenerateAssets {
             double wobble = 0;
             for (int harmonic = 0; harmonic < WALL_HARMONICS.length; harmonic++) {
                 wobble += WALL_HARMONICS[harmonic]
-                        * Math.sin(2 * Math.PI * (harmonic + 1) * along + phase[harmonic]);
+                        * StrictMath.sin(2 * Math.PI * (harmonic + 1) * along + phase[harmonic]);
             }
             double inset = reach * (1 + 0.42 * wobble);
             double x = side < 0 ? w * inset : w * (1 - inset);
@@ -1857,7 +2092,7 @@ public final class GenerateAssets {
             // One-pole lowpass, opening then closing, so it reads as a boom not a hiss.
             double cutoff = 0.36 - 0.26 * progress;
             lowpass += cutoff * (white - lowpass);
-            double rumble = Math.sin(2 * Math.PI * (70 - 30 * progress) * i / SAMPLE_RATE);
+            double rumble = StrictMath.sin(2 * Math.PI * (70 - 30 * progress) * i / SAMPLE_RATE);
             mix[i] = (lowpass * 0.8 + rumble * 0.35) * envelope * 0.75;
         }
         writeWav(mix, SOUNDS.resolve("explosion.wav"));
@@ -1870,7 +2105,7 @@ public final class GenerateAssets {
         for (int i = 0; i < mix.length; i++) {
             double progress = i / (double) mix.length;
             double envelope = Math.exp(-11 * progress);
-            double body = Math.sin(2 * Math.PI * (150 - 90 * progress) * i / SAMPLE_RATE);
+            double body = StrictMath.sin(2 * Math.PI * (150 - 90 * progress) * i / SAMPLE_RATE);
             double grit = (random.nextDouble() * 2 - 1) * 0.3;
             mix[i] = (body + grit) * envelope * 0.55;
         }
@@ -1922,7 +2157,7 @@ public final class GenerateAssets {
     private enum Wave { SQUARE, TRIANGLE, SINE }
 
     private static double pitch(int midiNote) {
-        double frequency = 440 * Math.pow(2, (midiNote - 69) / 12.0);
+        double frequency = 440 * StrictMath.pow(2, (midiNote - 69) / 12.0);
         return frequency;
     }
 
@@ -1942,7 +2177,7 @@ public final class GenerateAssets {
             double sample = switch (wave) {
                 case SQUARE -> square(frequency, t);
                 case TRIANGLE -> triangle(frequency, t);
-                case SINE -> Math.sin(2 * Math.PI * frequency * t);
+                case SINE -> StrictMath.sin(2 * Math.PI * frequency * t);
             };
             // Short attack, long release, so notes do not click.
             double envelope = 1;

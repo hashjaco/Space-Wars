@@ -15,6 +15,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -64,7 +65,7 @@ final class MenuScreen {
     static Text caption(String text, double size, Color color) {
         Text caption = new Text(text);
         caption.setFill(color);
-        caption.setFont(Font.font("Verdana", size));
+        caption.setFont(Font.font(Tokens.BODY, size));
         return caption;
     }
 }

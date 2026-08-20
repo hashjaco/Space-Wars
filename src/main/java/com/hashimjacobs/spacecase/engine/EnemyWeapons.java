@@ -143,7 +143,7 @@ final class EnemyWeapons {
             double side = salvo == 1 ? 0 : (i % 2 == 0 ? -1 : 1);
             double x = boss.centerX() - art.width() / 2 + facing.vx(lead, side * flank);
             double y = boss.centerY() - art.height() / 2 + facing.vy(lead, side * flank);
-            world.addBullet(new Rocket(art, x, y, target, speed, damage, turn, fuse));
+            world.addBullet(new Rocket(art, x, y, 0, speed, null, target, damage, turn, fuse));
         }
     }
 

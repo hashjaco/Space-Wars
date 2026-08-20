@@ -24,7 +24,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The three-headed fight, driven through the same World and weapons the game uses. */
 class HydraTest {
 
-    private static final Level LEVEL = Level.values()[Level.values().length - 1];
+    // Named rather than "the last level", which it stopped being once the campaign grew past one
+    // galaxy. The hydra guards Hollow Womb specifically; the test wants that level's art and waves.
+    private static final Level LEVEL = Level.HOLLOW_WOMB;
 
     private static World withHydra() {
         World world = new World(GameMode.SOLO);

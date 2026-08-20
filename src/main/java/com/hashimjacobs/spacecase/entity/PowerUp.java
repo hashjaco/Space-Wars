@@ -1,5 +1,7 @@
 package com.hashimjacobs.spacecase.entity;
 
+import java.util.Random;
+
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
@@ -28,31 +30,47 @@ public final class PowerUp extends Entity {
         return kind;
     }
 
-    /** What a pickup does. Timed kinds run for {@code GameConfig.POWERUP_DURATION_TICKS}. */
+    /**
+     * What a pickup does.
+     *
+     * Nothing here is timed. An effect runs until the pilot loses a life, which is what
+     * {@code PlayerShip.respawn()} takes away -- so the cost of a mistake is the arsenal, not a
+     * countdown nobody was watching.
+     */
     public enum Kind {
 
-        TRI_SHOT(Sprite.PICKUP_TRI_SHOT, true),
-        MEGA_LASER(Sprite.PICKUP_MEGA_LASER, true),
-        SPEED(Sprite.PICKUP_SPEED, true),
-        SHIELD(Sprite.PICKUP_SHIELD, true),
-        HEALTH(Sprite.PICKUP_HEALTH, false),
-        EXTRA_LIFE(Sprite.PICKUP_EXTRA_LIFE, false);
+        TRI_SHOT(Sprite.PICKUP_TRI_SHOT),
+        MEGA_LASER(Sprite.PICKUP_MEGA_LASER),
+        ROCKETS(Sprite.PICKUP_ROCKET),
+        SPEED(Sprite.PICKUP_SPEED),
+        SHIELD(Sprite.PICKUP_SHIELD),
+        HEALTH(Sprite.PICKUP_HEALTH),
+        EXTRA_LIFE(Sprite.PICKUP_EXTRA_LIFE);
+
+        /**
+         * What anything may drop. The beam is deliberately not in here.
+         *
+         * It is the strongest weapon in the game -- it pierces, it never runs out and it does not
+         * expire -- so it cannot be one uniform pick in six off every scout that dies. Only a heavy
+         * hull or a flagship carries one, and {@code engine.CollisionSystem} rolls for that
+         * separately and at worse odds than any of these.
+         */
+        private static final Kind[] COMMON =
+                {TRI_SHOT, ROCKETS, SPEED, SHIELD, HEALTH, EXTRA_LIFE};
 
         private final Sprite sprite;
-        private final boolean timed;
 
-        Kind(Sprite sprite, boolean timed) {
+        Kind(Sprite sprite) {
             this.sprite = sprite;
-            this.timed = timed;
         }
 
         public Sprite sprite() {
             return sprite;
         }
 
-        /** True when the effect lasts for a while; false when it applies once and is consumed. */
-        public boolean timed() {
-            return timed;
+        /** One of everything an ordinary kill, or an arena with nothing to kill, can hand out. */
+        public static Kind randomCommon(Random random) {
+            return COMMON[random.nextInt(COMMON.length)];
         }
     }
 }

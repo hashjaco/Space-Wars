@@ -115,4 +115,102 @@ class LoadoutTest {
             previous = cost;
         }
     }
+
+    // ---- Format version 2: upgrades keyed by name rather than by position --------------------
+
+    /**
+     * The migration that matters, and the reason version 2 exists.
+     *
+     * A version 1 record holds five upgrade levels in fixed positions, with the paint job in the
+     * field after the last of them. Appending a sixth upgrade would move that boundary, so every
+     * existing record would start reading its paint out of an upgrade slot and its ownership masks
+     * out of thin air. These assertions name the upgrades, so they keep testing the right thing
+     * after the catalogue grows rather than silently following it.
+     */
+    @Test
+    void aVersionOneRecordLandsOnTheUpgradesItWasWrittenFor() {
+        // FIREPOWER=4, FIRE_RATE=3, SPEED=2, SHIELDING=1, HULL=0, then ION_BLUE paint and FINS kit.
+        Loadout back = Loadout.decode("1,4,3,2,1,0,2,1,7,3", 1);
+
+        assertEquals(4, back.level(Upgrade.FIREPOWER));
+        assertEquals(3, back.level(Upgrade.FIRE_RATE));
+        assertEquals(2, back.level(Upgrade.SPEED));
+        assertEquals(1, back.level(Upgrade.SHIELDING));
+        assertEquals(0, back.level(Upgrade.HULL));
+        assertEquals(Livery.values()[2], back.livery(), "paint must not be read from an upgrade slot");
+        assertEquals(Kit.values()[1], back.kit());
+    }
+
+    @Test
+    void aVersionTwoRecordRoundTripsEveryUpgrade() {
+        Loadout saved = Loadout.stock(1);
+        for (Upgrade upgrade : Upgrade.values()) {
+            saved.raise(upgrade);
+            saved.raise(upgrade);
+        }
+        saved.unlock(Livery.values()[2]);
+        saved.unlock(Kit.values()[1]);
+
+        Loadout back = Loadout.decode(saved.encode(), 1);
+
+        for (Upgrade upgrade : Upgrade.values()) {
+            assertEquals(saved.level(upgrade), back.level(upgrade), upgrade + " did not survive");
+        }
+        assertEquals(saved.livery(), back.livery());
+        assertEquals(saved.kit(), back.kit());
+    }
+
+    /** A record from a newer build yields everything this one still recognises. */
+    @Test
+    void anUpgradeThisBuildDoesNotHaveIsSkippedRatherThanRejected() {
+        Loadout back = Loadout.decode("2,FIREPOWER=3|WARP_DRIVE=2|HULL=1,0,0,3,1", 1);
+
+        assertEquals(3, back.level(Upgrade.FIREPOWER));
+        assertEquals(1, back.level(Upgrade.HULL));
+        assertEquals(Livery.stockFor(1), back.livery(), "the rest of the record still applies");
+    }
+
+    @Test
+    void anUpgradeMissingFromTheBlockReadsAsUnbought() {
+        Loadout back = Loadout.decode("2,FIREPOWER=2,0,0,3,1", 1);
+
+        assertEquals(2, back.level(Upgrade.FIREPOWER));
+        assertEquals(0, back.level(Upgrade.HULL));
+    }
+
+    /** A pilot who has bought nothing should not pay a field per entry in the catalogue. */
+    @Test
+    void anUnspentLoadoutEncodesToAlmostNothing() {
+        String code = Loadout.stock(1).encode();
+
+        assertTrue(code.length() < 20, "a stock ship encoded to " + code.length() + " chars: " + code);
+        assertEquals(0, Loadout.decode(code, 1).level(Upgrade.FIREPOWER));
+    }
+
+    @Test
+    void aFullyBoughtLoadoutStaysWellInsideAPreferencesValue() {
+        Loadout maxed = Loadout.stock(1);
+        for (Upgrade upgrade : Upgrade.values()) {
+            for (int i = 0; i < GameConfig.UPGRADE_MAX_LEVEL; i++) {
+                maxed.raise(upgrade);
+            }
+        }
+        for (Livery livery : Livery.values()) {
+            maxed.unlock(livery);
+        }
+        for (Kit kit : Kit.values()) {
+            maxed.unlock(kit);
+        }
+
+        assertTrue(maxed.encode().length() < 512,
+                "encoded to " + maxed.encode().length() + " chars: " + maxed.encode());
+    }
+
+    @Test
+    void anUnknownVersionYieldsAStockShip() {
+        Loadout back = Loadout.decode("9,FIREPOWER=4,2,1,7,3", 1);
+
+        assertEquals(0, back.level(Upgrade.FIREPOWER));
+        assertEquals(Livery.stockFor(1), back.livery());
+    }
 }
