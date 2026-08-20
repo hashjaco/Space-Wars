@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Orientation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -106,5 +107,47 @@ class LevelTest {
                         level + " " + kind + " hull points somewhere else");
             }
         }
+    }
+
+    /**
+     * A side-on level's hostiles declare transposed sizes.
+     *
+     * The one failure in this codebase that nothing else catches and that no exception reports. A
+     * side-view level is a matched set of four things: the sky tiles horizontally, the hulls are cut
+     * pointing left, the {@code Sprite} constants swap width for height, and the flagship's frames
+     * are turned once by the generator. Get the third wrong and the ship is drawn one way round with
+     * a hitbox at right angles to it -- shots pass through the nose and connect with empty space
+     * beside the wing. It looks like a collision bug and it is a typo.
+     *
+     * Compares against the top-down levels rather than hard-coding numbers, so it keeps working when
+     * the archetype sizes are retuned.
+     */
+    @Test
+    void sideOnLevelsDeclareTransposedEnemySizes() {
+        Level upright = null;
+        for (Level level : Level.values()) {
+            if (level.orientation() == Orientation.TOP_DOWN) {
+                upright = level;
+                break;
+            }
+        }
+        assertTrue(upright != null, "no top-down level to compare against");
+
+        int sideOn = 0;
+        for (Level level : Level.values()) {
+            if (level.orientation() == Orientation.TOP_DOWN) {
+                continue;
+            }
+            sideOn++;
+            for (EnemyShip.EnemyKind kind : EnemyShip.EnemyKind.values()) {
+                Sprite turned = level.enemySprite(kind);
+                Sprite plain = upright.enemySprite(kind);
+                assertEquals(plain.height(), turned.width(), 1e-9,
+                        level + " " + kind + " is not turned: its width should be a top-down height");
+                assertEquals(plain.width(), turned.height(), 1e-9,
+                        level + " " + kind + " is not turned: its height should be a top-down width");
+            }
+        }
+        assertTrue(sideOn > 0, "no side-on levels found, so this test proved nothing");
     }
 }

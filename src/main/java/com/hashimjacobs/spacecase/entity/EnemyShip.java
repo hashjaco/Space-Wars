@@ -221,6 +221,22 @@ public class EnemyShip extends Entity {
         return parts;
     }
 
+    /**
+     * Whether any piece that guards the rest of this ship is still alive.
+     *
+     * Only {@link MechPart} distinguishes a guard from a guarded piece; for everything else every
+     * part guards, which is the rule {@link #takeDamage} already applies to the body.
+     */
+    boolean hasLivingGuard() {
+        for (EnemyShip part : parts) {
+            boolean guards = !(part instanceof MechPart pod) || pod.isGuard();
+            if (guards && part.isAlive()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     /** Which pattern this ship is firing. Overridden by parts that fight on their own clock. */
     public BossPhase phase() {
         return boss.phaseFor(remainingHealthFraction());

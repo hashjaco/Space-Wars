@@ -268,6 +268,50 @@ public enum Sprite {
     L10_FIGHTER("level-10/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L10_CRUISER("level-10/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
+    // ---- Galaxy 2: Ashfall (levels 11-20) --------------------------------------------
+    L11_SCOUT("level-11/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L11_FIGHTER("level-11/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L11_CRUISER("level-11/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L12_SCOUT("level-12/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L12_FIGHTER("level-12/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L12_CRUISER("level-12/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L13_SCOUT("level-13/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L13_FIGHTER("level-13/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L13_CRUISER("level-13/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L14_SCOUT("level-14/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L14_FIGHTER("level-14/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L14_CRUISER("level-14/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L15_SCOUT("level-15/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L15_FIGHTER("level-15/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L15_CRUISER("level-15/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L16_SCOUT("level-16/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L16_FIGHTER("level-16/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L16_CRUISER("level-16/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+
+    /** Sunward Dive's hostiles are cut pointing left, so width and height swap. */
+    L17_SCOUT("level-17/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L17_FIGHTER("level-17/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L17_CRUISER("level-17/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+
+    L18_SCOUT("level-18/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L18_FIGHTER("level-18/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L18_CRUISER("level-18/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L19_SCOUT("level-19/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L19_FIGHTER("level-19/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L19_CRUISER("level-19/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L20_SCOUT("level-20/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L20_FIGHTER("level-20/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L20_CRUISER("level-20/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+
     /**
      * Fallback only. Bosses are animated, so the renderer draws a frame from
      * {@link BossArt} instead of this -- but {@code Entity} requires some sprite, and a visible ship
@@ -394,7 +438,48 @@ public enum Sprite {
 
     L10_FAR("level-10/far.png"),
     L10_MID("level-10/mid.png"),
-    L10_NEAR("level-10/near.png");
+    L10_NEAR("level-10/near.png"),
+
+    // ---- Galaxy 2: Ashfall (levels 11-20) --------------------------------------------
+    L11_FAR("level-11/far.png"),
+    L11_MID("level-11/mid.png"),
+    L11_NEAR("level-11/near.png"),
+
+    L12_FAR("level-12/far.png"),
+    L12_MID("level-12/mid.png"),
+    L12_NEAR("level-12/near.png"),
+
+    L13_FAR("level-13/far.png"),
+    L13_MID("level-13/mid.png"),
+    L13_NEAR("level-13/near.png"),
+
+    L14_FAR("level-14/far.png"),
+    L14_MID("level-14/mid.png"),
+    L14_NEAR("level-14/near.png"),
+
+    L15_FAR("level-15/far.png"),
+    L15_MID("level-15/mid.png"),
+    L15_NEAR("level-15/near.png"),
+
+    L16_FAR("level-16/far.png"),
+    L16_MID("level-16/mid.png"),
+    L16_NEAR("level-16/near.png"),
+
+    L17_FAR("level-17/far.png"),
+    L17_MID("level-17/mid.png"),
+    L17_NEAR("level-17/near.png"),
+
+    L18_FAR("level-18/far.png"),
+    L18_MID("level-18/mid.png"),
+    L18_NEAR("level-18/near.png"),
+
+    L19_FAR("level-19/far.png"),
+    L19_MID("level-19/mid.png"),
+    L19_NEAR("level-19/near.png"),
+
+    L20_FAR("level-20/far.png"),
+    L20_MID("level-20/mid.png"),
+    L20_NEAR("level-20/near.png");
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.

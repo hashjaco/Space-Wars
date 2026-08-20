@@ -89,7 +89,75 @@ public enum Level {
     HOLLOW_WOMB("Hollow Womb",
             Sprite.L10_FAR, Sprite.L10_MID, Sprite.L10_NEAR,
             Sprite.L10_SCOUT, Sprite.L10_FIGHTER, Sprite.L10_CRUISER,
-            Boss.HYDRA, 5, WorldTemplate.CAVE);
+            Boss.HYDRA, 5, WorldTemplate.CAVE),
+
+    // ---- Galaxy 2: Ashfall (levels 11-20) --------------------------------------------------
+    //
+    // The galaxy with a ceiling. It opens on a belt, spends its middle underground or hugging the
+    // ground, and closes in a caldera -- only Sunward Dive leaves the planet at all. Waves run
+    // 4,4,4,4,5,5,5,5,5,6, so it is a longer galaxy than Verdance as well as a harder one.
+
+    /** Cinder Belt: the first rocks, and the first new sky the game ever drew. */
+    CINDER_BELT("Cinder Belt",
+            Sprite.L11_FAR, Sprite.L11_MID, Sprite.L11_NEAR,
+            Sprite.L11_SCOUT, Sprite.L11_FIGHTER, Sprite.L11_CRUISER,
+            Boss.CINDER_WARDEN, 4),
+
+    ASHFALL_SKY("Ashfall Sky",
+            Sprite.L12_FAR, Sprite.L12_MID, Sprite.L12_NEAR,
+            Sprite.L12_SCOUT, Sprite.L12_FIGHTER, Sprite.L12_CRUISER,
+            Boss.ASH_REVENANT, 4),
+
+    SLAGFIELDS("Slagfields",
+            Sprite.L13_FAR, Sprite.L13_MID, Sprite.L13_NEAR,
+            Sprite.L13_SCOUT, Sprite.L13_FIGHTER, Sprite.L13_CRUISER,
+            Boss.SLAG_BARON, 4),
+
+    /** Magma Vents: the galaxy's first tunnel, and the first rock in it that hurts. */
+    MAGMA_VENTS("Magma Vents",
+            Sprite.L14_FAR, Sprite.L14_MID, Sprite.L14_NEAR,
+            Sprite.L14_SCOUT, Sprite.L14_FIGHTER, Sprite.L14_CRUISER,
+            Boss.VENT_CRAWLER, 4, WorldTemplate.CAVE),
+
+    THE_FORGEWORKS("The Forgeworks",
+            Sprite.L15_FAR, Sprite.L15_MID, Sprite.L15_NEAR,
+            Sprite.L15_SCOUT, Sprite.L15_FIGHTER, Sprite.L15_CRUISER,
+            Boss.FORGE_OVERSEER, 5, WorldTemplate.CAVE),
+
+    PYROCLAST("Pyroclast",
+            Sprite.L16_FAR, Sprite.L16_MID, Sprite.L16_NEAR,
+            Sprite.L16_SCOUT, Sprite.L16_FIGHTER, Sprite.L16_CRUISER,
+            Boss.PYRE_SOVEREIGN, 5),
+
+    /**
+     * Sunward Dive: the galaxy's side-on leg, flown out past the star.
+     *
+     * The second level in the game to run this way, and the first built for it rather than
+     * grandfathered. Everything it needs is a matched set: the sky tiles horizontally, the hostile
+     * hulls are cut pointing left, their Sprite constants declare transposed sizes, and the
+     * flagship's frames are turned once by the generator instead of rotated every frame. Change any
+     * one of the four and the level looks broken in a way no test would catch.
+     */
+    SUNWARD_DIVE("Sunward Dive",
+            Sprite.L17_FAR, Sprite.L17_MID, Sprite.L17_NEAR,
+            Sprite.L17_SCOUT, Sprite.L17_FIGHTER, Sprite.L17_CRUISER,
+            Boss.SUNWARD_LANCE, 5, Orientation.RIGHT_TO_LEFT),
+
+    CORONAL_ARC("Coronal Arc",
+            Sprite.L18_FAR, Sprite.L18_MID, Sprite.L18_NEAR,
+            Sprite.L18_SCOUT, Sprite.L18_FIGHTER, Sprite.L18_CRUISER,
+            Boss.CORONA_HERALD, 5),
+
+    EMBER_CANYON("Ember Canyon",
+            Sprite.L19_FAR, Sprite.L19_MID, Sprite.L19_NEAR,
+            Sprite.L19_SCOUT, Sprite.L19_FIGHTER, Sprite.L19_CRUISER,
+            Boss.EMBER_TITAN, 5),
+
+    /** Caldera Heart: the bottom of the galaxy, and the man waiting at it. */
+    CALDERA_HEART("Caldera Heart",
+            Sprite.L20_FAR, Sprite.L20_MID, Sprite.L20_NEAR,
+            Sprite.L20_SCOUT, Sprite.L20_FIGHTER, Sprite.L20_CRUISER,
+            Boss.VAUNT, 6, WorldTemplate.CAVE);
 
     private final String label;
     private final List<Sprite> layers;

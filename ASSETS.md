@@ -126,6 +126,17 @@ None are bundled. Menu headings ask for the first available of `Impact`, `Haette
 see `Assets.loadDisplayFont`. Referencing a font the host already has is not redistribution, which
 bundling a font file would be.
 
+### Galaxy 2 — Ashfall (levels 11–20)
+
+Fire, ash and industry. One palette across the galaxy, worn by its grunts and its flagships alike.
+
+| File | Origin | Notes |
+|---|---|---|
+| Level directories `level-11`, `level-12`, `level-13`, `level-14`, `level-15`, `level-16`, `level-17`, `level-18`, `level-19`, `level-20` — each holding `{far,mid,near}.png` and `enemy-{scout,fighter,cruiser}.png` | Generated | Seeds 4300–4390, ten apart. `level-11` is a new `BELT` backdrop: a starfield with lit rock tumbling through it, because a tinted starfield never reads as a belt. `level-18` reuses the planet disc lit hot, so the star is actually in frame. `level-17` is flown side-on, so its sky tiles horizontally and its hulls are cut pointing left |
+| Boss frames `1..8.png` in `boss-cinder-warden`, `boss-slag-baron`, `boss-forge-overseer`, `boss-pyre-sovereign`, `boss-sunward-lance`, `boss-corona-herald` | Generated | Six warships from three hulls and three wings, paired up. One hull for all six was tried first and five of them came out the same ship — at two hundred pixels the eye reads silhouette and colour, not turret counts. `boss-sunward-lance` is turned once here rather than rotated each frame, so its box matches its picture |
+| Boss frames `1..8.png` in `boss-ash-revenant`, `boss-vent-crawler`, `boss-ember-titan` | Generated | Three creatures from one parameterised method. Written beside the hydra's rather than by generalising it: reworking that one risked shifting its committed frames, and the byte-identical check in CI is what keeps this art from drifting |
+| Boss frames `1..8.png` in `boss-forge-rig`, `boss-forge-rig-arm`, `boss-forge-rig-cockpit` | Generated | Vaunt's rig. Three separate sets because they are three separate targets: the arms have to stop being drawn once they are shot off, which they could not if they lived in the body's frames |
+
 ## What was removed, and why
 
 The project previously carried third-party art and audio. None of it could be licensed onward, so it

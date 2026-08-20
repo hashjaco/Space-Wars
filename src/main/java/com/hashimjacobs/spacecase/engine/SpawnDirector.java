@@ -7,6 +7,7 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BurrowingWorm;
+import com.hashimjacobs.spacecase.entity.PilotedMech;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PowerUp;
@@ -199,9 +200,13 @@ public final class SpawnDirector {
         double scale = difficulty.bossScale(level.number(), loop());
         double x = facing.atX(depth, across, w, h);
         double y = facing.atY(depth, across, w, h);
-        EnemyShip boss = flagship == Boss.DUNE_LEVIATHAN
-                ? new BurrowingWorm(flagship, x, y, scale)
-                : new EnemyShip(flagship, x, y, scale);
+        // The only place a flagship's class is chosen. Three entries after two galaxies, which is
+        // the budget working: everything else in both galaxies is a row of numbers.
+        EnemyShip boss = switch (flagship) {
+            case DUNE_LEVIATHAN -> new BurrowingWorm(flagship, x, y, scale);
+            case VAUNT -> new PilotedMech(flagship, x, y, scale);
+            default -> new EnemyShip(flagship, x, y, scale);
+        };
         // Body first, so World.boss() and the HUD find the torso rather than a head.
         world.addEnemy(boss);
         for (EnemyShip part : boss.parts()) {
