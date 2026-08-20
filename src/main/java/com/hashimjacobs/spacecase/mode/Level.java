@@ -157,7 +157,66 @@ public enum Level {
     CALDERA_HEART("Caldera Heart",
             Sprite.L20_FAR, Sprite.L20_MID, Sprite.L20_NEAR,
             Sprite.L20_SCOUT, Sprite.L20_FIGHTER, Sprite.L20_CRUISER,
-            Boss.VAUNT, 6, WorldTemplate.CAVE);
+            Boss.VAUNT, 6, WorldTemplate.CAVE),
+
+    // ---- Galaxy 3: Cryonis (levels 21-30) ------------------------------------------------
+    // Ice and water. The galaxy's structural idea is pacing rather than palette: the waves
+    // alternate short and long, 3-5-3-5-3-5-4-6-4-6, so it feels different on the clock. It is
+    // also the only galaxy flown side-on twice, at 21 and 29.
+
+    /** Frost Ring: the first of the galaxy's two side-on legs. */
+    FROST_RING("Frost Ring",
+            Sprite.L21_FAR, Sprite.L21_MID, Sprite.L21_NEAR,
+            Sprite.L21_SCOUT, Sprite.L21_FIGHTER, Sprite.L21_CRUISER,
+            Boss.SHARD_CUTTER, 3, Orientation.RIGHT_TO_LEFT),
+
+    RIME_SKY("Rime Sky",
+            Sprite.L22_FAR, Sprite.L22_MID, Sprite.L22_NEAR,
+            Sprite.L22_SCOUT, Sprite.L22_FIGHTER, Sprite.L22_CRUISER,
+            Boss.FROST_HARRIER, 5),
+
+    GLACIER_SHELF("Glacier Shelf",
+            Sprite.L23_FAR, Sprite.L23_MID, Sprite.L23_NEAR,
+            Sprite.L23_SCOUT, Sprite.L23_FIGHTER, Sprite.L23_CRUISER,
+            Boss.GLACIER_BREAKER, 3),
+
+    /** Under-Ice: the water leg, flown under the shelf rather than over it. */
+    UNDER_ICE("Under-Ice",
+            Sprite.L24_FAR, Sprite.L24_MID, Sprite.L24_NEAR,
+            Sprite.L24_SCOUT, Sprite.L24_FIGHTER, Sprite.L24_CRUISER,
+            Boss.ICE_WRAITH, 5),
+
+    CREVASSE("Crevasse",
+            Sprite.L25_FAR, Sprite.L25_MID, Sprite.L25_NEAR,
+            Sprite.L25_SCOUT, Sprite.L25_FIGHTER, Sprite.L25_CRUISER,
+            Boss.CRYO_MARSHAL, 3, WorldTemplate.CAVE),
+
+    BLACK_TRENCH("Black Trench",
+            Sprite.L26_FAR, Sprite.L26_MID, Sprite.L26_NEAR,
+            Sprite.L26_SCOUT, Sprite.L26_FIGHTER, Sprite.L26_CRUISER,
+            Boss.TRENCH_HORROR, 5, WorldTemplate.CAVE),
+
+    GEYSER_FLATS("Geyser Flats",
+            Sprite.L27_FAR, Sprite.L27_MID, Sprite.L27_NEAR,
+            Sprite.L27_SCOUT, Sprite.L27_FIGHTER, Sprite.L27_CRUISER,
+            Boss.GEYSER_MAW, 4),
+
+    HAILWALL("Hailwall",
+            Sprite.L28_FAR, Sprite.L28_MID, Sprite.L28_NEAR,
+            Sprite.L28_SCOUT, Sprite.L28_FIGHTER, Sprite.L28_CRUISER,
+            Boss.HAIL_BASTION, 6),
+
+    /** Shatter Drift: the second side-on leg, which no other galaxy has. */
+    SHATTER_DRIFT("Shatter Drift",
+            Sprite.L29_FAR, Sprite.L29_MID, Sprite.L29_NEAR,
+            Sprite.L29_SCOUT, Sprite.L29_FIGHTER, Sprite.L29_CRUISER,
+            Boss.SHATTER_PROW, 4, Orientation.RIGHT_TO_LEFT),
+
+    /** The Frozen Heart: the bottom of the galaxy, and the four-headed thing set into it. */
+    THE_FROZEN_HEART("The Frozen Heart",
+            Sprite.L30_FAR, Sprite.L30_MID, Sprite.L30_NEAR,
+            Sprite.L30_SCOUT, Sprite.L30_FIGHTER, Sprite.L30_CRUISER,
+            Boss.FROZEN_EMPRESS, 6, WorldTemplate.CAVE);
 
     private final String label;
     private final List<Sprite> layers;

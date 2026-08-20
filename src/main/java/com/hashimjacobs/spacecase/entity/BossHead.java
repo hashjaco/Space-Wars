@@ -87,6 +87,11 @@ public final class BossHead extends EnemyShip {
         return true;
     }
 
+    @Override
+    public int siblingParts() {
+        return body.parts().size();
+    }
+
     /** The torso does the tracking; a head goes where its neck takes it. */
     @Override
     public void trackAcross(Entity target) {

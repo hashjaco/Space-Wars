@@ -25,7 +25,8 @@ import java.util.List;
 public enum Galaxy {
 
     VERDANCE("Verdance", "#0ec417"),
-    ASHFALL("Ashfall", "#e8641c");
+    ASHFALL("Ashfall", "#e8641c"),
+    CRYONIS("Cryonis", "#4fd0e8");
 
     /**
      * Levels in a galaxy. Not a suggestion -- the block arithmetic below assumes it exactly, and

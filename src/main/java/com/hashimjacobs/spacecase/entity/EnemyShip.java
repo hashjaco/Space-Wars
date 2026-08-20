@@ -222,6 +222,20 @@ public class EnemyShip extends Entity {
     }
 
     /**
+     * How many parts the flagship this belongs to fields, or one if this is not a part.
+     *
+     * Read by EnemyWeapons to work out how much slower one part should fire than a whole ship
+     * would. Counts parts rather than {@code boss.heads()} because the two disagree: the rig
+     * declares two heads and fields three targets, an arm, an arm and a cockpit.
+     *
+     * Dead parts stay in the list, so this does not climb as a fight is won -- the barrage thins
+     * because there are fewer mouths left, not because the survivors speed up.
+     */
+    public int siblingParts() {
+        return 1;
+    }
+
+    /**
      * Whether any piece that guards the rest of this ship is still alive.
      *
      * Only {@link MechPart} distinguishes a guard from a guarded piece; for everything else every

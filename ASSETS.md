@@ -137,6 +137,17 @@ Fire, ash and industry. One palette across the galaxy, worn by its grunts and it
 | Boss frames `1..8.png` in `boss-ash-revenant`, `boss-vent-crawler`, `boss-ember-titan` | Generated | Three creatures from one parameterised method. Written beside the hydra's rather than by generalising it: reworking that one risked shifting its committed frames, and the byte-identical check in CI is what keeps this art from drifting |
 | Boss frames `1..8.png` in `boss-forge-rig`, `boss-forge-rig-arm`, `boss-forge-rig-cockpit` | Generated | Vaunt's rig. Three separate sets because they are three separate targets: the arms have to stop being drawn once they are shot off, which they could not if they lived in the body's frames |
 
+### Galaxy 3 — Cryonis (levels 21–30)
+
+Ice and water. Cold hulls and a pale cyan accent, and the only galaxy flown side-on twice.
+
+| File | Origin | Notes |
+|---|---|---|
+| Level directories `level-21`, `level-22`, `level-23`, `level-24`, `level-25`, `level-26`, `level-27`, `level-28`, `level-29`, `level-30` — each holding `{far,mid,near}.png` and `enemy-{scout,fighter,cruiser}.png` | Generated | Seeds 4400–4490, ten apart. `level-21` and `level-29` are both flown side-on, so their skies tile horizontally and their hulls are cut pointing left — the first galaxy with two such legs. Both use `BELT`, which is safe sideways because it draws through `wrapped()` and that shifts by the canvas width instead of its height. `level-24` is the water level: the same `ATMOSPHERE` recipe as a sky, tinted cold and dark so its cloud decks read as light shafts through the shelf |
+| Boss frames `1..8.png` in `boss-shard-cutter`, `boss-frost-harrier`, `boss-glacier-breaker`, `boss-cryo-marshal`, `boss-hail-bastion`, `boss-shatter-prow` | Generated | Six warships from three hulls and three fins, paired up, on Ashfall's 1.5× canvases. Narrow and edged where Ashfall's are wide and blunt: those were built to work, these to cut through something. Three and four engines against Ashfall's five and six. `boss-shard-cutter` and `boss-shatter-prow` guard the two side-on legs and are turned once here rather than rotated each frame, so their boxes match their pictures |
+| Boss frames `1..8.png` in `boss-ice-wraith`, `boss-trench-horror`, `boss-geyser-maw` | Generated | Three creatures from the same parameterised method Ashfall's use. All three sit on top-down levels because `CreatureProfile` has no sideways flag — levels 21 and 29 field warships for that reason rather than by preference |
+| Boss frames `1..8.png` in `boss-frozen-empress`, `boss-frozen-empress-head` | Generated | The Frozen Empress, four-headed. Two new methods written beside the hydra's rather than by generalising it, for the reason the creatures' note gives. Her socket positions are computed from the same span the engine spreads necks across, so a torso drawn for four heads cannot disagree with the arc four necks are flown on. Not a hydra recolour: no legs, shards where the hydra has ribs, and a faceted skull, so the two multi-headed bosses read as different things |
+
 ## What was removed, and why
 
 The project previously carried third-party art and audio. None of it could be licensed onward, so it

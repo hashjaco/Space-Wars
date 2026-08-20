@@ -35,14 +35,30 @@ final class EnemyWeapons {
     private static final int MIN_BOSS_COOLDOWN_TICKS = 4;
 
     /**
-     * How much slower one head fires than a whole flagship would.
+     * How much slower one part fires than a whole flagship would, per part the flagship fields.
      *
      * A phase's cooldown was tuned for a boss with one mouth. Three heads firing it unmodified put
      * two and a half times as many shots in the air as any other fight in the game -- measured at
-     * fifty-six against the Sentinel's twenty-two. Slightly less than the head count, so the hydra
-     * is still the heaviest barrage in the run without being a wall.
+     * fifty-six against the Sentinel's twenty-two. Slightly less than the part count, so a
+     * multi-part flagship is still the heaviest barrage in the run without being a wall.
+     *
+     * Derived rather than fixed. It was a flat 2.4 while every multi-part boss fielded exactly
+     * three parts, which made the head count invisible in the arithmetic; the Frozen Empress
+     * fields four, and at a flat 2.4 she would have put a third more fire in the air than any
+     * fight in the game with nobody having chosen that. At 0.8 a part the three-part bosses --
+     * the hydra and the rig alike -- keep exactly the 2.4 they were tuned at.
      */
-    private static final double PART_COOLDOWN_FACTOR = 2.4;
+    private static final double PART_COOLDOWN_PER_PART = 0.8;
+
+    /**
+     * Slower by the part count, so total shot density stays flat as parts are added.
+     *
+     * Package-private rather than private so FrozenEmpressTest can pin the two values that matter
+     * without measuring fire rates through a phase machine that varies by boss.
+     */
+    static double partCooldownFactor(int parts) {
+        return Math.max(1, parts) * PART_COOLDOWN_PER_PART;
+    }
 
     /** Ceiling on how far scaling may speed boss projectiles up. */
     private static final double SPEED_SCALE_CAP = 1.5;
@@ -163,7 +179,7 @@ final class EnemyWeapons {
             return difficultyCooldown;
         }
         BossPhase phase = enemy.phase();
-        double share = enemy.isBossPart() ? PART_COOLDOWN_FACTOR : 1;
+        double share = enemy.isBossPart() ? partCooldownFactor(enemy.siblingParts()) : 1;
         int scaled = (int) Math.round(phase.cooldownTicks() * share / enemy.scale());
         return Math.max(MIN_BOSS_COOLDOWN_TICKS, scaled);
     }

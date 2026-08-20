@@ -311,6 +311,48 @@ public enum Sprite {
     L20_FIGHTER("level-20/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L20_CRUISER("level-20/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
+    /** Frost Ring's hostiles are cut pointing left, so width and height swap. */
+    L21_SCOUT("level-21/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L21_FIGHTER("level-21/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L21_CRUISER("level-21/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+
+    L22_SCOUT("level-22/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L22_FIGHTER("level-22/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L22_CRUISER("level-22/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L23_SCOUT("level-23/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L23_FIGHTER("level-23/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L23_CRUISER("level-23/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L24_SCOUT("level-24/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L24_FIGHTER("level-24/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L24_CRUISER("level-24/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L25_SCOUT("level-25/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L25_FIGHTER("level-25/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L25_CRUISER("level-25/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L26_SCOUT("level-26/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L26_FIGHTER("level-26/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L26_CRUISER("level-26/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L27_SCOUT("level-27/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L27_FIGHTER("level-27/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L27_CRUISER("level-27/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L28_SCOUT("level-28/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L28_FIGHTER("level-28/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L28_CRUISER("level-28/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    /** Shatter Drift is the galaxy's second side-on leg, so its hulls turn too. */
+    L29_SCOUT("level-29/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L29_FIGHTER("level-29/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L29_CRUISER("level-29/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+
+    L30_SCOUT("level-30/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L30_FIGHTER("level-30/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L30_CRUISER("level-30/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
 
     /**
      * Fallback only. Bosses are animated, so the renderer draws a frame from
@@ -479,7 +521,38 @@ public enum Sprite {
 
     L20_FAR("level-20/far.png"),
     L20_MID("level-20/mid.png"),
-    L20_NEAR("level-20/near.png");
+    L20_NEAR("level-20/near.png"),
+
+    L21_FAR("level-21/far.png"),
+    L21_MID("level-21/mid.png"),
+    L21_NEAR("level-21/near.png"),
+    L22_FAR("level-22/far.png"),
+    L22_MID("level-22/mid.png"),
+    L22_NEAR("level-22/near.png"),
+    L23_FAR("level-23/far.png"),
+    L23_MID("level-23/mid.png"),
+    L23_NEAR("level-23/near.png"),
+    L24_FAR("level-24/far.png"),
+    L24_MID("level-24/mid.png"),
+    L24_NEAR("level-24/near.png"),
+    L25_FAR("level-25/far.png"),
+    L25_MID("level-25/mid.png"),
+    L25_NEAR("level-25/near.png"),
+    L26_FAR("level-26/far.png"),
+    L26_MID("level-26/mid.png"),
+    L26_NEAR("level-26/near.png"),
+    L27_FAR("level-27/far.png"),
+    L27_MID("level-27/mid.png"),
+    L27_NEAR("level-27/near.png"),
+    L28_FAR("level-28/far.png"),
+    L28_MID("level-28/mid.png"),
+    L28_NEAR("level-28/near.png"),
+    L29_FAR("level-29/far.png"),
+    L29_MID("level-29/mid.png"),
+    L29_NEAR("level-29/near.png"),
+    L30_FAR("level-30/far.png"),
+    L30_MID("level-30/mid.png"),
+    L30_NEAR("level-30/near.png");
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.

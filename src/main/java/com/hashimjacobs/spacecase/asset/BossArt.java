@@ -72,7 +72,42 @@ public enum BossArt {
     FORGE_RIG_COCKPIT("boss-forge-rig-cockpit", 8, 4, 72, 72),
 
     /** One of the rig's two arm pods. Its own target, so its own frames. */
-    FORGE_RIG_ARM("boss-forge-rig-arm", 8, 5, 78, 78);
+    FORGE_RIG_ARM("boss-forge-rig-arm", 8, 5, 78, 78),
+
+    // ---- Galaxy 3: Cryonis ---------------------------------------------------------------
+    // Ashfall's 1.5x source canvases, same reasoning.
+
+    /**
+     * Level 21, drawn already turned for a right-to-left arena, as the Sunward Lance is.
+     *
+     * The frames were drawn nose-down at 260x310 and quarter-turned on the way out, so what the
+     * game decodes is 310 wide -- which is why the numbers here look transposed against the
+     * generator's profile. See the note on SUNWARD_LANCE.
+     */
+    SHARD_CUTTER("boss-shard-cutter", 8, 6, 207, 173),
+
+    FROST_HARRIER("boss-frost-harrier", 8, 6, 179, 207),
+    GLACIER_BREAKER("boss-glacier-breaker", 8, 6, 256, 143),
+    ICE_WRAITH("boss-ice-wraith", 8, 6, 232, 179),
+    CRYO_MARSHAL("boss-cryo-marshal", 8, 6, 229, 165),
+    TRENCH_HORROR("boss-trench-horror", 8, 6, 261, 149),
+    GEYSER_MAW("boss-geyser-maw", 8, 6, 224, 195),
+    HAIL_BASTION("boss-hail-bastion", 8, 6, 269, 153),
+
+    /** Level 29, turned for the galaxy's second right-to-left arena. Same caveat as SHARD_CUTTER. */
+    SHATTER_PROW("boss-shatter-prow", 8, 6, 220, 184),
+
+    /** Level 30's torso. Like the hydra's, its necks and heads are drawn live, not in frames. */
+    FROZEN_EMPRESS("boss-frozen-empress", 8, 6, 313, 207),
+
+    /**
+     * One of the Empress's four heads.
+     *
+     * Faster than the torso for the reason a hydra head is, and larger than one because there are
+     * four of them spread across a wider arc -- at the hydra head's 64 they read as pinheads on
+     * the end of long necks.
+     */
+    FROZEN_EMPRESS_HEAD("boss-frozen-empress-head", 8, 4, 104, 104);
 
     private final String directory;
     private final int frameCount;
