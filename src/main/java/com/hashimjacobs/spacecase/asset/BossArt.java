@@ -33,7 +33,46 @@ public enum BossArt {
      * Faster than the flagship frame rate: a jaw working at six ticks a frame reads as sluggish
      * where a hull throbbing at the same rate reads as idling.
      */
-    HYDRA_HEAD("boss-hydra-head", 8, 4, 64, 64);
+    HYDRA_HEAD("boss-hydra-head", 8, 4, 64, 64),
+
+    // ---- Galaxy 2: Ashfall ---------------------------------------------------------------
+    // Source frames for these are drawn at about 1.5x their on-screen size rather than the 2.1x
+    // the originals use. The extra pixels only ever fed antialiasing Java2D was already doing,
+    // and at eighty frames a galaxy they are real bytes in every clone of the repository.
+
+    CINDER_WARDEN("boss-cinder-warden", 8, 6, 264, 135),
+    ASH_REVENANT("boss-ash-revenant", 8, 6, 227, 167),
+    SLAG_BARON("boss-slag-baron", 8, 6, 191, 200),
+    VENT_CRAWLER("boss-vent-crawler", 8, 6, 253, 144),
+    FORGE_OVERSEER("boss-forge-overseer", 8, 6, 235, 163),
+    PYRE_SOVEREIGN("boss-pyre-sovereign", 8, 6, 253, 151),
+
+    /**
+     * Level 17, drawn already turned to face down a right-to-left arena.
+     *
+     * Width and height are transposed against the source canvas for that reason: the frames were
+     * drawn nose-down at 268x316 and quarter-turned on the way out, so what the game decodes is
+     * 316 wide. Getting this the wrong way round gives a ship whose hitbox is at right angles to
+     * the picture of it, which no test would catch.
+     */
+    SUNWARD_LANCE("boss-sunward-lance", 8, 6, 211, 179),
+
+    CORONA_HERALD("boss-corona-herald", 8, 6, 272, 159),
+    EMBER_TITAN("boss-ember-titan", 8, 6, 237, 200),
+
+    /** Level 20's rig. The cockpit is a separate target and is not in these frames. */
+    FORGE_RIG("boss-forge-rig", 8, 6, 266, 200),
+
+    /**
+     * The man in the rig, shot separately once his arms are gone.
+     *
+     * Faster than the rig itself, for the reason a hydra head is faster than its torso: a small
+     * thing animating at the same rate as a large one reads as sluggish.
+     */
+    FORGE_RIG_COCKPIT("boss-forge-rig-cockpit", 8, 4, 72, 72),
+
+    /** One of the rig's two arm pods. Its own target, so its own frames. */
+    FORGE_RIG_ARM("boss-forge-rig-arm", 8, 5, 78, 78);
 
     private final String directory;
     private final int frameCount;

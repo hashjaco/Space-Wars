@@ -37,11 +37,16 @@ public abstract class Entity {
         y += velocityY;
     }
 
+    /**
+     * Through {@code width()} and {@code height()} rather than the fields, so a subclass whose
+     * extents turn with it -- {@link PlayerShip} in a side-view level -- is measured the way it is
+     * drawn. Reading the fields here is what let a turned hull keep an upright box.
+     */
     public boolean intersects(Entity other) {
-        boolean overlapping = x < other.x + other.width
-                && x + width > other.x
-                && y < other.y + other.height
-                && y + height > other.y;
+        boolean overlapping = x < other.x + other.width()
+                && x + width() > other.x
+                && y < other.y + other.height()
+                && y + height() > other.y;
         return overlapping;
     }
 
@@ -72,12 +77,12 @@ public abstract class Entity {
     }
 
     public double centerX() {
-        double center = x + width / 2;
+        double center = x + width() / 2;
         return center;
     }
 
     public double centerY() {
-        double center = y + height / 2;
+        double center = y + height() / 2;
         return center;
     }
 

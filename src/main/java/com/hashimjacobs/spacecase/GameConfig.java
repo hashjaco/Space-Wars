@@ -43,9 +43,70 @@ public final class GameConfig {
     /** Fastest the fire-rate upgrade may make the weapon, whatever the level. */
     public static final int PLAYER_FIRE_COOLDOWN_FLOOR = 6;
 
+    /**
+     * The garage tracks that improve a pickup rather than the ship.
+     *
+     * These compound with something the player already had to find, so each is deliberately a short
+     * ladder with a high price: two levels, not four. The floors matter more than the steps -- a
+     * reload that keeps shrinking eventually turns the rocket into the primary weapon, which is the
+     * one thing the pickup split exists to prevent.
+     */
+    public static final int UPGRADE_SALVO_STEP = 5;
+    public static final int ROCKET_FIRE_COOLDOWN_FLOOR = 14;
+    public static final int UPGRADE_BEAM_STEP = 1;
+    public static final int UPGRADE_CAPACITOR_STEP = 15;
+
+    /**
+     * The repair rig: one point of health per interval, and only while flying clean.
+     *
+     * Divided by the level, so level three patches three times as often as level one. Gated on not
+     * having been hit recently, and slow enough that it cannot outheal being shot -- an enemy bullet
+     * is six points, so even maxed this is worth about a fifth of one shot a second. It is for the
+     * long quiet stretch between waves, not for standing in fire.
+     */
+    public static final int REPAIR_INTERVAL_TICKS = 900;
+    public static final int REPAIR_CALM_TICKS = 180;
+
+    /** Extra respawn grace per level of eject gear, in ticks. */
+    public static final int UPGRADE_EJECT_STEP = 30;
+
+    /**
+     * How far a collector reaches per level, and how fast it reels a pickup in.
+     *
+     * The pull is well under {@code PLAYER_SPEED} on purpose: it should save a pilot the detour for
+     * something already nearly in reach, not fetch the arena to them.
+     */
+    public static final int UPGRADE_COLLECTOR_RANGE = 90;
+    public static final double UPGRADE_COLLECTOR_PULL = 2.2;
+
     public static final double BULLET_SPEED = 10.0;
     public static final int BULLET_DAMAGE = 10;
-    public static final int MEGA_BULLET_DAMAGE = 34;
+
+    /**
+     * The mega laser burns rather than hits: this lands every tick the beam is held on a target.
+     *
+     * Compare an ordinary shot, which is ten points every six ticks. Three a tick is nearly twice
+     * that against one target, and the beam pierces, so a packed lane takes it all at once. That is
+     * the whole appeal of the pickup and the reason it has no ammunition.
+     */
+    public static final int BEAM_DAMAGE_PER_TICK = 3;
+
+    /** How wide the beam is across the lane, for both the damage box and the drawn core. */
+    public static final double BEAM_WIDTH = 20;
+
+    /**
+     * The player's rockets: the old mega shot's art, now steering.
+     *
+     * Turns harder than the flagship's because it chases small, fast enemies rather than a player
+     * trying to escape, and the fuse is short so a missed pair does not orbit into the next wave.
+     */
+    public static final double PLAYER_ROCKET_SPEED = 6.0;
+    public static final int PLAYER_ROCKET_DAMAGE = 45;
+    public static final double PLAYER_ROCKET_TURN_RATE = 0.05;
+    public static final int PLAYER_ROCKET_FUSE_TICKS = 180;
+
+    /** Rockets fire far slower than the gun, which is what keeps 45 points a shot fair. */
+    public static final int ROCKET_FIRE_COOLDOWN = 26;
 
     public static final double ENEMY_BULLET_SPEED = 4.5;
     public static final int ENEMY_BULLET_DAMAGE = 6;
@@ -76,8 +137,15 @@ public final class GameConfig {
 
     public static final double POWERUP_DRIFT_SPEED = 1.6;
     public static final int POWERUP_LIFETIME_TICKS = 620;
-    /** Ticks a timed power-up (tri-shot, mega laser, speed) stays active once collected. */
-    public static final int POWERUP_DURATION_TICKS = 640;
+
+    /**
+     * Damage the shield pickup soaks before it fails. Power-ups themselves never expire; dying is
+     * what costs you them, so this is the only thing a shield is spent by.
+     */
+    public static final int SHIELD_CAPACITY = 60;
+
+    /** Tri-shot stacks: one pickup gives three streams, each further stack adds one, to five. */
+    public static final int TRI_SHOT_MAX_STACKS = 3;
 
     public static final double BACKGROUND_SCROLL_SPEED = 1.5;
 

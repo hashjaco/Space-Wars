@@ -9,6 +9,7 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Rank;
 
@@ -52,7 +53,7 @@ final class NameEntryPanel extends VBox {
         items.add(new MenuButton("Back", leave));
 
         MenuPanel panel = new MenuPanel(items.toArray(new MenuButton[0]));
-        standing = MenuScreen.caption("", 12, Color.web("#8b98ad"));
+        standing = MenuScreen.caption("", 12, Tokens.TEXT_DIM);
         getChildren().addAll(panel, standing);
 
         navigator = panel.navigator();

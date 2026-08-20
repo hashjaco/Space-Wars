@@ -1,5 +1,7 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.function.IntFunction;
+
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.SoundFx;
@@ -7,6 +9,8 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.Upgrade;
+import com.hashimjacobs.spacecase.entity.Rocket;
 
 /** Turns held keys into ship movement and weapon fire for one player. */
 public final class ShipController {
@@ -18,10 +22,18 @@ public final class ShipController {
 
     private final PlayerShip ship;
     private final PlayerControls controls;
+    private final IntFunction<PadState> sticks;
 
-    public ShipController(PlayerShip ship, PlayerControls controls) {
+    /**
+     * @param sticks this player's pad reading by player number, or null when nothing but a keyboard
+     *               is attached. A stick cannot travel through a {@link javafx.scene.input.KeyCode},
+     *               so analog movement needs this side channel; the pad still speaks in keys for
+     *               everything else, which is what keeps menus and the garage working.
+     */
+    public ShipController(PlayerShip ship, PlayerControls controls, IntFunction<PadState> sticks) {
         this.ship = ship;
         this.controls = controls;
+        this.sticks = sticks;
     }
 
     public PlayerShip ship() {
@@ -33,22 +45,30 @@ public final class ShipController {
         return controls;
     }
 
-    public void apply(InputState input, World world, SoundPlayer sounds) {
+    public void apply(InputState input, World world, SoundPlayer sounds, StickTuning tuning) {
         if (ship.isOut()) {
             ship.setVelocity(0, 0);
+            ship.setFiringBeam(false);
             return;
         }
-        applyMovement(input, world);
+        applyMovement(input, world, tuning);
         applyFire(input, world, sounds);
     }
 
-    private void applyMovement(InputState input, World world) {
+    private void applyMovement(InputState input, World world, StickTuning tuning) {
         boolean up = controls.anyHeld(input, controls.up());
         boolean down = controls.anyHeld(input, controls.down());
         boolean left = controls.anyHeld(input, controls.left());
         boolean right = controls.anyHeld(input, controls.right());
 
         double speed = ship.speed();
+        double[] stick = analogTravel(tuning);
+        if (stick != null) {
+            ship.setVelocity(stick[0] * speed, stick[1] * speed);
+            ship.setLean(leanFor(world.orientation().across(stick[0], stick[1])));
+            return;
+        }
+
         double dx = 0;
         double dy = 0;
         if (up) {
@@ -79,12 +99,67 @@ public final class ShipController {
     }
 
     /**
+     * This player's left stick as a movement vector, or null to fall back to the digital keys.
+     *
+     * Returns null for a centred stick as well as for no pad at all, which is what keeps the
+     * keyboard working while a controller is plugged in: a resting stick yields to the keys rather
+     * than pinning the ship still.
+     *
+     * Three corrections stand between the raw axes and a ship that handles properly:
+     *
+     * SDL clamps each axis independently, so a full diagonal reads about 1.41 and would outrun a
+     * cardinal push. Scaling back to the unit circle costs one square root a frame and is the
+     * difference between analog feeling right and diagonals being a speed exploit.
+     *
+     * Travel is then measured from the edge of the deadzone rather than from centre. Without that
+     * the ship leaps from a standstill to whatever fraction the deadzone sits at -- three tenths of
+     * full speed, by default -- with nothing in between, which is precisely the twitch that reads as
+     * a stick with no feel to it.
+     *
+     * Sensitivity finally bends the curve between those ends. It is applied as an exponent, so it
+     * changes how quickly speed arrives and never how much of it there is: a full push leaves travel
+     * at one, and one raised to any power is one. The ship's own speed, upgrades included, stays the
+     * only thing that decides how fast it can go.
+     */
+    private double[] analogTravel(StickTuning tuning) {
+        double deadzone = tuning.deadzone();
+        if (sticks == null || !tuning.analog() || deadzone <= 0) {
+            return null;
+        }
+        PadState pad = sticks.apply(ship.playerNumber());
+        if (pad == null || !pad.connected()) {
+            return null;
+        }
+        double x = pad.leftStickX();
+        double y = pad.leftStickY();
+        double magnitude = Math.hypot(x, y);
+        if (magnitude <= deadzone) {
+            return null;
+        }
+        if (magnitude > 1) {
+            x /= magnitude;
+            y /= magnitude;
+            magnitude = 1;
+        }
+
+        double travel = (magnitude - deadzone) / (1 - deadzone);
+        double scaled = Math.pow(travel, 1 / tuning.sensitivity());
+        // Back onto the stick's own direction: x and y still carry the raw magnitude, so divide it
+        // out before applying the one we actually want.
+        double factor = scaled / magnitude;
+        // Screen y grows downward and so does the stick's, so the axes pass straight through.
+        return new double[] {x * factor, y * factor};
+    }
+
+    /**
      * How hard the ship banks, from the share of its movement running across the lane.
      *
-     * Input is digital, so this comes out of the normalisation above for free: holding one
+     * Keyboard input is digital, so this comes out of the normalisation above for free: holding one
      * direction alone gives the full component and banks hard, while a diagonal splits it and
-     * only tilts. Movement up and down the lane produces no bank, which is right -- a ship does
-     * not roll because it accelerated.
+     * only tilts. An analog stick feeds the same number its own way -- a gentle push tilts, a full
+     * sideways push crosses the threshold and banks hard -- so one rule serves both. Movement up
+     * and down the lane produces no bank, which is right: a ship does not roll because it
+     * accelerated.
      */
     private static PlayerShip.Lean leanFor(double across) {
         if (across == 0) {
@@ -97,40 +172,81 @@ public final class ShipController {
         return hard ? PlayerShip.Lean.HARD_RIGHT : PlayerShip.Lean.RIGHT;
     }
 
+    /**
+     * Weapon precedence: beam, then rockets, then whatever the gun has stacked.
+     *
+     * The beam is the one weapon that is not a projectile and not gated by the cooldown -- it is a
+     * state the ship is in for as long as the trigger is down, and
+     * {@code CollisionSystem.resolveBeams} burns whatever is standing in it. The cooldown is still
+     * consulted, but only to pace the firing sample: a laser retriggered sixty times a second is
+     * not a sound, it is a fault.
+     */
     private void applyFire(InputState input, World world, SoundPlayer sounds) {
         boolean firing = controls.anyHeld(input, controls.fire());
+
+        if (ship.hasEffect(PowerUp.Kind.MEGA_LASER)) {
+            ship.setFiringBeam(firing);
+            if (firing && ship.canFire()) {
+                ship.startFireCooldown();
+                sounds.play(SoundFx.LASER);
+            }
+            return;
+        }
+
+        ship.setFiringBeam(false);
         if (!firing || !ship.canFire()) {
             return;
         }
-        ship.startFireCooldown();
 
-        if (ship.hasEffect(PowerUp.Kind.MEGA_LASER)) {
-            fireMega(world);
-        } else if (ship.hasEffect(PowerUp.Kind.TRI_SHOT)) {
-            fireTriShot(world);
+        if (ship.hasEffect(PowerUp.Kind.ROCKETS)) {
+            // The rack shortens the reload but never below its floor, so rockets stay a salvo you
+            // wait for rather than becoming the gun you hold down.
+            ship.startFireCooldown(Upgrade.rocketCooldownAt(
+                    ship.loadout().level(Upgrade.SALVO)));
+            fireRocket(world);
         } else {
-            fireSingle(world);
+            ship.startFireCooldown();
+            fireSpread(world);
         }
         sounds.play(SoundFx.LASER);
     }
 
-    private void fireSingle(World world) {
-        Bullet bullet = bullet(Sprite.PLAYER_BULLET, 0, GameConfig.BULLET_DAMAGE);
-        world.addBullet(bullet);
+    /**
+     * The gun, from one stream to five.
+     *
+     * A stock shot is the degenerate case of the fan rather than its own method: one stream, no
+     * spread, the plain bullet art. Each tri-shot pickup past the first widens it by a stream, so
+     * the same loop covers 1, 3, 4 and 5 and there is no arm of it that a new stack count can miss.
+     */
+    private void fireSpread(World world) {
+        int stacks = ship.triStacks();
+        int streams = stacks == 0 ? 1 : 2 + stacks;
+        for (int i = 0; i < streams; i++) {
+            double spread = (i - (streams - 1) / 2.0) * TRI_SHOT_SPREAD;
+            Sprite art = streams == 1 ? Sprite.PLAYER_BULLET
+                    : spread < 0 ? Sprite.TRI_BULLET_LEFT
+                    : spread > 0 ? Sprite.TRI_BULLET_RIGHT
+                    : Sprite.TRI_BULLET_UP;
+            world.addBullet(bullet(art, spread, GameConfig.BULLET_DAMAGE));
+        }
     }
 
-    private void fireMega(World world) {
-        Bullet bullet = bullet(Sprite.MEGA_BULLET, 0, GameConfig.MEGA_BULLET_DAMAGE);
-        world.addBullet(bullet);
-    }
-
-    private void fireTriShot(World world) {
-        Bullet left = bullet(Sprite.TRI_BULLET_LEFT, -TRI_SHOT_SPREAD, GameConfig.BULLET_DAMAGE);
-        Bullet centre = bullet(Sprite.TRI_BULLET_UP, 0, GameConfig.BULLET_DAMAGE);
-        Bullet right = bullet(Sprite.TRI_BULLET_RIGHT, TRI_SHOT_SPREAD, GameConfig.BULLET_DAMAGE);
-        world.addBullet(left);
-        world.addBullet(centre);
-        world.addBullet(right);
+    /**
+     * One homing rocket at whatever is closest. A null target is fine -- it flies straight.
+     *
+     * Shares {@link #muzzle} and {@code damageFor} with the gun rather than a {@link Bullet}, so
+     * the nose position, the shot counter and the firepower upgrade all behave identically; only
+     * the entity built around them differs.
+     */
+    private void fireRocket(World world) {
+        ship.recordShot();
+        double[] muzzle = muzzle(Sprite.ROCKET);
+        world.addBullet(new Rocket(Sprite.ROCKET, muzzle[0], muzzle[1],
+                ship.facing().xDirection() * GameConfig.PLAYER_ROCKET_SPEED,
+                ship.facing().yDirection() * GameConfig.PLAYER_ROCKET_SPEED,
+                ship, world.nearestEnemy(ship),
+                ship.damageFor(GameConfig.PLAYER_ROCKET_DAMAGE),
+                GameConfig.PLAYER_ROCKET_TURN_RATE, GameConfig.PLAYER_ROCKET_FUSE_TICKS));
     }
 
     /**
@@ -143,17 +259,25 @@ public final class ShipController {
         ship.recordShot();
         int dirX = ship.facing().xDirection();
         int dirY = ship.facing().yDirection();
-        // Emerge from the nose, whichever edge that is.
-        double x = ship.centerX() - sprite.width() / 2
-                + dirX * (ship.width() + sprite.width()) / 2;
-        double y = ship.centerY() - sprite.height() / 2
-                + dirY * (ship.height() + sprite.height()) / 2;
+        double[] muzzle = muzzle(sprite);
+        double x = muzzle[0];
+        double y = muzzle[1];
         double velocityX = dirX * GameConfig.BULLET_SPEED - dirY * spread;
         double velocityY = dirY * GameConfig.BULLET_SPEED + dirX * spread;
-        // Firepower is applied here rather than at the three call sites, so the single, tri and
-        // mega shots all benefit and none of them can be forgotten.
+        // Firepower is applied here rather than at the call sites, so every stream of every fan
+        // benefits and none of them can be forgotten.
         Bullet created = new Bullet(sprite, x, y, velocityX, velocityY, ship,
                 ship.damageFor(damage));
         return created;
+    }
+
+    /** Where a round of this size leaves the hull -- the nose, whichever edge that currently is. */
+    private double[] muzzle(Sprite sprite) {
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
+        return new double[] {
+                ship.centerX() - sprite.width() / 2 + dirX * (ship.width() + sprite.width()) / 2,
+                ship.centerY() - sprite.height() / 2 + dirY * (ship.height() + sprite.height()) / 2,
+        };
     }
 }

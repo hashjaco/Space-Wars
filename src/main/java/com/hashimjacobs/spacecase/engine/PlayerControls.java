@@ -4,9 +4,15 @@ import java.util.Set;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.prefs.ControlAction;
+import com.hashimjacobs.spacecase.prefs.Settings;
+
 /**
  * Key bindings for one player. Each direction accepts a set so single-player can drive with either
  * WASD or the arrow keys.
+ *
+ * Built from {@link Settings} rather than from constants, since the bound half is a pilot's to
+ * change; {@link ControlAction} holds the defaults and the fixed alternates.
  */
 public record PlayerControls(
         Set<KeyCode> up,
@@ -15,30 +21,30 @@ public record PlayerControls(
         Set<KeyCode> right,
         Set<KeyCode> fire) {
 
-    public static PlayerControls playerOne(boolean alsoArrowKeys) {
-        if (alsoArrowKeys) {
-            return new PlayerControls(
-                    Set.of(KeyCode.W, KeyCode.UP),
-                    Set.of(KeyCode.S, KeyCode.DOWN),
-                    Set.of(KeyCode.A, KeyCode.LEFT),
-                    Set.of(KeyCode.D, KeyCode.RIGHT),
-                    Set.of(KeyCode.SHIFT, KeyCode.SPACE));
-        }
+    /**
+     * This player's bound keys, plus the alternates the game has always also accepted.
+     *
+     * @param player one or two
+     * @param solo   whether player one is flying alone, which is what opens the arrows to them
+     */
+    public static PlayerControls of(Settings settings, int player, boolean solo) {
         return new PlayerControls(
-                Set.of(KeyCode.W),
-                Set.of(KeyCode.S),
-                Set.of(KeyCode.A),
-                Set.of(KeyCode.D),
-                Set.of(KeyCode.SHIFT));
+                keys(settings, player, solo, ControlAction.UP),
+                keys(settings, player, solo, ControlAction.DOWN),
+                keys(settings, player, solo, ControlAction.LEFT),
+                keys(settings, player, solo, ControlAction.RIGHT),
+                keys(settings, player, solo, ControlAction.FIRE));
     }
 
-    public static PlayerControls playerTwo() {
-        return new PlayerControls(
-                Set.of(KeyCode.UP),
-                Set.of(KeyCode.DOWN),
-                Set.of(KeyCode.LEFT),
-                Set.of(KeyCode.RIGHT),
-                Set.of(KeyCode.COMMA, KeyCode.PERIOD));
+    private static Set<KeyCode> keys(Settings settings, int player, boolean solo,
+                                     ControlAction action) {
+        KeyCode bound = settings.key(player, action);
+        KeyCode alternate = action.alternate(player, solo);
+        // The alternate is dropped when a pilot has bound that very key, so the set stays a set and
+        // an unbound-looking duplicate never appears.
+        return alternate == null || alternate == bound
+                ? Set.of(bound)
+                : Set.of(bound, alternate);
     }
 
     public boolean anyHeld(InputState input, Set<KeyCode> codes) {

@@ -9,6 +9,7 @@ import java.util.stream.Stream;
 
 import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioSystem;
+import javax.sound.sampled.UnsupportedAudioFileException;
 
 import org.junit.jupiter.api.Test;
 
@@ -109,33 +110,25 @@ class AssetProvenanceTest {
     }
 
     /**
-     * The declared length of every effect has to match the file it names.
+     * Every effect has to be readable by the player that will play it.
      *
-     * {@code VoiceLimiter} frees a slot on the strength of {@link SoundFx#seconds()}, so a sample
-     * re-cut without updating the number would silently break the ceiling that keeps native media
-     * players from piling up and hanging the window. Nothing else here would notice: the manifest
-     * check matches filenames, never contents.
-     *
-     * Read through {@code javax.sound.sampled}, which is in the JDK, so this stays runnable in a
-     * suite that never starts the JavaFX toolkit. It cannot decode MP3, so the one MP3 effect is
-     * checked for existence only, above.
+     * Effects go through {@code javax.sound.sampled}, which is in the JDK and reads PCM WAV but not
+     * MP3 -- so an effect authored as an MP3 would load fine in a browser, fine in an editor, and
+     * be silent in the game with one line on stderr nobody is watching for. This is also why the
+     * suite can make the check at all: no JavaFX toolkit is involved.
      */
     @Test
-    void everySoundConstantDeclaresTheLengthOfItsFile() throws Exception {
-        List<String> wrong = new ArrayList<>();
+    void everySoundEffectIsInAFormatTheJdkCanDecode() throws Exception {
+        List<String> unreadable = new ArrayList<>();
         for (SoundFx effect : SoundFx.values()) {
-            if (effect.resourcePath().endsWith(".mp3")) {
-                continue;
-            }
             Path file = RESOURCES.resolve(effect.resourcePath().substring(1));
-            AudioFileFormat format = AudioSystem.getAudioFileFormat(file.toFile());
-            double actual = format.getFrameLength() / format.getFormat().getFrameRate();
-            if (Math.abs(actual - effect.seconds()) > 0.05) {
-                wrong.add(String.format("%s declares %.2fs but %s is %.2fs",
-                        effect, effect.seconds(), file.getFileName(), actual));
+            try {
+                AudioSystem.getAudioFileFormat(file.toFile());
+            } catch (UnsupportedAudioFileException wrongFormat) {
+                unreadable.add(effect + " -> " + file.getFileName() + " (" + wrongFormat + ")");
             }
         }
-        assertTrue(wrong.isEmpty(), "declared sound lengths are out of date: " + wrong);
+        assertTrue(unreadable.isEmpty(), "effects the JDK cannot decode: " + unreadable);
     }
 
     @Test

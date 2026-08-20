@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Set;
 
 import javafx.scene.input.KeyCode;
+import com.hashimjacobs.spacecase.ui.MenuWindow;
 
 /**
  * The between-levels garage, as rules rather than pixels.
@@ -27,13 +28,37 @@ public final class GarageSession {
     private static final int LAUNCH_ROW = UPGRADE_ROWS + 2;
     private static final int ROW_COUNT = UPGRADE_ROWS + 3;
 
+    /**
+     * Rows a bay shows at once.
+     *
+     * Fourteen is every row the catalogue currently has -- eleven upgrades plus paint, kit and
+     * launch -- and the taller panel has room for all of them, so nothing scrolls today. The window
+     * is here as the safety net rather than as machinery in use: the first upgrade past this number
+     * starts a bay scrolling on its own instead of quietly pushing LAUNCH off the bottom, which is
+     * how a player would lose the way out of the garage.
+     */
+    private static final int VISIBLE_ROWS = 14;
+
     /** One pilot's identity and controls. Fixed for the life of the session. */
     public record Seat(String pilotName, Set<KeyCode> up, Set<KeyCode> down, Set<KeyCode> left,
                        Set<KeyCode> right, Set<KeyCode> buy) {
     }
 
-    /** One drawable line in a bay. */
-    public record Row(String label, String value, int cost, boolean affordable, boolean maxed) {
+    /**
+     * One drawable line in a bay.
+     *
+     * The first five components are what the row has always carried; the rest are for the drawn
+     * segment meter that replaced the ASCII pip bar. {@code level} and {@code maxLevel} are 0 on the
+     * cosmetic and launch rows, which have no ladder, and {@code detail} is the before-and-after
+     * readout shown only on the focused row.
+     */
+    public record Row(String label, String value, int cost, boolean affordable, boolean maxed,
+                      int level, int maxLevel, String detail) {
+
+        /** The shape the cosmetic and launch rows use: a value, no ladder. */
+        Row(String label, String value, int cost, boolean affordable, boolean maxed) {
+            this(label, value, cost, affordable, maxed, 0, 0, "");
+        }
     }
 
     /**
@@ -48,6 +73,7 @@ public final class GarageSession {
         private final Loadout loadout;
         private int credits;
         private int cursor;
+        private final MenuWindow window = new MenuWindow(ROW_COUNT, VISIBLE_ROWS);
         private int liveryBrowse;
         private int kitBrowse;
         private boolean done;
@@ -125,6 +151,21 @@ public final class GarageSession {
     private void move(Bay bay, int delta) {
         bay.message = "";
         bay.cursor = Math.floorMod(bay.cursor + delta, ROW_COUNT);
+        bay.window.follow(bay.cursor);
+    }
+
+    /** First row on screen in this bay. {@link #rows} still returns all of them. */
+    public int firstVisibleRow(int bay) {
+        return bays.get(bay).window.firstVisible();
+    }
+
+    public int visibleRows(int bay) {
+        return bays.get(bay).window.visibleRows();
+    }
+
+    /** Whether this bay has more rows than it can show, so the overlay draws a scroll track. */
+    public boolean scrolls(int bay) {
+        return bays.get(bay).window.scrolls();
     }
 
     /**
@@ -169,7 +210,7 @@ public final class GarageSession {
             bay.message = upgrade.label() + " is maxed";
             return;
         }
-        int cost = Upgrade.costFor(bay.loadout.level(upgrade));
+        int cost = upgrade.costFor(bay.loadout.level(upgrade));
         if (!charge(bay, cost)) {
             return;
         }
@@ -264,9 +305,13 @@ public final class GarageSession {
         for (Upgrade upgrade : Upgrade.values()) {
             int level = bay.loadout.level(upgrade);
             boolean maxed = bay.loadout.isMaxed(upgrade);
-            int cost = Upgrade.costFor(level);
-            rows.add(new Row(upgrade.label(), pips(level), cost,
-                    !maxed && cost <= bay.credits, maxed));
+            int cost = upgrade.costFor(level);
+            String detail = maxed
+                    ? upgrade.effectAt(level)
+                    : upgrade.effectAt(level) + "  ->  " + upgrade.effectAt(level + 1);
+            rows.add(new Row(upgrade.label(), upgrade.description(), cost,
+                    !maxed && cost <= bay.credits, maxed,
+                    level, upgrade.maxLevel(), detail));
         }
 
         // The browsed item, not the worn one: an unowned paint job has to show its price to be
@@ -285,12 +330,4 @@ public final class GarageSession {
         return Collections.unmodifiableList(rows);
     }
 
-    /** A filled-pip bar, which reads as a level at a glance where a bare number does not. */
-    private static String pips(int level) {
-        StringBuilder bar = new StringBuilder();
-        for (int i = 0; i < com.hashimjacobs.spacecase.GameConfig.UPGRADE_MAX_LEVEL; i++) {
-            bar.append(i < level ? '#' : '.');
-        }
-        return bar.toString();
-    }
 }

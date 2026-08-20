@@ -24,12 +24,30 @@ public final class Loadout {
     /**
      * Bumped only if the field order below changes incompatibly.
      *
-     * Appending is not a breaking change: a shorter old record simply leaves the new trailing
-     * fields at their defaults.
+     * Version 2 moved upgrades out of fixed positions and into a keyed block, because the old
+     * layout could not survive the catalogue growing. Version 1 wrote one field per upgrade in enum
+     * order, so the paint job sat at whatever index came after the last upgrade -- append a sixth
+     * upgrade and every existing record starts reading its paint out of an upgrade slot. Keying by
+     * name means adding, removing or reordering upgrades never moves another field again.
      */
-    private static final int FORMAT_VERSION = 1;
+    private static final int FORMAT_VERSION = 2;
 
     private static final String SEPARATOR = ",";
+
+    /** Separates upgrades inside their one field. Cannot be the comma; that is taken. */
+    private static final String UPGRADE_SEPARATOR = "|";
+    private static final String UPGRADE_ASSIGN = "=";
+
+    /**
+     * The five upgrades a version 1 record holds, in the order it holds them.
+     *
+     * Frozen history, deliberately not {@code Upgrade.values()}. What a v1 record means was decided
+     * when it was written; deriving this from the live enum would re-interpret every old save every
+     * time the catalogue changes, which is the exact bug version 2 exists to end.
+     */
+    private static final Upgrade[] V1_UPGRADE_ORDER = {
+            Upgrade.FIREPOWER, Upgrade.FIRE_RATE, Upgrade.SPEED, Upgrade.SHIELDING, Upgrade.HULL,
+    };
 
     private final Map<Upgrade, Integer> levels = new EnumMap<>(Upgrade.class);
     private final Set<Livery> unlockedLiveries = EnumSet.noneOf(Livery.class);
@@ -69,20 +87,24 @@ public final class Loadout {
         if (code == null || code.isBlank()) {
             return loadout;
         }
-        String[] fields = code.split(SEPARATOR);
+        String[] fields = code.split(SEPARATOR, -1);
         try {
-            if (fields.length < 2 || Integer.parseInt(fields[0].trim()) != FORMAT_VERSION) {
+            if (fields.length < 2) {
                 return loadout;
             }
-            Upgrade[] upgrades = Upgrade.values();
-            for (int i = 0; i < upgrades.length; i++) {
-                int level = valueAt(fields, 1 + i);
-                loadout.levels.put(upgrades[i], clampLevel(level));
+            int version = Integer.parseInt(fields[0].trim());
+            int cosmeticsAt = switch (version) {
+                case 1 -> readVersionOneUpgrades(loadout, fields);
+                case FORMAT_VERSION -> readUpgrades(loadout, fields);
+                default -> -1;
+            };
+            if (cosmeticsAt < 0) {
+                return loadout;
             }
-            int liveryOrdinal = valueAt(fields, 1 + upgrades.length);
-            int kitOrdinal = valueAt(fields, 2 + upgrades.length);
-            loadout.unlockFromMask(valueAt(fields, 3 + upgrades.length),
-                    valueAt(fields, 4 + upgrades.length));
+            int liveryOrdinal = valueAt(fields, cosmeticsAt);
+            int kitOrdinal = valueAt(fields, cosmeticsAt + 1);
+            loadout.unlockFromMask(valueAt(fields, cosmeticsAt + 2),
+                    valueAt(fields, cosmeticsAt + 3));
             loadout.select(liveryFor(liveryOrdinal, playerNumber));
             loadout.select(kitFor(kitOrdinal));
         } catch (NumberFormatException malformed) {
@@ -93,6 +115,50 @@ public final class Loadout {
         return loadout;
     }
 
+    /**
+     * Reads the keyed upgrade block. Returns the index the cosmetics start at.
+     *
+     * An upgrade this build does not have is skipped rather than rejected, so a record written by a
+     * newer version still yields everything else in it. One missing from the block reads as zero,
+     * which is what lets encode omit the ones nobody has bought.
+     */
+    private static int readUpgrades(Loadout loadout, String[] fields) {
+        String block = fields[1].trim();
+        if (!block.isEmpty()) {
+            for (String entry : block.split(java.util.regex.Pattern.quote(UPGRADE_SEPARATOR))) {
+                int split = entry.indexOf(UPGRADE_ASSIGN);
+                if (split <= 0) {
+                    continue;
+                }
+                Upgrade upgrade = upgradeNamed(entry.substring(0, split).trim());
+                if (upgrade == null) {
+                    continue;
+                }
+                loadout.levels.put(upgrade, clampLevel(upgrade,
+                        Integer.parseInt(entry.substring(split + 1).trim())));
+            }
+        }
+        return 2;
+    }
+
+    /** Reads the five positional upgrade fields a version 1 record holds. */
+    private static int readVersionOneUpgrades(Loadout loadout, String[] fields) {
+        for (int i = 0; i < V1_UPGRADE_ORDER.length; i++) {
+            loadout.levels.put(V1_UPGRADE_ORDER[i],
+                    clampLevel(V1_UPGRADE_ORDER[i], valueAt(fields, 1 + i)));
+        }
+        return 1 + V1_UPGRADE_ORDER.length;
+    }
+
+    private static Upgrade upgradeNamed(String name) {
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (upgrade.name().equals(name)) {
+                return upgrade;
+            }
+        }
+        return null;
+    }
+
     /** Fields beyond the end of a shorter, older record read as zero rather than failing. */
     private static int valueAt(String[] fields, int index) {
         if (index >= fields.length) {
@@ -101,8 +167,15 @@ public final class Loadout {
         return Integer.parseInt(fields[index].trim());
     }
 
-    private static int clampLevel(int level) {
-        int clamped = Math.max(0, Math.min(GameConfig.UPGRADE_MAX_LEVEL, level));
+    /**
+     * Holds a stored level inside the track's own ceiling.
+     *
+     * Per-upgrade rather than one global maximum: the tracks are different lengths now, so a record
+     * naming level four of a two-level track -- hand-edited, or written when the ceilings differed --
+     * must come back as two rather than as four.
+     */
+    private static int clampLevel(Upgrade upgrade, int level) {
+        int clamped = Math.max(0, Math.min(upgrade.maxLevel(), level));
         return clamped;
     }
 
@@ -139,9 +212,20 @@ public final class Loadout {
 
     /** Round-trips through {@link #decode}. Kept short: it lives in a preferences value. */
     public String encode() {
-        StringBuilder code = new StringBuilder().append(FORMAT_VERSION);
+        StringBuilder code = new StringBuilder().append(FORMAT_VERSION).append(SEPARATOR);
+        // Only what has actually been bought. An absent upgrade reads as zero, so a pilot who has
+        // spent nothing costs six characters rather than one per entry in the catalogue.
+        boolean first = true;
         for (Upgrade upgrade : Upgrade.values()) {
-            code.append(SEPARATOR).append(level(upgrade));
+            int level = level(upgrade);
+            if (level <= 0) {
+                continue;
+            }
+            if (!first) {
+                code.append(UPGRADE_SEPARATOR);
+            }
+            code.append(upgrade.name()).append(UPGRADE_ASSIGN).append(level);
+            first = false;
         }
         code.append(SEPARATOR).append(livery.ordinal());
         code.append(SEPARATOR).append(kit.ordinal());
@@ -166,7 +250,7 @@ public final class Loadout {
     }
 
     public boolean isMaxed(Upgrade upgrade) {
-        boolean maxed = level(upgrade) >= GameConfig.UPGRADE_MAX_LEVEL;
+        boolean maxed = level(upgrade) >= upgrade.maxLevel();
         return maxed;
     }
 
