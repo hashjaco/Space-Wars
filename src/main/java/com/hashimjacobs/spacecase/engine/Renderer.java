@@ -33,7 +33,9 @@ import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
+import com.hashimjacobs.spacecase.ui.Tokens;
 
 /**
  * Draws the arena onto a single full-window canvas.
@@ -60,11 +62,19 @@ public final class Renderer {
      */
     private static final Paint ACID_HALO = halo(Color.web("#a8b81e"));
 
+    /** The mega laser's glow, and the two hotter cores drawn inside it. */
+    private static final Paint BEAM_HALO = halo(Color.web("#ff2a2a"));
+    private static final Color BEAM_OUTER = Color.web("#ff2a2a");
+    private static final Color BEAM_INNER = Color.web("#ff8a6a");
+
+    /** A soft wash behind a floating pickup, so it reads as an object with power in it. */
+    private static final Paint PICKUP_HALO = halo(Color.web("#ffe9a8"));
+
     /** Hydra necks: a dark edge under a hide-coloured core, matching the generated torso. */
     private static final Color NECK_OUTLINE = Color.web("#131c10");
     private static final Color NECK_HIDE = Color.web("#24361f");
 
-    private static final Font PILOT_NAME_FONT = Font.font("Verdana", FontWeight.BOLD, 11);
+    private static final Font PILOT_NAME_FONT = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION);
 
     /** One frame at 60Hz. Above this the readout goes red. */
     private static final double FRAME_BUDGET_MS = 1000.0 / 60;
@@ -78,26 +88,43 @@ public final class Renderer {
         return gradient;
     }
 
+    /** How far past the canvas the sky is painted, so a camera throw never runs off the paint. */
+    private static final double SHAKE_MARGIN = 16;
+
     private final GraphicsContext gc;
+    private final Settings settings;
     private final Hud hud;
     private final DebriefOverlay debriefOverlay;
     private final GarageOverlay garageOverlay;
 
-    public Renderer(GraphicsContext gc) {
+    public Renderer(GraphicsContext gc, Settings settings) {
         this.gc = gc;
-        this.hud = new Hud(gc);
+        this.settings = settings;
+        this.hud = new Hud(gc, settings);
         this.debriefOverlay = new DebriefOverlay(gc);
         this.garageOverlay = new GarageOverlay(gc);
     }
 
     public void draw(World world, SpawnDirector director) {
+        // The arena is thrown about; the HUD is not, so it stays readable through a hit. Popped
+        // before hud.draw and therefore before the debrief, garage and warp veil the game loop
+        // draws after this method returns.
+        double throwDistance = settings.reducedFlash() ? 0 : world.shakeRemaining();
+        gc.save();
+        if (throwDistance > 0) {
+            int tick = world.tick();
+            gc.translate(throwDistance * Math.sin(tick * 2.7), throwDistance * Math.cos(tick * 3.9));
+        }
         drawScrollingBackground(director.level(), world.tick());
+        // After the sky and before everything solid, so rock sits behind the fight but in front of
+        // the parallax. Inside the shake, so it is thrown with the arena rather than against it.
+        drawTerrain(world);
 
         for (Asteroid asteroid : world.asteroids()) {
             drawSprite(asteroid);
         }
         for (PowerUp powerUp : world.powerUps()) {
-            drawSprite(powerUp);
+            drawPowerUp(powerUp);
         }
         for (EnemyShip enemy : world.enemies()) {
             if (enemy.isBoss()) {
@@ -109,6 +136,11 @@ public final class Renderer {
         for (Bullet bullet : world.bullets()) {
             drawBullet(bullet);
         }
+        // Between the bullets and the hulls, so a ship is drawn over its own muzzle rather than
+        // sitting behind the beam it is firing.
+        for (PlayerShip player : world.players()) {
+            drawBeam(player, world.tick());
+        }
         for (PlayerShip player : world.players()) {
             drawPlayer(player, world.tick());
         }
@@ -116,6 +148,7 @@ public final class Renderer {
             Image frame = explosion.currentFrame();
             gc.drawImage(frame, explosion.drawX(), explosion.drawY(), explosion.size(), explosion.size());
         }
+        gc.restore();
 
         hud.draw(world, director);
     }
@@ -131,7 +164,7 @@ public final class Renderer {
         gc.setFont(PILOT_NAME_FONT);
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setTextBaseline(VPos.BOTTOM);
-        gc.setFill(worstMs <= FRAME_BUDGET_MS ? Color.web("#0ec417") : Color.web("#ff2b2b"));
+        gc.setFill(worstMs <= FRAME_BUDGET_MS ? Tokens.BRAND : Tokens.DANGER);
         gc.fillText(String.format("worst %.1f ms  x%d", worstMs, steps), 16, GameConfig.HEIGHT - 12);
     }
 
@@ -151,7 +184,7 @@ public final class Renderer {
         if (opacity <= 0) {
             return;
         }
-        gc.setFill(Color.color(0, 0, 0, Math.min(1, opacity)));
+        gc.setFill(Tokens.veil(Math.min(1, opacity)));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
     }
 
@@ -163,10 +196,66 @@ public final class Renderer {
      * accumulating here scrolled the sky twice as fast on a 120 Hz monitor. Flooring the result also
      * keeps each layer on whole pixels, which stops JavaFX interpolating a faint seam into the wrap.
      */
+    /**
+     * The tunnel walls: two filled shapes, one per side.
+     *
+     * The vertices are the terrain's own lattice nodes, which is the whole reason this reads
+     * honestly -- the outline drawn here <em>is</em> the surface collision resolves against, so
+     * there is no "looks like I cleared it but took damage anyway". If {@link Terrain#PITCH} is ever
+     * read in only one of the two places, that guarantee quietly goes away.
+     *
+     * Opaque fill, because everything else at this depth is a dim parallax layer and the rock has to
+     * read as solid at a glance. The lighter inner stroke is the important part: it is the edge the
+     * player is actually flying against, so it gets the contrast.
+     */
+    private void drawTerrain(World world) {
+        Terrain terrain = world.terrain();
+        if (terrain.isEmpty()) {
+            return;
+        }
+        Orientation facing = terrain.orientation();
+        Color rock = Color.web(terrain.template().rockHex());
+        Color edge = Color.web(terrain.template().edgeHex());
+
+        // Overrun the arena on all sides so a thrown camera never shows daylight past the rock,
+        // the same reason the sky fill above is drawn oversized.
+        double margin = 24;
+        double depthTo = facing.arenaDepth() + margin;
+        double breadth = facing.arenaBreadth();
+        int steps = (int) Math.ceil((depthTo + margin) / Terrain.PITCH) + 1;
+
+        for (int side = -1; side <= 1; side += 2) {
+            double[] xs = new double[steps + 2];
+            double[] ys = new double[steps + 2];
+            for (int i = 0; i < steps; i++) {
+                double depth = -margin + i * Terrain.PITCH;
+                double across = side < 0 ? terrain.laneLow(depth) : terrain.laneHigh(depth);
+                xs[i] = facing.atX(depth, across, 0, 0);
+                ys[i] = facing.atY(depth, across, 0, 0);
+            }
+            // Close the shape off along the outer edge of the arena.
+            double outer = side < 0 ? -margin : breadth + margin;
+            xs[steps] = facing.atX(depthTo, outer, 0, 0);
+            ys[steps] = facing.atY(depthTo, outer, 0, 0);
+            xs[steps + 1] = facing.atX(-margin, outer, 0, 0);
+            ys[steps + 1] = facing.atY(-margin, outer, 0, 0);
+
+            gc.setFill(rock);
+            gc.fillPolygon(xs, ys, steps + 2);
+            gc.setStroke(edge);
+            gc.setLineWidth(3);
+            gc.strokePolyline(xs, ys, steps);
+        }
+        gc.setLineWidth(1);
+    }
+
     private void drawScrollingBackground(Level level, int tick) {
         // Fill first: the layers have transparent gaps, so without this the previous frame shows.
+        // Overdrawn by the shake margin, because this is a fill rather than a clear -- a thrown
+        // camera would otherwise drag a band of last frame's pixels in at two edges.
         gc.setFill(Color.web("#0a0e1a"));
-        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN,
+                GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
 
         Orientation facing = level.orientation();
         // The trailing copy sits one arena back along whichever way the level runs.
@@ -250,15 +339,77 @@ public final class Renderer {
         }
     }
 
+    /**
+     * The mega laser: a red column from the nose to the far wall.
+     *
+     * Three rectangles under SCREEN rather than one -- wide and dim, narrower and warmer, then a
+     * white-hot core -- because that is what makes a flat fill read as something burning. The
+     * geometry is {@code PlayerShip.beamBox}, the same box the collision pass burns things in, so
+     * what is drawn and what is lethal cannot drift apart.
+     *
+     * The width breathes on the tick, which is the one flicker here; under reduced flash it is
+     * held at the middle of that breath, like {@code Hud.drawLowHealthGlow}.
+     */
+    private void drawBeam(PlayerShip player, int tick) {
+        if (player.isOut() || !player.isFiringBeam()) {
+            return;
+        }
+        double[] beam = player.beamBox();
+        double pulse = settings.reducedFlash() ? 1 : 1 + 0.12 * Math.sin(tick * 0.9);
+        // Off the facing, not off which side of the box is longer: a ship pressed against the far
+        // wall fires a beam shorter than it is wide, and that must not flip the layout.
+        boolean vertical = !player.facing().horizontal();
+
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        drawBeamCore(beam, vertical, 1.9 * pulse, BEAM_OUTER, 0.5);
+        drawBeamCore(beam, vertical, 1.0 * pulse, BEAM_INNER, 0.75);
+        drawBeamCore(beam, vertical, 0.35 * pulse, Color.WHITE, 0.95);
+        // A bloom at the muzzle end, where the energy is leaving the hull.
+        double bloom = GameConfig.BEAM_WIDTH * 3.4;
+        gc.setGlobalAlpha(1);
+        gc.setFill(BEAM_HALO);
+        gc.fillOval(player.centerX() - bloom / 2, player.centerY() - bloom / 2, bloom, bloom);
+        gc.restore();
+    }
+
+    /** One layer of the beam, scaled about its own centre line so all three stay concentric. */
+    private void drawBeamCore(double[] beam, boolean vertical, double scale, Color colour,
+                              double alpha) {
+        double across = (vertical ? beam[2] : beam[3]) * scale;
+        gc.setGlobalAlpha(alpha);
+        gc.setFill(colour);
+        if (vertical) {
+            gc.fillRect(beam[0] + beam[2] / 2 - across / 2, beam[1], across, beam[3]);
+        } else {
+            gc.fillRect(beam[0], beam[1] + beam[3] / 2 - across / 2, beam[2], across);
+        }
+    }
+
+    /** A pickup, with a soft wash behind it so it reads as powered rather than as flat clip-art. */
+    private void drawPowerUp(PowerUp powerUp) {
+        double glow = Math.max(powerUp.width(), powerUp.height()) * 2.1;
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        gc.setFill(PICKUP_HALO);
+        gc.fillOval(powerUp.centerX() - glow / 2, powerUp.centerY() - glow / 2, glow, glow);
+        gc.restore();
+        drawSprite(powerUp);
+    }
+
     private void drawPlayer(PlayerShip player, int tick) {
         if (player.isOut()) {
             return;
         }
-        // Blink while the respawn grace period is running.
-        boolean blinkedOut = player.isInvulnerable() && (tick / 6) % 2 == 0;
+        // Blink while the respawn grace period is running. Under reduced flash the same window is
+        // shown as a steady fade instead: the grace period is the only thing telling a player they
+        // are briefly untouchable, so the signal has to survive even when the strobe does not.
+        boolean fadeInstead = settings.reducedFlash();
+        boolean blinkedOut = player.isInvulnerable() && !fadeInstead && (tick / 6) % 2 == 0;
         if (blinkedOut) {
             return;
         }
+        boolean faded = player.isInvulnerable() && fadeInstead;
         if (player.hasEffect(PowerUp.Kind.SHIELD)) {
             Image aura = Assets.image(Sprite.SHIELD_AURA);
             double size = Math.max(player.width(), player.height()) * 1.5;
@@ -266,9 +417,12 @@ public final class Renderer {
             gc.setGlobalAlpha(0.45);
             gc.drawImage(aura, player.centerX() - size / 2, player.centerY() - size / 2, size, size);
             gc.setGlobalAlpha(1.0);
+            drawShieldBar(player);
         }
         // Under the hull rather than over it, so the flash frames the ship instead of hiding it.
-        if (player.justHit()) {
+        // Only the halo is gated: hitFlashTicks itself is the ram-damage grace window that
+        // CollisionSystem reads, so the timer keeps running whatever this setting says.
+        if (player.justHit() && !settings.reducedFlash()) {
             double flash = Math.max(player.width(), player.height()) * 1.6;
             gc.save();
             gc.setGlobalBlendMode(BlendMode.SCREEN);
@@ -276,12 +430,20 @@ public final class Renderer {
             gc.fillOval(player.centerX() - flash / 2, player.centerY() - flash / 2, flash, flash);
             gc.restore();
         }
-        drawSprite(player, player.facing());
+        // After the aura, which sets its own alpha and puts it back.
+        if (faded) {
+            gc.setGlobalAlpha(0.45);
+        }
+        double hullDegrees = hullDegrees(player.facing());
+        drawSprite(player.sprite(), player, hullDegrees);
         Sprite kit = player.kitOverlay();
         if (kit != null) {
             // Drawn at the hull's own size and rotation so the decal tracks the pose and, in
             // battle mode, turns with a player two who is facing the other way.
-            drawSprite(kit, player, player.facing());
+            drawSprite(kit, player, hullDegrees);
+        }
+        if (faded) {
+            gc.setGlobalAlpha(1.0);
         }
         drawPilotName(player);
     }
@@ -296,7 +458,7 @@ public final class Renderer {
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.TOP);
         gc.setFont(PILOT_NAME_FONT);
-        gc.setFill(Color.web("#9fb0c9"));
+        gc.setFill(Tokens.TEXT_SECONDARY);
         gc.fillText(player.name(), player.centerX(), player.y() + player.height() + 3);
     }
 
@@ -321,34 +483,68 @@ public final class Renderer {
         gc.fillOval(bullet.centerX() - size / 2, bullet.centerY() - size / 2, size, size);
         gc.restore();
 
-        drawSprite(bullet);
+        drawSprite(bullet.sprite(), bullet, bullet.headingDegrees());
     }
 
     private void drawSprite(Entity entity) {
-        drawSprite(entity, Facing.UP);
+        drawSprite(entity.sprite(), entity, 0);
     }
 
-    private void drawSprite(Entity entity, Facing facing) {
-        drawSprite(entity.sprite(), entity, facing);
+    /**
+     * How far a hull has to turn on screen, given the way its pilot faces.
+     *
+     * The horizontal pair need no quarter turn: those levels are flown on hulls the generator
+     * already cut pointing right, which is what lets the collision box turn with the art. Only the
+     * far seat -- battle mode's player two, at either end of either axis -- is turned about.
+     */
+    private static double hullDegrees(Facing facing) {
+        if (!facing.horizontal()) {
+            return facing.rotationDegrees();
+        }
+        return facing == Facing.RIGHT ? 0 : 180;
     }
 
-    /** Draws any sprite at an entity's box, so a hull and its kit decal share one transform. */
-    private void drawSprite(Sprite sprite, Entity entity, Facing facing) {
+    /**
+     * Draws any sprite at an entity's box, so a hull and its kit decal share one transform.
+     *
+     * Degrees rather than a {@link Facing} because a projectile's heading is not one of the four:
+     * see {@code Bullet.headingDegrees()}.
+     */
+    private void drawSprite(Sprite sprite, Entity entity, double degrees) {
         Image image = Assets.image(sprite);
-        if (facing == Facing.UP) {
+        if (degrees == 0) {
             gc.drawImage(image, entity.x(), entity.y(), entity.width(), entity.height());
             return;
         }
         // Rotate about the sprite's centre so a downward-facing ship points at its opponent.
         gc.save();
         gc.translate(entity.centerX(), entity.centerY());
-        gc.rotate(facing.rotationDegrees());
+        gc.rotate(degrees);
         gc.drawImage(image, -entity.width() / 2, -entity.height() / 2, entity.width(), entity.height());
         gc.restore();
     }
 
+    /**
+     * How much more the shield will deflect, above the ship it is protecting.
+     *
+     * Over the arena rather than in the HUD panel because the number matters at the moment
+     * something is about to hit you, and that is not where your eyes are. No pulse and no flash:
+     * it is a quantity, not an alarm.
+     */
+    private void drawShieldBar(PlayerShip player) {
+        double width = Math.max(player.width(), 36);
+        double x = player.centerX() - width / 2;
+        double y = player.centerY() - player.height() / 2 - 12;
+        double fraction = Math.min(1, player.shieldRemaining() / (double) GameConfig.SHIELD_CAPACITY);
+
+        gc.setFill(Color.web("#0d1626", 0.75));
+        gc.fillRoundRect(x, y, width, 5, 3, 3);
+        gc.setFill(Color.web("#9fd0ff"));
+        gc.fillRoundRect(x, y, width * fraction, 5, 3, 3);
+    }
+
     public void drawPausedVeil() {
-        gc.setFill(Color.color(0, 0, 0, 0.55));
+        gc.setFill(Tokens.veil(0.55));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
     }
 }

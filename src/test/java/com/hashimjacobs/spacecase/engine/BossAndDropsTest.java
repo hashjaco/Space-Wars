@@ -12,6 +12,7 @@ import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
+import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.entity.Rocket;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
@@ -347,6 +348,67 @@ class BossAndDropsTest {
         }
         assertTrue(totalDrops > 0, "enemies should drop pickups at least sometimes");
         assertTrue(totalDrops < 40, "not every enemy should drop; drops were " + totalDrops);
+    }
+
+    /**
+     * The beam is restricted loot, and this is the assertion that keeps it that way.
+     *
+     * A scout dropping mega lasers at the same rate as health packs is the single change that
+     * would trivialise the game, and it is one careless {@code Kind.values()} away.
+     */
+    @Test
+    void lightEnemiesNeverDropTheBeamButHeavyOnesSometimesDo() {
+        int fromScouts = beamDropsOver(EnemyShip.EnemyKind.SCOUT, 400);
+        int fromFighters = beamDropsOver(EnemyShip.EnemyKind.FIGHTER, 400);
+        int fromCruisers = beamDropsOver(EnemyShip.EnemyKind.CRUISER, 400);
+
+        assertEquals(0, fromScouts, "scouts must never carry a beam");
+        assertEquals(0, fromFighters, "nor fighters");
+        assertTrue(fromCruisers > 0, "cruisers should sometimes carry one");
+    }
+
+    /** And when a heavy hull does drop one, it is rarer than any of the ordinary pickups. */
+    @Test
+    void theBeamIsRarerThanAnOrdinaryPickup() {
+        int beams = 0;
+        int total = 0;
+        for (int seed = 0; seed < 600; seed++) {
+            World world = killedBy(EnemyShip.EnemyKind.CRUISER, seed);
+            for (PowerUp powerUp : world.powerUps()) {
+                total++;
+                if (powerUp.kind() == PowerUp.Kind.MEGA_LASER) {
+                    beams++;
+                }
+            }
+        }
+        assertTrue(total > 0, "the sample needs some drops in it");
+        // One in six is what an even split over the six common pickups would give each of them.
+        assertTrue(beams < total / 6.0,
+                "beams were " + beams + " of " + total + " drops, which is not rarer than the rest");
+    }
+
+    private static int beamDropsOver(EnemyShip.EnemyKind kind, int seeds) {
+        int beams = 0;
+        for (int seed = 0; seed < seeds; seed++) {
+            for (PowerUp powerUp : killedBy(kind, seed).powerUps()) {
+                if (powerUp.kind() == PowerUp.Kind.MEGA_LASER) {
+                    beams++;
+                }
+            }
+        }
+        return beams;
+    }
+
+    /** One enemy of this kind, shot dead, and whatever it left behind. */
+    private static World killedBy(EnemyShip.EnemyKind kind, int seed) {
+        World world = new World(GameMode.SOLO);
+        PlayerShip shooter = world.players().get(0);
+        EnemyShip enemy = new EnemyShip(kind, LEVEL.enemySprite(kind), 400, 200);
+        world.addEnemy(enemy);
+        world.addBullet(new Bullet(Sprite.PLAYER_BULLET, enemy.centerX(), enemy.centerY(),
+                0, 0, shooter, 999));
+        new CollisionSystem(SoundPlayer.SILENT, new Random(seed)).resolve(world);
+        return world;
     }
 
     @Test

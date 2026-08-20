@@ -1,6 +1,8 @@
 package com.hashimjacobs.spacecase.entity;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
@@ -82,5 +84,38 @@ class BossTest {
             assertTrue(boss.art().width() > Level.values()[0].enemySprite(EnemyShip.EnemyKind.CRUISER).width(),
                     boss + " should out-size the largest ordinary enemy");
         }
+    }
+
+    /**
+     * Heads keep to their own arcs whatever their number.
+     *
+     * The sectors used to be a hardcoded list of three indexed modulo its own length, so a fourth
+     * head silently got the first one's arc and the two sat on top of each other -- which is the
+     * exact failure sectors exist to prevent, and it would have looked like a rendering bug rather
+     * than an arithmetic one. Nothing fields more than three heads yet, so this is the only thing
+     * standing between that change and finding out the hard way.
+     */
+    @Test
+    void anyNumberOfHeadsGetsItsOwnArc() {
+        EnemyShip body = new EnemyShip(Boss.HYDRA, 400, 90, 1);
+        for (int heads = 1; heads <= 6; heads++) {
+            List<Double> angles = new ArrayList<>();
+            for (int index = 0; index < heads; index++) {
+                double angle = new BossHead(body, index, heads, 100).angle();
+                for (double taken : angles) {
+                    assertTrue(Math.abs(angle - taken) > 1e-6,
+                            heads + " heads: two of them share an arc at " + angle);
+                }
+                angles.add(angle);
+            }
+        }
+    }
+
+    @Test
+    void aLoneHeadPointsStraightAhead() {
+        EnemyShip body = new EnemyShip(Boss.HYDRA, 400, 90, 1);
+        // Not off to one edge, which is what index/(heads-1) would give without the guard.
+        assertEquals(0, new BossHead(body, 0, 1, 100).angle(), 0.2,
+                "a single head should sweep about straight down-arena");
     }
 }

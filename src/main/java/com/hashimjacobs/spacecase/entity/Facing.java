@@ -38,6 +38,11 @@ public enum Facing {
         return rotationDegrees;
     }
 
+    /** True for the pair a side-view level uses, where the hull is cut turned rather than rotated. */
+    public boolean horizontal() {
+        return xDirection != 0;
+    }
+
     /** The other end of this axis, for battle mode's second seat. */
     public Facing opposite() {
         return switch (this) {

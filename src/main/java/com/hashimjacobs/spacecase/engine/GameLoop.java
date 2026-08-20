@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 
 import javafx.animation.AnimationTimer;
 import javafx.scene.input.KeyCode;
@@ -19,6 +20,7 @@ import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.mode.Debrief;
+import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.HighScores;
@@ -67,6 +69,8 @@ public final class GameLoop {
     private final World world;
     private final SpawnDirector director;
     private final CollisionSystem collisions;
+
+    private IntFunction<PadState> sticks;
     private final Renderer renderer;
     private final InputState input;
     private final SoundBank sounds;
@@ -76,6 +80,15 @@ public final class GameLoop {
     private final SaveGames saves;
     private final List<ShipController> controllers = new ArrayList<>();
     private final Consumer<RoundResult> onRoundOver;
+
+    /**
+     * Whether this run ignores galaxy borders.
+     *
+     * False for the campaign, which is what almost every run is: ten levels, then an ending. True
+     * only for the endless run unlocked by finishing the campaign, which is where {@code Level.next}
+     * wrapping past the last level and the loop escalation on top of it finally get used.
+     */
+    private final boolean endless;
 
     private final FixedTimestep timestep = new FixedTimestep();
     private final Map<Integer, Debrief.Tally> levelStart = new HashMap<>();
@@ -112,15 +125,24 @@ public final class GameLoop {
         this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver, null, null, null);
     }
 
-    /**
-     * @param highScores where per-level bests are recorded; may be null in tests
-     * @param saves      where checkpoints are written; may be null in tests
-     * @param resume     a saved run or a level-select replay to start from, or null for level one
-     */
     public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
                     Settings settings, Pilots pilots, Random random,
                     Consumer<RoundResult> onRoundOver,
                     HighScores highScores, SaveGames saves, SaveSlot resume) {
+        this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver,
+                highScores, saves, resume, false);
+    }
+
+    /**
+     * @param highScores where per-level bests are recorded; may be null in tests
+     * @param saves      where checkpoints are written; may be null in tests
+     * @param resume     a saved run or a level-select replay to start from, or null for level one
+     * @param endless    true for a post-campaign run that ignores galaxy borders and keeps looping
+     */
+    public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
+                    Settings settings, Pilots pilots, Random random,
+                    Consumer<RoundResult> onRoundOver,
+                    HighScores highScores, SaveGames saves, SaveSlot resume, boolean endless) {
         this.world = new World(mode, List.of(pilots.name(1), pilots.name(2)));
         this.renderer = renderer;
         this.input = input;
@@ -130,10 +152,14 @@ public final class GameLoop {
         this.highScores = highScores;
         this.saves = saves;
         this.onRoundOver = onRoundOver;
+        this.endless = endless;
         this.director = resume == null
                 ? new SpawnDirector(random, settings.difficulty(), mode.rules())
                 : new SpawnDirector(random, settings.difficulty(), mode.rules(),
                         resume.level(), resume.wavesSurvived(), resume.loop());
+        // A resumed run or a level-select replay can start on a level that runs sideways, and only
+        // stepWarp() used to say so -- leaving the pilots facing up on a side-view leg.
+        world.enterLevel(director.level());
         this.collisions = new CollisionSystem(sounds, random);
         attachControllers();
         fitSavedLoadouts();
@@ -192,14 +218,22 @@ public final class GameLoop {
         }
     }
 
+    /**
+     * Set after construction rather than passed in: the controllers are built in the constructor,
+     * and the pad reader belongs to the router that outlives any one round. The lambda below defers
+     * to this field, so a reader arriving later still reaches every ShipController.
+     */
+    public void setSticks(IntFunction<PadState> sticks) {
+        this.sticks = sticks;
+    }
+
     private void attachControllers() {
         List<PlayerShip> players = world.players();
         boolean solo = players.size() == 1;
         for (PlayerShip player : players) {
-            PlayerControls controls = player.playerNumber() == 1
-                    ? PlayerControls.playerOne(solo)
-                    : PlayerControls.playerTwo();
-            controllers.add(new ShipController(player, controls));
+            PlayerControls controls = PlayerControls.of(settings, player.playerNumber(), solo);
+            controllers.add(new ShipController(player, controls,
+                    number -> sticks == null ? null : sticks.apply(number)));
         }
     }
 
@@ -315,7 +349,12 @@ public final class GameLoop {
 
     private void stepFight() {
         for (ShipController controller : controllers) {
-            controller.apply(input, world, sounds);
+            // Rebuilt per controller: sensitivity is per player, and all three values can change
+            // under the pause menu mid-round.
+            StickTuning tuning = new StickTuning(settings.gamepadDeadzone(),
+                    settings.gamepadAnalog(),
+                    settings.gamepadSensitivity(controller.ship().playerNumber()));
+            controller.apply(input, world, sounds, tuning);
         }
 
         world.update();
@@ -473,10 +512,19 @@ public final class GameLoop {
         if (phaseTicks < WARP_MINIMUM_TICKS || !Assets.warmedUp()) {
             return;
         }
+        Galaxy leaving = director.level().galaxy();
         director.advanceLevel();
+        // A campaign run is one galaxy. Crossing the border ends it, which is what makes clearing a
+        // galaxy an ending rather than a wave counter ticking over -- fifty levels unbroken is a
+        // four-hour sitting with no way out but dying. Endless ignores borders and keeps going,
+        // which is what the loop counter and its escalation exist for.
+        if (!endless && director.level().galaxy() != leaving) {
+            finishRound(true);
+            return;
+        }
         // Before the spawns are restored, since arriving at a level that runs the other way moves
         // where "back of the arena" is.
-        world.setOrientation(director.level().orientation());
+        world.enterLevel(director.level());
         for (PlayerShip player : world.players()) {
             player.returnToSpawn();
         }
@@ -511,8 +559,10 @@ public final class GameLoop {
 
         for (PlayerShip player : world.players()) {
             Debrief.Tally before = levelStart.get(player.playerNumber());
-            Debrief debrief = Debrief.of(player.name(), director.level().number(),
-                    director.parTicks(), before, tally(player), director.ticksIntoLevel());
+            Level level = director.level();
+            Debrief debrief = Debrief.of(player.name(), level.indexInGalaxy(),
+                    level.galaxy().number(), director.parTicks(), before, tally(player),
+                    director.ticksIntoLevel());
             debriefs.add(debrief);
 
             Rank held = pilots.rank(player.name());
@@ -528,6 +578,11 @@ public final class GameLoop {
             }
             Rank earned = Rank.forCareerScore(career);
             standings.add(new Standing(player.name(), earned, career, earned != held));
+        }
+        // The flagship is confirmed dead by the time this runs, so this is the one place a level
+        // becomes "cleared". Endless runs are not campaign progress and do not unlock anything.
+        if (saves != null && !endless) {
+            saves.recordClear(world.mode(), director.level());
         }
     }
 
@@ -599,9 +654,19 @@ public final class GameLoop {
         if (!over) {
             return;
         }
+        finishRound(false);
+    }
+
+    /**
+     * Ends the round, whether it was lost or finished.
+     *
+     * @param galaxyCleared true when the run ended by reaching the end of its galaxy rather than by
+     *                      running out of lives -- the difference between winning and losing
+     */
+    private void finishRound(boolean galaxyCleared) {
         finished = true;
         stop();
-        RoundResult result = RoundResult.of(world, director);
+        RoundResult result = RoundResult.of(world, director, galaxyCleared);
         onRoundOver.accept(result);
     }
 

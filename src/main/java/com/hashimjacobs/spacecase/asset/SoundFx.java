@@ -19,10 +19,10 @@ public enum SoundFx {
      * earlier attempt trimmed to 0.35s and was reverted as inaudible -- that cut landed on the
      * sample's loudest point, since it swells rather than striking. Measure before cutting.
      */
-    LASER("punchy-laser.wav", 0.5, 0.5),
+    LASER("punchy-laser.wav", 0.5),
 
     /** Asteroids and ordinary debris. Deliberately the short generated burst; see SHIP_EXPLOSION. */
-    EXPLOSION("explosion.wav", 0.55, 0.75),
+    EXPLOSION("explosion.wav", 0.55),
 
     /**
      * Ships and flagships only.
@@ -32,34 +32,32 @@ public enum SoundFx {
      * nine seconds, of which the last six were a tail below -20dB that cost six seconds of open
      * native player each time anything died.
      */
-    SHIP_EXPLOSION("spaceship-explosion.wav", 0.5, 3.0),
+    SHIP_EXPLOSION("spaceship-explosion.wav", 0.5),
 
-    COLLISION("collision.wav", 0.6, 0.3),
+    COLLISION("collision.wav", 0.6),
 
     /** Retriggered on a timer while a player is nearly dead, rather than looped; see GameLoop. */
-    LOW_HEALTH("low-health.wav", 0.4, 0.5),
+    LOW_HEALTH("low-health.wav", 0.4),
 
     /**
      * The flagship's primary weapon, fired with its phase pattern.
      *
      * Quiet because it retriggers up to five times a second on AIMED_BURST.
      */
-    BOSS_GUN("machine-gun-burst.mp3", 0.22, 1.632),
+    BOSS_GUN("machine-gun-burst.wav", 0.22),
 
     /** The flagship's rocket salvo, on its own much longer timer. */
-    BOSS_ROCKET("mega-boss-cannon.wav", 0.5, 3.68),
+    BOSS_ROCKET("mega-boss-cannon.wav", 0.5),
 
-    GAME_OVER("game-over.wav", 0.8, 1.9),
-    LEVEL_CLEAR("level-clear.wav", 0.8, 1.6);
+    GAME_OVER("game-over.wav", 0.8),
+    LEVEL_CLEAR("level-clear.wav", 0.8);
 
     private final String fileName;
     private final double baseVolume;
-    private final double seconds;
 
-    SoundFx(String fileName, double baseVolume, double seconds) {
+    SoundFx(String fileName, double baseVolume) {
         this.fileName = fileName;
         this.baseVolume = baseVolume;
-        this.seconds = seconds;
     }
 
     public String resourcePath() {
@@ -70,10 +68,5 @@ public enum SoundFx {
     /** Per-clip level so the laser does not drown out the music; scaled by the user's SFX setting. */
     public double baseVolume() {
         return baseVolume;
-    }
-
-    /** How long one voice of this effect sounds for. */
-    public double seconds() {
-        return seconds;
     }
 }

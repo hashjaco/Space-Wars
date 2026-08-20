@@ -335,4 +335,45 @@ class SpawnDirectorTest {
         }
         return spawned;
     }
+
+    /**
+     * In a tunnel, waves arrive in the part of it you can actually fly.
+     *
+     * Without this the level is unfair in a way that reads as a bug: enemies materialise inside the
+     * rock, and the generator's own note about painted walls said as much -- "ships flying over solid
+     * rock reads as a bug rather than as depth". The same applies to theirs.
+     */
+    @Test
+    void enemiesInATunnelSpawnInsideTheOpenLane() {
+        World world = new World(GameMode.SOLO);
+        world.enterLevel(Level.UNDERCITY);
+        SpawnDirector director = new SpawnDirector(
+                new Random(31), Difficulty.HARD, GameMode.SOLO.rules());
+
+        Terrain terrain = world.terrain();
+        assertFalse(terrain.isEmpty(), "Undercity is supposed to be a cave");
+
+        int checked = 0;
+        for (int i = 0; i < FRAMES; i++) {
+            director.update(world);
+            for (EnemyShip enemy : world.enemies()) {
+                if (enemy.isBoss()) {
+                    continue;
+                }
+                double across = Level.UNDERCITY.orientation().across(enemy.x(), enemy.y());
+                double extent = Level.UNDERCITY.orientation()
+                        .acrossExtent(enemy.width(), enemy.height());
+                // Read at the entry edge, which is where the clamp is applied and where a fresh
+                // spawn sits. Anything already descending has been pushed clear since.
+                assertTrue(across >= terrain.laneLow(0) - 1,
+                        "spawned " + across + " into the near wall at " + terrain.laneLow(0));
+                assertTrue(across + extent <= terrain.laneHigh(0) + 1,
+                        "spawned past the far wall at " + terrain.laneHigh(0));
+                checked++;
+            }
+            world.update();
+            world.sweep();
+        }
+        assertTrue(checked > 0, "nothing spawned, so this test proved nothing");
+    }
 }

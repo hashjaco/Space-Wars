@@ -36,8 +36,12 @@ public final class BossHead extends EnemyShip {
      * when the point of the fight is shooting them off one at a time.
      *
      * Zero is down-arena, following the {@code EnemyWeapons} convention rather than Rocket's.
+     *
+     * Spread across this arc rather than listed, so a boss can field any number of heads. The three
+     * hardcoded sectors this replaces gave head four the same arc as head one, which put two heads
+     * on top of each other -- the exact failure the sectors exist to prevent.
      */
-    private static final double[] SECTORS = {-0.70, 0, 0.70};
+    private static final double SECTOR_SPAN = 1.40;
 
     /** How far a head sweeps inside its own sector. */
     private static final double SWING = 0.18;
@@ -45,12 +49,18 @@ public final class BossHead extends EnemyShip {
     /** Ticks for one full sweep. Long enough to read as deliberate rather than twitchy. */
     private static final double SWEEP_TICKS = 190;
 
-    /** Where a neck leaves the torso. Must match NECK_SOCKETS in tools/GenerateAssets. */
-    private static final double[] SOCKETS = {0.30, 0.50, 0.70};
+    /**
+     * Where necks leave the torso: spread across this much of its width, centred.
+     *
+     * Coupled to the art. The generator draws a socket per head at these positions, so a torso
+     * drawn with three sockets and flown with four grows a neck out of blank hide.
+     */
+    private static final double SOCKET_SPAN = 0.40;
     private static final double SOCKET_DEPTH = 0.78;
 
     private final EnemyShip body;
     private final int index;
+    private final int heads;
 
     /**
      * Fixed-step age, deliberately not the world tick.
@@ -67,7 +77,8 @@ public final class BossHead extends EnemyShip {
                 Math.max(1, body.boss().scoreValue() / 6));
         this.body = body;
         this.index = index;
-        // Thirds of a cycle apart, so the three necks never line up and the volleys interleave.
+        this.heads = Math.max(1, heads);
+        // Evenly spaced round the cycle, so the necks never line up and the volleys interleave.
         stagger(index * 9, index * 70);
     }
 
@@ -112,16 +123,14 @@ public final class BossHead extends EnemyShip {
     /** Where this head's neck leaves the body, in world coordinates. */
     public double neckRootX() {
         Orientation facing = body.orientation();
-        double across = (SOCKETS[index % SOCKETS.length] - 0.5)
-                * facing.acrossExtent(body.width(), body.height());
+        double across = (socket() - 0.5) * facing.acrossExtent(body.width(), body.height());
         double along = (SOCKET_DEPTH - 0.5) * facing.alongExtent(body.width(), body.height());
         return body.centerX() + facing.vx(along, across);
     }
 
     public double neckRootY() {
         Orientation facing = body.orientation();
-        double across = (SOCKETS[index % SOCKETS.length] - 0.5)
-                * facing.acrossExtent(body.width(), body.height());
+        double across = (socket() - 0.5) * facing.acrossExtent(body.width(), body.height());
         double along = (SOCKET_DEPTH - 0.5) * facing.alongExtent(body.width(), body.height());
         return body.centerY() + facing.vy(along, across);
     }
@@ -136,14 +145,30 @@ public final class BossHead extends EnemyShip {
         return neckRootY() + facing.vy(Math.cos(angle()) * reach(), Math.sin(angle()) * reach());
     }
 
-    /** A third of a cycle between heads, so all three are always somewhere different. */
+    /**
+     * Where this head sits along the spread, from 0 at one end to 1 at the other.
+     *
+     * A lone head sits in the middle rather than at one edge, which is why this is not just
+     * {@code index / (heads - 1)}.
+     */
+    private double spread() {
+        return heads == 1 ? 0.5 : index / (double) (heads - 1);
+    }
+
+    /** Which of the torso's sockets this neck grows from. */
+    private double socket() {
+        return 0.5 + SOCKET_SPAN * (spread() - 0.5);
+    }
+
+    /** An equal share of the cycle between heads, so they are always somewhere different. */
     private double phaseAngle() {
-        return 2 * Math.PI * (age / SWEEP_TICKS + index / (double) SOCKETS.length);
+        return 2 * Math.PI * (age / SWEEP_TICKS + index / (double) heads);
     }
 
     /** Where this neck is pointing, measured from straight down-arena. */
     public double angle() {
-        return SECTORS[index % SECTORS.length] + Math.sin(phaseAngle()) * SWING;
+        double sector = SECTOR_SPAN * (spread() - 0.5);
+        return sector + Math.sin(phaseAngle()) * SWING;
     }
 
     /**

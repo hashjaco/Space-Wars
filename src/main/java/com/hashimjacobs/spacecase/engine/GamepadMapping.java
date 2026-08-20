@@ -60,6 +60,11 @@ public final class GamepadMapping {
      * The fire button yields two keys: the player's fire key, which is held, plus a menu confirm
      * key, which is tapped. That is what lets one button both shoot and choose a menu item without
      * this class needing to know which screen is up.
+     *
+     * ponytail: both slots therefore drive the same menu cursor, since MenuNavigator answers to
+     * either player's keys. That is inherent to speaking in key codes, and is what keeps the whole
+     * feature to one integration point; it is no worse than two people sharing a keyboard. Give
+     * menus a notion of which pad owns the cursor only if players complain.
      */
     public GamepadMapping(int slot) {
         boolean playerOne = slot == 0;

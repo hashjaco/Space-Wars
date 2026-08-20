@@ -64,7 +64,56 @@ public enum Boss {
      */
     HYDRA("Hydra", BossArt.HYDRA, 2000, 1900,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.AIMED_BURST,
-            3, BossArt.HYDRA_HEAD);
+            3, BossArt.HYDRA_HEAD),
+
+    // ---- Galaxy 2: Ashfall ---------------------------------------------------------------
+    // Health and score keep rising with the enum order, which BossTest holds them to, so the
+    // ladder continues from the hydra rather than restarting. Sixty points of health a step
+    // inside the galaxy and a visible jump at its finale; the per-level difficulty ramp in
+    // prefs.Difficulty restarts each galaxy so the two do not compound.
+    //
+    // Phase orders are picked so no two flagships in the galaxy open the same way.
+
+    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN, 2060, 1950,
+            BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
+
+    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT, 2120, 2000,
+            BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
+
+    SLAG_BARON("Slag Baron", BossArt.SLAG_BARON, 2180, 2050,
+            BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
+
+    VENT_CRAWLER("Vent Crawler", BossArt.VENT_CRAWLER, 2240, 2100,
+            BossPhase.SPIRAL, BossPhase.RING, BossPhase.SPREAD),
+
+    FORGE_OVERSEER("Forge Overseer", BossArt.FORGE_OVERSEER, 2300, 2150,
+            BossPhase.SPAWNER, BossPhase.SWEEPING_FAN, BossPhase.RING),
+
+    PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN, 2360, 2200,
+            BossPhase.RING, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE, 2420, 2250,
+            BossPhase.AIMED_BURST, BossPhase.SWEEPING_FAN, BossPhase.SPIRAL),
+
+    CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD, 2480, 2300,
+            BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.SPAWNER),
+
+    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN, 2540, 2350,
+            BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.SPIRAL),
+
+    /**
+     * Vaunt, in the Forge-Rig. The galaxy's finale, and the first fight with somebody in it.
+     *
+     * Two arm pods guard the body, which is the machinery every multi-part boss already has -- a
+     * flagship refuses damage while any part lives. What is new is the cockpit: a third part that
+     * refuses damage of its own while either arm survives, so the fight reads as break the guard,
+     * then shoot the man. See {@code entity.PilotedMech}.
+     *
+     * A jump rather than a step at the health ladder, because a galaxy should end on one.
+     */
+    VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG, 2800, 2550,
+            BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
+            2, BossArt.FORGE_RIG_COCKPIT);
 
     private final String label;
     private final BossArt art;

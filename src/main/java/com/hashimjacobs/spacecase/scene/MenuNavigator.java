@@ -25,6 +25,8 @@ public final class MenuNavigator {
     private int index;
     private Runnable onBack = () -> {
     };
+    private java.util.function.IntConsumer onFocusMoved = focused -> {
+    };
 
     public MenuNavigator(List<Item> items) {
         if (items.isEmpty()) {
@@ -32,6 +34,17 @@ public final class MenuNavigator {
         }
         this.items = List.copyOf(items);
         applyFocus();
+    }
+
+    /**
+     * Runs with the newly focused row whenever focus lands, including on construction.
+     *
+     * How a panel too long to fit follows the cursor. A callback rather than the panel polling,
+     * because focus moves are the only thing that can scroll it.
+     */
+    public void setOnFocusMoved(java.util.function.IntConsumer onFocusMoved) {
+        this.onFocusMoved = onFocusMoved;
+        onFocusMoved.accept(index);
     }
 
     /** Runs when Escape is pressed. Defaults to doing nothing. */
@@ -64,6 +77,7 @@ public final class MenuNavigator {
         for (int i = 0; i < items.size(); i++) {
             items.get(i).setHighlighted(i == index);
         }
+        onFocusMoved.accept(index);
     }
 
     public int focusedIndex() {

@@ -1,7 +1,5 @@
 package com.hashimjacobs.spacecase.engine;
 
-import java.io.OutputStream;
-import java.io.PrintStream;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
@@ -31,16 +29,33 @@ import com.hashimjacobs.spacecase.prefs.Settings;
  */
 public final class Gamepad {
 
+    /**
+     * ponytail: a slot is SDL's joystick device index, not a stable pad identity. If a device SDL
+     * cannot open as a gamepad holds index 0, a lone pad drives player two; and if player one's pad
+     * dies mid-match, player two's can slide down into slot 0. Key slots off getDeviceInstanceID()
+     * and hold an assignment map across reconnects if anyone actually hits this.
+     */
     private static final int SUPPORTED_PADS = 2;
 
     private final Scene scene;
     private final Settings settings;
-    private final ControllerManager controllers;
+    /**
+     * Non-final so {@link #stop()} can drop it before SDL goes away.
+     *
+     * Null already means "no pad support" -- it is how the reader built in {@link #start}'s catch
+     * block is constructed -- so releasing it at shutdown reuses a state the class already knows
+     * rather than adding a shutting-down flag.
+     */
+    private ControllerManager controllers;
     private final GamepadMapping[] mappings = new GamepadMapping[SUPPORTED_PADS];
     private final Set<PadButton> buttonsDown = EnumSet.noneOf(PadButton.class);
 
+    private final PadState[] latest = new PadState[SUPPORTED_PADS];
+    private final String[] names = new String[SUPPORTED_PADS];
+
     private AnimationTimer timer;
     private boolean wasEnabled = true;
+    private int recognisedPads = -1;
 
     /** Returns a pad reader, or one that does nothing if no controller support could be started. */
     public static Gamepad start(Scene scene, Settings settings) {
@@ -48,7 +63,10 @@ public final class Gamepad {
             // Constructing the manager is what loads the native, so it belongs inside the guard --
             // an unsupported platform fails here rather than in initSDLGamepad.
             ControllerManager manager = new ControllerManager();
-            initQuietly(manager);
+            // Jamepad loads /gamecontrollerdb.txt from the classpath here. If that file ever goes
+            // missing, its complaint on stderr is the only warning that SDL has dropped to its
+            // built-in mappings and stopped recognising most pads -- so it is not muted.
+            manager.initSDLGamepad();
             Gamepad gamepad = new Gamepad(scene, settings, manager);
             gamepad.startPolling();
             return gamepad;
@@ -59,24 +77,6 @@ public final class Gamepad {
             System.err.println("No gamepad support on this machine: " + e);
             Gamepad disabled = new Gamepad(scene, settings, null);
             return disabled;
-        }
-    }
-
-    /**
-     * Jamepad looks for an optional community mapping database on the classpath and prints a stack
-     * trace when it is absent, even though it then falls back to the mappings built into SDL, which
-     * already cover every mainstream pad. Bundling a megabyte of third-party data to quiet a
-     * non-error is the worse trade, so the noise is muted for the length of the call instead. A
-     * genuine failure still arrives as the IllegalStateException the caller handles, and SDL's own
-     * diagnostics go to stdout, which is untouched.
-     */
-    private static void initQuietly(ControllerManager manager) {
-        PrintStream realErr = System.err;
-        System.setErr(new PrintStream(OutputStream.nullOutputStream()));
-        try {
-            manager.initSDLGamepad();
-        } finally {
-            System.setErr(realErr);
         }
     }
 
@@ -107,6 +107,12 @@ public final class Gamepad {
     }
 
     private void pollOnce() {
+        // AnimationTimer.stop() does not cancel a pulse already in flight, so this can run once
+        // more after stop() has shut SDL down. Jamepad answers that with an IllegalStateException
+        // on the JavaFX thread, which killed the frame loop on the way out.
+        if (controllers == null) {
+            return;
+        }
         boolean enabled = settings.gamepadEnabled();
         if (!enabled) {
             // Switching the pad off mid-thrust must not leave the ship holding its last direction.
@@ -117,13 +123,17 @@ public final class Gamepad {
             return;
         }
         wasEnabled = true;
+        reportPads();
 
         double deadzone = settings.gamepadDeadzone();
-        PadButton fireButton = settings.gamepadFireButton();
-        PadButton pauseButton = settings.gamepadPauseButton();
         for (int slot = 0; slot < SUPPORTED_PADS; slot++) {
+            // Read inside the loop: each pad carries its own fire and pause bindings.
+            PadButton fireButton = settings.gamepadFireButton(slot + 1);
+            PadButton pauseButton = settings.gamepadPauseButton(slot + 1);
             ControllerState reading = controllers.getState(slot);
             PadState state = snapshot(reading);
+            latest[slot] = state;
+            names[slot] = reading.isConnected ? reading.controllerType : null;
             List<GamepadMapping.KeyChange> changes =
                     mappings[slot].poll(state, deadzone, fireButton, pauseButton);
             apply(changes);
@@ -181,14 +191,61 @@ public final class Gamepad {
         }
     }
 
+    /**
+     * Says how many pads SDL recognised, whenever that number changes.
+     *
+     * SDL only opens a joystick it has a mapping for, so a pad missing from gamecontrollerdb.txt
+     * reads as zero here, exactly like no pad at all. Telling those two apart would need a raw
+     * joystick count, which Jamepad does not bind at all -- so this reports the half that is
+     * knowable, which still beats a connected pad doing nothing with no explanation anywhere.
+     *
+     * On change rather than once at startup: a Bluetooth pad switched on after launch is not
+     * enumerated when SDL starts, so a one-shot line would report a false "none" for exactly the
+     * player who needs telling.
+     */
+    private void reportPads() {
+        int count = controllers.getNumControllers();
+        if (count == recognisedPads) {
+            return;
+        }
+        recognisedPads = count;
+        System.err.println(count == 0
+                ? "No gamepad recognised. If one is connected, SDL has no mapping for it -- see"
+                        + " the controller notes in README.md."
+                : count + " gamepad(s) recognised.");
+    }
+
+    /** How many pads SDL has a mapping for, or zero on a build with no controller support. */
+    public int recognisedPads() {
+        return controllers == null ? 0 : Math.max(recognisedPads, 0);
+    }
+
+    /** This slot's pad name, or null when nothing is recognised there. */
+    public String padName(int slot) {
+        return names[slot];
+    }
+
+    /** This slot's last reading, never null once polling has run. */
+    public PadState latest(int slot) {
+        PadState state = latest[slot];
+        return state == null ? PadState.disconnected() : state;
+    }
+
+    /** This player's last reading, for the analog stick. Slot 0 is player one. */
+    public PadState latestForPlayer(int player) {
+        return player <= SUPPORTED_PADS ? latest(player - 1) : PadState.disconnected();
+    }
+
     /** Stops polling and shuts SDL down. Safe to call on a reader that never started. */
     public void stop() {
         if (timer != null) {
             timer.stop();
             timer = null;
         }
-        if (controllers != null) {
-            controllers.quitSDLGamepad();
+        ControllerManager closing = controllers;
+        controllers = null;
+        if (closing != null) {
+            closing.quitSDLGamepad();
         }
     }
 }

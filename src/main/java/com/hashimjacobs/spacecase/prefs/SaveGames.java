@@ -4,16 +4,25 @@ import java.util.Optional;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
+import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 
 /**
- * Where runs are kept: one automatic checkpoint, and three slots the player writes by hand.
+ * Where runs are kept: one automatic checkpoint, three slots the player writes by hand, and which
+ * levels have been cleared.
  *
- * The checkpoint is what "Continue" resumes and what "Level Select" derives its unlocks from. It
- * is written every time a level begins, so nobody has to remember to save; the manual slots exist
- * for the things an automatic one cannot do, like keeping a co-op run while you play solo.
+ * The checkpoint is what "Continue" resumes. It is written every time a level begins, so nobody has
+ * to remember to save; the manual slots exist for the things an automatic one cannot do, like
+ * keeping a co-op run while you play solo.
  *
- * Four string values in a preferences node. {@code Pilots} already stores an encoded object this
+ * The cleared-levels mask is what the universe map gates on, and it is a separate thing from the
+ * checkpoint on purpose. A checkpoint says where you are; it cannot say where you have been. Unlocks
+ * used to be derived from it -- "every level up to the one you reached" -- which was true enough for
+ * one ladder of ten but cannot express a galaxy you finished, left, and came back to. So clearing a
+ * level is now recorded, once, when its flagship dies.
+ *
+ * A few string values in a preferences node. {@code Pilots} already stores an encoded object this
  * way and the payload here is about a hundred characters against an eight-thousand limit.
  */
 public final class SaveGames {
@@ -23,6 +32,7 @@ public final class SaveGames {
 
     private static final String CHECKPOINT_KEY = "checkpoint";
     private static final String SLOT_KEY_PREFIX = "slot";
+    private static final String CLEARED_KEY_PREFIX = "cleared/";
 
     private final Preferences store;
 
@@ -32,12 +42,22 @@ public final class SaveGames {
 
     public static SaveGames load() {
         Preferences store = Preferences.userNodeForPackage(SaveGames.class).node("saves");
-        return new SaveGames(store);
+        SaveGames saves = new SaveGames(store);
+        saves.grantFromCheckpoint();
+        return saves;
     }
 
-    /** Package-private so tests can supply a throwaway node. */
-    static SaveGames load(Preferences store) {
-        return new SaveGames(store);
+    /**
+     * Loads from an explicit node instead of the user's real one.
+     *
+     * Public so that tests outside this package -- the universe map's, for one -- can build an
+     * isolated store rather than writing into the player's actual progress. Taking the node as an
+     * argument is what makes that safe; there is nothing to get wrong.
+     */
+    public static SaveGames load(Preferences store) {
+        SaveGames saves = new SaveGames(store);
+        saves.grantFromCheckpoint();
+        return saves;
     }
 
     public Optional<SaveSlot> checkpoint() {
@@ -83,6 +103,129 @@ public final class SaveGames {
         }
         store.put(SLOT_KEY_PREFIX + number, state.encode());
         flush();
+    }
+
+    // ---- Cleared levels ----------------------------------------------------------------------
+    //
+    // One bit per level, indexed by Level.ordinal(), held as hex in one string per mode. Fifty
+    // levels is fifty bits, so a long carries the whole campaign and there is no chunking to get
+    // wrong. Indexing by ordinal rather than by (galaxy, level) is deliberate: galaxies are
+    // contiguous blocks of ten in enum order, so the two would compute the same number, and the
+    // only thing a second way of computing it can do is disagree with the first.
+    //
+    // Appending levels never moves an existing bit, which is what makes the campaign safe to grow.
+    // Reordering or inserting them would hand every player somebody else's progress.
+
+    /** Which levels this mode has cleared, as a bit per {@code Level.ordinal()}. */
+    public long clearedMask(GameMode mode) {
+        if (mode == null) {
+            return 0;
+        }
+        String held = store.get(CLEARED_KEY_PREFIX + mode.name(), "");
+        try {
+            return Long.parseUnsignedLong(held, 16);
+        } catch (NumberFormatException e) {
+            // Same bargain SaveSlot.decode makes: unreadable progress reads as none rather than
+            // taking the game down. Losing unlocks is bad; refusing to start is worse.
+            return 0;
+        }
+    }
+
+    public boolean isCleared(GameMode mode, Level level) {
+        return level != null && (clearedMask(mode) & bit(level)) != 0;
+    }
+
+    /**
+     * Records a cleared level. Called when the flagship dies, from {@code engine.GameLoop}.
+     *
+     * Battle mode is never recorded, for the same reason it is never checkpointed: it has no
+     * levels to progress through.
+     */
+    public void recordClear(GameMode mode, Level level) {
+        if (mode == null || mode == GameMode.BATTLE || level == null) {
+            return;
+        }
+        long held = clearedMask(mode);
+        long updated = held | bit(level);
+        if (updated == held) {
+            return;
+        }
+        write(mode, updated);
+    }
+
+    /**
+     * Whether a galaxy can be entered: the first one always, otherwise the whole of the one before.
+     *
+     * The whole of it, not just its last level, so a player cannot skip a galaxy's middle by
+     * replaying its finale.
+     */
+    public boolean isGalaxyUnlocked(GameMode mode, Galaxy galaxy) {
+        if (galaxy == null) {
+            return false;
+        }
+        if (galaxy.ordinal() == 0) {
+            return true;
+        }
+        long required = galaxyMask(Galaxy.values()[galaxy.ordinal() - 1]);
+        return (clearedMask(mode) & required) == required;
+    }
+
+    /** Whether a level can be flown: its galaxy is open, and the level before it is cleared. */
+    public boolean isUnlocked(GameMode mode, Level level) {
+        if (level == null || !isGalaxyUnlocked(mode, level.galaxy())) {
+            return false;
+        }
+        if (level.indexInGalaxy() == 1) {
+            return true;
+        }
+        Level previous = Level.values()[level.ordinal() - 1];
+        return isCleared(mode, previous);
+    }
+
+    /** How many of a galaxy's ten are done, for the map's "7/10" caption. */
+    public int clearedCount(GameMode mode, Galaxy galaxy) {
+        if (galaxy == null) {
+            return 0;
+        }
+        return Long.bitCount(clearedMask(mode) & galaxyMask(galaxy));
+    }
+
+    /**
+     * Grants what a pre-galaxy checkpoint implies, so an existing player keeps what they earned.
+     *
+     * Before this mask existed, a checkpoint was the only record of progress and unlocks were read
+     * off it as "everything up to the level you reached". That is exactly recoverable: a checkpoint
+     * at stage N means stages 0..N-1 were cleared. Reached, not cleared -- the checkpoint is written
+     * when a level *begins*, so the level it names is the one in progress and does not count.
+     *
+     * Runs on every load and needs no version key, because it only ever adds bits: once the mask is
+     * at or past what the checkpoint implies, the or-equals below changes nothing.
+     */
+    private void grantFromCheckpoint() {
+        checkpoint().ifPresent(save -> {
+            int reached = Math.min(Level.values().length, Math.max(0, save.progress()));
+            // A looped legacy run reached past the end of the campaign as it now stands, so it gets
+            // all of it. Shifting by 64 or more is undefined for a long, hence the branch.
+            long earned = reached >= Long.SIZE ? -1L : (1L << reached) - 1;
+            long held = clearedMask(save.mode());
+            if ((held | earned) != held) {
+                write(save.mode(), held | earned);
+            }
+        });
+    }
+
+    private void write(GameMode mode, long mask) {
+        store.put(CLEARED_KEY_PREFIX + mode.name(), Long.toHexString(mask));
+        flush();
+    }
+
+    private static long bit(Level level) {
+        return 1L << level.ordinal();
+    }
+
+    private static long galaxyMask(Galaxy galaxy) {
+        long ten = (1L << Galaxy.LEVELS_PER_GALAXY) - 1;
+        return ten << (galaxy.ordinal() * Galaxy.LEVELS_PER_GALAXY);
     }
 
     private void flush() {

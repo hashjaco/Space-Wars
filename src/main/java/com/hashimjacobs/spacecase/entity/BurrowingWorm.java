@@ -1,7 +1,5 @@
 package com.hashimjacobs.spacecase.entity;
 
-import com.hashimjacobs.spacecase.GameConfig;
-
 /**
  * The Dune Leviathan: a maw that lunges out of the right-hand wall and withdraws into it.
  *
@@ -40,7 +38,16 @@ public final class BurrowingWorm extends EnemyShip {
 
     /** Where the burrow mouth sits, and how far into the arena a strike reaches. */
     private static final double REST_DEPTH = 90;
-    private static final double STRIKE_DEPTH = GameConfig.WIDTH * 0.62;
+
+    /**
+     * How far across the arena a strike reaches, as a fraction of its depth.
+     *
+     * A fraction rather than a fixed distance because the arena is not square: down-arena is 864
+     * and across is 996, so a worm striking from the top of a top-down level and one striking from
+     * the side of a side-on level need different absolute reaches to look the same. This used to be
+     * {@code WIDTH * 0.62}, which was right only for the side-on level it was written for.
+     */
+    private static final double STRIKE_REACH = 0.62;
 
     private int age;
 
@@ -99,7 +106,12 @@ public final class BurrowingWorm extends EnemyShip {
         double out = progress < 0.20 ? smooth(progress / 0.20)
                 : progress < 0.45 ? 1
                 : 1 - smooth((progress - 0.45) / 0.55);
-        return REST_DEPTH + (STRIKE_DEPTH - REST_DEPTH) * out;
+        return REST_DEPTH + (strikeDepth() - REST_DEPTH) * out;
+    }
+
+    /** How far in a strike reaches, in pixels, for whichever way this level runs. */
+    private double strikeDepth() {
+        return orientation().arenaDepth() * STRIKE_REACH;
     }
 
     private double driftAcross(double at) {

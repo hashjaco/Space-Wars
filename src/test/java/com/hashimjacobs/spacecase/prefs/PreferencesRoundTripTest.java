@@ -1,16 +1,21 @@
 package com.hashimjacobs.spacecase.prefs;
 
+import java.util.List;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
+import javafx.scene.input.KeyCode;
+
 import com.hashimjacobs.spacecase.entity.PlayerShip;
+import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -69,16 +74,16 @@ class PreferencesRoundTripTest {
         Settings saved = Settings.load(scratch);
         saved.setGamepadEnabled(false);
         saved.setGamepadDeadzone(0.45);
-        saved.setGamepadFireButton(PadButton.RIGHT_BUMPER);
-        saved.setGamepadPauseButton(PadButton.BACK);
+        saved.setGamepadFireButton(1, PadButton.RIGHT_BUMPER);
+        saved.setGamepadPauseButton(1, PadButton.BACK);
         saved.save();
 
         Settings reloaded = Settings.load(scratch);
 
         assertFalse(reloaded.gamepadEnabled());
         assertEquals(0.45, reloaded.gamepadDeadzone(), 1e-9);
-        assertEquals(PadButton.RIGHT_BUMPER, reloaded.gamepadFireButton());
-        assertEquals(PadButton.BACK, reloaded.gamepadPauseButton());
+        assertEquals(PadButton.RIGHT_BUMPER, reloaded.gamepadFireButton(1));
+        assertEquals(PadButton.BACK, reloaded.gamepadPauseButton(1));
     }
 
     @Test
@@ -96,7 +101,7 @@ class PreferencesRoundTripTest {
     void anUnknownStoredPadButtonFallsBackToTheDefault() {
         scratch.put("gamepadFireButton", "PADDLE_7");
         Settings settings = Settings.load(scratch);
-        assertEquals(PadButton.A, settings.gamepadFireButton());
+        assertEquals(PadButton.A, settings.gamepadFireButton(1));
     }
 
     @Test
@@ -305,5 +310,220 @@ class PreferencesRoundTripTest {
         assertEquals(0, pilots.credits("TWO"));
         assertEquals("", pilots.loadoutCode("TWO"));
         assertEquals(300, pilots.credits("ONE"));
+    }
+
+    @Test
+    void stickSensitivityIsKeptPerPlayer() {
+        Settings settings = Settings.load(scratch);
+        settings.setGamepadSensitivity(1, 2.0);
+        settings.setGamepadSensitivity(2, 0.5);
+        settings.save();
+
+        Settings reloaded = Settings.load(scratch);
+        assertEquals(2.0, reloaded.gamepadSensitivity(1), 0.0001);
+        assertEquals(0.5, reloaded.gamepadSensitivity(2), 0.0001);
+    }
+
+    /** A store written by another version must not hand the curve an exponent of infinity. */
+    @Test
+    void anOutOfRangeSensitivityClampsRatherThanThrowing() {
+        Settings settings = Settings.load(scratch);
+        settings.setGamepadSensitivity(1, 99.0);
+        settings.setGamepadSensitivity(2, -4.0);
+
+        assertEquals(2.0, settings.gamepadSensitivity(1), 0.0001);
+        assertEquals(0.5, settings.gamepadSensitivity(2), 0.0001);
+    }
+
+    @Test
+    void keyBindingsSurviveAReload() {
+        Settings saved = Settings.load(scratch);
+        saved.setKey(1, ControlAction.FIRE, KeyCode.Z);
+        saved.setKey(2, ControlAction.UP, KeyCode.I);
+        saved.save();
+
+        Settings reloaded = Settings.load(scratch);
+
+        assertEquals(KeyCode.Z, reloaded.key(1, ControlAction.FIRE));
+        assertEquals(KeyCode.I, reloaded.key(2, ControlAction.UP));
+        assertEquals(KeyCode.S, reloaded.key(1, ControlAction.DOWN), "untouched rows keep theirs");
+    }
+
+    /** A store written by another build can name a key this JavaFX does not have. */
+    @Test
+    void anUnknownStoredKeyFallsBackToTheDefault() {
+        scratch.put("keyLEFT", "NOT_A_KEY");
+
+        Settings loaded = Settings.load(scratch);
+
+        assertEquals(KeyCode.A, loaded.key(1, ControlAction.LEFT));
+    }
+
+    @Test
+    void bindingsAreSeparatePerSeatAndResetOneAtATime() {
+        Settings settings = Settings.load(scratch);
+        settings.setKey(1, ControlAction.FIRE, KeyCode.Z);
+        settings.setKey(2, ControlAction.FIRE, KeyCode.M);
+
+        settings.resetKeys(1);
+
+        assertEquals(KeyCode.SHIFT, settings.key(1, ControlAction.FIRE));
+        assertEquals(KeyCode.M, settings.key(2, ControlAction.FIRE), "the other seat is untouched");
+    }
+
+    /** Two actions on one key means one of them silently stops working, so rebinding refuses it. */
+    @Test
+    void aKeyAlreadyInUseIsReportedAsAClash() {
+        Settings settings = Settings.load(scratch);
+
+        assertEquals(ControlAction.UP, settings.keyClash(1, ControlAction.FIRE, KeyCode.W));
+        assertNull(settings.keyClash(1, ControlAction.FIRE, KeyCode.Z));
+        assertNull(settings.keyClash(1, ControlAction.UP, KeyCode.W),
+                "a row rebound to the key it already has is not a clash");
+    }
+
+    // ---- Cleared levels, which is what the universe map gates on --------------------------------
+
+    @Test
+    void aClearedLevelSurvivesAReload() {
+        SaveGames saved = SaveGames.load(scratch);
+        saved.recordClear(GameMode.SOLO, Level.values()[2]);
+
+        SaveGames reloaded = SaveGames.load(scratch);
+
+        assertTrue(reloaded.isCleared(GameMode.SOLO, Level.values()[2]));
+        assertFalse(reloaded.isCleared(GameMode.SOLO, Level.values()[3]));
+    }
+
+    /** Clearing a level opens exactly the next one, and nothing further along. */
+    @Test
+    void clearingALevelUnlocksOnlyTheOneAfterIt() {
+        SaveGames saves = SaveGames.load(scratch);
+        Level[] all = Level.values();
+
+        assertTrue(saves.isUnlocked(GameMode.SOLO, all[0]),
+                "the first level of the first galaxy is always open");
+        assertFalse(saves.isUnlocked(GameMode.SOLO, all[1]), "nothing is cleared yet");
+
+        saves.recordClear(GameMode.SOLO, all[0]);
+
+        assertTrue(saves.isUnlocked(GameMode.SOLO, all[1]));
+        assertFalse(saves.isUnlocked(GameMode.SOLO, all[2]), "one clear does not open two levels");
+    }
+
+    @Test
+    void theFirstGalaxyIsOpenFromTheStart() {
+        SaveGames saves = SaveGames.load(scratch);
+        assertTrue(saves.isGalaxyUnlocked(GameMode.SOLO, Galaxy.values()[0]));
+    }
+
+    /**
+     * A galaxy opens only once the whole of the one before it is done -- all ten, not just its
+     * finale, so its middle cannot be skipped by replaying the last level.
+     *
+     * Written pairwise so it covers each border as that galaxy ships, rather than needing to be
+     * revisited. With one galaxy in the game it asserts nothing; the loop body is the test.
+     */
+    @Test
+    void aGalaxyOpensOnlyWhenTheWholeOfTheOneBeforeItIsCleared() {
+        Galaxy[] galaxies = Galaxy.values();
+        for (int i = 1; i < galaxies.length; i++) {
+            SaveGames saves = SaveGames.load(scratch);
+            Galaxy previous = galaxies[i - 1];
+            List<Level> earlier = previous.levels();
+
+            // Everything but one level of the previous galaxy, including its finale.
+            for (Level level : earlier) {
+                if (level != earlier.get(3)) {
+                    saves.recordClear(GameMode.SOLO, level);
+                }
+            }
+            assertFalse(saves.isGalaxyUnlocked(GameMode.SOLO, galaxies[i]),
+                    galaxies[i] + " opened with a hole left in " + previous);
+
+            saves.recordClear(GameMode.SOLO, earlier.get(3));
+            assertTrue(saves.isGalaxyUnlocked(GameMode.SOLO, galaxies[i]),
+                    galaxies[i] + " should open once " + previous + " is finished");
+
+            scratch.node("saves").remove("cleared/" + GameMode.SOLO.name());
+        }
+    }
+
+    @Test
+    void eachModeKeepsItsOwnProgress() {
+        SaveGames saves = SaveGames.load(scratch);
+
+        saves.recordClear(GameMode.SOLO, Level.values()[0]);
+
+        assertTrue(saves.isCleared(GameMode.SOLO, Level.values()[0]));
+        assertFalse(saves.isCleared(GameMode.COOP, Level.values()[0]),
+                "co-op is a separate campaign, unlike the single shared checkpoint");
+    }
+
+    @Test
+    void battleModeIsNeverRecorded() {
+        SaveGames saves = SaveGames.load(scratch);
+
+        saves.recordClear(GameMode.BATTLE, Level.values()[0]);
+
+        assertEquals(0, saves.clearedMask(GameMode.BATTLE), "battle has no levels to clear");
+    }
+
+    @Test
+    void aGalaxyCountsHowManyOfItsTenAreDone() {
+        SaveGames saves = SaveGames.load(scratch);
+        Galaxy first = Galaxy.values()[0];
+
+        assertEquals(0, saves.clearedCount(GameMode.SOLO, first));
+        saves.recordClear(GameMode.SOLO, first.levels().get(0));
+        saves.recordClear(GameMode.SOLO, first.levels().get(4));
+
+        assertEquals(2, saves.clearedCount(GameMode.SOLO, first));
+    }
+
+    /**
+     * A player who was mid-campaign before any of this existed keeps what they earned.
+     *
+     * Their checkpoint is the only record, and it names the level in progress -- written when a level
+     * begins -- so everything strictly before it was cleared and the level itself was not.
+     */
+    @Test
+    void aLegacyCheckpointGrantsTheLevelsItImplies() {
+        SaveGames writer = SaveGames.load(scratch);
+        writer.saveCheckpoint(at(GameMode.SOLO, 4, 1));
+        // Wipe the mask so only the checkpoint remains, as it would for a pre-galaxy save.
+        scratch.node("saves").remove("cleared/SOLO");
+
+        SaveGames migrated = SaveGames.load(scratch);
+
+        assertEquals(4, migrated.clearedCount(GameMode.SOLO, Galaxy.values()[0]),
+                "reaching level index 4 means the four before it were cleared");
+        assertTrue(migrated.isCleared(GameMode.SOLO, Level.values()[3]));
+        assertFalse(migrated.isCleared(GameMode.SOLO, Level.values()[4]),
+                "the level the checkpoint names was in progress, not finished");
+    }
+
+    /** Migration only ever adds, so a real clear is never taken away by a stale checkpoint. */
+    @Test
+    void migrationNeverRemovesProgressAlreadyRecorded() {
+        SaveGames saves = SaveGames.load(scratch);
+        saves.saveCheckpoint(at(GameMode.SOLO, 1, 1));
+        saves.recordClear(GameMode.SOLO, Level.values()[7]);
+
+        SaveGames reloaded = SaveGames.load(scratch);
+
+        assertTrue(reloaded.isCleared(GameMode.SOLO, Level.values()[7]),
+                "a shallow checkpoint must not erase a level that was actually cleared");
+    }
+
+    @Test
+    void unreadableProgressReadsAsNoneRatherThanThrowing() {
+        scratch.node("saves").put("cleared/SOLO", "not-hex");
+
+        SaveGames saves = SaveGames.load(scratch);
+
+        assertEquals(0, saves.clearedMask(GameMode.SOLO));
+        assertTrue(saves.isUnlocked(GameMode.SOLO, Level.values()[0]),
+                "the first level stays reachable whatever the store says");
     }
 }

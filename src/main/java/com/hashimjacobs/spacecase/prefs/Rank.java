@@ -105,10 +105,11 @@ public enum Rank {
     }
 
     /**
-     * Insignia tier, used to draw chevrons, bars or stars without shipping twenty-six images.
+     * Insignia tier, which with {@link #insigniaCount()} picks a badge.
      *
-     * ponytail: the shapes are drawn from this in {@code engine.DebriefOverlay}. Generate proper
-     * insignia art if the drawn version ever reads as placeholder.
+     * The pair exist so the art is a grid of four tiers by four mark counts rather than one image
+     * per rank: sixteen files instead of twenty-six, and the ranks past the fourth in a tier share
+     * the top badge and are told apart by name.
      */
     public Insignia insignia() {
         if (ordinal() >= BRIGADIER_GENERAL.ordinal()) {

@@ -2,6 +2,8 @@ package com.hashimjacobs.spacecase.scene;
 
 import java.util.Random;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
+import java.util.function.Supplier;
 
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -13,10 +15,12 @@ import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.engine.GameLoop;
 import com.hashimjacobs.spacecase.engine.InputState;
+import com.hashimjacobs.spacecase.engine.PadState;
 import com.hashimjacobs.spacecase.engine.Renderer;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.GameMode;
@@ -41,20 +45,31 @@ final class GameScreen {
     private final MenuButton[] slotButtons = new MenuButton[SaveGames.SLOTS];
     private MenuNavigator pauseNavigator;
     private MenuNavigator settingsNavigator;
+    private SettingsPanel settingsPanel;
     private MenuNavigator saveNavigator;
 
     GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
                HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
-               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver) {
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus) {
+        this(mode, settings, sounds, pilots, highScores, saves, random, resume,
+                onQuitToMenu, onRoundOver, padStatus, false);
+    }
+
+    /** @param endless true for the post-campaign run, which ignores galaxy borders */
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus, boolean endless) {
         Canvas canvas = new Canvas(GameConfig.WIDTH, GameConfig.HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
-        Renderer renderer = new Renderer(gc);
+        Renderer renderer = new Renderer(gc, settings);
 
         this.saves = saves;
         this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
-                onRoundOver, highScores, saves, resume);
+                onRoundOver, highScores, saves, resume, endless);
         this.pauseLayer = buildPauseLayer(onQuitToMenu);
-        this.settingsLayer = buildSettingsLayer(settings, sounds);
+        this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();
 
         root = new StackPane(canvas, pauseLayer, settingsLayer, saveLayer);
@@ -84,10 +99,12 @@ final class GameScreen {
         return layer;
     }
 
-    private VBox buildSettingsLayer(Settings settings, SoundBank sounds) {
+    private VBox buildSettingsLayer(Settings settings, SoundBank sounds,
+                                    Supplier<String> padStatus) {
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
-        SettingsPanel panel = new SettingsPanel(settings, sounds, this::showPauseMenu);
+        SettingsPanel panel = new SettingsPanel(settings, sounds, padStatus, this::showPauseMenu);
+        this.settingsPanel = panel;
         settingsNavigator = panel.navigator(this::showPauseMenu);
         layer.getChildren().addAll(new MenuTitle("Settings", 38, 380, 62), panel);
         layer.setBackground(veil());
@@ -120,7 +137,7 @@ final class GameScreen {
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
         layer.getChildren().addAll(new MenuTitle("Save Game", 38, 380, 62), panel,
-                MenuScreen.caption("Saves the start of this level", 12, Color.web("#8b98ad")));
+                MenuScreen.caption("Saves the start of this level", 12, Tokens.TEXT_DIM));
         layer.setBackground(veil());
         layer.setVisible(false);
         return layer;
@@ -139,7 +156,7 @@ final class GameScreen {
     }
 
     private static Background veil() {
-        BackgroundFill fill = new BackgroundFill(Color.color(0, 0, 0, 0.72), null, null);
+        BackgroundFill fill = new BackgroundFill(Tokens.veil(0.72), null, null);
         Background background = new Background(fill);
         return background;
     }
@@ -190,6 +207,7 @@ final class GameScreen {
 
     private void showSettings() {
         pauseLayer.setVisible(false);
+        settingsPanel.refresh();
         settingsLayer.setVisible(true);
         input.setMenuRouter(settingsNavigator::handleKey);
     }
@@ -203,5 +221,10 @@ final class GameScreen {
 
     StackPane root() {
         return root;
+    }
+
+    /** Hands the loop the pad reader, for analog stick movement. */
+    void setSticks(IntFunction<PadState> sticks) {
+        loop.setSticks(sticks);
     }
 }

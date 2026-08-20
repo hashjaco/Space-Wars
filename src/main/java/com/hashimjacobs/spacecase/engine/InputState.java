@@ -24,7 +24,7 @@ public final class InputState {
     };
     private Scene attachedScene;
     private ChangeListener<Boolean> focusListener;
-    private Predicate<KeyCode> menuRouter;
+    private MenuRepeat menuRouter;
 
     /** Installs the handlers. The scene must already belong to a window. */
     public void attachTo(Scene scene) {
@@ -44,12 +44,24 @@ public final class InputState {
             }
             held.add(code);
         });
-        scene.setOnKeyReleased(event -> held.remove(event.getCode()));
+        scene.setOnKeyReleased(event -> {
+            KeyCode code = event.getCode();
+            // The overlay gate needs the real release to tell a fast double-tap from a held key.
+            if (menuRouter != null) {
+                menuRouter.release(code);
+            }
+            held.remove(code);
+        });
 
         // Losing focus mid-keypress would otherwise leave the key stuck down forever.
         focusListener = (observable, wasFocused, isFocused) -> {
             if (!isFocused) {
                 held.clear();
+                // No release ever arrives for a key that was down when focus went, so the gate would
+                // otherwise still believe it is held.
+                if (menuRouter != null) {
+                    menuRouter.clear();
+                }
             }
         };
         Window window = scene.getWindow();
@@ -83,10 +95,22 @@ public final class InputState {
     /**
      * Diverts key presses to an overlay menu. Pass null to hand control back to the ships. The
      * predicate returns true for keys it consumed.
+     *
+     * The router is wrapped in {@link MenuRepeat}, so a held direction walks the overlay at a
+     * readable pace rather than at the rate the gamepad re-sends it. A fresh wrapper each time is
+     * what makes the first push after opening an overlay immediate.
      */
     public void setMenuRouter(Predicate<KeyCode> menuRouter) {
-        this.menuRouter = menuRouter;
+        this.menuRouter = MenuRepeat.gate(menuRouter);
         held.clear();
+    }
+
+    /**
+     * Package-private so tests can hold a key down without a Scene, and so without a toolkit.
+     * Real presses arrive from {@link #attachTo}, which is the only other way into the held set.
+     */
+    void press(KeyCode code) {
+        held.add(code);
     }
 
     public boolean isHeld(KeyCode code) {

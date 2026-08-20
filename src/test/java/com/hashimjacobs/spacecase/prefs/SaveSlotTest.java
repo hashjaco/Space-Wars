@@ -114,4 +114,70 @@ class SaveSlotTest {
                 "encoded to " + twoPlayers.encode().length() + " chars");
         assertFalse(twoPlayers.encode().contains("\n"));
     }
+
+    /**
+     * The migration that matters: a save written before the campaign grew still resumes.
+     *
+     * Version 1 stored the level as an ordinal, version 2 stores its name. A v1 record has to keep
+     * naming the same level it always did -- getting this wrong would not fail loudly, it would
+     * quietly resume people somewhere else in the campaign.
+     */
+    @Test
+    void aVersionOneRecordStillNamesTheLevelItAlwaysDid() {
+        String legacy = "1,SOLO,4,7,1";
+
+        SaveSlot back = SaveSlot.decode(legacy).orElseThrow();
+
+        assertEquals(Level.values()[4], back.level(), "ordinal 4 has to stay the fifth level");
+        assertEquals(GameMode.SOLO, back.mode());
+        assertEquals(7, back.wavesSurvived());
+        assertTrue(back.players().isEmpty());
+    }
+
+    @Test
+    void aCurrentRecordStoresTheLevelByName() {
+        Level level = Level.values()[6];
+        SaveSlot saved = new SaveSlot(GameMode.SOLO, level, 4, 1, List.of());
+
+        assertTrue(saved.encode().contains(level.name()),
+                "the level should be named, not numbered: " + saved.encode());
+        assertEquals(level, SaveSlot.decode(saved.encode()).orElseThrow().level());
+    }
+
+    /**
+     * A name this build does not have reads as no save, not as level one.
+     *
+     * The failure this prevents: a save naming a level that was renamed or removed resolving to
+     * whatever happened to be first, and dropping the player into the wrong galaxy.
+     */
+    @Test
+    void aLevelNameThisBuildDoesNotHaveReadsAsNoSave() {
+        assertEquals(Optional.empty(), SaveSlot.decode("2,SOLO,ATLANTIS_SHELF,3,1"));
+        assertEquals(Optional.empty(), SaveSlot.decode("2,SOLO,,3,1"));
+        assertEquals(Optional.empty(), SaveSlot.decode("2,SOLO,4,3,1"),
+                "a bare ordinal is not a valid version 2 record");
+    }
+
+    /** A version from a build newer than this one is not guessed at. */
+    @Test
+    void anUnknownVersionReadsAsNoSave() {
+        assertEquals(Optional.empty(), SaveSlot.decode("3,SOLO,ORBITAL_APPROACH,3,1"));
+    }
+
+    @Test
+    void namingLevelsKeepsTheRecordWellInsideAPreferencesValue() {
+        // Names are longer than ordinals, so the headroom is worth re-checking against the longest
+        // label in the game rather than assuming.
+        Level longest = Level.values()[0];
+        for (Level level : Level.values()) {
+            if (level.name().length() > longest.name().length()) {
+                longest = level;
+            }
+        }
+        SaveSlot twoPlayers = new SaveSlot(GameMode.COOP, longest, 999, 9,
+                List.of(progress(999999), progress(999999)));
+
+        assertTrue(twoPlayers.encode().length() < 512,
+                "encoded to " + twoPlayers.encode().length() + " chars");
+    }
 }

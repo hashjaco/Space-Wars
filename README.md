@@ -90,14 +90,36 @@ Single player accepts either WASD or the arrow keys, and fires with `SHIFT` or `
 
 ### Controllers
 
-Pair a Bluetooth pad — DualSense, Xbox Wireless, Switch Pro and 8BitDo are all recognised — or plug
-one in, and it works with no setup: menus included. The first pad plays as player one and the second
-as player two, and the keyboard keeps working alongside them, so two people can share a pad and the
-keys.
+Pair a Bluetooth pad — DualSense, Xbox Wireless, Switch Pro and 8BitDo among them — or plug one in,
+and it works without setup: menus included. The first pad plays as player one and the second as
+player two, and the keyboard keeps working alongside them, so two people can share a pad and the
+keys. Both pads drive the menu cursor, the same way two people on one keyboard would.
 
-`Start` pauses. Settings has rows for the fire and pause buttons, the stick deadzone (raise it if a
-worn stick drifts on its own) and an off switch. A pad going flat mid-game drops back to the keyboard
-rather than leaving your ship drifting.
+The left stick is analog: the ship flies at the speed you push it, and the hull banks harder the
+further you lean. Switch `Stick mode` to `Digital` in Settings for the older all-or-nothing feel.
+`Start` pauses.
+
+`P1 stick` and `P2 stick` set how sharply each pad answers, from 50% to 200%. This changes *response,
+not top speed* — a full push gives the ship everything it has at every setting, so it cannot outrun
+the garage speed upgrades or hand one player the edge in Battle. Wind it down to 50% for fine control
+threading a bullet pattern; wind it up to 200% if the ship feels sluggish off centre.
+
+Holding a direction in a menu moves one row, pauses, then walks at about two and a half rows a
+second, so you can stop where you meant to. Tapping always moves exactly one. This covers the
+keyboard and the garage as well as the pad.
+
+Settings also carries the fire and pause buttons **per player**, the stick deadzone (raise it if a
+worn stick drifts on its own), an off switch, and a row naming the pads currently recognised. A pad
+going flat mid-game drops back to the keyboard rather than leaving your ship drifting.
+
+**If your controller does nothing**, check that last row. Recognition comes from a bundled copy of
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB); SDL only opens a pad it has a
+mapping for, so one released after that copy was pinned may not be recognised. You do not need to
+wait for a release — grab the current database and point SDL at it:
+
+```sh
+SDL_GAMECONTROLLERCONFIG_FILE=/path/to/gamecontrollerdb.txt ./mvnw javafx:run
+```
 
 ## Power-ups
 
@@ -192,10 +214,6 @@ reproduces it byte for byte, and CI checks that it still does.
 
 No fonts are bundled; menu headings use whichever display face the host already has.
 
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and small fixes are welcome.
-
 ## Licence
 
 [MIT](LICENSE) — code and assets alike.
@@ -204,3 +222,7 @@ The release jars carry two third-party runtimes: JavaFX ([GPLv2 with the Classpa
 Exception](https://openjdk.org/legal/gplv2+ce.html)) and, for controller support,
 [Jamepad](https://github.com/libgdx/jamepad) (Apache 2.0) with the copy of
 [SDL](https://libsdl.org) (zlib) it wraps.
+
+One third-party data file is bundled rather than linked:
+[SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB) (zlib), the controller mapping
+database. See [ASSETS.md](ASSETS.md) for the pinned revision and why it ships.

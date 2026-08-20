@@ -3,7 +3,11 @@ package com.hashimjacobs.spacecase.entity;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
 /**
- * A flagship's secondary weapon: slow, heavy, and it follows you.
+ * A steering projectile: slow, heavy, and it follows what it was launched at.
+ *
+ * Fired by a flagship at a player, and by a player carrying the rockets pickup at the nearest
+ * enemy. Which way round it is going is decided entirely by {@code owner} and {@code target}; the
+ * steering below does not care.
  *
  * Every other projectile in the game flies the heading it was fired on. This one turns a little
  * each tick toward the player it was launched at, which is what makes a boss fight about moving
@@ -24,7 +28,7 @@ public final class Rocket extends Bullet {
      */
     public static final int FUSE_TICKS = 420;
 
-    private final PlayerShip target;
+    private final Entity target;
     private final double speed;
     private final double turnRate;
     private int fuse;
@@ -36,19 +40,24 @@ public final class Rocket extends Bullet {
      */
     public Rocket(double x, double y, PlayerShip target, double speed, int damage,
                   double turnRate) {
-        this(Sprite.BOSS_ROCKET, x, y, target, speed, damage, turnRate, FUSE_TICKS);
+        this(Sprite.BOSS_ROCKET, x, y, 0, speed, null, target, damage, turnRate, FUSE_TICKS);
     }
 
     /**
      * @param art        what it looks like; the renderer tints its halo from this
+     * @param velocityX  launch heading; steering takes over from here on
+     * @param velocityY  as above -- a player's rocket leaves the nose whichever way that points,
+     *                   so the launch vector cannot be assumed to be straight down any more
+     * @param owner      the player who fired it, or null for enemy fire. Load-bearing: the
+     *                   collision pass sorts a projectile at players or at hazards by this alone
      * @param fuseTicks  how long before it burns out, which is also the cap on how many can be in
      *                   the air at once: roughly the fuse divided by the interval between launches
      */
-    public Rocket(Sprite art, double x, double y, PlayerShip target, double speed, int damage,
-                  double turnRate, int fuseTicks) {
-        super(art, x, y, 0, speed, null, damage);
+    public Rocket(Sprite art, double x, double y, double velocityX, double velocityY,
+                  PlayerShip owner, Entity target, int damage, double turnRate, int fuseTicks) {
+        super(art, x, y, velocityX, velocityY, owner, damage);
         this.target = target;
-        this.speed = speed;
+        this.speed = Math.hypot(velocityX, velocityY);
         this.turnRate = turnRate;
         this.fuse = fuseTicks;
     }
@@ -71,7 +80,10 @@ public final class Rocket extends Bullet {
      * the phase patterns, where zero points straight down. They are not interchangeable.
      */
     private void steer() {
-        if (target == null || target.isOut()) {
+        // A player with no lives left is still a live Entity, so isAlive alone would leave a salvo
+        // chasing a ship that is out of the fight.
+        if (target == null || !target.isAlive()
+                || (target instanceof PlayerShip player && player.isOut())) {
             return;
         }
         double desired = Math.atan2(target.centerY() - centerY(), target.centerX() - centerX());

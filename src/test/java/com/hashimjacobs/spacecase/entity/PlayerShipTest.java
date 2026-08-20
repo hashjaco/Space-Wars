@@ -54,14 +54,71 @@ class PlayerShipTest {
     }
 
     @Test
-    void shieldAbsorbsDamage() {
+    void shieldAbsorbsDamageUntilItsPoolIsSpent() {
         PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
         runTicks(ship, GameConfig.PLAYER_INVULNERABLE_TICKS + 1);
         ship.collect(PowerUp.Kind.SHIELD);
 
-        ship.takeDamage(50);
+        ship.takeDamage(10);
+        assertEquals(GameConfig.PLAYER_HEALTH, ship.health(), "a charged shield deflects the hit");
+        assertEquals(GameConfig.SHIELD_CAPACITY - 10, ship.shieldRemaining());
 
+        // Enough to empty it. The hit that drains the shield is still absorbed whole.
+        ship.takeDamage(GameConfig.SHIELD_CAPACITY);
         assertEquals(GameConfig.PLAYER_HEALTH, ship.health());
+        assertFalse(ship.hasEffect(PowerUp.Kind.SHIELD), "an empty shield switches off");
+
+        ship.takeDamage(10);
+        assertEquals(GameConfig.PLAYER_HEALTH - 10, ship.health(), "the next hit lands on the hull");
+    }
+
+    @Test
+    void triShotStacksToThreeAndNoFurther() {
+        PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
+        assertEquals(0, ship.triStacks());
+
+        for (int i = 0; i < GameConfig.TRI_SHOT_MAX_STACKS + 2; i++) {
+            ship.collect(PowerUp.Kind.TRI_SHOT);
+        }
+
+        assertEquals(GameConfig.TRI_SHOT_MAX_STACKS, ship.triStacks());
+    }
+
+    /**
+     * Nothing expires on a timer any more, so dying is the only thing that disarms a pilot. If this
+     * ever stops holding, collecting one of everything becomes permanent and the game has no cost.
+     */
+    @Test
+    void dyingCostsEveryPowerUp() {
+        PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
+        runTicks(ship, GameConfig.PLAYER_INVULNERABLE_TICKS + 1);
+        ship.collect(PowerUp.Kind.TRI_SHOT);
+        ship.collect(PowerUp.Kind.MEGA_LASER);
+        ship.collect(PowerUp.Kind.ROCKETS);
+        ship.collect(PowerUp.Kind.SPEED);
+        ship.setFiringBeam(true);
+
+        ship.takeDamage(ship.maxHealth());
+
+        for (PowerUp.Kind kind : PowerUp.Kind.values()) {
+            assertFalse(ship.hasEffect(kind), kind + " should not survive a death");
+        }
+        assertFalse(ship.isFiringBeam());
+    }
+
+    /**
+     * Power-ups no longer run down. The old suite asserted the opposite; this is the same
+     * behaviour pinned the other way round so a countdown cannot creep back in.
+     */
+    @Test
+    void effectsDoNotExpireOnTheirOwn() {
+        PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
+        ship.collect(PowerUp.Kind.TRI_SHOT);
+
+        runTicks(ship, 5000);
+
+        assertTrue(ship.hasEffect(PowerUp.Kind.TRI_SHOT));
+        assertEquals(1, ship.triStacks());
     }
 
     @Test
@@ -79,15 +136,47 @@ class PlayerShipTest {
         assertEquals(lives + 1, ship.lives());
     }
 
+    /**
+     * The beam's box, which the collision pass burns and the renderer draws from the same call.
+     *
+     * Two things have to hold: it starts at the nose and runs to the wall, and it turns with the
+     * ship. Level nine is flown side-on, so a beam that always ran up the screen would be lethal in
+     * a lane the player is not aiming down and harmless in the one they are.
+     */
     @Test
-    void timedEffectsExpire() {
-        PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
+    void theBeamRunsFromTheNoseToTheWallAndTurnsWithTheShip() {
+        PlayerShip up = new PlayerShip(1, "TESTER", Facing.UP, 400, 500);
+        double[] box = up.beamBox();
+        assertEquals(GameConfig.BEAM_WIDTH, box[2], "a vertical beam is BEAM_WIDTH across");
+        assertEquals(0, box[1], "it reaches the top of the arena");
+        assertEquals(up.centerX(), box[0] + box[2] / 2, 0.001, "and is centred on the ship");
+        assertEquals(up.centerY() - up.height() / 2, box[1] + box[3], 0.001, "starting at the nose");
+
+        PlayerShip right = new PlayerShip(1, "TESTER", Facing.RIGHT, 100, 400);
+        double[] sideways = right.beamBox();
+        assertEquals(GameConfig.BEAM_WIDTH, sideways[3], "a side-on beam is BEAM_WIDTH tall");
+        assertEquals(GameConfig.WIDTH, sideways[0] + sideways[2], 0.001, "reaching the right wall");
+        assertEquals(right.centerY(), sideways[1] + sideways[3] / 2, 0.001);
+    }
+
+    /** A level boundary disarms you as thoroughly as dying does. */
+    @Test
+    void reachingTheNextLevelCostsEveryPowerUp() {
+        PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 400, 700);
+        ship.collect(PowerUp.Kind.MEGA_LASER);
         ship.collect(PowerUp.Kind.TRI_SHOT);
-        assertTrue(ship.hasEffect(PowerUp.Kind.TRI_SHOT));
+        ship.collect(PowerUp.Kind.SHIELD);
+        ship.setFiringBeam(true);
+        int score = ship.score();
 
-        runTicks(ship, GameConfig.POWERUP_DURATION_TICKS + 1);
+        ship.returnToSpawn();
 
-        assertFalse(ship.hasEffect(PowerUp.Kind.TRI_SHOT));
+        for (PowerUp.Kind kind : PowerUp.Kind.values()) {
+            assertFalse(ship.hasEffect(kind), kind + " should not survive a level change");
+        }
+        assertFalse(ship.isFiringBeam());
+        assertEquals(score, ship.score(), "but the run's counters carry over");
+        assertEquals(GameConfig.PLAYER_LIVES, ship.lives());
     }
 
     @Test
@@ -214,7 +303,7 @@ class PlayerShipTest {
         ship.applyLoadout(armed);
 
         assertTrue(ship.damageFor(GameConfig.BULLET_DAMAGE) > GameConfig.BULLET_DAMAGE);
-        assertTrue(ship.damageFor(GameConfig.MEGA_BULLET_DAMAGE) > GameConfig.MEGA_BULLET_DAMAGE);
+        assertTrue(ship.damageFor(GameConfig.PLAYER_ROCKET_DAMAGE) > GameConfig.PLAYER_ROCKET_DAMAGE);
     }
 
     @Test

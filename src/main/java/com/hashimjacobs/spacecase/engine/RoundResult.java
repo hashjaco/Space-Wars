@@ -15,6 +15,9 @@ import com.hashimjacobs.spacecase.mode.Level;
  * @param wavesSurvived       waves cleared across the whole run before it ended
  * @param level               level being fought when the round ended
  * @param loop                pass through the run it ended on, counting from one
+ * @param galaxyCleared       true when the run ended by finishing its galaxy rather than by running
+ *                            out of lives -- the difference between a win and a loss, and the only
+ *                            thing separating the two screens the router shows afterwards
  */
 public record RoundResult(
         GameMode mode,
@@ -22,15 +25,21 @@ public record RoundResult(
         List<Integer> scores,
         int wavesSurvived,
         Level level,
-        int loop) {
+        int loop,
+        boolean galaxyCleared) {
 
-    public static RoundResult of(World world, SpawnDirector director) {
+    public static RoundResult of(World world, SpawnDirector director, boolean galaxyCleared) {
         List<PlayerShip> players = world.players();
         int winner = resolveWinner(world, players);
         List<Integer> scores = players.stream().map(PlayerShip::score).toList();
         RoundResult result = new RoundResult(world.mode(), winner, scores,
-                director.wavesSurvived(), director.level(), director.loop());
+                director.wavesSurvived(), director.level(), director.loop(), galaxyCleared);
         return result;
+    }
+
+    /** A run that ran out of lives. */
+    public static RoundResult of(World world, SpawnDirector director) {
+        return of(world, director, false);
     }
 
     private static int resolveWinner(World world, List<PlayerShip> players) {

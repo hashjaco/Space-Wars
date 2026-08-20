@@ -45,12 +45,12 @@ public enum Kit {
      *
      * Indexed by {@code entity.PlayerShip.Lean}'s ordinal, same as {@link Livery#pose}.
      */
-    public Sprite overlay(int leanIndex) {
+    public Sprite overlay(int leanIndex, boolean sideOn) {
         if (overlays == null) {
             return null;
         }
         Sprite decal = overlays.get(leanIndex);
-        return decal;
+        return sideOn ? decal.sideOn() : decal;
     }
 
     public String label() {

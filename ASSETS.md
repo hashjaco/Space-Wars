@@ -1,10 +1,11 @@
 # Asset provenance
 
 Every file under `src/main/resources` is listed here with where it came from. The MIT licence in
-`LICENSE` covers all of it, which is only honest if nothing third-party is mixed in — hence this
-table.
+`LICENSE` covers the art and audio, which is only honest if nothing third-party is mixed in — hence
+this table. One third-party file is bundled, and only one: the controller mapping database, which is
+permissively licensed and credited under "Controller mappings" below.
 
-Two origins appear below:
+Three origins appear below:
 
 - **Generated** — produced by [`tools/GenerateAssets.java`](tools/GenerateAssets.java). Re-run
   `java tools/GenerateAssets.java` to reproduce any of them byte for byte; every random draw uses a
@@ -13,6 +14,8 @@ Two origins appear below:
 - **Original** — hand-made by Hashim Jacobs for this game. The player ships arrive as one
   spritesheet in `tools/art/spritesheet.png`, which the generator cuts into individual frames; the
   sheet itself is original work and is a generator input rather than a bundled asset.
+- **Third party** — not ours, redistributed under its own licence, which is reproduced in the file
+  itself. Exactly one file, listed under "Controller mappings".
 
 ## Sprites
 
@@ -24,6 +27,8 @@ Two origins appear below:
 | `player/{azure,amber,violet,chrome}-*.png` | Original | Garage paint jobs: player one's cut frames, hue-rotated by the generator. Outlines are unsaturated, so they survive the rotation and the shading is preserved |
 | `player/{azure,amber,violet,chrome}-*-hit.png` | Original | Damage frames for the paint jobs, same blend as the stock hulls |
 | `player/kit-{fins,armour,lance}-*.png` | Original | Garage body kits: transparent decals drawn over any hull, placed from each pose's alpha bounding box so they track the bank |
+| `player/*-side.png`, `player/*-hit-side.png` | Original | Every hull, paint job and kit decal above, cut again for the one level flown side-on. A quarter turn of the frame beside it, applied by the generator rather than at draw time, so the art and the collision box are the same shape — the same bargain `level-9/enemy-*.png` makes. Their `Sprite` dimensions are transposed to match |
+| `insignia/{chevrons,rods,bars,stars}-{1..4}.png` | Generated | Rank badges for the debrief. Four tiers by four mark counts, which is the grid `prefs.Rank` folds all twenty-six ranks onto |
 | `PlayProjectile.png`, `EnemyProjectile1.png`, `MegaLaser.png` | Original | Projectiles |
 | `triBulletL.png`, `triBulletU.png`, `triBulletR.png` | Original | Tri-shot projectiles |
 | `explosion-small/1..25.png` | Original | 25-frame explosion, used for asteroids |
@@ -48,6 +53,7 @@ Two origins appear below:
 | `level-8/{far,mid,near}.png` | Generated | Escape Vector; the world falling away astern |
 | `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons |
 | `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | Pickup icons |
+| `pickup-rocket.png` | Generated | Pickup icon |
 | `level-9/{far,mid,near}.png` | Generated | Dust Reach. The one level flown side-on, so its sky tiles horizontally rather than vertically — do not reuse these on a top-down level or the wrap shows a seam |
 | `level-9/enemy-{scout,fighter,cruiser}.png` | Generated | Dust Reach's hostiles, cut pointing left because the level runs that way. Their `Sprite` dimensions are transposed to match |
 | `level-10/{far,mid,near}.png` | Generated | Hollow Womb; a cavern in shades of meat |
@@ -89,7 +95,7 @@ most of it. The higher-bitrate exports are in git history.
 | `punchy-laser.wav` | Hashim Jacobs | `LASER` — the player's default weapon, cut to 0.5 s. The authored file ran two seconds but everything after 0.45 s was digital silence, and a voice holds a native media player open through silence exactly as long as through sound. An earlier trim to 0.35 s was reverted as inaudible: that cut landed on the sample's loudest point, since it swells rather than striking. The audible part is untouched — same peak, same mean. Full-length original in git history |
 | `explosion.wav` | Generated | Filtered noise burst with a low rumble. `EXPLOSION`, kept for asteroids |
 | `spaceship-explosion.wav` | Hashim Jacobs | `SHIP_EXPLOSION`, ship and flagship kills only. Three seconds, still long enough that asteroids keep the short generated burst above. The authored file ran nine, of which the last six were a tail under −20 dB that cost six seconds of open native player per kill; it now fades out from 2.6 s. Body of the sound is unchanged. Full-length original in git history |
-| `machine-gun-burst.mp3` | Hashim Jacobs | `BOSS_GUN`, the flagship's phase pattern |
+| `machine-gun-burst.wav` | Hashim Jacobs | `BOSS_GUN`, the flagship's phase pattern. Decoded to 48 kHz mono PCM from the authored MP3, which is in git history: sound effects play through `javax.sound.sampled`, which is in the JDK and cannot read MP3. Same 1.632 s, same audio |
 | `mega-boss-cannon.wav` | Hashim Jacobs | `BOSS_ROCKET`, the flagship's rocket salvo |
 | `collision.wav` | Generated | Short thud |
 | `low-health.wav` | Generated | Two-note square warble, retriggered while a player is nearly dead |
@@ -97,12 +103,39 @@ most of it. The higher-bitrate exports are in git history.
 | `level-clear.wav` | Generated | Ascending arpeggio over a held top note |
 | `laser.wav` | Generated | Downward pitch sweep. The default weapon before `punchy-laser.wav`; still produced by the generator and kept as the licence-clean fallback |
 
+## Controller mappings
+
+| File | Origin | Notes |
+|---|---|---|
+| `gamecontrollerdb.txt` | Third party | [SDL_GameControllerDB](https://github.com/mdqinc/SDL_GameControllerDB), pinned at commit `42f28e22d20761e7004e8db91c4ad86402fdf600` (2026-08-12). zlib licence, the same terms as SDL itself: redistribution is permitted and the notice is retained in the file's own header comments, so do not strip them when updating |
+
+Bundled because it is load-bearing, not cosmetic. Jamepad loads this file from the classpath as
+`/gamecontrollerdb.txt`; without it SDL falls back to the 156 mappings compiled into it, and any pad
+outside that set is never opened — it reports as disconnected and the game silently ignores it. That
+is how an 8BitDo Ultimate 2C came to look like broken controller support. `GamepadDatabaseTest`
+fails the build if the file goes missing again.
+
+Refresh it by re-downloading from upstream and updating the commit above. A player whose pad is
+newer than the pinned copy can point `SDL_GAMECONTROLLERCONFIG_FILE` at their own file instead of
+waiting for a release.
+
 ## Fonts
 
 None are bundled. Menu headings ask for the first available of `Impact`, `Haettenschweiler`,
 `Arial Black`, `Franklin Gothic Heavy` or `DejaVu Sans Condensed`, falling back to a generic serif —
 see `Assets.loadDisplayFont`. Referencing a font the host already has is not redistribution, which
 bundling a font file would be.
+
+### Galaxy 2 — Ashfall (levels 11–20)
+
+Fire, ash and industry. One palette across the galaxy, worn by its grunts and its flagships alike.
+
+| File | Origin | Notes |
+|---|---|---|
+| Level directories `level-11`, `level-12`, `level-13`, `level-14`, `level-15`, `level-16`, `level-17`, `level-18`, `level-19`, `level-20` — each holding `{far,mid,near}.png` and `enemy-{scout,fighter,cruiser}.png` | Generated | Seeds 4300–4390, ten apart. `level-11` is a new `BELT` backdrop: a starfield with lit rock tumbling through it, because a tinted starfield never reads as a belt. `level-18` reuses the planet disc lit hot, so the star is actually in frame. `level-17` is flown side-on, so its sky tiles horizontally and its hulls are cut pointing left |
+| Boss frames `1..8.png` in `boss-cinder-warden`, `boss-slag-baron`, `boss-forge-overseer`, `boss-pyre-sovereign`, `boss-sunward-lance`, `boss-corona-herald` | Generated | Six warships from three hulls and three wings, paired up. One hull for all six was tried first and five of them came out the same ship — at two hundred pixels the eye reads silhouette and colour, not turret counts. `boss-sunward-lance` is turned once here rather than rotated each frame, so its box matches its picture |
+| Boss frames `1..8.png` in `boss-ash-revenant`, `boss-vent-crawler`, `boss-ember-titan` | Generated | Three creatures from one parameterised method. Written beside the hydra's rather than by generalising it: reworking that one risked shifting its committed frames, and the byte-identical check in CI is what keeps this art from drifting |
+| Boss frames `1..8.png` in `boss-forge-rig`, `boss-forge-rig-arm`, `boss-forge-rig-cockpit` | Generated | Vaunt's rig. Three separate sets because they are three separate targets: the arms have to stop being drawn once they are shot off, which they could not if they lived in the body's frames |
 
 ## What was removed, and why
 
@@ -127,6 +160,18 @@ mistaken for vandalism, and so nobody restores these files from history:
 | `spaceBackground.gif` | Superseded by the parallax layers |
 | `explosionSheet.png`, `explosion17.png`, `daShootasShips.png`, `daShootasSlight*.png`, `shootaLeft.png` | Unreferenced leftovers |
 
+Removed for size rather than licensing, and recoverable from git history if any of them is wanted
+back — 93 MB between them, none referenced by any code:
+
+| Removed | Reason |
+|---|---|
+| `garage-music.wav`, `death-metal.wav`, `death-punk.wav` | The uncompressed sources for the three MP3s the game loads. 89 MB between them, and the MP3s are what ship |
+| `gorkhs-vessel.png` | Unreferenced, 2 MB |
+| `default-round.wav` | Superseded by `punchy-laser.wav` as the default weapon |
+| `mega-boss-cannon-2.wav` | An alternate take of `mega-boss-cannon.wav` |
+| `lordsonny-plasma-gun-fire-162136.mp3`, `electricity.mp3`, `firing-pulse.mp3`, `explosion.mp3` | Unreferenced |
+| `machine-gun-single-burst.mov`, `cyber-laser.mov` | Unreferenced, and `.mov` is not a format the game can load |
+
 If you hold a licence for any of the above and would rather use it, drop the file back into
 `src/main/resources/sprites` (or `sounds`) and point the matching constant in
 `asset/Sprite.java`, `asset/SoundFx.java` or `asset/MusicTrack.java` at it, then record it here.
@@ -146,16 +191,3 @@ Every audio file in `src/main/resources/sounds` belongs to Hashim Jacobs, who ho
 use and license all of it. That covers the generated stings, the composed soundtrack, and the
 sourced effects alike. There is no outstanding licence question on any sound in this repository.
 
-## Unreferenced files
-
-Nothing in the code loads these, so they ship as dead weight in the jar. Licensing is not the
-issue — size is. Delete them, or wire them up.
-
-| File | Note |
-|---|---|
-| `sounds/lordsonny-plasma-gun-fire-162136.mp3`, `sounds/electricity.mp3`, `sounds/firing-pulse.mp3`, `sounds/explosion.mp3` | Unreferenced |
-| `sounds/machine-gun-single-burst.mov`, `sounds/cyber-laser.mov` | Unreferenced, and `.mov` is not a format the game can load |
-| `sounds/default-round.wav` | Superseded by `punchy-laser.wav` as the default weapon |
-| `sounds/mega-boss-cannon-2.wav` | An alternate take of `mega-boss-cannon.wav` |
-| `sounds/garage-music.wav`, `sounds/death-metal.wav`, `sounds/death-punk.wav` | The uncompressed sources for the three MP3s the game actually loads. **93 MB between them** — worth deleting before any release build |
-| `sprites/gorkhs-vessel.png` | Unreferenced; 2 MB |

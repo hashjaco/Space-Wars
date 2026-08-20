@@ -26,8 +26,13 @@ import com.hashimjacobs.spacecase.mode.Level;
 public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
                        List<PlayerShip.Progress> players) {
 
-    /** Bumped only if the field order below changes incompatibly. Appending is not a break. */
-    private static final int FORMAT_VERSION = 1;
+    /**
+     * Bumped only if the field order below changes incompatibly. Appending is not a break.
+     *
+     * Version 2 stores the level by name where version 1 stored its ordinal. Both still read -- see
+     * {@link #decode} -- so a save written before the campaign grew past one galaxy still resumes.
+     */
+    private static final int FORMAT_VERSION = 2;
 
     private static final String SEPARATOR = ",";
 
@@ -53,7 +58,7 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
         StringBuilder code = new StringBuilder()
                 .append(FORMAT_VERSION)
                 .append(SEPARATOR).append(mode.name())
-                .append(SEPARATOR).append(level.ordinal())
+                .append(SEPARATOR).append(level.name())
                 .append(SEPARATOR).append(wavesSurvived)
                 .append(SEPARATOR).append(loop);
         for (PlayerShip.Progress player : players) {
@@ -87,11 +92,16 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
             return Optional.empty();
         }
         try {
-            if (Integer.parseInt(fields[0].trim()) != FORMAT_VERSION) {
-                return Optional.empty();
-            }
+            int version = Integer.parseInt(fields[0].trim());
             GameMode mode = modeNamed(fields[1].trim());
-            Level level = levelAt(Integer.parseInt(fields[2].trim()));
+            // Read the level according to the version that wrote it. This has to happen before any
+            // other field is parsed, because a version 1 record holds a number here and a version 2
+            // record holds a name -- parsing first and branching after would throw on every v2 save.
+            Level level = switch (version) {
+                case 1 -> levelAt(Integer.parseInt(fields[2].trim()));
+                case FORMAT_VERSION -> levelNamed(fields[2].trim());
+                default -> null;
+            };
             if (mode == null || level == null) {
                 return Optional.empty();
             }
@@ -126,6 +136,24 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
         return null;
     }
 
+    /**
+     * A level by name, which is what version 2 records store.
+     *
+     * Names rather than ordinals because the campaign grows: appending levels is safe either way,
+     * but inserting or reordering one silently relocates every ordinal-keyed save to a different
+     * level. {@code prefs.HighScores} already keyed on the name for that reason, so this also stops
+     * the two stores disagreeing about what a save means.
+     */
+    private static Level levelNamed(String name) {
+        for (Level level : Level.values()) {
+            if (level.name().equals(name)) {
+                return level;
+            }
+        }
+        return null;
+    }
+
+    /** Version 1 stored the ordinal. Kept so saves written before the campaign grew still load. */
     private static Level levelAt(int ordinal) {
         Level[] all = Level.values();
         if (ordinal < 0 || ordinal >= all.length) {

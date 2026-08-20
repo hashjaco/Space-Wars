@@ -7,6 +7,7 @@ import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Font;
 import javafx.scene.text.Text;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.asset.Assets;
 
 /**
@@ -23,9 +24,9 @@ public final class MenuTitle extends StackPane {
 
     public MenuTitle(String text, double fontSize, double width, double height) {
         Rectangle border = new Rectangle(width, height);
-        border.setStroke(Color.web("#0ec417"));
+        border.setStroke(Tokens.BRAND);
         border.setStrokeWidth(2);
-        border.setFill(Color.color(0, 0, 0, 0.35));
+        border.setFill(Tokens.veil(0.35));
 
         Text heading = new Text(text);
         heading.setFill(Color.WHITE);

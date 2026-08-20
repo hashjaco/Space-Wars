@@ -11,18 +11,20 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Settings;
 
 /** Score, lives, health and active power-ups for each player, plus the wave and boss bars. */
 final class Hud {
 
     private static final double PANEL_WIDTH = 210;
     private static final double BAR_HEIGHT = 14;
-    private static final Color BRAND = Color.web("#0ec417");
+    private static final Color BRAND = Tokens.BRAND;
 
     /** Share of full health below which the bar starts pulsing. Mirrored by GameLoop's alarm. */
     private static final double LOW_HEALTH_FRACTION = 0.25;
@@ -30,16 +32,18 @@ final class Hud {
     /** Lives at or below which the counter starts flashing. One means the next death ends it. */
     private static final int LOW_LIVES = 1;
 
-    private static final Color DANGER = Color.web("#ff2b2b");
-    private static final Color LIVES_NORMAL = Color.web("#9fb0c9");
+    private static final Color DANGER = Tokens.DANGER;
+    private static final Color LIVES_NORMAL = Tokens.TEXT_SECONDARY;
 
     private final GraphicsContext gc;
-    private final Font labelFont = Font.font("Verdana", FontWeight.BOLD, 15);
-    private final Font valueFont = Font.font("Verdana", FontWeight.BOLD, 22);
-    private final Font smallFont = Font.font("Verdana", FontWeight.NORMAL, 11);
+    private final Settings settings;
+    private final Font labelFont = Font.font(Tokens.BODY, FontWeight.BOLD, 15);
+    private final Font valueFont = Font.font(Tokens.BODY, FontWeight.BOLD, 22);
+    private final Font smallFont = Font.font(Tokens.BODY, FontWeight.NORMAL, 11);
 
-    Hud(GraphicsContext gc) {
+    Hud(GraphicsContext gc, Settings settings) {
         this.gc = gc;
+        this.settings = settings;
     }
 
     void draw(World world, SpawnDirector director) {
@@ -70,7 +74,7 @@ final class Hud {
 
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(labelFont);
-        gc.setFill(Color.web("#b388ff"));
+        gc.setFill(Tokens.LABEL);
         gc.fillText("PLAYER " + player.playerNumber(), x, y);
 
         gc.setFont(valueFont);
@@ -103,16 +107,21 @@ final class Hud {
         if (player.lives() > LOW_LIVES || player.isOut()) {
             return LIVES_NORMAL;
         }
-        return (tick / 20) % 2 == 0 ? Color.web("#ff4d4d") : LIVES_NORMAL;
+        if (settings.reducedFlash()) {
+            // Hold the warning colour rather than alternating: the point of the row above is that
+            // the count stays legible, and a steady red still reads as "one from out".
+            return Tokens.DANGER_LOW;
+        }
+        return (tick / 20) % 2 == 0 ? Tokens.DANGER_LOW : LIVES_NORMAL;
     }
 
     private void drawHealthBar(PlayerShip player, double x, double y, int tick) {
         double fraction = Math.max(0, player.health()) / (double) player.maxHealth();
 
-        gc.setFill(Color.web("#22283a"));
+        gc.setFill(Tokens.TRACK);
         gc.fillRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
 
-        Color fill = fraction > 0.5 ? BRAND : fraction > 0.25 ? Color.GOLD : Color.web("#ff4d4d");
+        Color fill = fraction > 0.5 ? BRAND : fraction > 0.25 ? Color.GOLD : Tokens.DANGER_LOW;
         gc.setFill(fill);
         gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
 
@@ -123,7 +132,7 @@ final class Hud {
         // White on impact, so a hit reads on the bar as well as on the hull. Eighteen ticks is
         // short enough to register as a flash without needing to blink.
         boolean hit = player.justHit();
-        gc.setStroke(hit ? Color.WHITE : Color.web("#3b4560"));
+        gc.setStroke(hit ? Color.WHITE : Tokens.EDGE_STRONG);
         gc.setLineWidth(hit ? 2 : 1);
         gc.strokeRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
         gc.setLineWidth(1);
@@ -131,7 +140,9 @@ final class Hud {
 
     /** A breathing red wash over the remaining health, additive so it reads as a glow. */
     private void drawLowHealthGlow(double x, double y, double fraction, int tick) {
-        double pulse = 0.35 + 0.35 * Math.sin(tick * 0.22);
+        // Held at the midpoint of the breath under reduced flash, so the wash still marks the bar
+        // as critical without the oscillation.
+        double pulse = settings.reducedFlash() ? 0.35 : 0.35 + 0.35 * Math.sin(tick * 0.22);
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setGlobalAlpha(pulse);
@@ -140,14 +151,21 @@ final class Hud {
         gc.restore();
     }
 
+    /**
+     * What the pilot is carrying. No countdowns any more -- nothing expires, so the only number
+     * worth printing is how many tri-shots are stacked, and only once there is more than one.
+     *
+     * HEALTH and EXTRA_LIFE are spent the instant they are collected and are never held, so
+     * iterating every kind still lists exactly the four that can be.
+     */
     private List<String> activeEffectLabels(PlayerShip player) {
         List<String> labels = new ArrayList<>();
         for (PowerUp.Kind kind : PowerUp.Kind.values()) {
-            if (!kind.timed() || !player.hasEffect(kind)) {
+            if (!player.hasEffect(kind)) {
                 continue;
             }
-            int seconds = player.remainingEffectTicks(kind) / 60;
-            labels.add(shortName(kind) + " " + seconds + "s");
+            boolean stacked = kind == PowerUp.Kind.TRI_SHOT && player.triStacks() > 1;
+            labels.add(stacked ? shortName(kind) + " x" + player.triStacks() : shortName(kind));
         }
         return labels;
     }
@@ -156,6 +174,7 @@ final class Hud {
         String name = switch (kind) {
             case TRI_SHOT -> "TRI";
             case MEGA_LASER -> "MEGA";
+            case ROCKETS -> "RKT";
             case SPEED -> "SPD";
             case SHIELD -> "SHLD";
             case HEALTH -> "HP";
@@ -184,18 +203,18 @@ final class Hud {
 
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(labelFont);
-        gc.setFill(Color.web("#b388ff"));
+        gc.setFill(Tokens.LABEL);
         gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 14);
     }
 
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
     private void drawFlagshipWarning(int tick) {
-        if ((tick / 14) % 2 == 0) {
+        if (!settings.reducedFlash() && (tick / 14) % 2 == 0) {
             return;
         }
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(valueFont);
-        gc.setFill(Color.web("#ff6b6b"));
+        gc.setFill(Tokens.DANGER_SOFT);
         gc.fillText("FLAGSHIP INBOUND", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
     }
 
@@ -206,12 +225,12 @@ final class Hud {
 
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(smallFont);
-        gc.setFill(Color.web("#ff6b6b"));
+        gc.setFill(Tokens.DANGER_SOFT);
         gc.fillText(boss.boss().label().toUpperCase(), GameConfig.WIDTH / 2, 38);
 
-        gc.setFill(Color.web("#2a1620"));
+        gc.setFill(Tokens.TRACK_DANGER);
         gc.fillRoundRect(x, y, width, 10, 5, 5);
-        gc.setFill(Color.web("#ff3b3b"));
+        gc.setFill(Tokens.DANGER_BAR);
         gc.fillRoundRect(x, y, width * boss.remainingHealthFraction(), 10, 5, 5);
     }
 }
