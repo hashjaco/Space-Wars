@@ -583,6 +583,18 @@ public final class GenerateAssets {
     private static final Color ASH_ACCENT = new Color(0xe8641c);
     private static final Color ASH_GLOW = new Color(0xffd07a);
 
+    /**
+     * Cryonis: ice and water.
+     *
+     * The same one-palette-per-galaxy trick as Ashfall, turned cold. A pale cyan accent against a
+     * deep blue hull, and a glow that is cold but still saturated. A near-white glow was tried
+     * first and the core came out as a flare that swallowed the hull -- the same way Ashfall's two
+     * palest flagships are its least readable.
+     */
+    private static final Color CRYO_HULL = new Color(0x1b2f42);
+    private static final Color CRYO_ACCENT = new Color(0x4fd0e8);
+    private static final Color CRYO_GLOW = new Color(0x7fe4f5);
+
     private static final Faction[] FACTIONS = {
             // Level 1 keeps the original palette exactly, so the opening minutes stay tuned.
             new Faction("level-1", HULL_MID, HOSTILE, HOSTILE_GLOW, HullStyle.MECHANICAL),
@@ -629,6 +641,30 @@ public final class GenerateAssets {
                     HullStyle.ORGANIC),
             new Faction("level-20", new Color(0x2a1108), new Color(0xff5a10), ASH_GLOW,
                     HullStyle.MECHANICAL),
+            // ---- Galaxy 3: Cryonis (levels 21-30) ----------------------------------------
+            // Mechanical where the ice is worked and organic where it is inhabited: 24, 26 and 27
+            // are the levels with something living in them, and they field the creatures too.
+            // Frost Ring: side-on, so the hulls are cut pointing left. See Theme.sideways.
+            new Faction("level-21", CRYO_HULL, CRYO_ACCENT, CRYO_GLOW, HullStyle.MECHANICAL, true),
+            new Faction("level-22", new Color(0x223a52), new Color(0x63d8ec), CRYO_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-23", new Color(0x2a4258), new Color(0x7ae0f0), CRYO_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-24", new Color(0x14324a), new Color(0x3fc0dc), new Color(0xc8eeff),
+                    HullStyle.ORGANIC),
+            new Faction("level-25", new Color(0x1d2c3e), new Color(0x4fd0e8), CRYO_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-26", new Color(0x101d2c), new Color(0x2fa8c8), new Color(0xb0e4ff),
+                    HullStyle.ORGANIC),
+            new Faction("level-27", new Color(0x24485a), new Color(0x8ae8f4), CRYO_GLOW,
+                    HullStyle.ORGANIC),
+            new Faction("level-28", new Color(0x1f3648), new Color(0x5cd4ea), CRYO_GLOW,
+                    HullStyle.MECHANICAL),
+            // Shatter Drift: the galaxy's second side-on leg, and the only galaxy to have two.
+            new Faction("level-29", new Color(0x263c50), new Color(0x9af0ff),
+                    new Color(0xa8eeff), HullStyle.MECHANICAL, true),
+            new Faction("level-30", new Color(0x0e1a28), new Color(0x4fd0e8),
+                    new Color(0xa8eeff), HullStyle.MECHANICAL),
     };
 
     /** Three hostile silhouettes per level, angular and pointing down the arena at the player. */
@@ -940,6 +976,47 @@ public final class GenerateAssets {
             {0.33, 0.55}, {0.20, 0.45}, {0.12, 0.56}, {0.16, 0.71}, {0.29, 0.74},
     };
 
+    /**
+     * Cryonis's navy, as three hulls and three fins.
+     *
+     * Same budget as Ashfall and for the same reason -- six classes off one shape read as one ship
+     * -- but the shapes themselves are the opposite argument. Ashfall's hulls are wide and blunt
+     * because they were built to work. These are narrow and edged, because they were built to cut
+     * through something. Named for what they are rather than after the galaxy's colour: the fins
+     * pair across all three hulls, so the names have to survive being mixed.
+     */
+    private static final double[][] CRYO_PROW = {
+            {0.50, 0.99}, {0.38, 0.88}, {0.34, 0.64}, {0.37, 0.38}, {0.44, 0.14},
+            {0.50, 0.01}, {0.56, 0.14}, {0.63, 0.38}, {0.66, 0.64}, {0.62, 0.88},
+    };
+
+    /** Spindle: the narrowest hull in the game, barely wider than its own core. */
+    private static final double[][] CRYO_SPINE = {
+            {0.50, 0.99}, {0.44, 0.78}, {0.42, 0.52}, {0.44, 0.28},
+            {0.48, 0.04}, {0.52, 0.04}, {0.56, 0.28}, {0.58, 0.52}, {0.56, 0.78},
+    };
+
+    /** Shelf: broad and flat-topped, an icebreaker's deck rather than a warship's nose. */
+    private static final double[][] CRYO_SHELF = {
+            {0.50, 0.98}, {0.30, 0.90}, {0.24, 0.68}, {0.27, 0.42}, {0.34, 0.20},
+            {0.42, 0.10}, {0.58, 0.10}, {0.66, 0.20}, {0.73, 0.42}, {0.76, 0.68}, {0.70, 0.90},
+    };
+
+    private static final double[][] CRYO_FIN = {
+            {0.35, 0.50}, {0.16, 0.28}, {0.03, 0.38}, {0.01, 0.60}, {0.13, 0.80},
+            {0.28, 0.88}, {0.33, 0.68},
+    };
+
+    /** Raked: swept hard back, so the class reads as the fast one at a glance. */
+    private static final double[][] CRYO_FIN_RAKED = {
+            {0.37, 0.40}, {0.09, 0.14}, {0.00, 0.24}, {0.04, 0.48}, {0.18, 0.72}, {0.34, 0.62},
+    };
+
+    /** Stub: a hardpoint with just enough fin around it to look intentional. */
+    private static final double[][] CRYO_FIN_STUB = {
+            {0.34, 0.52}, {0.22, 0.42}, {0.13, 0.54}, {0.17, 0.70}, {0.30, 0.73},
+    };
+
     private static final BossProfile[] BOSSES = {
             // Sentinel: the level 1 fight, unchanged, so the opening minutes stay tuned.
             new BossProfile("boss-sentinel", 440, 340, HOSTILE, HOSTILE_GLOW, 3, 0.11,
@@ -1072,6 +1149,65 @@ public final class GenerateAssets {
                     new double[][]{{0.34, 0.54, 0.046}, {0.23, 0.36, 0.036},
                             {0.26, 0.72, 0.034}, {0.14, 0.62, 0.030}},
                     false, new Color(0x46352c)),
+            // ---- Galaxy 3: Cryonis ------------------------------------------------------------
+            // Three hulls and three fins again, on Ashfall's 1.5x canvases. Two things differ.
+            //
+            // Engines are three and four where Ashfall ran five and six: cold, quiet ships against
+            // that galaxy's heavy thrust, and a step on the way to the thrusterless navy Phase 4
+            // wants. Turrets still escalate two to four across the galaxy, which is how a class
+            // reads as later without needing a bigger hull.
+            //
+            // This is the only galaxy with two side-on legs, so two of the six are turned here.
+
+            // Shard Cutter guards the first side-on leg. Turned once here rather than rotated per
+            // frame, so the collision box keeps the shape of the picture -- and the BossArt
+            // constant declares the transposed size to match. See Theme.sideways.
+            new BossProfile("boss-shard-cutter", 260, 310, CRYO_ACCENT, CRYO_GLOW, 3, 0.12,
+                    CRYO_PROW, CRYO_FIN_STUB,
+                    new double[][]{{0.27, 0.60, 0.044}, {0.17, 0.70, 0.032}},
+                    true, new Color(0x24384c)),
+
+            // Spindle on raked fins: tall and narrow, the one class in the galaxy that is taller
+            // than it is wide. Aspect is what separates classes here -- the plate colours are near
+            // enough to each other on purpose, because a galaxy should read as one navy.
+            new BossProfile("boss-frost-harrier", 268, 310,
+                    new Color(0x63d8ec), CRYO_GLOW, 4, 0.11,
+                    CRYO_SPINE, CRYO_FIN_RAKED,
+                    new double[][]{{0.29, 0.58, 0.042}, {0.18, 0.40, 0.032}},
+                    false, new Color(0x2b3f55)),
+
+            // The same prow as the Cutter on full fins, flown flat: an icebreaker, not a knife.
+            new BossProfile("boss-glacier-breaker", 384, 214,
+                    new Color(0x7ae0f0), CRYO_GLOW, 4, 0.14,
+                    CRYO_PROW, CRYO_FIN,
+                    new double[][]{{0.31, 0.62, 0.046}, {0.20, 0.44, 0.034},
+                            {0.24, 0.80, 0.030}},
+                    false, new Color(0x32485e)),
+
+            // Shelf hull, full fins: the widest deck in the galaxy, and the tunnel fight.
+            new BossProfile("boss-cryo-marshal", 344, 248,
+                    CRYO_ACCENT, CRYO_GLOW, 3, 0.15,
+                    CRYO_SHELF, CRYO_FIN,
+                    new double[][]{{0.32, 0.64, 0.046}, {0.21, 0.46, 0.036},
+                            {0.25, 0.82, 0.030}},
+                    false, new Color(0x1f3346)),
+
+            // Shelf again on stubs -- same yard, stripped for weight and given a fourth pod.
+            new BossProfile("boss-hail-bastion", 404, 230,
+                    new Color(0x5cd4ea), CRYO_GLOW, 4, 0.13,
+                    CRYO_SHELF, CRYO_FIN_STUB,
+                    new double[][]{{0.33, 0.60, 0.048}, {0.22, 0.42, 0.036},
+                            {0.26, 0.76, 0.032}, {0.14, 0.66, 0.028}},
+                    false, new Color(0x2a4058)),
+
+            // Shatter Prow guards the second side-on leg, and is turned for the same reason the
+            // Cutter is. Spindle hull, so the two side-on flagships do not read as one ship.
+            new BossProfile("boss-shatter-prow", 276, 330,
+                    new Color(0x9af0ff), new Color(0xa8eeff), 4, 0.14,
+                    CRYO_SPINE, CRYO_FIN_STUB,
+                    new double[][]{{0.30, 0.56, 0.048}, {0.20, 0.38, 0.036},
+                            {0.24, 0.74, 0.032}, {0.13, 0.64, 0.028}},
+                    true, new Color(0x35506b)),
     };
 
     private static void bosses() throws IOException {
@@ -1151,6 +1287,38 @@ public final class GenerateAssets {
                     new double[][]{{0.50, 0.97}, {0.34, 0.88}, {0.24, 0.70}, {0.21, 0.46},
                             {0.29, 0.24}, {0.39, 0.12}, {0.50, 0.16}, {0.61, 0.12},
                             {0.71, 0.24}, {0.79, 0.46}, {0.76, 0.70}, {0.66, 0.88}}),
+
+            // ---- Galaxy 3: Cryonis ------------------------------------------------------------
+            // Three again, and all three on levels with no side-on flag -- CreatureProfile has no
+            // sideways field, so a creature cannot guard a side-on leg. Levels 21 and 29 field
+            // warships for that reason rather than by preference.
+
+            // Ice Wraith: whatever swims under the shelf. Long, thin-limbed, and mostly translucent
+            // sac -- the bone is the only part of it that reads at distance.
+            new CreatureProfile("boss-ice-wraith", 348, 268,
+                    new Color(0x2a4457), new Color(0x12222f), new Color(0xdff0f6),
+                    new Color(0x6fe0f4), 4, 3, 0.22,
+                    new double[][]{{0.50, 0.95}, {0.38, 0.86}, {0.30, 0.66}, {0.28, 0.44},
+                            {0.34, 0.26}, {0.42, 0.16}, {0.50, 0.20}, {0.58, 0.16},
+                            {0.66, 0.26}, {0.72, 0.44}, {0.70, 0.66}, {0.62, 0.86}}),
+
+            // Trench Horror: the black-trench thing. Widest and most-legged of the three, and the
+            // darkest hide in the game -- it is meant to be hard to see against its own level.
+            new CreatureProfile("boss-trench-horror", 392, 224,
+                    new Color(0x16252f), new Color(0x080e13), new Color(0xb8ccd6),
+                    new Color(0x3fb8d8), 8, 6, 0.13,
+                    new double[][]{{0.50, 0.96}, {0.30, 0.90}, {0.20, 0.74}, {0.18, 0.56},
+                            {0.26, 0.42}, {0.37, 0.34}, {0.50, 0.38}, {0.63, 0.34},
+                            {0.74, 0.42}, {0.82, 0.56}, {0.80, 0.74}, {0.70, 0.90}}),
+
+            // Geyser Maw: rooted in the flats rather than walking over them. Two stub legs and a
+            // sac that takes a quarter of the body -- it is a vent that grew teeth.
+            new CreatureProfile("boss-geyser-maw", 336, 292,
+                    new Color(0x1f3a4a), new Color(0x0d1a24), new Color(0xd0e4ec),
+                    new Color(0x8af0ff), 2, 5, 0.27,
+                    new double[][]{{0.50, 0.98}, {0.33, 0.90}, {0.23, 0.72}, {0.20, 0.48},
+                            {0.28, 0.26}, {0.38, 0.14}, {0.50, 0.18}, {0.62, 0.14},
+                            {0.72, 0.26}, {0.80, 0.48}, {0.77, 0.72}, {0.67, 0.90}}),
     };
 
     private static void creatures() throws IOException {
@@ -1398,6 +1566,10 @@ public final class GenerateAssets {
             write(hydraHeadFrame(frame), SPRITES.resolve("boss-hydra-head").resolve(frame + ".png"));
             write(wormMawFrame(frame),
                     SPRITES.resolve("boss-dune-leviathan").resolve(frame + ".png"));
+            write(frozenTorsoFrame(frame),
+                    SPRITES.resolve("boss-frozen-empress").resolve(frame + ".png"));
+            write(empressHeadFrame(frame),
+                    SPRITES.resolve("boss-frozen-empress-head").resolve(frame + ".png"));
         }
         write(wormSegment(), SPRITES.resolve("worm-segment.png"));
         write(acidBall(), SPRITES.resolve("acid-ball.png"));
@@ -1531,6 +1703,168 @@ public final class GenerateAssets {
             g.fill(new Ellipse2D.Double(cx - 15, cy - 13, 30, 26));
             softBlob(g, cx, cy, 7 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)),
                     6 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)), new Color(0xffb020), 230);
+        }
+        g.dispose();
+        return image;
+    }
+
+    // ------------------------------------------------------------ the Frozen Empress
+
+    /** Cryonis's organic palette: blue hide, frost-white bone, and a cold core instead of bile. */
+    private static final Color ICE_HIDE = new Color(0x2b4a63);
+    private static final Color ICE_HIDE_DARK = new Color(0x101f2c);
+    private static final Color ICE_BONE = new Color(0xe4f4fb);
+    private static final Color ICE_CORE = new Color(0x4fd0e8);
+
+    /**
+     * How many necks the Empress fields. Must match {@code Boss.FROZEN_EMPRESS}'s head count.
+     *
+     * The span is {@code entity.BossHead.SOCKET_SPAN}, repeated here rather than shared because the
+     * generator is a standalone script and cannot see the game's classes. The positions are
+     * computed from it rather than written out, so a torso drawn for four heads cannot silently
+     * disagree with the arc the engine spreads four necks across.
+     */
+    private static final int EMPRESS_HEADS = 4;
+    private static final double EMPRESS_SOCKET_SPAN = 0.40;
+
+    /**
+     * The Empress's body: a mass frozen into its own throne, four necks rising from it.
+     *
+     * Written beside {@link #hydraTorsoFrame} rather than by generalising it. That method draws
+     * three sockets from a fixed array and its committed frames are what CI's byte-identical check
+     * is protecting; parameterising it would have put twenty levels of art at risk to save forty
+     * lines. The same trade {@link CreatureProfile} documents.
+     *
+     * Deliberately not a hydra recolour. No legs -- it does not walk, it is set into the ice -- and
+     * shards where the hydra has ribs, so the two multi-headed bosses read as different things.
+     */
+    private static BufferedImage frozenTorsoFrame(int oneBasedFrame) {
+        int w = 470;
+        int h = 310;
+        BufferedImage image = blank(w, h);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
+
+        // The ice it is set into, drawn first so the body sits in it rather than on it. Angular on
+        // purpose: every curve in this frame belongs to the creature, every edge to the ice.
+        g.setColor(darken(ICE_HIDE_DARK, 10));
+        for (int side = -1; side <= 1; side += 2) {
+            for (int shelf = 0; shelf < 3; shelf++) {
+                double rootX = 0.5 + side * (0.16 + shelf * 0.11);
+                double rootY = 0.58 + shelf * 0.09;
+                g.fill(path(w, h, new double[][]{
+                        {rootX, rootY}, {rootX + side * 0.13, rootY + 0.26},
+                        {rootX + side * 0.04, rootY + 0.34}, {rootX - side * 0.03, rootY + 0.12}}));
+            }
+        }
+
+        // Body. Fewer vertices than the hydra's and flatter across the top: this one is broad and
+        // low, a thing that settled rather than a thing that stands.
+        g.setColor(ICE_HIDE);
+        java.awt.geom.Path2D body = path(w, h, new double[][]{
+                {0.50, 0.93}, {0.29, 0.86}, {0.17, 0.70}, {0.13, 0.52}, {0.19, 0.36},
+                {0.30, 0.26}, {0.42, 0.22}, {0.58, 0.22}, {0.70, 0.26}, {0.81, 0.36},
+                {0.87, 0.52}, {0.83, 0.70}, {0.71, 0.86}});
+        g.fill(body);
+        g.setColor(ICE_HIDE_DARK);
+        g.setStroke(new BasicStroke(5f));
+        g.draw(body);
+
+        // The core, breathing. Cold where the hydra's gut is hot.
+        softBlob(g, w * 0.5, h * 0.58, w * 0.21 * (1 + 0.10 * pulse),
+                h * 0.21 * (1 + 0.10 * pulse), ICE_CORE, 150);
+
+        // Shards pushing out through the hide, longest at the centre.
+        g.setColor(ICE_BONE);
+        for (int side = -1; side <= 1; side += 2) {
+            for (int shard = 0; shard < 4; shard++) {
+                double baseX = 0.5 + side * (0.06 + shard * 0.09);
+                double reach = 0.20 - shard * 0.035;
+                g.fill(path(w, h, new double[][]{
+                        {baseX, 0.42}, {baseX + side * 0.035, 0.42},
+                        {baseX + side * 0.012, 0.42 - reach}}));
+            }
+        }
+
+        // Neck sockets. Positions computed from the same span the engine spreads its necks across,
+        // so four heads land on four sockets. Sized as fractions of the canvas rather than the
+        // hydra's absolute pixels: four sockets across the same span sit closer together, and at
+        // that method's 60px rings the outer two would have overlapped their neighbours.
+        double outerX = w * 0.095;
+        double outerY = h * 0.105;
+        double innerX = w * 0.068;
+        double innerY = h * 0.076;
+        for (int head = 0; head < EMPRESS_HEADS; head++) {
+            double spread = head / (double) (EMPRESS_HEADS - 1);
+            double cx = w * (0.5 + EMPRESS_SOCKET_SPAN * (spread - 0.5));
+            double cy = h * NECK_SOCKET_DEPTH;
+            g.setColor(ICE_HIDE_DARK);
+            g.fill(new Ellipse2D.Double(cx - outerX / 2, cy - outerY / 2, outerX, outerY));
+            g.setColor(darken(ICE_HIDE, 10));
+            g.fill(new Ellipse2D.Double(cx - innerX / 2, cy - innerY / 2, innerX, innerY));
+        }
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * One of the Empress's heads: a crystal skull rather than a jawed one.
+     *
+     * Its own method rather than a recolour of {@link #hydraHeadFrame}, for the reason the Ashfall
+     * notes give about hulls -- at a hundred pixels the eye reads silhouette, and an ice boss
+     * wearing the hydra's heads is the hydra in a different palette.
+     */
+    private static BufferedImage empressHeadFrame(int oneBasedFrame) {
+        int size = 156;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
+        double gape = 0.26 * (0.5 + 0.5 * pulse);
+
+        // The cold behind the mouth, brightest just before it fires.
+        softBlob(g, size * 0.5, size * 0.70, size * 0.19, size * 0.17, ICE_CORE,
+                (int) (60 + 150 * (0.5 + 0.5 * pulse)));
+
+        // Lower jaw: a single wedge, hinged like the hydra's but angular rather than toothed.
+        java.awt.geom.Path2D jaw = path(size, size, new double[][]{
+                {0.32, 0.58}, {0.50, 0.96}, {0.68, 0.58}, {0.50, 0.64}});
+        jaw.transform(java.awt.geom.AffineTransform.getRotateInstance(
+                gape, size * 0.5, size * 0.58));
+        g.setColor(darken(ICE_HIDE, 20));
+        g.fill(jaw);
+        g.setColor(ICE_HIDE_DARK);
+        g.setStroke(new BasicStroke(4f));
+        g.draw(jaw);
+
+        // Skull: faceted, six flat planes rather than the hydra's rounded nine.
+        java.awt.geom.Path2D skull = path(size, size, new double[][]{
+                {0.50, 0.70}, {0.24, 0.54}, {0.20, 0.30}, {0.38, 0.08},
+                {0.62, 0.08}, {0.80, 0.30}, {0.76, 0.54}});
+        g.setColor(ICE_HIDE);
+        g.fill(skull);
+        g.setColor(ICE_HIDE_DARK);
+        g.setStroke(new BasicStroke(4.5f));
+        g.draw(skull);
+
+        // A crown of shards along the top, which is where the name comes from.
+        g.setColor(ICE_BONE);
+        for (int spike = 0; spike < 5; spike++) {
+            double sx = 0.30 + spike * 0.10;
+            double reach = spike == 2 ? 0.16 : 0.09;
+            g.fill(path(size, size, new double[][]{
+                    {sx, 0.16}, {sx + 0.05, 0.16}, {sx + 0.025, 0.16 - reach}}));
+        }
+
+        // Eyes: pale rather than hot. Nothing behind them is burning.
+        for (int side = -1; side <= 1; side += 2) {
+            double cx = size * (0.5 + side * 0.15);
+            double cy = size * 0.34;
+            g.setColor(Color.BLACK);
+            g.fill(new Ellipse2D.Double(cx - 15, cy - 12, 30, 24));
+            softBlob(g, cx, cy, 7 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)),
+                    6 * (0.6 + 0.4 * (0.5 + 0.5 * pulse)), ICE_BONE, 230);
         }
         g.dispose();
         return image;
@@ -2173,8 +2507,9 @@ public final class GenerateAssets {
             new Theme("level-16", Backdrop.ATMOSPHERE, 4350,
                     new Color(0x30, 0x1a, 0x14), new Color(0xa0, 0x52, 0x24),
                     9, 1.6, 0, 0, 0),
-            // Sunward Dive: flown side-on, so the sky tiles horizontally and a starfield is the
-            // only kind that can be used -- atmosphere, surface and cavern all have a built-in up.
+            // Sunward Dive: flown side-on, so the sky tiles horizontally. Atmosphere, surface and
+            // cavern all have a built-in up and cannot be used; starfield and belt are
+            // axis-agnostic and can, which is what Cryonis's two side-on legs use.
             new Theme("level-17", Backdrop.STARFIELD, 4360,
                     new Color(0x3a, 0x1e, 0x0c, 30), new Color(0xff, 0x9a, 0x30, 26),
                     5, 1.0, 30, 12, -20, true),
@@ -2191,6 +2526,54 @@ public final class GenerateAssets {
             // Caldera Heart: the deepest tunnel, and what is sitting at the bottom of it.
             new Theme("level-20", Backdrop.CAVERN, 4390,
                     new Color(0x16, 0x0a, 0x08), new Color(0xd0, 0x4a, 0x10),
+                    6, 1.5, 0, 0, 0),
+            // ---- Galaxy 3: Cryonis (levels 21-30) ----------------------------------------
+            // Seeds 4400 to 4490, ten apart, continuing the pattern. Cold tints throughout, and
+            // the star channels pushed blue rather than red wherever stars are visible at all.
+            //
+            // The galaxy accent does not appear in these rows. tintB means a lit surface to rocks()
+            // and ground() -- a rock's sunward face, a mound's top -- and painting those in a vivid
+            // cyan turned every shard into a glowing ball and every hill into a bubble. Ashfall
+            // runs 0x9a4a1e and 0x7a3014 there, mid-dark and desaturated, and this galaxy matches
+            // that weight in blue. The accent is worn by the ships, which is where it reads.
+            //
+            // Two side-on legs, 21 and 29, which no other galaxy has. Both are BELT: rocks() draws
+            // through wrapped(), which shifts by the canvas width instead of its height when the
+            // theme is sideways, so a belt tiles correctly along either axis.
+            new Theme("level-21", Backdrop.BELT, 4400,
+                    new Color(0x28, 0x40, 0x52, 30), new Color(0x3c, 0x86, 0xa2, 24),
+                    4, 1.0, -18, 2, 26, true),
+            new Theme("level-22", Backdrop.ATMOSPHERE, 4410,
+                    new Color(0x12, 0x28, 0x3c), new Color(0x6a, 0xc4, 0xdc),
+                    7, 1.1, 0, 0, 0),
+            new Theme("level-23", Backdrop.SURFACE, 4420,
+                    new Color(0x14, 0x22, 0x2a), new Color(0x30, 0x6e, 0x82),
+                    5, 1.0, 0, 0, 0),
+            // Under-Ice: the water level. Same ATMOSPHERE recipe as a sky, tinted cold and dark,
+            // so the cloud decks read as light shafts coming down through the shelf instead.
+            new Theme("level-24", Backdrop.ATMOSPHERE, 4430,
+                    new Color(0x05, 0x12, 0x1e), new Color(0x2f, 0x84, 0xa0),
+                    8, 1.2, 0, 0, 0),
+            new Theme("level-25", Backdrop.CAVERN, 4440,
+                    new Color(0x0e, 0x1c, 0x28), new Color(0x4f, 0xd0, 0xe8),
+                    5, 1.2, 0, 0, 0),
+            // Black Trench: the darkest backdrop in the galaxy, and the fewest light strips.
+            new Theme("level-26", Backdrop.CAVERN, 4450,
+                    new Color(0x06, 0x0e, 0x16), new Color(0x2f, 0x90, 0xb0),
+                    3, 1.3, 0, 0, 0),
+            new Theme("level-27", Backdrop.SURFACE, 4460,
+                    new Color(0x12, 0x24, 0x2c), new Color(0x3a, 0x7e, 0x92),
+                    6, 1.1, 0, 0, 0),
+            new Theme("level-28", Backdrop.ATMOSPHERE, 4470,
+                    new Color(0x1a, 0x30, 0x44), new Color(0xbc, 0xe8, 0xf4),
+                    9, 1.4, 0, 0, 0),
+            // Shatter Drift: the second side-on leg. Denser and brighter than Frost Ring -- the
+            // ring has broken up by the time the player gets back out to it.
+            new Theme("level-29", Backdrop.BELT, 4480,
+                    new Color(0x30, 0x4a, 0x5e, 32), new Color(0x4e, 0x9e, 0xb8, 26),
+                    5, 1.3, -14, 6, 30, true),
+            new Theme("level-30", Backdrop.CAVERN, 4490,
+                    new Color(0x04, 0x0c, 0x18), new Color(0x4f, 0xd0, 0xe8),
                     6, 1.5, 0, 0, 0),
     };
 

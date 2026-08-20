@@ -44,6 +44,11 @@ public final class MechPart extends EnemyShip {
         return true;
     }
 
+    @Override
+    public int siblingParts() {
+        return body.parts().size();
+    }
+
     /**
      * Its own frames, not the body's head art.
      *

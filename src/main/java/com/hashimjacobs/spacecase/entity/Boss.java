@@ -113,7 +113,56 @@ public enum Boss {
      */
     VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG, 2800, 2550,
             BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
-            2, BossArt.FORGE_RIG_COCKPIT);
+            2, BossArt.FORGE_RIG_COCKPIT),
+
+    // ---- Galaxy 3: Cryonis ---------------------------------------------------------------
+    // The ladder continues rather than restarting: sixty a step inside the galaxy again, opening
+    // above Vaunt, and a jump at the finale. Score rises fifty a step for the same reason.
+    //
+    // Phase orders are picked so no two flagships in the galaxy open the same way, as Ashfall's
+    // are -- and so the two side-on legs, 21 and 29, do not share an opener either.
+
+    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER, 2860, 2600,
+            BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER, 2920, 2650,
+            BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
+
+    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER, 2980, 2700,
+            BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.SPAWNER),
+
+    ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH, 3040, 2750,
+            BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
+
+    CRYO_MARSHAL("Cryo Marshal", BossArt.CRYO_MARSHAL, 3100, 2800,
+            BossPhase.AIMED_BURST, BossPhase.SPAWNER, BossPhase.SWEEPING_FAN),
+
+    TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR, 3160, 2850,
+            BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
+
+    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW, 3220, 2900,
+            BossPhase.SPREAD, BossPhase.RING, BossPhase.SPAWNER),
+
+    HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION, 3280, 2950,
+            BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW, 3340, 3000,
+            BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.RING),
+
+    /**
+     * The Frozen Empress. The galaxy's finale, and the second multi-headed fight in the game.
+     *
+     * Four heads rather than the hydra's three, which is a data row and not a new class: BossHead
+     * spreads any number of necks across its arc, and EnemyShip builds one part per head. The two
+     * things that had to be got right are outside this file -- her torso is drawn with four
+     * sockets at the positions BossHead roots necks at, and EnemyWeapons derives the part cooldown
+     * from the head count so a fourth head does not simply add a fourth gun's worth of fire.
+     *
+     * A jump rather than a step, because a galaxy should end on one.
+     */
+    FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS, 3700, 3200,
+            BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.RING,
+            4, BossArt.FROZEN_EMPRESS_HEAD);
 
     private final String label;
     private final BossArt art;
