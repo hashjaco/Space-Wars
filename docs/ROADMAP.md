@@ -2,22 +2,22 @@
 
 Where the campaign is, and how to build the rest of it.
 
-The plan is five galaxies of ten levels. Two are done. This file is what the remaining three need,
+The plan is five galaxies of ten levels. Three are done. This file is what the remaining two need,
 the rules that will bite while building them, and the things already learned the hard way.
 
 ## Where it stands
 
 | | |
 |---|---|
-| Levels | 20 of 50 |
-| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20) |
-| Tests | 420, all headless |
-| `src/main/resources` | 53 MB |
-| Per galaxy, measured | ~156 PNGs, ~6 MB, ~4 s of generator time |
+| Levels | 30 of 50 |
+| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30) |
+| Tests | 426, all headless |
+| `src/main/resources` | 59 MB |
+| Per galaxy, measured | ~148 PNGs, ~6 MB, ~5 s of generator time |
 
-Three galaxies left, so budget roughly **470 PNGs and 18 MB**, finishing near 71 MB. Generator
-runtime is not a concern: it was 3.1 s at ten levels and 4 s at twenty, so fifty lands well inside
-ten seconds. Ignore any advice about parallelising it.
+Two galaxies left, so budget roughly **300 PNGs and 12 MB**, finishing near 71 MB. Generator
+runtime is not a concern: it was 3.1 s at ten levels, 4 s at twenty and 4.9 s at thirty, so fifty
+lands well inside ten seconds. Ignore any advice about parallelising it.
 
 The framework is finished. Everything below is data plus a small, named amount of new code.
 
@@ -81,7 +81,7 @@ were the same ship: at two hundred pixels the eye reads silhouette and colour lo
 anything. Ashfall now uses three hulls and three wings paired up, with a plate colour per class.
 Budget the same. Use `tools/preview/BossSheet` and look before committing four hundred frames.
 
-**Render it and look at it.** The 420 tests cannot see a picture. Everything in
+**Render it and look at it.** The tests cannot see a picture. Everything in
 `tools/preview/README.md` earned its place by catching something the suite was happy with.
 
 **Backdrop house style is what it is.** `SURFACE` levels are grey-and-coloured mounds, `CAVERN`
@@ -93,11 +93,38 @@ committed art and altering the whole game's look, which is a separate decision a
 row. There are two constants today, `OPEN_FIELD` and `CAVE`; canyon, ice tunnel, lava fissure and
 event horizon are each one row when somebody is actually playing the level.
 
+## Carried forward from Cryonis
+
+**The galaxy accent does not go in a `Theme` row.** `tintB` means *a lit surface* to `rocks()` and
+`ground()` — a rock's sunward face, a mound's top. Cryonis's first pass used `#4fd0e8` there, being
+the galaxy colour, and every ice shard rendered as a glowing ball and every hill as a bubble.
+Ashfall runs `0x9a4a1e` and `0x7a3014` in those slots: mid-dark and desaturated. Match that
+*weight*, in the new galaxy's hue. The accent is worn by the ships, which is where it reads. The
+same applies to `glow` on a `BossProfile` — a near-white glow turns the core into a flare that
+swallows the hull, which is why Ashfall's two palest flagships are its least readable.
+
+**Classes separate by aspect, not by plate colour.** Rendered side by side, Ashfall's six plates are
+all one brown and its six ships are still instantly distinguishable, because their aspect ratios
+span 0.95 to 1.96. Cryonis's first pass had good silhouettes clustered in a narrow aspect band and
+read worse. Give every galaxy one tall-narrow outlier, the `slag-baron` slot.
+
+**A creature cannot guard a side-on level.** `CreatureProfile` has no `sideways` field, where
+`Theme`, `Faction` and `BossProfile` all do. Side-on legs field warships or a set piece. Cryonis's
+21 and 29 are warships for that reason, not by preference.
+
+**Adding a part to a flagship must not thicken its barrage.** Both the bullet cooldown and the acid
+cooldown were flat constants tuned when every multi-part boss fielded exactly three parts, so the
+part count was invisible in the arithmetic. The Frozen Empress's fourth head would have added a
+third more fire and a fifth ball of acid with nobody having chosen either. Both now derive from
+`EnemyShip.siblingParts()`. **Derive from the part count, never from `Boss.heads()`** — the two
+disagree, because the rig declares two heads and fields three targets.
+
 ---
 
-## Phase 2 — Cryonis (21–30)
+## Phase 2 — Cryonis (21–30) — **done**
 
-Ice and water. Seeds **4400–4490**. Galaxy accent: `#4fd0e8`.
+Ice and water. Seeds **4400–4490**. Galaxy accent: `#4fd0e8`. Built as described below, with two
+corrections found while building; both are folded into *Carried forward* above.
 
 **Structural identity: pacing.** Waves alternate short and long — `3,5,3,5,3,5,4,6,4,6` — so the
 galaxy feels different on the clock rather than only in the palette. It also has **two** side-on legs,
@@ -173,8 +200,11 @@ not a sponge.
    `planet()` documents), an accretion ring as two `RadialGradientPaint` annuli, and lensing streaks,
    all inside `wrapped()`. The one image in the game worth extra time.
 2. **`BossPhase.VORTEX`** — a full-arena ring whose centre rotates and whose spread tightens. One
-   enum constant plus one branch in `EnemyWeapons.centreAngleFor`, beside the existing `SPIRAL` and
-   `SPAWNER` cases. Used by the final boss and nothing else.
+   enum constant, plus **two** touches rather than one. The rotating centre is a branch in
+   `EnemyWeapons.centreAngleFor` beside `SPIRAL`. The tightening spread cannot go there — that
+   method returns only the centre angle, and `phase.spreadRadians()` is read as a constant twice in
+   `firePattern`, once for `firstOffset` and once per shot. A spread that varies needs `firePattern`
+   to ask for it per tick. Budget both. Used by the final boss and nothing else.
 3. **`VoidEntity` + orbiting eyes** — Aeon, the Hollow Star. Orbits the arena centre as a pure
    function of age, the discipline `BurrowingWorm` and `PilotedMech` both keep. Four eyes shield it
    through the existing parts path, so `heads = 4` pays for the `BossHead` work a second time.
@@ -190,8 +220,15 @@ the galaxy about gravity. Verified safe: the engine loop simply does not run.
   one `ASSETS.md` row (the directory name covers all twelve). **Never `drawString`** — see rule 1.
   `insignia()` shows how to draw a symbol without a font.
 - `Difficulty.enemyScale(galaxy)`, health only — but only if galaxy 5 actually plays flat.
-  `SpawnDirector.escalated` already raises spawn pressure per galaxy, so this may not be needed.
   Never scale score: it feeds the bonus-to-credits divisor and would double the economy.
+
+  This entry used to say `SpawnDirector.escalated` already raised spawn pressure per galaxy, so
+  the work might not be needed. **That was wrong, and the correction matters more than the entry
+  did.** `escalated` adds `loopsCompleted * LOOP_SPAWN_BONUS`, and `loopsCompleted` only rises in
+  `advanceLevel()` when the level wraps to `Level.values()[0]` — that is once per pass through the
+  *entire fifty-level campaign*, not once per galaxy. Nothing raises spawn pressure between galaxy
+  1 and galaxy 5 on a first play. So the flat feel this entry hedged against is real rather than
+  already handled, and the only per-galaxy escalation in the game is the bosses' authored health.
 - HUD and debrief galaxy labels; `README.md` still describes a ten-level game.
 - The health bar's green → gold → red ramp is the primary health signal and a deutan collision. It
   deserves its own ticket rather than being folded into a content phase.
