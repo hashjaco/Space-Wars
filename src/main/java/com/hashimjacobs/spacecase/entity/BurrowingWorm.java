@@ -1,7 +1,15 @@
 package com.hashimjacobs.spacecase.entity;
 
+import com.hashimjacobs.spacecase.asset.Sprite;
+
 /**
- * The Dune Leviathan: a maw that lunges out of the right-hand wall and withdraws into it.
+ * A maw that lunges out of the wall it lives in and withdraws into it.
+ *
+ * Two of them: the Dune Leviathan out of the right-hand wall of a side-on level, and the Storm
+ * Serpent down out of the cloud deck of a top-down one. The second cost this class nothing, because
+ * it holds no orientation of its own -- every distance it uses is asked of {@link Orientation}, so
+ * the axis of the strike is whatever the level runs on. What the two do not share is how far a
+ * strike reaches; see {@link #strikeReach()}.
  *
  * One hitbox, unlike the hydra. That is a choice rather than a shortcut -- the multi-part
  * machinery is already there and reusing it would cost almost nothing, but then both new bosses
@@ -47,7 +55,24 @@ public final class BurrowingWorm extends EnemyShip {
      * the side of a side-on level need different absolute reaches to look the same. This used to be
      * {@code WIDTH * 0.62}, which was right only for the side-on level it was written for.
      */
-    private static final double STRIKE_REACH = 0.62;
+    private static final double LEVIATHAN_REACH = 0.62;
+
+    /**
+     * The Storm Serpent's reach, which is shorter, and not by preference.
+     *
+     * A fraction of the depth is the right shape for this number but it is not the whole story: what
+     * decides whether a strike is fair is where the *leading edge* of the maw ends up, and that is
+     * the reach plus the art's extent along the strike axis. Those two differ between the levels,
+     * because a side-on level measures depth across 996 and takes the art's width, and a top-down
+     * one measures 864 and takes its height.
+     *
+     * Worked through: the Leviathan reaches 996 x 0.62 = 617.5 and adds its 214 of width, ending at
+     * 831.5 against a player who spawns 130 short of the back wall, at 866 -- about 35 pixels of
+     * clearance. The Storm Serpent is 240 along its axis on an 864 arena, so the shared 0.62 would
+     * put its leading edge at 775.7 and its jaws 40 pixels *past* the line the player starts on.
+     * 0.53 lands it at 697.9, which is the same 36 pixels short that level 9 was tuned to.
+     */
+    private static final double SERPENT_REACH = 0.53;
 
     private int age;
 
@@ -111,7 +136,28 @@ public final class BurrowingWorm extends EnemyShip {
 
     /** How far in a strike reaches, in pixels, for whichever way this level runs. */
     private double strikeDepth() {
-        return orientation().arenaDepth() * STRIKE_REACH;
+        return orientation().arenaDepth() * strikeReach();
+    }
+
+    /**
+     * This worm's reach, as a fraction of the arena's depth.
+     *
+     * Per-boss rather than one shared constant, so that giving the Storm Serpent a fair strike could
+     * not retune the Dune Leviathan's -- level 9 has shipped, and its 0.62 is what it was tuned at.
+     */
+    private double strikeReach() {
+        return boss() == Boss.STORM_SERPENT ? SERPENT_REACH : LEVIATHAN_REACH;
+    }
+
+    /**
+     * The ring this worm's body is drawn from.
+     *
+     * Per-boss for a reason that is about the picture rather than the numbers: the Leviathan's ring
+     * carries its bristles down one side, which is correct for an animal crossing the screen and
+     * visibly wrong for one striking down it. The Storm Serpent's ring is drawn with no up.
+     */
+    public Sprite segmentSprite() {
+        return boss() == Boss.STORM_SERPENT ? Sprite.STORM_SEGMENT : Sprite.WORM_SEGMENT;
     }
 
     private double driftAcross(double at) {

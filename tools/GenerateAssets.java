@@ -595,6 +595,17 @@ public final class GenerateAssets {
     private static final Color CRYO_ACCENT = new Color(0x4fd0e8);
     private static final Color CRYO_GLOW = new Color(0x7fe4f5);
 
+    /**
+     * Tempest: storm and gas giant.
+     *
+     * One palette again, and the same warning heeded twice over -- the glow is a saturated pale
+     * blue rather than a near-white, because this galaxy's hulls are already light and a white core
+     * on a light hull is the flare that swallows it.
+     */
+    private static final Color STORM_HULL = new Color(0x1e2740);
+    private static final Color STORM_ACCENT = new Color(0x7ea8ff);
+    private static final Color STORM_GLOW = new Color(0x9ec2ff);
+
     private static final Faction[] FACTIONS = {
             // Level 1 keeps the original palette exactly, so the opening minutes stay tuned.
             new Faction("level-1", HULL_MID, HOSTILE, HOSTILE_GLOW, HullStyle.MECHANICAL),
@@ -665,6 +676,30 @@ public final class GenerateAssets {
                     new Color(0xa8eeff), HullStyle.MECHANICAL, true),
             new Faction("level-30", new Color(0x0e1a28), new Color(0x4fd0e8),
                     new Color(0xa8eeff), HullStyle.MECHANICAL),
+            // ---- Galaxy 4: Tempest (levels 31-40) ----------------------------------------
+            // Six of the ten levels are ATMOSPHERE, so the factions carry more of the work of
+            // telling one leg from the next than in any galaxy before this one. Organic on 32, 35
+            // and 36, which are the three levels with something living in them.
+            new Faction("level-31", STORM_HULL, STORM_ACCENT, STORM_GLOW, HullStyle.MECHANICAL),
+            new Faction("level-32", new Color(0x1a2238), new Color(0x6f9cf5), new Color(0xc4dbff),
+                    HullStyle.ORGANIC),
+            new Faction("level-33", new Color(0x2c3a5c), new Color(0x92b8ff), STORM_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-34", new Color(0x2a3450), new Color(0x8ab0ff), STORM_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-35", new Color(0x202a44), new Color(0x6890e8), new Color(0xb8d0ff),
+                    HullStyle.ORGANIC),
+            new Faction("level-36", new Color(0x141c30), new Color(0x5f86e0), new Color(0xaac8ff),
+                    HullStyle.ORGANIC),
+            new Faction("level-37", new Color(0x1c2640), new Color(0x7aa4fb), STORM_GLOW,
+                    HullStyle.MECHANICAL),
+            new Faction("level-38", new Color(0x2e3a58), new Color(0x9cc0ff), STORM_GLOW,
+                    HullStyle.MECHANICAL),
+            // Lightning Reach: the galaxy's one side-on leg, so its hulls are cut pointing left.
+            new Faction("level-39", new Color(0x263254), new Color(0xaecdff),
+                    new Color(0xd6e6ff), HullStyle.MECHANICAL, true),
+            new Faction("level-40", new Color(0x121a2e), STORM_ACCENT, new Color(0xb4d0ff),
+                    HullStyle.MECHANICAL),
     };
 
     /** Three hostile silhouettes per level, angular and pointing down the arena at the player. */
@@ -1017,6 +1052,57 @@ public final class GenerateAssets {
             {0.34, 0.52}, {0.22, 0.42}, {0.13, 0.54}, {0.17, 0.70}, {0.30, 0.73},
     };
 
+    /**
+     * Tempest's navy, as three hulls and three vanes.
+     *
+     * Same budget as the two galaxies before it. Cryonis's lesson was that plate colour does not
+     * separate classes and aspect does, so these span 0.75 to 1.92 -- wider at the narrow end than
+     * Ashfall's 0.95 to 1.96, because the Mast is this galaxy's tall-narrow outlier and there is
+     * only one of it.
+     *
+     * Shaped for air rather than for ice: the Delta and the Keel are lifting bodies with the volume
+     * carried low, where Cryonis's hulls put their mass at the nose to cut with.
+     */
+    // A hull runs nose-down: y = 0.99 is the nose, where bossFrame puts the prow blade, and
+    // y = 0.02 is the tail, where it puts the engine bank. Worth stating, because the first pass
+    // of these three had them the other way round -- widest at the nose, tapering to the tail --
+    // and all three came out as the same wide dome whatever their vertices said. Cryonis's
+    // CRYO_PROW is the reference: a lens, pointed at both ends, widest below the middle.
+    private static final double[][] STORM_DELTA = {
+            {0.50, 0.99}, {0.42, 0.66}, {0.22, 0.26}, {0.12, 0.06}, {0.38, 0.10},
+            {0.50, 0.20}, {0.62, 0.10}, {0.88, 0.06}, {0.78, 0.26}, {0.58, 0.66},
+    };
+
+    /** Mast: the tall-narrow outlier. Slab-sided through the body, flared and notched at the tail. */
+    private static final double[][] STORM_MAST = {
+            {0.50, 0.99}, {0.45, 0.70}, {0.42, 0.44}, {0.34, 0.24}, {0.30, 0.06},
+            {0.44, 0.12}, {0.50, 0.06}, {0.56, 0.12}, {0.70, 0.06}, {0.66, 0.24},
+            {0.58, 0.44}, {0.55, 0.70},
+    };
+
+    /** Keel: a plank. Blunt nose, parallel sides for most of its length, square tail. */
+    private static final double[][] STORM_KEEL = {
+            {0.50, 0.99}, {0.32, 0.94}, {0.22, 0.80}, {0.20, 0.30}, {0.26, 0.08},
+            {0.74, 0.08}, {0.80, 0.30}, {0.78, 0.80}, {0.68, 0.94},
+    };
+
+    private static final double[][] STORM_VANE = {
+            {0.36, 0.46}, {0.14, 0.24}, {0.02, 0.34}, {0.00, 0.62}, {0.10, 0.84},
+            {0.26, 0.90}, {0.32, 0.66},
+    };
+
+    /** Swept: notched on the trailing edge, so it is not Cryonis's raked fin in a new colour. */
+    private static final double[][] STORM_VANE_SWEPT = {
+            {0.38, 0.34}, {0.20, 0.16}, {0.06, 0.06}, {0.00, 0.22}, {0.12, 0.40},
+            {0.05, 0.56}, {0.22, 0.70}, {0.34, 0.58},
+    };
+
+    /** Slat: two short blades that read as one stepped shape at two hundred pixels. */
+    private static final double[][] STORM_VANE_SLAT = {
+            {0.35, 0.44}, {0.18, 0.36}, {0.06, 0.46}, {0.12, 0.56}, {0.02, 0.64},
+            {0.14, 0.76}, {0.30, 0.72},
+    };
+
     private static final BossProfile[] BOSSES = {
             // Sentinel: the level 1 fight, unchanged, so the opening minutes stay tuned.
             new BossProfile("boss-sentinel", 440, 340, HOSTILE, HOSTILE_GLOW, 3, 0.11,
@@ -1208,6 +1294,63 @@ public final class GenerateAssets {
                     new double[][]{{0.30, 0.56, 0.048}, {0.20, 0.38, 0.036},
                             {0.24, 0.74, 0.032}, {0.13, 0.64, 0.028}},
                     true, new Color(0x35506b)),
+
+            // ---- Galaxy 4: Tempest ------------------------------------------------------------
+            // Five warships rather than six, because this galaxy fields two set pieces instead of
+            // one. Three hulls and three vanes still, paired five ways with no pair repeated.
+            //
+            // Engines are two and three, against Cryonis's three and four and Ashfall's five and
+            // six. The comment on the Cryonis block calls that a step toward the thrusterless navy
+            // Phase 4 wants, and this is the next one -- a navy that rides the weather rather than
+            // pushing through it. Turrets still escalate two to four across the galaxy.
+
+            // Aspects run 0.75, 1.05, 1.20, 1.68 and 2.06 -- a wider band than Ashfall's 0.95 to
+            // 1.96, and deliberately so. The first pass put three of the five between 1.3 and 1.9
+            // on two hulls and they read as one wide ship on the boss sheet, which is the failure
+            // Ashfall recorded and Cryonis recorded again. No two of the three broad classes now
+            // share a hull, and the two that repeat one are the tall Mast and the turned Delta,
+            // which cannot be confused with anything.
+            new BossProfile("boss-squall-warden", 372, 222,
+                    STORM_ACCENT, STORM_GLOW, 2, 0.13,
+                    STORM_DELTA, STORM_VANE,
+                    new double[][]{{0.30, 0.62, 0.046}, {0.19, 0.44, 0.034}},
+                    false, new Color(0x28324e)),
+
+            // The Mast on swept vanes: the one class here taller than it is wide, and the only
+            // thing keeping five ships off one aspect. See the note on the shape constants.
+            new BossProfile("boss-eyewall-lance", 254, 340,
+                    new Color(0x92b8ff), STORM_GLOW, 3, 0.11,
+                    STORM_MAST, STORM_VANE_SWEPT,
+                    new double[][]{{0.28, 0.58, 0.042}, {0.17, 0.38, 0.032}},
+                    false, new Color(0x2d3a58)),
+
+            // The plank: widest and flattest in the galaxy, on the only hull with parallel sides.
+            new BossProfile("boss-ring-reaver", 404, 196,
+                    new Color(0x8ab0ff), STORM_GLOW, 2, 0.14,
+                    STORM_KEEL, STORM_VANE_SLAT,
+                    new double[][]{{0.32, 0.64, 0.048}, {0.21, 0.46, 0.036},
+                            {0.25, 0.82, 0.030}},
+                    false, new Color(0x243050)),
+
+            // The Mast again, flown square rather than tall: a fat spire, and nothing like either
+            // the Warden's delta or the Reaver's plank.
+            new BossProfile("boss-downdraft-prow", 300, 286,
+                    new Color(0x7aa4fb), STORM_GLOW, 3, 0.15,
+                    STORM_MAST, STORM_VANE,
+                    new double[][]{{0.33, 0.60, 0.048}, {0.22, 0.42, 0.036},
+                            {0.26, 0.78, 0.032}},
+                    false, new Color(0x1f2942)),
+
+            // Arc Lance guards the galaxy's side-on leg, and is turned once here rather than
+            // rotated per frame, so its collision box keeps the shape of the picture. Drawn
+            // nose-down at 268x322, so what the game decodes is 322 wide -- the BossArt constant
+            // declares that transposed size. See Theme.sideways and the note on SUNWARD_LANCE.
+            new BossProfile("boss-arc-lance", 268, 322,
+                    new Color(0xaecdff), new Color(0xd6e6ff), 3, 0.14,
+                    STORM_DELTA, STORM_VANE_SWEPT,
+                    new double[][]{{0.31, 0.56, 0.048}, {0.21, 0.38, 0.036},
+                            {0.25, 0.74, 0.032}, {0.14, 0.64, 0.028}},
+                    true, new Color(0x30406a)),
     };
 
     private static void bosses() throws IOException {
@@ -1319,6 +1462,38 @@ public final class GenerateAssets {
                     new double[][]{{0.50, 0.98}, {0.33, 0.90}, {0.23, 0.72}, {0.20, 0.48},
                             {0.28, 0.26}, {0.38, 0.14}, {0.50, 0.18}, {0.62, 0.14},
                             {0.72, 0.26}, {0.80, 0.48}, {0.77, 0.72}, {0.67, 0.90}}),
+
+            // ---- Galaxy 4: Tempest ------------------------------------------------------------
+            // Three again, on 32, 35 and 36 -- none of them the side-on leg, for the reason the
+            // Cryonis block gives. Hides are storm-dark and the sacs carry the charge, so all
+            // three read as lit from inside rather than lit from above like the warships.
+
+            // Thunder Brood: what nests in an anvil cloud. Most legs and the largest sac here --
+            // it is mostly discharge with an animal around it.
+            new CreatureProfile("boss-thunder-brood", 358, 262,
+                    new Color(0x25304c), new Color(0x0e1422), new Color(0xdfe8fb),
+                    new Color(0x8fb4ff), 6, 4, 0.29,
+                    new double[][]{{0.50, 0.95}, {0.36, 0.87}, {0.28, 0.68}, {0.26, 0.46},
+                            {0.33, 0.26}, {0.42, 0.15}, {0.50, 0.19}, {0.58, 0.15},
+                            {0.67, 0.26}, {0.74, 0.46}, {0.72, 0.68}, {0.64, 0.87}}),
+
+            // Static Crawler: the ground level's own, and the only one of the three that walks on
+            // something. Widest and flattest, with the smallest sac -- it earths itself.
+            new CreatureProfile("boss-static-crawler", 386, 220,
+                    new Color(0x1a2134), new Color(0x090d16), new Color(0xc4cee0),
+                    new Color(0x6f96ec), 8, 6, 0.12,
+                    new double[][]{{0.50, 0.96}, {0.31, 0.90}, {0.21, 0.74}, {0.19, 0.56},
+                            {0.27, 0.42}, {0.38, 0.33}, {0.50, 0.37}, {0.62, 0.33},
+                            {0.73, 0.42}, {0.81, 0.56}, {0.79, 0.74}, {0.69, 0.90}}),
+
+            // Magnetar Maw: set into the cavern wall rather than crossing it. Two stub legs and
+            // the most ribs in the galaxy, so it reads as a structure that opened.
+            new CreatureProfile("boss-magnetar-maw", 330, 286,
+                    new Color(0x141b2e), new Color(0x070a12), new Color(0xcdd8ea),
+                    new Color(0x7ea8ff), 2, 7, 0.24,
+                    new double[][]{{0.50, 0.98}, {0.34, 0.91}, {0.24, 0.73}, {0.21, 0.49},
+                            {0.29, 0.27}, {0.39, 0.14}, {0.50, 0.18}, {0.61, 0.14},
+                            {0.71, 0.27}, {0.79, 0.49}, {0.76, 0.73}, {0.66, 0.91}}),
     };
 
     private static void creatures() throws IOException {
@@ -1422,10 +1597,32 @@ public final class GenerateAssets {
      */
     private static void mech() throws IOException {
         for (int frame = 1; frame <= BOSS_FRAMES; frame++) {
-            write(mechFrame(frame), SPRITES.resolve("boss-forge-rig").resolve(frame + ".png"));
-            write(cockpitFrame(frame),
+            write(mechFrame(frame, 400, 300, RIG_PLATE, RIG_DARK),
+                    SPRITES.resolve("boss-forge-rig").resolve(frame + ".png"));
+            write(cockpitFrame(frame, 96),
                     SPRITES.resolve("boss-forge-rig-cockpit").resolve(frame + ".png"));
-            write(armFrame(frame), SPRITES.resolve("boss-forge-rig-arm").resolve(frame + ".png"));
+            write(armFrame(frame, 104, RIG_PLATE, RIG_DARK),
+                    SPRITES.resolve("boss-forge-rig-arm").resolve(frame + ".png"));
+
+            // Vaunt again, in Tempest. The three methods above take their canvas and their plate
+            // colours as arguments so this could exist without touching what they draw: at the
+            // literals Ashfall always used, every expression inside them is unchanged and the
+            // committed frames stay byte-identical, which is what CI checks. Rule 2's escape
+            // hatch, the same one BossProfile.plate is.
+            //
+            // Deliberately the same machine rather than a new one -- same silhouette, same pilot
+            // behind the same glass, the furnace and cockpit ring still Ashfall orange, refitted
+            // in storm plate. That recognition is the whole payoff for having built him once.
+            //
+            // 480x360 decodes to 340 on screen. PilotedMech strides to 0.8 of the arena breadth
+            // and adds half its own width, so a body past 398 walks its shoulder off the edge --
+            // and PilotedMechTest's x() <= 996 cannot see it happen.
+            write(mechFrame(frame, 480, 360, STORM_PLATE, STORM_PLATE_DARK),
+                    SPRITES.resolve("boss-storm-rig").resolve(frame + ".png"));
+            write(cockpitFrame(frame, 112),
+                    SPRITES.resolve("boss-storm-rig-cockpit").resolve(frame + ".png"));
+            write(armFrame(frame, 136, STORM_PLATE, STORM_PLATE_DARK),
+                    SPRITES.resolve("boss-storm-rig-arm").resolve(frame + ".png"));
         }
     }
 
@@ -1434,9 +1631,19 @@ public final class GenerateAssets {
     private static final Color RIG_HOT = new Color(0xff5a10);
     private static final Color GLASS = new Color(0x9adcff);
 
-    private static BufferedImage mechFrame(int oneBasedFrame) {
-        int w = 400;
-        int h = 300;
+    /** The Storm-Rig's plate. Only the armour is repainted; the man and his furnace are not. */
+    private static final Color STORM_PLATE = new Color(0x33405e);
+    private static final Color STORM_PLATE_DARK = new Color(0x141a2a);
+
+    /**
+     * The rig's body.
+     *
+     * Canvas and plate colours are arguments rather than constants so a second, larger rig can be
+     * drawn without editing a line of what this method draws. Pass Ashfall's 400x300 with
+     * RIG_PLATE and RIG_DARK and the output is the frame that is already committed.
+     */
+    private static BufferedImage mechFrame(int oneBasedFrame, int w, int h, Color plate,
+                                          Color dark) {
         BufferedImage image = blank(w, h);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
@@ -1447,13 +1654,13 @@ public final class GenerateAssets {
         for (int side = -1; side <= 1; side += 2) {
             double swing = 0.045 * (side > 0 ? step : -step);
             double hipX = 0.5 + side * 0.17;
-            g.setColor(darken(RIG_PLATE, 40));
+            g.setColor(darken(plate, 40));
             g.fill(path(w, h, new double[][]{
                     {hipX - 0.035, 0.44}, {hipX + 0.035, 0.44},
                     {hipX + 0.055 + swing, 0.70}, {hipX + 0.03 + swing, 0.72},
                     {hipX - 0.03 + swing, 0.72}, {hipX - 0.055 + swing, 0.70}}));
             // Foot, planted flat.
-            g.setColor(RIG_DARK);
+            g.setColor(dark);
             g.fill(new java.awt.geom.Rectangle2D.Double(
                     w * (hipX - 0.07 + swing), h * 0.70, w * 0.14, h * 0.055));
         }
@@ -1463,9 +1670,9 @@ public final class GenerateAssets {
         Path2D torso = path(w, h, new double[][]{
                 {0.50, 0.06 + bob}, {0.28, 0.13 + bob}, {0.22, 0.28 + bob}, {0.26, 0.45 + bob},
                 {0.74, 0.45 + bob}, {0.78, 0.28 + bob}, {0.72, 0.13 + bob}});
-        g.setColor(RIG_PLATE);
+        g.setColor(plate);
         g.fill(torso);
-        g.setColor(RIG_DARK);
+        g.setColor(dark);
         g.setStroke(new BasicStroke(5f));
         g.draw(torso);
 
@@ -1474,7 +1681,7 @@ public final class GenerateAssets {
         // it cannot if it lives in the body's art.
         for (int side = -1; side <= 1; side += 2) {
             double stubX = 0.5 + side * 0.24;
-            g.setColor(darken(RIG_PLATE, 30));
+            g.setColor(darken(plate, 30));
             g.fill(path(w, h, new double[][]{
                     {stubX - 0.045, 0.19 + bob}, {stubX + 0.045, 0.19 + bob},
                     {stubX + 0.035, 0.33 + bob}, {stubX - 0.035, 0.33 + bob}}));
@@ -1496,8 +1703,7 @@ public final class GenerateAssets {
      * nothing else -- a crop would carry the shoulders with it and a shot that missed the man would
      * still register.
      */
-    private static BufferedImage cockpitFrame(int oneBasedFrame) {
-        int size = 96;
+    private static BufferedImage cockpitFrame(int oneBasedFrame, int size) {
         BufferedImage image = blank(size, size);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
@@ -1508,23 +1714,22 @@ public final class GenerateAssets {
     }
 
     /** One arm pod: a gun on a mount, and the thing standing between the player and the pilot. */
-    private static BufferedImage armFrame(int oneBasedFrame) {
-        int size = 104;
+    private static BufferedImage armFrame(int oneBasedFrame, int size, Color plate, Color dark) {
         BufferedImage image = blank(size, size);
         Graphics2D g = paint(image);
         double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
         double pulse = StrictMath.sin(2 * Math.PI * phase);
 
-        g.setColor(darken(RIG_PLATE, 16));
+        g.setColor(darken(plate, 16));
         g.fill(path(size, size, new double[][]{
                 {0.24, 0.10}, {0.76, 0.10}, {0.84, 0.62}, {0.66, 0.90}, {0.34, 0.90}, {0.16, 0.62}}));
-        g.setColor(RIG_DARK);
+        g.setColor(dark);
         g.setStroke(new BasicStroke(4f));
         g.draw(path(size, size, new double[][]{
                 {0.24, 0.10}, {0.76, 0.10}, {0.84, 0.62}, {0.66, 0.90}, {0.34, 0.90}, {0.16, 0.62}}));
 
         // Barrel down-arena, so the pod reads as pointing at the player rather than sideways.
-        g.setColor(RIG_DARK);
+        g.setColor(dark);
         g.fill(new java.awt.geom.Rectangle2D.Double(size * 0.43, size * 0.78, size * 0.14,
                 size * 0.20));
         turret(g, size * 0.5, size * 0.46, size * 0.15, RIG_HOT, 1 + 0.24 * pulse);
@@ -1570,8 +1775,11 @@ public final class GenerateAssets {
                     SPRITES.resolve("boss-frozen-empress").resolve(frame + ".png"));
             write(empressHeadFrame(frame),
                     SPRITES.resolve("boss-frozen-empress-head").resolve(frame + ".png"));
+            write(stormMawFrame(frame),
+                    SPRITES.resolve("boss-storm-serpent").resolve(frame + ".png"));
         }
         write(wormSegment(), SPRITES.resolve("worm-segment.png"));
+        write(stormSegment(), SPRITES.resolve("storm-segment.png"));
         write(acidBall(), SPRITES.resolve("acid-ball.png"));
     }
 
@@ -1923,6 +2131,141 @@ public final class GenerateAssets {
                 double ty = 0.50 + StrictMath.sin(angle) * radius;
                 g.fill(new Ellipse2D.Double(w * tx - 4, h * ty - 4, 8, 8));
             }
+        }
+        g.dispose();
+        return image;
+    }
+
+    // ------------------------------------------------------------ the Storm Serpent
+
+    /** The Storm Serpent's plate, and a bone pale enough to read against it. */
+    private static final Color STORM_CHITIN = new Color(0x2c3550);
+    private static final Color STORM_CHITIN_DARK = new Color(0x121828);
+    private static final Color STORM_BONE = new Color(0xdce6f8);
+
+    /**
+     * The Storm Serpent's maw, seen from above and opening downward, out of the cloud deck.
+     *
+     * A new method beside {@link #wormMawFrame} rather than that one turned or parameterised, for
+     * two reasons. The Leviathan's frames are drawn opening left, so reusing them here would need a
+     * quarter turn; and a galaxy-four finale that is visibly galaxy one's boss rotated and
+     * repainted reads as reused, which is the thing Cryonis recorded about not letting the Empress
+     * become a hydra recolour.
+     *
+     * So: the same species, not the same animal. Three long petals against the Leviathan's four
+     * short ones, arcs jumping the gaps between plates where that one has ribbed chitin, and a
+     * throat lit from inside rather than flat black.
+     */
+    private static BufferedImage stormMawFrame(int oneBasedFrame) {
+        int w = 480;
+        int h = 360;
+        BufferedImage image = blank(w, h);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
+        double flare = 0.26 + 0.20 * (0.5 + 0.5 * pulse);
+
+        // Body plates above the head, receding up into the deck it came out of. Thick lenses
+        // rather than thin arcs: the first pass drew these 0.08 of the canvas deep and they read
+        // as four scratches at on-screen size.
+        for (int plate = 0; plate < 4; plate++) {
+            double y = 0.38 - plate * 0.11;
+            double half = 0.34 - plate * 0.05;
+            Path2D arc = new Path2D.Double();
+            arc.moveTo(w * (0.50 - half), h * y);
+            arc.quadTo(w * 0.50, h * (y - 0.15), w * (0.50 + half), h * y);
+            arc.quadTo(w * 0.50, h * (y + 0.03), w * (0.50 - half), h * y);
+            g.setColor(brighten(STORM_CHITIN, 14 - plate * 6));
+            g.fill(arc);
+            g.setColor(STORM_CHITIN_DARK);
+            g.setStroke(new BasicStroke(3.5f));
+            g.draw(arc);
+        }
+
+        // Arcs jumping the gaps between plates, which is what makes it this galaxy's animal.
+        g.setColor(alpha(STORM_ACCENT, 150 + (int) (60 * (0.5 + 0.5 * pulse))));
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int gap = 0; gap < 3; gap++) {
+            double y = 0.335 - gap * 0.11;
+            double kink = 0.05 * (gap % 2 == 0 ? pulse : -pulse);
+            g.draw(new java.awt.geom.Line2D.Double(w * (0.30 + kink), h * y,
+                    w * 0.50, h * (y - 0.05)));
+            g.draw(new java.awt.geom.Line2D.Double(w * 0.50, h * (y - 0.05),
+                    w * (0.70 - kink), h * y));
+        }
+
+        // The head itself: a broad shell, so what the player shoots at is an animal rather than a
+        // mouth floating under some rings.
+        Path2D skull = path(w, h, new double[][]{
+                {0.50, 0.40}, {0.26, 0.46}, {0.18, 0.60}, {0.22, 0.76}, {0.34, 0.86},
+                {0.66, 0.86}, {0.78, 0.76}, {0.82, 0.60}, {0.74, 0.46}});
+        g.setColor(STORM_CHITIN);
+        g.fill(skull);
+        g.setColor(STORM_CHITIN_DARK);
+        g.setStroke(new BasicStroke(4.5f));
+        g.draw(skull);
+
+        // Throat, lit from inside rather than the Leviathan's flat black.
+        softBlob(g, w * 0.50, h * 0.68, w * 0.17, h * 0.19, STORM_ACCENT, 150);
+        g.setColor(STORM_CHITIN_DARK);
+        g.fill(new Ellipse2D.Double(w * 0.36, h * 0.56, w * 0.28, h * 0.26));
+
+        // Three long mandible petals, flowering open down-arena on the breath.
+        for (int petal = 0; petal < 3; petal++) {
+            double angle = -flare + petal * flare;
+            Path2D blade = path(w, h, new double[][]{
+                    {0.50, 0.62}, {0.38, 0.95}, {0.50, 1.00}, {0.62, 0.95}});
+            blade.transform(java.awt.geom.AffineTransform.getRotateInstance(
+                    angle, w * 0.50, h * 0.62));
+            g.setColor(brighten(STORM_CHITIN, 20));
+            g.fill(blade);
+            g.setColor(STORM_CHITIN_DARK);
+            g.setStroke(new BasicStroke(3.5f));
+            g.draw(blade);
+        }
+
+        // One ring of teeth, fewer and longer than the Leviathan's two rows.
+        g.setColor(STORM_BONE);
+        for (int tooth = 0; tooth < 9; tooth++) {
+            double angle = tooth * 2 * Math.PI / 9;
+            double tx = 0.50 + StrictMath.cos(angle) * 0.095;
+            double ty = 0.69 + StrictMath.sin(angle) * 0.105;
+            g.fill(new Ellipse2D.Double(w * tx - 6, h * ty - 6, 12, 12));
+        }
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * One ring of the Storm Serpent's body.
+     *
+     * Its own sprite rather than the Leviathan's, because {@link #wormSegment} is not rotationally
+     * symmetric -- it draws its bristles around one side only, which is right for a worm crossing
+     * the screen and wrong for one striking down it. This ring has no up.
+     */
+    private static BufferedImage stormSegment() {
+        int size = 120;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+
+        g.setColor(STORM_CHITIN);
+        g.fill(new Ellipse2D.Double(size * 0.12, size * 0.12, size * 0.76, size * 0.76));
+        g.setColor(STORM_CHITIN_DARK);
+        g.setStroke(new BasicStroke(4f));
+        g.draw(new Ellipse2D.Double(size * 0.12, size * 0.12, size * 0.76, size * 0.76));
+        g.setColor(brighten(STORM_CHITIN, 30));
+        g.setStroke(new BasicStroke(3f));
+        g.draw(new Ellipse2D.Double(size * 0.26, size * 0.26, size * 0.48, size * 0.48));
+
+        // Plates the whole way round, evenly spaced, so no orientation is implied.
+        g.setColor(STORM_BONE);
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        for (int plate = 0; plate < 12; plate++) {
+            double angle = plate * 2 * Math.PI / 12;
+            double cx = size * 0.5 + StrictMath.cos(angle) * size * 0.38;
+            double cy = size * 0.5 + StrictMath.sin(angle) * size * 0.38;
+            g.draw(new java.awt.geom.Line2D.Double(cx, cy,
+                    cx + StrictMath.cos(angle) * 9, cy + StrictMath.sin(angle) * 9));
         }
         g.dispose();
         return image;
@@ -2575,6 +2918,76 @@ public final class GenerateAssets {
             new Theme("level-30", Backdrop.CAVERN, 4490,
                     new Color(0x04, 0x0c, 0x18), new Color(0x4f, 0xd0, 0xe8),
                     6, 1.5, 0, 0, 0),
+            // ---- Galaxy 4: Tempest (levels 31-40) ----------------------------------------
+            // Seeds 4500 to 4590, ten apart, continuing the pattern.
+            //
+            // This galaxy has no floor: six of the ten run the ATMOSPHERE recipe, one is ground,
+            // and nothing else repeats. Six levels off one drawing method is the hard part of
+            // these rows, not the palette -- Ashfall learned that six flagships off one hull read
+            // as one ship, and this is the same mistake one layer down.
+            //
+            // What separates them is tintB, and only tintB. The first pass set blobs to 10, 4, 3,
+            // 6, 7, 9 to spread them and it changed nothing: sky() never reads blobs. It reads
+            // density for the deck count, and paints every deck brighten(tintB, 78) over a
+            // high-low-high gradient of tintA and tintB. So a pale tintB is a white deck on a
+            // white band whatever else the row says, and the first six rows here were six of
+            // those. Rendered side by side they were one sky.
+            //
+            // They now span the whole register instead: saturated mid blue at 31, dark saturated
+            // at 32, near-white at 33, near-black at 37, desaturated overcast grey at 38 and
+            // saturated indigo at 40, with density from 0.45 to 1.8 under it. blobs is left at
+            // plausible values on those rows and is inert; it does real work only in stars(),
+            // ground() and tunnel().
+            //
+            // The accent stays off tintB on the ground and belt rows for the reason Cryonis
+            // records: it means a lit surface to rocks() and ground(). 0x46587e and 0x4e689a are
+            // Ashfall's mid-dark weight in storm blue. The CAVERN row is the exception, where
+            // tintB becomes wall light strips and the full 0x7ea8ff belongs.
+            // Cloudwall: a wall of it. Saturated mid blue and the second-densest deck count, so
+            // it reads as weather with colour in it rather than as haze.
+            new Theme("level-31", Backdrop.ATMOSPHERE, 4500,
+                    new Color(0x1a, 0x24, 0x40), new Color(0x3f, 0x6a, 0xc4),
+                    10, 1.6, 0, 0, 0),
+            // Thunderhead: the anvil. Dark and sparse, the opposite corner of the register from
+            // Cloudwall on both axes at once.
+            new Theme("level-32", Backdrop.ATMOSPHERE, 4510,
+                    new Color(0x0c, 0x12, 0x20), new Color(0x24, 0x40, 0x7e),
+                    4, 0.7, 0, 0, 0),
+            // The Eye: the calm inside it. The one bright sky in the galaxy, and the emptiest --
+            // near-white on a light ground, with barely half the usual decks.
+            new Theme("level-33", Backdrop.ATMOSPHERE, 4520,
+                    new Color(0x33, 0x45, 0x6e), new Color(0xdf, 0xe8, 0xff),
+                    3, 0.45, 0, 0, 0),
+            new Theme("level-34", Backdrop.BELT, 4530,
+                    new Color(0x2c, 0x38, 0x54, 30), new Color(0x4e, 0x68, 0x9a, 24),
+                    5, 1.2, -10, 0, 28),
+            // Static Canyon: the one level in the galaxy with ground under it.
+            new Theme("level-35", Backdrop.SURFACE, 4540,
+                    new Color(0x14, 0x1a, 0x28), new Color(0x46, 0x58, 0x7e),
+                    7, 1.3, 0, 0, 0),
+            new Theme("level-36", Backdrop.CAVERN, 4550,
+                    new Color(0x0a, 0x10, 0x20), new Color(0x7e, 0xa8, 0xff),
+                    5, 1.2, 0, 0, 0),
+            // Deep Descent: below the cloud base. Near-black on both tints, so the decks are
+            // barely there -- the darkest backdrop in the galaxy by a wide margin.
+            new Theme("level-37", Backdrop.ATMOSPHERE, 4560,
+                    new Color(0x05, 0x08, 0x0f), new Color(0x1b, 0x2c, 0x4e),
+                    6, 1.2, 0, 0, 0),
+            // Upper Deck: on top of the weather, lit from above for once. Desaturated on purpose,
+            // so it reads as overcast grey against five blue skies rather than as a sixth.
+            new Theme("level-38", Backdrop.ATMOSPHERE, 4570,
+                    new Color(0x2a, 0x35, 0x50), new Color(0xa8, 0xb4, 0xc8),
+                    7, 0.9, 0, 0, 0),
+            // Lightning Reach: the galaxy's side-on leg. Open space for the reason levels 9 and 17
+            // are -- stars look the same lying on their side, and sky, ground and cavern do not.
+            new Theme("level-39", Backdrop.STARFIELD, 4580,
+                    new Color(0x1c, 0x26, 0x44, 32), new Color(0x3a, 0x54, 0x8e, 26),
+                    4, 0.9, -12, 0, 30, true),
+            // Storm Crown: the densest deck in the galaxy, and the only one that leans off blue
+            // toward indigo -- the finale should not share a hue with the level that opened it.
+            new Theme("level-40", Backdrop.ATMOSPHERE, 4590,
+                    new Color(0x0e, 0x10, 0x24), new Color(0x6f, 0x7c, 0xe8),
+                    9, 1.8, 0, 0, 0),
     };
 
     /** Three parallax layers per level, scrolled at different rates by the renderer. */

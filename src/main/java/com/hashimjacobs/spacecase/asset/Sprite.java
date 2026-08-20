@@ -353,6 +353,48 @@ public enum Sprite {
     L30_FIGHTER("level-30/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L30_CRUISER("level-30/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
+    // ---- Galaxy 4: Tempest (levels 31-40) --------------------------------------------
+    L31_SCOUT("level-31/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L31_FIGHTER("level-31/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L31_CRUISER("level-31/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L32_SCOUT("level-32/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L32_FIGHTER("level-32/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L32_CRUISER("level-32/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L33_SCOUT("level-33/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L33_FIGHTER("level-33/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L33_CRUISER("level-33/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L34_SCOUT("level-34/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L34_FIGHTER("level-34/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L34_CRUISER("level-34/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L35_SCOUT("level-35/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L35_FIGHTER("level-35/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L35_CRUISER("level-35/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L36_SCOUT("level-36/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L36_FIGHTER("level-36/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L36_CRUISER("level-36/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L37_SCOUT("level-37/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L37_FIGHTER("level-37/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L37_CRUISER("level-37/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L38_SCOUT("level-38/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L38_FIGHTER("level-38/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L38_CRUISER("level-38/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    /** Lightning Reach is the galaxy's side-on leg, so its hulls are cut pointing left. */
+    L39_SCOUT("level-39/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L39_FIGHTER("level-39/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L39_CRUISER("level-39/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+
+    L40_SCOUT("level-40/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L40_FIGHTER("level-40/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L40_CRUISER("level-40/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
 
     /**
      * Fallback only. Bosses are animated, so the renderer draws a frame from
@@ -390,6 +432,15 @@ public enum Sprite {
 
     /** One ring of the Dune Leviathan's body; the renderer trails several behind the maw. */
     WORM_SEGMENT("worm-segment.png", 104, 104),
+
+    /**
+     * One ring of the Storm Serpent's body.
+     *
+     * Its own sprite rather than the Leviathan's because that one is not rotationally symmetric --
+     * it carries its bristles down one side, which is right for a worm crossing the screen and
+     * wrong for one striking down it. See {@code entity.BurrowingWorm.segmentSprite}.
+     */
+    STORM_SEGMENT("storm-segment.png", 104, 104),
     /** The rocket pickup's projectile. Was the mega laser's round; the beam replaced it. */
     ROCKET("MegaLaser.png", 26, 40),
     TRI_BULLET_LEFT("triBulletL.png", 18, 24),
@@ -552,7 +603,39 @@ public enum Sprite {
     L29_NEAR("level-29/near.png"),
     L30_FAR("level-30/far.png"),
     L30_MID("level-30/mid.png"),
-    L30_NEAR("level-30/near.png");
+    L30_NEAR("level-30/near.png"),
+
+    // ---- Galaxy 4: Tempest (levels 31-40) --------------------------------------------
+    L31_FAR("level-31/far.png"),
+    L31_MID("level-31/mid.png"),
+    L31_NEAR("level-31/near.png"),
+    L32_FAR("level-32/far.png"),
+    L32_MID("level-32/mid.png"),
+    L32_NEAR("level-32/near.png"),
+    L33_FAR("level-33/far.png"),
+    L33_MID("level-33/mid.png"),
+    L33_NEAR("level-33/near.png"),
+    L34_FAR("level-34/far.png"),
+    L34_MID("level-34/mid.png"),
+    L34_NEAR("level-34/near.png"),
+    L35_FAR("level-35/far.png"),
+    L35_MID("level-35/mid.png"),
+    L35_NEAR("level-35/near.png"),
+    L36_FAR("level-36/far.png"),
+    L36_MID("level-36/mid.png"),
+    L36_NEAR("level-36/near.png"),
+    L37_FAR("level-37/far.png"),
+    L37_MID("level-37/mid.png"),
+    L37_NEAR("level-37/near.png"),
+    L38_FAR("level-38/far.png"),
+    L38_MID("level-38/mid.png"),
+    L38_NEAR("level-38/near.png"),
+    L39_FAR("level-39/far.png"),
+    L39_MID("level-39/mid.png"),
+    L39_NEAR("level-39/near.png"),
+    L40_FAR("level-40/far.png"),
+    L40_MID("level-40/mid.png"),
+    L40_NEAR("level-40/near.png");
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.

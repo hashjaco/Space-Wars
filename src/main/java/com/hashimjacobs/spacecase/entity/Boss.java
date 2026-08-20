@@ -162,7 +162,69 @@ public enum Boss {
      */
     FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS, 3700, 3200,
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.RING,
-            4, BossArt.FROZEN_EMPRESS_HEAD);
+            4, BossArt.FROZEN_EMPRESS_HEAD),
+
+    // ---- Galaxy 4: Tempest ---------------------------------------------------------------
+    // Sixty a step and fifty of score again, opening above the Frozen Empress, jump at the finale.
+    //
+    // Two set pieces rather than one, so eight warships and animals rather than nine. Both reuse a
+    // class that already exists -- PilotedMech and BurrowingWorm -- and neither needed a new one.
+
+    SQUALL_WARDEN("Squall Warden", BossArt.SQUALL_WARDEN, 3760, 3250,
+            BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.RING),
+
+    THUNDER_BROOD("Thunder Brood", BossArt.THUNDER_BROOD, 3820, 3300,
+            BossPhase.SPAWNER, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    EYEWALL_LANCE("Eyewall Lance", BossArt.EYEWALL_LANCE, 3880, 3350,
+            BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
+
+    RING_REAVER("Ring Reaver", BossArt.RING_REAVER, 3940, 3400,
+            BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.SWEEPING_FAN),
+
+    STATIC_CRAWLER("Static Crawler", BossArt.STATIC_CRAWLER, 4000, 3450,
+            BossPhase.AIMED_BURST, BossPhase.RING, BossPhase.SPAWNER),
+
+    MAGNETAR_MAW("Magnetar Maw", BossArt.MAGNETAR_MAW, 4060, 3500,
+            BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.SPREAD),
+
+    DOWNDRAFT_PROW("Downdraft Prow", BossArt.DOWNDRAFT_PROW, 4120, 3550,
+            BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    /**
+     * Level 38. Vaunt again, in a bigger rig, and the payoff for having built him in Ashfall.
+     *
+     * A row rather than a class: {@code entity.PilotedMech} takes its body and cockpit boxes from
+     * whatever {@link #art()} and {@link #headArt()} say, and its part offsets and health shares are
+     * fractions of the body, so they follow a larger one on their own.
+     *
+     * The head count must stay at two even though {@code PilotedMech} discards the parts it implies
+     * and fits three of its own. {@code EnemyShip.bodyShare} gives a flagship all of its authored
+     * health when the count is zero, and {@code EnemyWeapons} lets it fire rocket salvos -- so a
+     * zero here would hand this rig 145% of its stated health, move every phase boundary, and arm
+     * it with something Vaunt has never fired.
+     *
+     * Phases are Vaunt's own, deliberately. Same man, same doctrine, heavier machine.
+     */
+    VAUNT_IN_THE_STORM_RIG("Vaunt, in the Storm-Rig", BossArt.STORM_RIG, 4180, 3600,
+            BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
+            2, BossArt.STORM_RIG_COCKPIT),
+
+    ARC_LANCE("Arc Lance", BossArt.ARC_LANCE, 4240, 3650,
+            BossPhase.SPIRAL, BossPhase.RING, BossPhase.SPREAD),
+
+    /**
+     * Level 40. The galaxy's finale, and the second thing in the game that burrows.
+     *
+     * The same {@code entity.BurrowingWorm} the Dune Leviathan is, on a top-down level rather than a
+     * side-on one, so it strikes down out of the cloud deck instead of sideways out of a wall. That
+     * took no new code at all: the class holds no orientation of its own and asks
+     * {@code Orientation} for every distance it uses.
+     *
+     * What it does not share is the reach. See {@code BurrowingWorm.strikeReach}.
+     */
+    STORM_SERPENT("The Storm Serpent", BossArt.STORM_SERPENT, 4700, 3850,
+            BossPhase.RING, BossPhase.SPREAD, BossPhase.AIMED_BURST);
 
     private final String label;
     private final BossArt art;
@@ -216,6 +278,22 @@ public enum Boss {
             case HYDRA -> MusicCue.HYDRA_BOSS;
             case DUNE_LEVIATHAN -> MusicCue.LEVIATHAN_BOSS;
             default -> MusicCue.BOSS;
+        };
+    }
+
+    /**
+     * The art for one arm pod of a piloted rig, or null for a flagship that has no arms.
+     *
+     * A method rather than a tenth constructor argument, for the reason {@link #music()} is one:
+     * only two constants in the enum answer it, and adding a field would touch all thirty-eight.
+     * This used to be a compile-time constant inside {@code entity.PilotedMech}, which meant a
+     * second rig of any size would have worn Ashfall's 78-pixel pods.
+     */
+    public BossArt armArt() {
+        return switch (this) {
+            case VAUNT_IN_THE_STORM_RIG -> BossArt.STORM_RIG_ARM;
+            case VAUNT -> BossArt.FORGE_RIG_ARM;
+            default -> null;
         };
     }
 

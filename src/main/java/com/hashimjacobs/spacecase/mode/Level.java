@@ -216,7 +216,76 @@ public enum Level {
     THE_FROZEN_HEART("The Frozen Heart",
             Sprite.L30_FAR, Sprite.L30_MID, Sprite.L30_NEAR,
             Sprite.L30_SCOUT, Sprite.L30_FIGHTER, Sprite.L30_CRUISER,
-            Boss.FROZEN_EMPRESS, 6, WorldTemplate.CAVE);
+            Boss.FROZEN_EMPRESS, 6, WorldTemplate.CAVE),
+
+    // ---- Galaxy 4: Tempest (levels 31-40) ------------------------------------------------
+    // Storm and gas giant, and the galaxy with no floor: six of the ten are inside cloud, exactly
+    // one has ground under it, and the finale arrives out of the deck rather than flying in. Waves
+    // run 4,4,5,5,5,5,6,6,6,6 -- a plain climb, because this galaxy's shape is its sky and not its
+    // clock the way Cryonis's alternation was.
+
+    /** Cloudwall: into the weather, and the first sky in the game with no horizon in it. */
+    CLOUDWALL("Cloudwall",
+            Sprite.L31_FAR, Sprite.L31_MID, Sprite.L31_NEAR,
+            Sprite.L31_SCOUT, Sprite.L31_FIGHTER, Sprite.L31_CRUISER,
+            Boss.SQUALL_WARDEN, 4),
+
+    THUNDERHEAD("Thunderhead",
+            Sprite.L32_FAR, Sprite.L32_MID, Sprite.L32_NEAR,
+            Sprite.L32_SCOUT, Sprite.L32_FIGHTER, Sprite.L32_CRUISER,
+            Boss.THUNDER_BROOD, 4),
+
+    THE_EYE("The Eye",
+            Sprite.L33_FAR, Sprite.L33_MID, Sprite.L33_NEAR,
+            Sprite.L33_SCOUT, Sprite.L33_FIGHTER, Sprite.L33_CRUISER,
+            Boss.EYEWALL_LANCE, 5),
+
+    RING_DEBRIS("Ring Debris",
+            Sprite.L34_FAR, Sprite.L34_MID, Sprite.L34_NEAR,
+            Sprite.L34_SCOUT, Sprite.L34_FIGHTER, Sprite.L34_CRUISER,
+            Boss.RING_REAVER, 5),
+
+    /** Static Canyon: the one leg in the galaxy with ground under it. */
+    STATIC_CANYON("Static Canyon",
+            Sprite.L35_FAR, Sprite.L35_MID, Sprite.L35_NEAR,
+            Sprite.L35_SCOUT, Sprite.L35_FIGHTER, Sprite.L35_CRUISER,
+            Boss.STATIC_CRAWLER, 5),
+
+    MAG_STORM_CAVERNS("Mag-Storm Caverns",
+            Sprite.L36_FAR, Sprite.L36_MID, Sprite.L36_NEAR,
+            Sprite.L36_SCOUT, Sprite.L36_FIGHTER, Sprite.L36_CRUISER,
+            Boss.MAGNETAR_MAW, 5, WorldTemplate.CAVE),
+
+    DEEP_DESCENT("Deep Descent",
+            Sprite.L37_FAR, Sprite.L37_MID, Sprite.L37_NEAR,
+            Sprite.L37_SCOUT, Sprite.L37_FIGHTER, Sprite.L37_CRUISER,
+            Boss.DOWNDRAFT_PROW, 6),
+
+    /** Upper Deck: back out on top of the weather, and the man who was waiting in Ashfall. */
+    UPPER_DECK("Upper Deck",
+            Sprite.L38_FAR, Sprite.L38_MID, Sprite.L38_NEAR,
+            Sprite.L38_SCOUT, Sprite.L38_FIGHTER, Sprite.L38_CRUISER,
+            Boss.VAUNT_IN_THE_STORM_RIG, 6),
+
+    /**
+     * Lightning Reach: the galaxy's side-on leg.
+     *
+     * Open space, for the reason levels 9 and 17 are: sky, ground and cavern each have a built-in
+     * up and read as nonsense scrolled sideways, where stars look the same lying on their side. The
+     * four things that have to agree are all set -- the sky tiles horizontally, the hulls are cut
+     * pointing left, their Sprite constants declare transposed sizes, and the flagship's frames are
+     * turned once by the generator rather than rotated per frame.
+     */
+    LIGHTNING_REACH("Lightning Reach",
+            Sprite.L39_FAR, Sprite.L39_MID, Sprite.L39_NEAR,
+            Sprite.L39_SCOUT, Sprite.L39_FIGHTER, Sprite.L39_CRUISER,
+            Boss.ARC_LANCE, 6, Orientation.RIGHT_TO_LEFT),
+
+    /** Storm Crown: the top of the weather, and the thing that comes down through it. */
+    STORM_CROWN("Storm Crown",
+            Sprite.L40_FAR, Sprite.L40_MID, Sprite.L40_NEAR,
+            Sprite.L40_SCOUT, Sprite.L40_FIGHTER, Sprite.L40_CRUISER,
+            Boss.STORM_SERPENT, 6);
 
     private final String label;
     private final List<Sprite> layers;
