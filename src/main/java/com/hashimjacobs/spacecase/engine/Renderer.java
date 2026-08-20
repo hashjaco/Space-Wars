@@ -330,8 +330,9 @@ public final class Renderer {
      * positions are a pure function of the worm's age, so none of this is simulated or stored.
      */
     private void drawWormBody(BurrowingWorm worm) {
-        Image ring = Assets.image(Sprite.WORM_SEGMENT);
-        double widest = Sprite.WORM_SEGMENT.width();
+        Sprite segment = worm.segmentSprite();
+        Image ring = Assets.image(segment);
+        double widest = segment.width();
         for (int k = BurrowingWorm.SEGMENTS; k >= 1; k--) {
             // Tapering toward the tail, but never so far that the last rings read as pebbles.
             double size = widest * (1 - 0.055 * k);

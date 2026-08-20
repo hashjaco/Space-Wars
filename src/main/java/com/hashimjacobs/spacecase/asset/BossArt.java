@@ -107,7 +107,53 @@ public enum BossArt {
      * four of them spread across a wider arc -- at the hydra head's 64 they read as pinheads on
      * the end of long necks.
      */
-    FROZEN_EMPRESS_HEAD("boss-frozen-empress-head", 8, 4, 104, 104);
+    FROZEN_EMPRESS_HEAD("boss-frozen-empress-head", 8, 4, 104, 104),
+
+    // ---- Galaxy 4: Tempest ---------------------------------------------------------------
+    // The same 1.5x source canvases Ashfall and Cryonis use.
+
+    SQUALL_WARDEN("boss-squall-warden", 8, 6, 248, 148),
+    THUNDER_BROOD("boss-thunder-brood", 8, 6, 239, 175),
+    EYEWALL_LANCE("boss-eyewall-lance", 8, 6, 169, 227),
+    RING_REAVER("boss-ring-reaver", 8, 6, 269, 131),
+    STATIC_CRAWLER("boss-static-crawler", 8, 6, 257, 147),
+    MAGNETAR_MAW("boss-magnetar-maw", 8, 6, 220, 191),
+    DOWNDRAFT_PROW("boss-downdraft-prow", 8, 6, 200, 191),
+
+    /**
+     * Level 38's rig: Vaunt again, in a bigger one. The cockpit and the arms are separate targets
+     * and are not in these frames.
+     *
+     * 320 wide rather than anything larger because {@code entity.PilotedMech} strides to 0.8 of the
+     * arena breadth and then adds half its own width, so a body past 398 walks its shoulder off the
+     * edge of a top-down arena. Nothing in the suite would catch that.
+     */
+    STORM_RIG("boss-storm-rig", 8, 6, 320, 240),
+
+    /** The man in the bigger rig. Same glass, same pilot; see FORGE_RIG_COCKPIT. */
+    STORM_RIG_COCKPIT("boss-storm-rig-cockpit", 8, 4, 84, 84),
+
+    /** One of the Storm-Rig's two arm pods. Its own art, reached through {@code Boss.armArt}. */
+    STORM_RIG_ARM("boss-storm-rig-arm", 8, 5, 102, 102),
+
+    /**
+     * Level 39, turned for the galaxy's one right-to-left arena.
+     *
+     * Drawn nose-down at 268x322 and quarter-turned on the way out, so what the game decodes is 322
+     * wide -- which is why these numbers look transposed against the generator's profile. Same
+     * caveat as SUNWARD_LANCE and SHARD_CUTTER.
+     */
+    ARC_LANCE("boss-arc-lance", 8, 6, 215, 179),
+
+    /**
+     * Level 40's finale, striking down out of the cloud deck.
+     *
+     * 240 along the strike axis is not a free number: {@code entity.BurrowingWorm} reaches
+     * {@code arenaDepth * strikeReach()} and then adds this, against a player spawning 130 short of
+     * the back wall. At the Dune Leviathan's shared 0.62 that would put the maw past the player's
+     * line; the serpent carries its own reach instead. See {@code BurrowingWorm.strikeReach}.
+     */
+    STORM_SERPENT("boss-storm-serpent", 8, 6, 320, 240);
 
     private final String directory;
     private final int frameCount;

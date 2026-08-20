@@ -144,8 +144,71 @@ class PilotedMechTest {
             first.update();
             second.update();
             assertEquals(first.x(), second.x(), 1e-9, "the walk drifted between two identical rigs");
-            assertTrue(first.x() >= -first.width() && first.x() <= 996,
-                    "the rig walked out of the arena at tick " + tick);
+            assertTrue(first.x() >= 0 && first.x() + first.width() <= 996,
+                    "the rig walked out of the arena at tick " + tick + ", x=" + first.x()
+                            + " width=" + first.width());
         }
+    }
+
+    /**
+     * The width ceiling, which nothing guarded until Tempest wanted a bigger rig.
+     *
+     * This assertion used to read {@code first.x() <= 996}, which is vacuously true of anything
+     * drawn on screen at all -- it can only catch a rig that has left the arena entirely, never one
+     * whose shoulder is hanging over the edge. It now checks the trailing edge, which is the thing
+     * the stride can actually push out: {@link PilotedMech} walks the centre of the lane to 0.8 of
+     * the arena's breadth and then subtracts half its own width, so a body wider than 398 overhangs
+     * no matter how it is placed.
+     *
+     * Stated as a property of every rig rather than of the two that exist, so a third inherits it.
+     */
+    @Test
+    void noRigIsWiderThanTheStrideLeavesRoomFor() {
+        for (Boss flagship : Boss.values()) {
+            if (flagship.armArt() == null) {
+                continue;
+            }
+            double widest = 996 * 0.2 * 2;
+            assertTrue(flagship.art().width() <= widest,
+                    flagship + " is " + flagship.art().width() + " wide, and the stride leaves room"
+                            + " for " + widest + " -- it will walk its shoulder off the arena");
+        }
+    }
+
+    /**
+     * A rig must declare heads even though it throws away the parts they imply.
+     *
+     * {@link PilotedMech} clears the inherited parts and fits its own three, so the head count looks
+     * decorative and is not. {@code EnemyShip.bodyShare} hands a flagship all of its authored health
+     * when the count is zero, and {@code EnemyWeapons} lets it fire rocket salvos -- so a rig row
+     * written with zero would carry 145% of its stated health across body and parts, move every
+     * phase boundary with it, and arm the body with something no rig has ever fired.
+     */
+    @Test
+    void everyRigDeclaresItsHeadsSoTheHealthSharesStayRight() {
+        for (Boss flagship : Boss.values()) {
+            if (flagship.armArt() == null) {
+                continue;
+            }
+            assertTrue(flagship.heads() > 0,
+                    flagship + " must declare its heads even though PilotedMech discards them");
+            assertEquals(3, new PilotedMech(flagship, 400, 90, 1).parts().size(),
+                    flagship + " should field two arms and a cockpit");
+        }
+    }
+
+    /** Each rig wears its own pods. This was a compile-time constant, so the second one could not. */
+    @Test
+    void eachRigWearsItsOwnArmPods() {
+        assertSame(BossArt.FORGE_RIG_ARM, Boss.VAUNT.armArt());
+        assertSame(BossArt.STORM_RIG_ARM, Boss.VAUNT_IN_THE_STORM_RIG.armArt());
+
+        PilotedMech storm = new PilotedMech(Boss.VAUNT_IN_THE_STORM_RIG, 400, 90, 1);
+        assertTrue(storm.parts().stream()
+                        .anyMatch(part -> part.bossArt() == BossArt.STORM_RIG_ARM),
+                "the Storm-Rig is still wearing Ashfall's pods");
+        assertFalse(storm.parts().stream()
+                        .anyMatch(part -> part.bossArt() == BossArt.FORGE_RIG_ARM),
+                "the Storm-Rig is still wearing Ashfall's pods");
     }
 }

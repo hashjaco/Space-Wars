@@ -2,22 +2,22 @@
 
 Where the campaign is, and how to build the rest of it.
 
-The plan is five galaxies of ten levels. Three are done. This file is what the remaining two need,
-the rules that will bite while building them, and the things already learned the hard way.
+The plan is five galaxies of ten levels. Four are done. This file is what the last one needs, the
+rules that will bite while building it, and the things already learned the hard way.
 
 ## Where it stands
 
 | | |
 |---|---|
-| Levels | 30 of 50 |
-| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30) |
-| Tests | 426, all headless |
-| `src/main/resources` | 59 MB |
-| Per galaxy, measured | ~148 PNGs, ~6 MB, ~5 s of generator time |
+| Levels | 40 of 50 |
+| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30), `TEMPEST` (31–40) |
+| Tests | 434, all headless |
+| `src/main/resources` | 65 MB |
+| Per galaxy, measured | ~155 PNGs, ~7 MB, ~5.5 s of generator time |
 
-Two galaxies left, so budget roughly **300 PNGs and 12 MB**, finishing near 71 MB. Generator
-runtime is not a concern: it was 3.1 s at ten levels, 4 s at twenty and 4.9 s at thirty, so fifty
-lands well inside ten seconds. Ignore any advice about parallelising it.
+One galaxy left, so budget roughly **155 PNGs and 7 MB**, finishing near 72 MB. Generator runtime is
+not a concern: it was 3.1 s at ten levels, 4 s at twenty, 4.9 s at thirty and 5.5 s at forty, so
+fifty lands well inside ten seconds. Ignore any advice about parallelising it.
 
 The framework is finished. Everything below is data plus a small, named amount of new code.
 
@@ -157,27 +157,88 @@ hardcoded array, and `BossHead.socket()` now computes `0.5 + SOCKET_SPAN * (spre
 four-headed torso needs four sockets drawn at those positions or the necks grow out of blank hide.
 Draw the torso with a new method — see rule 2.
 
-## Phase 3 — Tempest (31–40)
+## Phase 3 — Tempest (31–40) — **done**
 
-Storm and gas giant. Seeds **4500–4590**. Accent `#7ea8ff`.
+Storm and gas giant. Seeds **4500–4590**. Accent `#7ea8ff`. Built as described below. Both set pieces
+landed, and both cost more than this entry said they would; the difference is folded into *Carried
+forward* above and spelled out here.
 
 **Structural identity: no floor.** Six of ten are `ATMOSPHERE`, one is ground, and the finale arrives
-out of a cloud deck rather than flying in.
+out of a cloud deck rather than flying in. Waves run `4,4,5,5,5,5,6,6,6,6` — a plain climb, because
+this galaxy's shape is its sky rather than its clock.
 
-Cloudwall · Thunderhead · The Eye · Ring Debris (`BELT`) · Static Canyon (`SURFACE`) · Mag-Storm
-Caverns (`CAVERN`, `CAVE`) · Deep Descent · Upper Deck · Lightning Reach (`STARFIELD`, **side-on**) ·
-**Storm Crown** (finale).
+| # | Level | `Backdrop` | Notes |
+|---|---|---|---|
+| 31 | Cloudwall | `ATMOSPHERE` | |
+| 32 | Thunderhead | `ATMOSPHERE` | |
+| 33 | The Eye | `ATMOSPHERE` | |
+| 34 | Ring Debris | `BELT` | |
+| 35 | Static Canyon | `SURFACE` | the galaxy's only ground |
+| 36 | Mag-Storm Caverns | `CAVERN` | `CAVE` template |
+| 37 | Deep Descent | `ATMOSPHERE` | |
+| 38 | Upper Deck | `ATMOSPHERE` | Vaunt returns |
+| 39 | Lightning Reach | `STARFIELD` | **side-on** |
+| 40 | Storm Crown | `ATMOSPHERE` | finale |
 
-Ladder: x1–x9 3760 → 4240 health, 3250 → 3650 score; finale **4700 / 3850**.
+Ladder: x1–x9 3760 → 4240 health, 3250 → 3650 score; finale **4700 / 3850**. Five warships from three
+hulls and three vanes, three creatures, and the two set pieces.
 
-**Two set pieces, both nearly free:**
+**The Storm Serpent was as cheap as promised, in the engine.** `BurrowingWorm.strikeDepth()` really is
+orientation-derived, the class holds no axis of its own, and a top-down level turns the strike with no
+changes to it. The `SpawnDirector` entry really was one line.
 
-- **Vaunt returns**, in a bigger rig. A data row on the existing `PilotedMech` — new `Boss` constant,
-  new `BossArt`, larger numbers. This is the payoff for building him in Ashfall.
-- **The Storm Serpent** reuses `BurrowingWorm` top-down, striking down out of the cloud deck instead
-  of sideways out of a wall. `BurrowingWorm.strikeDepth()` was made orientation-derived in Phase 0
-  precisely for this, so it should need only a `Boss` row, art, and one entry in the
-  `SpawnDirector.maybeSpawnBoss` switch.
+It was **not** free in the art, in three ways this entry did not name. `wormMawFrame` draws the maw
+opening left, so top-down needs a new one. `Renderer.drawWormBody` hardcoded `Sprite.WORM_SEGMENT`,
+and `wormSegment()` is not rotationally symmetric — it carries bristles down one side, right for an
+animal crossing the screen and wrong for one striking down it. And `STRIKE_REACH` was a single
+constant shared with the Leviathan: what decides whether a strike is fair is the reach *plus* the
+art's extent along the strike axis, and both differ between a 996-deep side-on arena and an 864-deep
+top-down one, so the shared 0.62 put the serpent's jaws past the line the player spawns on. It
+carries its own 0.53 now, and level 9 is untouched.
+
+**Vaunt's return was not a data row.** Three things:
+
+- `PilotedMech` hardcoded `BossArt arm = BossArt.FORGE_RIG_ARM`, so a bigger rig wore Ashfall's
+  78-pixel pods. Now `Boss.armArt()`, a method rather than a tenth constructor argument, as
+  `Boss.music()` is.
+- The generator has no rig profile: `mechFrame`, `armFrame` and `cockpitFrame` took only a frame
+  index. They now take canvas and plate colours too, defaults equal to what Ashfall always passed —
+  rule 2's escape hatch rather than a hundred lines of second walking machine.
+- **A `PilotedMech` row must declare `heads >= 1`** even though the class discards the parts they
+  imply. `EnemyShip.bodyShare` hands a flagship all of its authored health at zero and `EnemyWeapons`
+  arms it with rocket salvos, so a rig written with `heads = 0` would carry 145% of its stated health
+  and fire something no rig has ever fired.
+
+## Carried forward from Tempest
+
+**Six levels on one recipe need to be separated on the axis that recipe actually reads.** Tempest
+runs `sky()` six times. The first pass spread those rows on `blobs` — 10, 4, 3, 6, 7, 9 — and it
+changed nothing whatever, because `sky()` never reads `blobs`. It reads `density` for the deck count
+and paints every deck `brighten(tintB, 78)` over a `tintA`/`tintB` gradient. Six pale `tintB` values
+are six white decks on six white bands, and on the sheet they were one sky. `blobs` does real work
+only in `stars()`, `ground()` and `tunnel()`. **Check which fields the recipe you picked consumes
+before tuning them.**
+
+**A hull runs nose-down: `y = 0.99` is the nose, `y = 0.02` is the tail.** That is where `bossFrame`
+puts the prow blade and the engine bank. Tempest's first three hulls were written widest at the nose
+and pointed at the tail, and all three rendered as the same wide dome no matter how their vertices
+differed. `CRYO_PROW` is the reference — a lens, pointed at both ends, widest below the middle.
+
+**Aspect separates classes, and three of five is already too many in one band.** Cryonis said this
+about plate colour; Tempest found the floor. Three of its five warships sat between 1.3 and 1.9 on
+two hulls and read as one ship on `BossSheet`. They now span 0.75 to 2.06, and no two of the three
+broad classes share a hull. The two that repeat one are the tall Mast and the turned Delta, which
+cannot be confused with anything.
+
+**`SpawnDirectorTest.theSameSeedProducesTheSameRun` does not enforce rule 8.** It counts asteroids
+over two runs in the same JVM at the same code version, so it proves determinism and nothing else. An
+added `random.next*()` call in a spawn path would fail no test at all. Rule 8 is a convention held by
+reading, so read it.
+
+**`PilotedMech` has a width ceiling of 398 and nothing guarded it.** The stride walks the lane centre
+to 0.8 of the arena breadth and subtracts half the body's width, so a wider rig overhangs the edge.
+`PilotedMechTest` asserted `x() <= 996`, which is vacuously true of anything on screen — it now checks
+the trailing edge, for every rig rather than the two that exist.
 
 ## Phase 4 — Null (41–50)
 

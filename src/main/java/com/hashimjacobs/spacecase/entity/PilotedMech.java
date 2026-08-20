@@ -45,7 +45,9 @@ public final class PilotedMech extends EnemyShip {
         int armHealth = (int) Math.round(total * ARM_SHARE / 2);
         int cockpitHealth = (int) Math.round(total * COCKPIT_SHARE);
         BossArt glass = boss.headArt();
-        BossArt arm = BossArt.FORGE_RIG_ARM;
+        // Data, not a constant. This was BossArt.FORGE_RIG_ARM outright, which meant a second rig
+        // of any size wore Ashfall's 78-pixel pods on a body scaled past them.
+        BossArt arm = boss.armArt();
 
         for (int side = -1; side <= 1; side += 2) {
             parts().add(new MechPart(this, arm, arm.width(), arm.height(), armHealth,
