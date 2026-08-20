@@ -43,6 +43,42 @@ public final class GameConfig {
     /** Fastest the fire-rate upgrade may make the weapon, whatever the level. */
     public static final int PLAYER_FIRE_COOLDOWN_FLOOR = 6;
 
+    /**
+     * The garage tracks that improve a pickup rather than the ship.
+     *
+     * These compound with something the player already had to find, so each is deliberately a short
+     * ladder with a high price: two levels, not four. The floors matter more than the steps -- a
+     * reload that keeps shrinking eventually turns the rocket into the primary weapon, which is the
+     * one thing the pickup split exists to prevent.
+     */
+    public static final int UPGRADE_SALVO_STEP = 5;
+    public static final int ROCKET_FIRE_COOLDOWN_FLOOR = 14;
+    public static final int UPGRADE_BEAM_STEP = 1;
+    public static final int UPGRADE_CAPACITOR_STEP = 15;
+
+    /**
+     * The repair rig: one point of health per interval, and only while flying clean.
+     *
+     * Divided by the level, so level three patches three times as often as level one. Gated on not
+     * having been hit recently, and slow enough that it cannot outheal being shot -- an enemy bullet
+     * is six points, so even maxed this is worth about a fifth of one shot a second. It is for the
+     * long quiet stretch between waves, not for standing in fire.
+     */
+    public static final int REPAIR_INTERVAL_TICKS = 900;
+    public static final int REPAIR_CALM_TICKS = 180;
+
+    /** Extra respawn grace per level of eject gear, in ticks. */
+    public static final int UPGRADE_EJECT_STEP = 30;
+
+    /**
+     * How far a collector reaches per level, and how fast it reels a pickup in.
+     *
+     * The pull is well under {@code PLAYER_SPEED} on purpose: it should save a pilot the detour for
+     * something already nearly in reach, not fetch the arena to them.
+     */
+    public static final int UPGRADE_COLLECTOR_RANGE = 90;
+    public static final double UPGRADE_COLLECTOR_PULL = 2.2;
+
     public static final double BULLET_SPEED = 10.0;
     public static final int BULLET_DAMAGE = 10;
 

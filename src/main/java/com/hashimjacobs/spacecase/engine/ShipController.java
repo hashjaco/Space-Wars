@@ -9,6 +9,7 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.entity.Rocket;
 
 /** Turns held keys into ship movement and weapon fire for one player. */
@@ -198,7 +199,10 @@ public final class ShipController {
         }
 
         if (ship.hasEffect(PowerUp.Kind.ROCKETS)) {
-            ship.startFireCooldown(GameConfig.ROCKET_FIRE_COOLDOWN);
+            // The rack shortens the reload but never below its floor, so rockets stay a salvo you
+            // wait for rather than becoming the gun you hold down.
+            ship.startFireCooldown(Upgrade.rocketCooldownAt(
+                    ship.loadout().level(Upgrade.SALVO)));
             fireRocket(world);
         } else {
             ship.startFireCooldown();

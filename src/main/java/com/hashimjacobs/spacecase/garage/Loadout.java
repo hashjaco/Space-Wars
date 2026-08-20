@@ -134,7 +134,7 @@ public final class Loadout {
                 if (upgrade == null) {
                     continue;
                 }
-                loadout.levels.put(upgrade, clampLevel(
+                loadout.levels.put(upgrade, clampLevel(upgrade,
                         Integer.parseInt(entry.substring(split + 1).trim())));
             }
         }
@@ -144,7 +144,8 @@ public final class Loadout {
     /** Reads the five positional upgrade fields a version 1 record holds. */
     private static int readVersionOneUpgrades(Loadout loadout, String[] fields) {
         for (int i = 0; i < V1_UPGRADE_ORDER.length; i++) {
-            loadout.levels.put(V1_UPGRADE_ORDER[i], clampLevel(valueAt(fields, 1 + i)));
+            loadout.levels.put(V1_UPGRADE_ORDER[i],
+                    clampLevel(V1_UPGRADE_ORDER[i], valueAt(fields, 1 + i)));
         }
         return 1 + V1_UPGRADE_ORDER.length;
     }
@@ -166,8 +167,15 @@ public final class Loadout {
         return Integer.parseInt(fields[index].trim());
     }
 
-    private static int clampLevel(int level) {
-        int clamped = Math.max(0, Math.min(GameConfig.UPGRADE_MAX_LEVEL, level));
+    /**
+     * Holds a stored level inside the track's own ceiling.
+     *
+     * Per-upgrade rather than one global maximum: the tracks are different lengths now, so a record
+     * naming level four of a two-level track -- hand-edited, or written when the ceilings differed --
+     * must come back as two rather than as four.
+     */
+    private static int clampLevel(Upgrade upgrade, int level) {
+        int clamped = Math.max(0, Math.min(upgrade.maxLevel(), level));
         return clamped;
     }
 
@@ -242,7 +250,7 @@ public final class Loadout {
     }
 
     public boolean isMaxed(Upgrade upgrade) {
-        boolean maxed = level(upgrade) >= GameConfig.UPGRADE_MAX_LEVEL;
+        boolean maxed = level(upgrade) >= upgrade.maxLevel();
         return maxed;
     }
 

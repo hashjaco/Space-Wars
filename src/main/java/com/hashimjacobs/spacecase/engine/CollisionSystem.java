@@ -5,6 +5,7 @@ import java.util.Random;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Explosion;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
+import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.mode.WorldTemplate;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.Asteroid;
@@ -110,7 +111,11 @@ public final class CollisionSystem {
             // One shot a tick, not one per thing burned: otherwise standing in a dense wave would
             // report an accuracy of several hundred percent.
             player.recordShot();
-            int damage = player.damageFor(GameConfig.BEAM_DAMAGE_PER_TICK);
+            // Firepower scales the beam as it scales everything; the coil is the track bought
+            // specifically for it, so the two compound -- which is why both are short ladders.
+            int perTick = GameConfig.BEAM_DAMAGE_PER_TICK
+                    + player.loadout().level(Upgrade.FOCUS) * GameConfig.UPGRADE_BEAM_STEP;
+            int damage = player.damageFor(perTick);
 
             for (EnemyShip enemy : world.enemies()) {
                 if (!enemy.isAlive() || !overlaps(beam, enemy)) {

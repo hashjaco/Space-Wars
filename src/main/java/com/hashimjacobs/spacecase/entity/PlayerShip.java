@@ -43,6 +43,10 @@ public final class PlayerShip extends Entity {
     private int damageTaken;
     private int fireCooldown;
     private int invulnerableTicks;
+
+    /** Ticks since anything last landed, and progress toward the next repaired point. */
+    private int calmTicks;
+    private int repairTicks;
     private int hitFlashTicks;
     private boolean firingBeam;
     private Lean lean = Lean.NONE;
@@ -92,7 +96,33 @@ public final class PlayerShip extends Entity {
         if (hitFlashTicks > 0) {
             hitFlashTicks--;
         }
+        tickRepair();
         refreshSprite();
+    }
+
+    /**
+     * The repair rig, ticking.
+     *
+     * Two clocks rather than one: {@link #calmTicks} counts how long since anything landed, and the
+     * repair only runs once that passes {@code REPAIR_CALM_TICKS}. Without the calm gate this would
+     * heal through a firefight, which is the difference between a rig that rewards clean flying and
+     * one that removes the consequence of being shot.
+     */
+    private void tickRepair() {
+        int level = loadout.level(Upgrade.REPAIR);
+        if (level <= 0 || health >= maxHealth()) {
+            calmTicks++;
+            return;
+        }
+        calmTicks++;
+        if (calmTicks < GameConfig.REPAIR_CALM_TICKS) {
+            return;
+        }
+        repairTicks += level;
+        if (repairTicks >= GameConfig.REPAIR_INTERVAL_TICKS) {
+            repairTicks = 0;
+            health = Math.min(maxHealth(), health + 1);
+        }
     }
 
     public boolean canFire() {
@@ -150,6 +180,8 @@ public final class PlayerShip extends Entity {
         health -= taken;
         damageTaken += taken;
         hitFlashTicks = 18;
+        calmTicks = 0;
+        repairTicks = 0;
         if (health > 0) {
             return false;
         }
@@ -162,7 +194,8 @@ public final class PlayerShip extends Entity {
         health = maxHealth();
         setPosition(spawnX, spawnY);
         setVelocity(0, 0);
-        invulnerableTicks = GameConfig.PLAYER_INVULNERABLE_TICKS;
+        invulnerableTicks = GameConfig.PLAYER_INVULNERABLE_TICKS
+                + loadout.level(Upgrade.EJECT) * GameConfig.UPGRADE_EJECT_STEP;
         // Dying costs the whole arsenal. Power-ups do not expire on their own any more, so this is
         // the only thing that takes them away and the only reason to fear a hit once shielded.
         activeEffects.clear();
@@ -181,7 +214,7 @@ public final class PlayerShip extends Entity {
                     (held, one) -> Math.min(held + one, GameConfig.TRI_SHOT_MAX_STACKS));
             // A second shield refills rather than adding: a stacked one would be an eventual
             // invulnerability, which is exactly what giving it a bar was meant to end.
-            case SHIELD -> activeEffects.put(PowerUp.Kind.SHIELD, GameConfig.SHIELD_CAPACITY);
+            case SHIELD -> activeEffects.put(PowerUp.Kind.SHIELD, shieldCapacity());
             case MEGA_LASER, ROCKETS, SPEED -> activeEffects.put(kind, 1);
         }
     }
@@ -219,6 +252,12 @@ public final class PlayerShip extends Entity {
     public int triStacks() {
         int stacks = activeEffects.getOrDefault(PowerUp.Kind.TRI_SHOT, 0);
         return stacks;
+    }
+
+    /** What a shield pickup is worth to this ship, capacitor included. */
+    public int shieldCapacity() {
+        return GameConfig.SHIELD_CAPACITY
+                + loadout.level(Upgrade.CAPACITOR) * GameConfig.UPGRADE_CAPACITOR_STEP;
     }
 
     /** Damage the shield can still deflect, 0 when there is no shield. */

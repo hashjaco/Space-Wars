@@ -14,6 +14,7 @@ import com.hashimjacobs.spacecase.entity.Facing;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
@@ -171,6 +172,7 @@ public final class World {
         }
         for (PowerUp powerUp : powerUps) {
             powerUp.update();
+            reelIn(powerUp);
         }
         killWhatLeftTheArena();
     }
@@ -281,6 +283,43 @@ public final class World {
                 powerUp.kill();
             }
         }
+    }
+
+    /**
+     * The collector: nudges a pickup toward whichever pilot has the longest reach on it.
+     *
+     * Nudges rather than teleports, and well below {@code PLAYER_SPEED}, so this saves a pilot the
+     * detour for something nearly in reach instead of fetching the arena to them. In co-op it goes
+     * to the nearer claim, which is the same rule the battle-mode pickup lane already follows: the
+     * pickup does not decide who deserves it.
+     */
+    private void reelIn(PowerUp powerUp) {
+        PlayerShip best = null;
+        double bestDistance = Double.MAX_VALUE;
+        for (PlayerShip player : players) {
+            if (player.isOut()) {
+                continue;
+            }
+            int level = player.loadout().level(Upgrade.COLLECTOR);
+            if (level <= 0) {
+                continue;
+            }
+            double reach = level * GameConfig.UPGRADE_COLLECTOR_RANGE;
+            double dx = player.centerX() - powerUp.centerX();
+            double dy = player.centerY() - powerUp.centerY();
+            double distance = Math.hypot(dx, dy);
+            if (distance <= reach && distance < bestDistance) {
+                best = player;
+                bestDistance = distance;
+            }
+        }
+        if (best == null || bestDistance < 1) {
+            return;
+        }
+        double dx = (best.centerX() - powerUp.centerX()) / bestDistance;
+        double dy = (best.centerY() - powerUp.centerY()) / bestDistance;
+        powerUp.setPosition(powerUp.x() + dx * GameConfig.UPGRADE_COLLECTOR_PULL,
+                powerUp.y() + dy * GameConfig.UPGRADE_COLLECTOR_PULL);
     }
 
     /**

@@ -103,16 +103,20 @@ class LoadoutTest {
 
         assertEquals(GameConfig.UPGRADE_MAX_LEVEL, loadout.level(Upgrade.SPEED));
         assertTrue(loadout.isMaxed(Upgrade.SPEED));
-        assertEquals(0, Upgrade.costFor(GameConfig.UPGRADE_MAX_LEVEL), "a maxed track is not for sale");
+        assertEquals(0, Upgrade.SPEED.costFor(Upgrade.SPEED.maxLevel()),
+                "a maxed track is not for sale");
     }
 
     @Test
     void eachUpgradeStepCostsMoreThanTheLast() {
-        int previous = 0;
-        for (int level = 0; level < GameConfig.UPGRADE_MAX_LEVEL; level++) {
-            int cost = Upgrade.costFor(level);
-            assertTrue(cost > previous, "step " + level + " should cost more than the one before");
-            previous = cost;
+        for (Upgrade upgrade : Upgrade.values()) {
+            int previous = 0;
+            for (int level = 0; level < upgrade.maxLevel(); level++) {
+                int cost = upgrade.costFor(level);
+                assertTrue(cost > previous,
+                        upgrade + " step " + level + " should cost more than the one before");
+                previous = cost;
+            }
         }
     }
 

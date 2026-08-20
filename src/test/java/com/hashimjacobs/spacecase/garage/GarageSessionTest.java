@@ -43,7 +43,7 @@ class GarageSessionTest {
     @Test
     void buyingChargesCreditsAndRaisesTheLevel() {
         GarageSession session = solo(500);
-        int price = Upgrade.costFor(0);
+        int price = Upgrade.FIREPOWER.costFor(0);
 
         session.handleKey(KeyCode.SHIFT);
 
