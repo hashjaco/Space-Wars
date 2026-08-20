@@ -122,6 +122,33 @@ class FrozenEmpressTest {
                 "a lone part is still slower than a whole flagship");
     }
 
+    /**
+     * A fourth head does not put a fourth ball of acid in the air either.
+     *
+     * The bullet cooldown was only half the barrage. Each part also spits one acid ball on its own
+     * timer, and what is on screen is parts x fuse / cooldown -- so a flat cooldown meant a fourth
+     * part raised the count from about three to nearly five, against a fuse sized for three.
+     */
+    @Test
+    void aFourthHeadDoesNotThickenTheAcid() {
+        EnemyShip hydra = new EnemyShip(Boss.HYDRA, 400, 90, 1);
+        EnemyShip empress = new EnemyShip(Boss.FROZEN_EMPRESS, 400, 90, 1);
+
+        assertEquals(210, EnemyWeapons.rocketCooldownFor(hydra.parts().get(0)),
+                "the hydra's heads were tuned at 210 and must stay there");
+        assertEquals(280, EnemyWeapons.rocketCooldownFor(empress.parts().get(0)),
+                "a fourth part earns a longer fuse gap, not a fifth ball on screen");
+
+        assertEquals(onScreen(hydra), onScreen(empress), 0.05,
+                "acid on screen should not depend on how many parts a flagship fields");
+    }
+
+    /** Roughly how many balls a flagship's parts hold in the air at once. */
+    private static double onScreen(EnemyShip flagship) {
+        int parts = flagship.parts().size();
+        return parts * 240.0 / EnemyWeapons.rocketCooldownFor(flagship.parts().get(0));
+    }
+
     private static void assertPartsAllReport(EnemyShip flagship, int expected) {
         assertEquals(expected, flagship.parts().size(),
                 flagship.boss() + " should field " + expected + " parts");

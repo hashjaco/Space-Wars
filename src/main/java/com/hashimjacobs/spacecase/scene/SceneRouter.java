@@ -144,6 +144,9 @@ public final class SceneRouter {
             int done = saves.clearedCount(mode, galaxy);
             String label = roman(galaxy.number()) + "   " + galaxy.label() + "   ";
             if (!open) {
+                // Safe only because SaveGames.isGalaxyUnlocked returns true for ordinal zero
+                // unconditionally, so the first galaxy never reaches this branch. That invariant
+                // lives in another class; if it ever gains a condition, this reads values()[-1].
                 Galaxy before = Galaxy.values()[galaxy.ordinal() - 1];
                 label += "locked - clear " + before.label();
             } else if (done == Galaxy.LEVELS_PER_GALAXY) {

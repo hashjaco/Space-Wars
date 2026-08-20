@@ -67,14 +67,28 @@ final class EnemyWeapons {
     private static final int ROCKET_COOLDOWN_TICKS = 210;
     private static final int MIN_ROCKET_COOLDOWN_TICKS = 60;
 
+    /**
+     * Ticks between one part's acid balls, per part the flagship fields.
+     *
+     * The same shape as PART_COOLDOWN_PER_PART and for the same reason. What is on screen is a
+     * function of the part count and the fuse: at one ball per part per cooldown, with a fuse of
+     * ACID_FUSE_TICKS, the arena holds {@code parts * fuse / cooldown} of them. That was a flat
+     * 210 while every multi-part flagship fielded three parts -- about three balls up, which is
+     * what the fuse was sized for -- and a fourth part at a flat 210 raises it to nearly five.
+     *
+     * Seventy a part is that same 210 at three parts, so the hydra and the rig are unchanged, and
+     * it holds the count flat rather than the rate as parts are added.
+     */
+    private static final int ROCKET_COOLDOWN_PER_PART = 70;
+
     private static final int ROCKETS_PER_SALVO = 2;
 
     /**
      * How long a ball of acid lasts.
      *
-     * Shorter than a rocket's fuse, and that is the throttle on how many can be in the air: three
-     * heads spitting on a staggered timer put roughly three on screen at once. Lengthen it and the
-     * arena fills.
+     * Shorter than a rocket's fuse, and that is the throttle on how many can be in the air: parts
+     * spitting on a staggered timer put roughly three on screen at once, whatever the part count,
+     * because rocketCooldownFor scales with it. Lengthen this and the arena fills.
      */
     private static final int ACID_FUSE_TICKS = 240;
 
@@ -109,7 +123,7 @@ final class EnemyWeapons {
             return;
         }
         int rocketCooldown = Math.max(MIN_ROCKET_COOLDOWN_TICKS,
-                (int) Math.round(ROCKET_COOLDOWN_TICKS / enemy.scale()));
+                (int) Math.round(rocketCooldownFor(enemy) / enemy.scale()));
         if (enemy.tickRocket(rocketCooldown)) {
             fireRockets(world, enemy, target, salvo);
             sounds.play(SoundFx.BOSS_ROCKET);
@@ -122,6 +136,18 @@ final class EnemyWeapons {
      * A hydra's torso has no mouth of its own -- the heads do the spitting, one ball each -- so it
      * sits this out while its parts carry the secondary between them.
      */
+    /**
+     * Ticks between this ship's heavy shots before difficulty scaling.
+     *
+     * Package-private for the same reason partCooldownFactor is: the values are worth pinning
+     * directly rather than inferring from a fight.
+     */
+    static int rocketCooldownFor(EnemyShip enemy) {
+        return enemy.isBossPart()
+                ? ROCKET_COOLDOWN_PER_PART * Math.max(1, enemy.siblingParts())
+                : ROCKET_COOLDOWN_TICKS;
+    }
+
     private static int secondarySalvoFor(EnemyShip enemy) {
         if (enemy.isBossPart()) {
             return 1;
