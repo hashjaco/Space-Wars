@@ -79,20 +79,6 @@ class SaveSlotTest {
         assertEquals(Level.values()[5], replay.level());
     }
 
-    /**
-     * Level.next() wraps, so ordinal alone gets this backwards -- a level-one save on the second
-     * pass is further along than a level-eight save on the first.
-     */
-    @Test
-    void progressCountsLoopsNotJustLevels() {
-        Level first = Level.values()[0];
-        Level last = Level.values()[Level.values().length - 1];
-        SaveSlot deepFirstPass = new SaveSlot(GameMode.SOLO, last, 20, 1, List.of());
-        SaveSlot earlySecondPass = new SaveSlot(GameMode.SOLO, first, 21, 2, List.of());
-
-        assertTrue(earlySecondPass.progress() > deepFirstPass.progress());
-    }
-
     @Test
     void aRunDescribesItselfForAMenuRow() {
         SaveSlot saved = new SaveSlot(GameMode.COOP, Level.values()[4], 9, 1,

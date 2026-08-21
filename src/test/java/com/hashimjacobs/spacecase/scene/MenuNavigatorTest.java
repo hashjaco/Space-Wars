@@ -5,6 +5,8 @@ import java.util.List;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
+
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -88,6 +90,17 @@ class MenuNavigatorTest {
 
         navigator.handleKey(KeyCode.ESCAPE);
 
+        assertEquals(1, backCount[0]);
+    }
+
+    /** The pad's cancel button backs out of a list menu too, not only the map. */
+    @Test
+    void thePadsCancelButtonRunsTheBackAction() {
+        MenuNavigator navigator = new MenuNavigator(List.copyOf(spies(2)));
+        int[] backCount = {0};
+        navigator.setOnBack(() -> backCount[0]++);
+
+        assertTrue(navigator.handleKey(GamepadMapping.MENU_CANCEL));
         assertEquals(1, backCount[0]);
     }
 

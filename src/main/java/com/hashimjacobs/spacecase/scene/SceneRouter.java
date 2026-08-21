@@ -158,6 +158,12 @@ public final class SceneRouter {
             row.setLocked(!open);
             rows.add(row);
         }
+        // Offered here rather than on Settings because this is the screen that shows progress, and
+        // because Settings is shared with the pause overlay -- mid-run is the last place to put an
+        // erase. Hidden with nothing to erase: a first-time player has no use for it.
+        if (saves.clearedMask(mode) != 0) {
+            rows.add(new MenuButton("Reset progress", () -> showResetConfirm(mode)));
+        }
         rows.add(new MenuButton("Back", this::showStartMenu));
 
         MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
@@ -166,6 +172,31 @@ public final class SceneRouter {
 
         StackPane root = MenuScreen.build("UNIVERSE", panel,
                 MenuScreen.caption("Finish a galaxy to open the next one.", 12, Tokens.TEXT_FAINT));
+        show(root, navigator::handleKey);
+    }
+
+    /**
+     * Asks before erasing, with keeping the run focused first.
+     *
+     * A screen rather than a JavaFX dialog: the game is driven by a pad as much as a keyboard, and
+     * MenuPanel already brings pad, mouse, focus painting and Escape with it. Cancel sits in row
+     * one because MenuPanel focuses row one, so the fast reflex -- Enter, then Enter again -- keeps
+     * the campaign rather than destroying it.
+     */
+    private void showResetConfirm(GameMode mode) {
+        MenuPanel panel = new MenuPanel(
+                new MenuButton("No, keep my progress", () -> showGalaxySelect(mode)),
+                new MenuButton("Yes, erase every galaxy", () -> {
+                    saves.resetProgress();
+                    showGalaxySelect(mode);
+                }));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(() -> showGalaxySelect(mode));
+
+        StackPane root = MenuScreen.build("RESET PROGRESS", panel,
+                MenuScreen.caption("Every galaxy goes back to locked, and the saved runs go with "
+                        + "it. This cannot be undone.", 12, Tokens.TEXT_FAINT),
+                MenuScreen.caption("High scores and your pilots are kept.", 11, Tokens.TEXT_GHOST));
         show(root, navigator::handleKey);
     }
 

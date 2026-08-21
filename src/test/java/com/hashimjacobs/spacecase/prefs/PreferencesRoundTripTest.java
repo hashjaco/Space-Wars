@@ -503,6 +503,98 @@ class PreferencesRoundTripTest {
                 "the level the checkpoint names was in progress, not finished");
     }
 
+    /**
+     * A looped checkpoint must not complete galaxies that were never flown.
+     *
+     * This is what {@code SaveSlot.progress()} used to be read as: it folds the loop counter in, so
+     * a second-pass save reported a number past the end of the campaign, which the migration
+     * clamped to the campaign's length and granted in full -- every galaxy, complete, unplayed.
+     */
+    @Test
+    void aLoopedCheckpointDoesNotGrantGalaxiesItNeverReached() {
+        SaveGames writer = SaveGames.load(scratch);
+        writer.saveCheckpoint(at(GameMode.SOLO, 0, 2));
+        scratch.node("saves").remove("cleared/SOLO");
+
+        SaveGames migrated = SaveGames.load(scratch);
+
+        Galaxy last = Galaxy.values()[Galaxy.values().length - 1];
+        assertEquals(0, migrated.clearedCount(GameMode.SOLO, last),
+                "a looped save must not complete the galaxy it never entered");
+        assertEquals(Galaxy.LEVELS_PER_GALAXY, migrated.clearedCount(GameMode.SOLO,
+                Galaxy.values()[0]), "the one galaxy a looping campaign had is still earned");
+        if (Galaxy.values().length > 1) {
+            assertFalse(migrated.isGalaxyUnlocked(GameMode.SOLO, Galaxy.values()[2]),
+                    "over-granting unlocks as well as captions, so check the gate too");
+        }
+    }
+
+    /**
+     * The repair for stores the old migration already over-granted.
+     *
+     * A version 1 checkpoint predates galaxies, so the campaign was ten levels when it was written
+     * and nothing in the store can honestly have cleared past the first galaxy. This is the exact
+     * shape of a real save found in the wild: version 1, level index 3, loop 2, every bit set.
+     */
+    @Test
+    void aLegacyOverGrantIsTakenBackAndTheCheckpointBroughtForward() {
+        scratch.put("checkpoint", "1,SOLO,3,51,2,103,12,148487,364,518,12865,2693,666");
+        scratch.put("cleared/SOLO", "ffffffffff");
+
+        SaveGames repaired = SaveGames.load(scratch);
+
+        Galaxy[] galaxies = Galaxy.values();
+        assertEquals(Galaxy.LEVELS_PER_GALAXY, repaired.clearedCount(GameMode.SOLO, galaxies[0]),
+                "the one galaxy a looped legacy run had is still earned");
+        for (int i = 1; i < galaxies.length; i++) {
+            assertEquals(0, repaired.clearedCount(GameMode.SOLO, galaxies[i]),
+                    galaxies[i].label() + " was never flown");
+        }
+        assertTrue(repaired.isGalaxyUnlocked(GameMode.SOLO, galaxies[1]),
+                "finishing the first galaxy still opens the second");
+        assertFalse(repaired.isGalaxyUnlocked(GameMode.SOLO, galaxies[2]),
+                "the third stays shut");
+
+        SaveSlot brought = repaired.checkpoint().orElseThrow();
+        assertEquals(1, brought.loop(), "a loop that outranks everything playable freezes Continue");
+        assertEquals(Level.values()[3], brought.level(), "the level it named is kept");
+        assertEquals(51, brought.wavesSurvived());
+    }
+
+    /** Once repaired the record is current, so a later honest clear is not trimmed again. */
+    @Test
+    void theRepairDoesNotRunTwiceAndTakeBackRealProgress() {
+        scratch.put("checkpoint", "1,SOLO,3,51,2,103,12,148487,364,518,12865,2693,666");
+        scratch.put("cleared/SOLO", "ffffffffff");
+        SaveGames.load(scratch);
+
+        Level intoTheSecond = Galaxy.values()[1].first();
+        SaveGames.load(scratch).recordClear(GameMode.SOLO, intoTheSecond);
+
+        assertTrue(SaveGames.load(scratch).isCleared(GameMode.SOLO, intoTheSecond),
+                "a clear made after the repair is the player's, not the old grant's");
+    }
+
+    /** The player asked, on a screen that says it cannot be undone. */
+    @Test
+    void resettingProgressErasesRunsAndUnlocksButNotHighScores() {
+        SaveGames saves = SaveGames.load(scratch);
+        saves.recordClear(GameMode.SOLO, Level.values()[0]);
+        saves.saveCheckpoint(at(GameMode.SOLO, 4, 1));
+        saves.save(1, at(GameMode.SOLO, 4, 1));
+        Preferences elsewhere = scratch.node("highscores");
+        HighScores.load(elsewhere).submit(GameMode.SOLO, Level.values()[0], 4200);
+
+        saves.resetProgress();
+
+        SaveGames reloaded = SaveGames.load(scratch);
+        assertEquals(0, reloaded.clearedMask(GameMode.SOLO), "every galaxy goes back to locked");
+        assertTrue(reloaded.checkpoint().isEmpty(), "there is no run to continue");
+        assertTrue(reloaded.slot(1).isEmpty(), "the saved runs go with it");
+        assertEquals(4200, HighScores.load(elsewhere).best(GameMode.SOLO, Level.values()[0]),
+                "what was played is a separate record from where the campaign stands");
+    }
+
     /** Migration only ever adds, so a real clear is never taken away by a stale checkpoint. */
     @Test
     void migrationNeverRemovesProgressAlreadyRecorded() {
