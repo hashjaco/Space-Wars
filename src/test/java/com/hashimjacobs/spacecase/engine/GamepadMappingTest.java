@@ -13,6 +13,7 @@ import com.hashimjacobs.spacecase.prefs.PadButton;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -164,6 +165,56 @@ class GamepadMappingTest {
 
         List<GamepadMapping.KeyChange> stillHeld = poll(playerOne, stick(0, 0, PAUSE));
         assertTrue(stillHeld.isEmpty(), "holding Start must not toggle pause every poll");
+    }
+
+    /**
+     * B backs out of a menu, which is the convention every console has taught.
+     *
+     * Tapped rather than held, like the other two one-shot buttons: a menu reacts to the press, and
+     * the release keeps the code from sticking in the held set once the menu has gone.
+     */
+    @Test
+    void theBButtonIsTappedAndMeansCancel() {
+        List<GamepadMapping.KeyChange> changes = poll(playerOne, stick(0, 0, PadButton.B));
+        assertEquals(List.of(GamepadMapping.MENU_CANCEL), pressedIn(changes));
+        assertEquals(List.of(GamepadMapping.MENU_CANCEL), releasedIn(changes));
+
+        List<GamepadMapping.KeyChange> stillHeld = poll(playerOne, stick(0, 0, PadButton.B));
+        assertTrue(stillHeld.isEmpty(), "holding B must not back out once per poll");
+    }
+
+    /**
+     * And it must not pause the game.
+     *
+     * The whole reason cancel is its own code rather than Escape. B sits next to fire and gets
+     * mashed; if it spoke Escape it would pause a fight, because that is what gameplay hears.
+     */
+    @Test
+    void theBButtonNeverSpeaksEscape() {
+        List<GamepadMapping.KeyChange> changes = poll(playerOne, stick(0, 0, PadButton.B));
+
+        assertFalse(pressedIn(changes).contains(KeyCode.ESCAPE),
+                "B would pause the game mid-fight");
+        assertNotEquals(KeyCode.ESCAPE, GamepadMapping.MENU_CANCEL,
+                "cancel and pause have to stay separate codes for that to hold");
+    }
+
+    /** An explicit binding wins, so a player who put fire on B gets fire and not both. */
+    @Test
+    void anExplicitBindingOnBBeatsTheCancelConvention() {
+        GamepadMapping fireOnB = new GamepadMapping(0);
+        List<GamepadMapping.KeyChange> firing =
+                fireOnB.poll(stick(0, 0, PadButton.B), DEADZONE, PadButton.B, PAUSE);
+        assertTrue(pressedIn(firing).contains(KeyCode.SPACE), "B should still confirm");
+        assertFalse(pressedIn(firing).contains(GamepadMapping.MENU_CANCEL),
+                "B cannot confirm and cancel at the same time");
+
+        GamepadMapping pauseOnB = new GamepadMapping(0);
+        List<GamepadMapping.KeyChange> pausing =
+                pauseOnB.poll(stick(0, 0, PadButton.B), DEADZONE, FIRE, PadButton.B);
+        assertTrue(pressedIn(pausing).contains(KeyCode.ESCAPE), "B should still pause");
+        assertFalse(pressedIn(pausing).contains(GamepadMapping.MENU_CANCEL),
+                "B cannot pause and cancel at the same time");
     }
 
     @Test

@@ -195,7 +195,10 @@ public final class GameLoop {
     private void snapshotSave() {
         levelStartSave = new SaveSlot(world.mode(), director.level(), director.wavesSurvived(),
                 director.loop(), world.players().stream().map(PlayerShip::progress).toList());
-        if (saves != null) {
+        // Same rule scoreLevel applies to recordClear: an endless run is not campaign progress.
+        // It also wraps past the last level, so checkpointing one stored a looped save that the
+        // load-time migration then read as "finished the campaign".
+        if (saves != null && !endless) {
             saves.saveCheckpoint(levelStartSave);
         }
     }

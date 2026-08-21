@@ -4,6 +4,8 @@ import java.util.List;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
+
 /**
  * Keyboard focus for a menu: move with the arrows or W/S, choose with Enter or Space, leave with
  * Escape.
@@ -54,6 +56,12 @@ public final class MenuNavigator {
 
     /** Returns true when the key was a navigation key and should not travel any further. */
     public boolean handleKey(KeyCode code) {
+        // Ahead of the switch rather than a case label beside ESCAPE, so the code stays named where
+        // it is defined instead of being spelled out again here.
+        if (code == GamepadMapping.MENU_CANCEL) {
+            onBack.run();
+            return true;
+        }
         switch (code) {
             case UP, W -> move(-1);
             case DOWN, S -> move(1);

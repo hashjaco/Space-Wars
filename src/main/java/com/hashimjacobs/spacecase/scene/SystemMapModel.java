@@ -6,6 +6,8 @@ import java.util.function.Consumer;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
+
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
@@ -151,6 +153,12 @@ public final class SystemMapModel {
      * handler -- the same contract {@link MenuNavigator} keeps, and asserted the same way.
      */
     public boolean handleKey(KeyCode code) {
+        // The pad's cancel button, which is B by default. See MenuNavigator for why this sits ahead
+        // of the switch rather than in it.
+        if (code == GamepadMapping.MENU_CANCEL) {
+            onBack.run();
+            return true;
+        }
         switch (code) {
             case LEFT, A -> step(-1);
             case RIGHT, D -> step(1);

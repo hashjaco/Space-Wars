@@ -39,6 +39,19 @@ public final class GamepadMapping {
     private static final int REPEAT_EVERY_POLLS = 8;
 
     /** A key going down or coming up. Ordering within a poll matters, so these are a list. */
+    /**
+     * The key the pad's cancel button speaks, so a menu can treat B as "back".
+     *
+     * Deliberately not {@link KeyCode#ESCAPE}. Escape is what a menu already means by back, so
+     * sending it would have been one line -- but gameplay reads Escape as pause, and the button
+     * immediately next to fire must not pause a fight when it is mashed. A code no keyboard
+     * produces keeps the two apart: menus opt into it, gameplay lets it fall through to the held
+     * set where nothing reads it.
+     *
+     * Not {@code BACK_SPACE} either, which name entry already spends on deleting a letter.
+     */
+    public static final KeyCode MENU_CANCEL = KeyCode.CANCEL;
+
     public record KeyChange(KeyCode code, boolean pressed) {
     }
 
@@ -110,6 +123,15 @@ public final class GamepadMapping {
         if (justPressed(state, pauseButton)) {
             changes.add(new KeyChange(KeyCode.ESCAPE, true));
             changes.add(new KeyChange(KeyCode.ESCAPE, false));
+        }
+        // B means back, which is what every console has spent thirty years teaching. Hardcoded
+        // rather than bindable because it is a convention rather than a preference -- but an
+        // explicit binding still wins, so a player who has put fire or pause on B gets what they
+        // asked for instead of both at once.
+        if (fireButton != PadButton.B && pauseButton != PadButton.B
+                && justPressed(state, PadButton.B)) {
+            changes.add(new KeyChange(MENU_CANCEL, true));
+            changes.add(new KeyChange(MENU_CANCEL, false));
         }
 
         held.clear();

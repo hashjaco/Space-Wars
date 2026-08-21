@@ -2,6 +2,8 @@ package com.hashimjacobs.spacecase.scene;
 
 import javafx.geometry.Pos;
 import javafx.scene.input.KeyCode;
+
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
 import javafx.scene.layout.VBox;
 
 import com.hashimjacobs.spacecase.prefs.ControlAction;
@@ -99,7 +101,9 @@ final class ControlsPanel extends VBox {
      * @return true when the press was consumed as a binding
      */
     boolean captureKey(KeyCode code) {
-        if (armed == null || code == KeyCode.ESCAPE) {
+        // The pad's cancel code is excluded for the same reason Escape is, and one more: it is not
+        // a key any keyboard can send, so binding it to an action would quietly unbind that action.
+        if (armed == null || code == KeyCode.ESCAPE || code == GamepadMapping.MENU_CANCEL) {
             return false;
         }
         ControlAction clash = settings.keyClash(armedPlayer, armedAction, code);

@@ -153,6 +153,19 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
         return null;
     }
 
+    /**
+     * Whether an encoded record predates galaxies.
+     *
+     * Version is the only thing that says so, and it says it reliably: the campaign was one galaxy
+     * of ten when version 1 was the format, so a version 1 record cannot have cleared past the
+     * first galaxy however deep it looks. {@code SaveGames} leans on exactly that -- see the repair
+     * in {@code grantFromCheckpoint} -- and the check lives here so the field order stays this
+     * class's business.
+     */
+    static boolean isLegacy(String code) {
+        return code != null && code.startsWith("1" + SEPARATOR);
+    }
+
     /** Version 1 stored the ordinal. Kept so saves written before the campaign grew still load. */
     private static Level levelAt(int ordinal) {
         Level[] all = Level.values();
@@ -160,17 +173,6 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
             return null;
         }
         return all[ordinal];
-    }
-
-    /**
-     * How far into the campaign this is.
-     *
-     * Folds the loop in, because {@code Level.next()} wraps -- a level-one save on the second pass
-     * is further along than a level-eight save on the first, and comparing ordinals alone would
-     * get that backwards.
-     */
-    public int progress() {
-        return (loop - 1) * Level.values().length + level.ordinal();
     }
 
     /** One line naming this run, for a menu row: "Co-op   Lv5 Undercity   12,400". */

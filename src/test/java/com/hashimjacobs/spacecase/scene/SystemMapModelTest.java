@@ -7,6 +7,8 @@ import java.util.prefs.Preferences;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -215,6 +217,22 @@ class SystemMapModelTest {
 
         map.handleKey(KeyCode.ESCAPE);
 
+        assertEquals(1, backs[0]);
+    }
+
+    /**
+     * And so does the pad's cancel button, which is B.
+     *
+     * Start already backed out of here, because the pause button speaks Escape -- but B is where a
+     * player's thumb goes, and it was bound to nothing at all.
+     */
+    @Test
+    void thePadsCancelButtonGoesBackTo() {
+        int[] backs = {0};
+        SystemMapModel map = map(saves());
+        map.setOnBack(() -> backs[0]++);
+
+        assertTrue(map.handleKey(GamepadMapping.MENU_CANCEL), "cancel has to be consumed here");
         assertEquals(1, backs[0]);
     }
 

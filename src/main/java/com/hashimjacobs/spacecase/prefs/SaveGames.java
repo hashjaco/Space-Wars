@@ -80,12 +80,24 @@ public final class SaveGames {
         Optional<SaveSlot> held = checkpoint();
         boolean regression = held.isPresent()
                 && held.get().mode() == at.mode()
-                && held.get().progress() >= at.progress();
+                && deeper(at, held.get()) <= 0;
         if (regression) {
             return;
         }
         store.put(CHECKPOINT_KEY, at.encode());
         flush();
+    }
+
+    /**
+     * Which of two runs is further along: the later loop, then the later level.
+     *
+     * Lexicographic rather than one folded number. Folding multiplies the loop by the campaign's
+     * length, and the campaign grows -- a looped save written when it was ten levels long scored
+     * past everything playable once it was forty, so the rule above froze it in place forever.
+     */
+    private static int deeper(SaveSlot a, SaveSlot b) {
+        return a.loop() != b.loop() ? Integer.compare(a.loop(), b.loop())
+                : Integer.compare(a.level().ordinal(), b.level().ordinal());
     }
 
     /** @param number 1..{@link #SLOTS}; anything else reads as empty */
@@ -102,6 +114,24 @@ public final class SaveGames {
             return;
         }
         store.put(SLOT_KEY_PREFIX + number, state.encode());
+        flush();
+    }
+
+    /**
+     * Erases every run and all campaign progress: the checkpoint, the manual slots and the cleared
+     * masks for both modes.
+     *
+     * Deliberately only this node. High scores, pilots and their credits are a record of what was
+     * played rather than of where the campaign stands, and settings are not progress at all -- a
+     * player asking to start the campaign over is not asking to be logged out of their own pilot.
+     */
+    public void resetProgress() {
+        try {
+            store.clear();
+        } catch (BackingStoreException e) {
+            // Nothing useful to do: the caller has already confirmed, and the same swallow the
+            // rest of this class makes for a failed flush applies here.
+        }
         flush();
     }
 
@@ -202,15 +232,57 @@ public final class SaveGames {
      * at or past what the checkpoint implies, the or-equals below changes nothing.
      */
     private void grantFromCheckpoint() {
+        repairLegacyCheckpoint();
         checkpoint().ifPresent(save -> {
-            int reached = Math.min(Level.values().length, Math.max(0, save.progress()));
-            // A looped legacy run reached past the end of the campaign as it now stands, so it gets
-            // all of it. Shifting by 64 or more is undefined for a long, hence the branch.
-            long earned = reached >= Long.SIZE ? -1L : (1L << reached) - 1;
+            // The level's own ordinal, not progress(): that folds the loop counter in, so it is
+            // not a level count at all. Reading it as one gave a looped save the whole campaign as
+            // it stands *now*, which hands out every galaxy that shipped after it was written.
+            int reached = save.level().ordinal();
+            if (save.loop() > 1) {
+                // Looping was only reachable when the campaign was a single galaxy long, so that
+                // is what a looped save can prove it cleared -- and no more.
+                reached = Math.max(reached, Galaxy.LEVELS_PER_GALAXY);
+            }
+            long earned = (1L << reached) - 1;
             long held = clearedMask(save.mode());
             if ((held | earned) != held) {
                 write(save.mode(), held | earned);
             }
+        });
+    }
+
+    /**
+     * Takes back what a version 1 checkpoint used to be granted, and brings it into this format.
+     *
+     * The migration above used to read {@code SaveSlot.progress()} as a level count. It is not one
+     * -- it folds the loop counter in -- so a looped save reported a number past the end of the
+     * campaign, which was clamped to the campaign's length and granted whole: every galaxy,
+     * complete, unplayed.
+     *
+     * The version is what licenses undoing it. A version 1 record was written when the campaign was
+     * a single galaxy long, so nothing in that store can honestly have cleared past the first
+     * galaxy. The other way a checkpoint carries a loop is an endless run, which writes the current
+     * version and is left alone -- so a genuinely finished campaign is never trimmed.
+     *
+     * Rewriting the checkpoint is the other half of the repair, and it does two jobs. Its inflated
+     * progress outranked everything playable, so the no-regress rule froze it and Continue could
+     * never move again; and dropping the version 1 marker is what stops an honest clear made after
+     * this runs from being trimmed on the next load. Runs once for that reason -- afterwards there
+     * is no legacy record left to match.
+     */
+    private void repairLegacyCheckpoint() {
+        if (!SaveSlot.isLegacy(store.get(CHECKPOINT_KEY, ""))) {
+            return;
+        }
+        checkpoint().ifPresent(save -> {
+            long firstGalaxy = galaxyMask(Galaxy.values()[0]);
+            long held = clearedMask(save.mode());
+            if ((held & ~firstGalaxy) != 0) {
+                write(save.mode(), held & firstGalaxy);
+            }
+            store.put(CHECKPOINT_KEY, new SaveSlot(save.mode(), save.level(),
+                    save.wavesSurvived(), 1, save.players()).encode());
+            flush();
         });
     }
 
