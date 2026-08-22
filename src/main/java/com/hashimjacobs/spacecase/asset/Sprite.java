@@ -395,6 +395,48 @@ public enum Sprite {
     L40_FIGHTER("level-40/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L40_CRUISER("level-40/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
+    // ---- Galaxy 5: Null (levels 41-50) -----------------------------------------------
+    L41_SCOUT("level-41/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L41_FIGHTER("level-41/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L41_CRUISER("level-41/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L42_SCOUT("level-42/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L42_FIGHTER("level-42/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L42_CRUISER("level-42/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L43_SCOUT("level-43/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L43_FIGHTER("level-43/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L43_CRUISER("level-43/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L44_SCOUT("level-44/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L44_FIGHTER("level-44/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L44_CRUISER("level-44/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    /** Tidal Shear is the galaxy's side-on leg, so its hulls are cut pointing left. */
+    L45_SCOUT("level-45/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L45_FIGHTER("level-45/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L45_CRUISER("level-45/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+
+    L46_SCOUT("level-46/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L46_FIGHTER("level-46/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L46_CRUISER("level-46/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L47_SCOUT("level-47/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L47_FIGHTER("level-47/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L47_CRUISER("level-47/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L48_SCOUT("level-48/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L48_FIGHTER("level-48/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L48_CRUISER("level-48/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L49_SCOUT("level-49/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L49_FIGHTER("level-49/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L49_CRUISER("level-49/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
+    L50_SCOUT("level-50/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
+    L50_FIGHTER("level-50/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
+    L50_CRUISER("level-50/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+
 
     /**
      * Fallback only. Bosses are animated, so the renderer draws a frame from
@@ -635,7 +677,39 @@ public enum Sprite {
     L39_NEAR("level-39/near.png"),
     L40_FAR("level-40/far.png"),
     L40_MID("level-40/mid.png"),
-    L40_NEAR("level-40/near.png");
+    L40_NEAR("level-40/near.png"),
+
+    // ---- Galaxy 5: Null (levels 41-50) -----------------------------------------------
+    L41_FAR("level-41/far.png"),
+    L41_MID("level-41/mid.png"),
+    L41_NEAR("level-41/near.png"),
+    L42_FAR("level-42/far.png"),
+    L42_MID("level-42/mid.png"),
+    L42_NEAR("level-42/near.png"),
+    L43_FAR("level-43/far.png"),
+    L43_MID("level-43/mid.png"),
+    L43_NEAR("level-43/near.png"),
+    L44_FAR("level-44/far.png"),
+    L44_MID("level-44/mid.png"),
+    L44_NEAR("level-44/near.png"),
+    L45_FAR("level-45/far.png"),
+    L45_MID("level-45/mid.png"),
+    L45_NEAR("level-45/near.png"),
+    L46_FAR("level-46/far.png"),
+    L46_MID("level-46/mid.png"),
+    L46_NEAR("level-46/near.png"),
+    L47_FAR("level-47/far.png"),
+    L47_MID("level-47/mid.png"),
+    L47_NEAR("level-47/near.png"),
+    L48_FAR("level-48/far.png"),
+    L48_MID("level-48/mid.png"),
+    L48_NEAR("level-48/near.png"),
+    L49_FAR("level-49/far.png"),
+    L49_MID("level-49/mid.png"),
+    L49_NEAR("level-49/near.png"),
+    L50_FAR("level-50/far.png"),
+    L50_MID("level-50/mid.png"),
+    L50_NEAR("level-50/near.png");
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.

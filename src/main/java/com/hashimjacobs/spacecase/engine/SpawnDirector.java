@@ -11,6 +11,7 @@ import com.hashimjacobs.spacecase.entity.PilotedMech;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.entity.VoidEntity;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
@@ -200,13 +201,14 @@ public final class SpawnDirector {
         double scale = difficulty.bossScale(level.number(), loop());
         double x = facing.atX(depth, across, w, h);
         double y = facing.atY(depth, across, w, h);
-        // The only place a flagship's class is chosen. Four entries after four galaxies, which is
+        // The only place a flagship's class is chosen. Five entries after five galaxies, which is
         // the budget working: everything else in all four is a row of numbers. Tempest's two set
         // pieces are both a second use of a class that already existed rather than a new one --
         // Vaunt in a bigger rig, and the same burrowing animal on a level that runs the other way.
         EnemyShip boss = switch (flagship) {
             case DUNE_LEVIATHAN, STORM_SERPENT -> new BurrowingWorm(flagship, x, y, scale);
             case VAUNT, VAUNT_IN_THE_STORM_RIG -> new PilotedMech(flagship, x, y, scale);
+            case AEON -> new VoidEntity(flagship, x, y, scale);
             default -> new EnemyShip(flagship, x, y, scale);
         };
         // Body first, so World.boss() and the HUD find the torso rather than a head.

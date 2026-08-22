@@ -27,7 +27,8 @@ public enum Galaxy {
     VERDANCE("Verdance", "#0ec417"),
     ASHFALL("Ashfall", "#e8641c"),
     CRYONIS("Cryonis", "#4fd0e8"),
-    TEMPEST("Tempest", "#7ea8ff");
+    TEMPEST("Tempest", "#7ea8ff"),
+    NULL("Null", "#9a6bff");
 
     /**
      * Levels in a galaxy. Not a suggestion -- the block arithmetic below assumes it exactly, and

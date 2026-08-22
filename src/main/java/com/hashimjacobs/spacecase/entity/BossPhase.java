@@ -30,7 +30,20 @@ public enum BossPhase {
     SPIRAL(4, 10, 0.30),
 
     /** Fires nothing and calls in escort fighters instead. */
-    SPAWNER(0, 150, 0);
+    SPAWNER(0, 150, 0),
+
+    /**
+     * A full ring whose centre rotates and whose spread breathes in and out.
+     *
+     * The campaign's last pattern, and the only one that covers every direction at once: where RING
+     * spans the downward half because a full circle would send half its shots straight off the top
+     * of the arena to be culled, this one is fired by something sitting in the middle of the arena,
+     * so every direction has arena in it.
+     *
+     * Twelve shots at this spread span very nearly the whole circle. The spread is the widest the
+     * pattern ever draws, not a constant -- see {@link #spreadRadiansAt}.
+     */
+    VORTEX(12, 30, Math.PI / 6);
 
     private final int shots;
     private final int cooldownTicks;
@@ -50,9 +63,36 @@ public enum BossPhase {
         return cooldownTicks;
     }
 
-    /** Angle between adjacent shots, in radians. */
+    /** Angle between adjacent shots at its widest, in radians. */
     public double spreadRadians() {
         return spreadRadians;
+    }
+
+    /** How tight VORTEX draws in at its tightest, as a fraction of its widest. */
+    private static final double VORTEX_TIGHTEST = 0.55;
+
+    /** Ticks for one full loosen-and-tighten of the vortex. Slow enough to be read and answered. */
+    private static final double VORTEX_CYCLE_TICKS = 220;
+
+    /**
+     * The spread this phase is firing at right now.
+     *
+     * Every phase but VORTEX ignores the tick and returns its constant, so this is
+     * {@link #spreadRadians()} for all six patterns that existed before it and no fight in the
+     * first four galaxies changes.
+     *
+     * VORTEX needs it because a ring that only rotates is a ring: what makes it a vortex is the
+     * gaps closing. That cannot live in {@code EnemyWeapons.centreAngleFor}, which returns the
+     * centre angle and nothing else, and it cannot be read once per volley either -- the spread is
+     * used twice per volley, once to place the first shot and once per shot after it, and both have
+     * to agree or the pattern is no longer centred on where it is aimed.
+     */
+    public double spreadRadiansAt(int tick) {
+        if (this != VORTEX) {
+            return spreadRadians;
+        }
+        double breathe = 0.5 + 0.5 * Math.cos(2 * Math.PI * tick / VORTEX_CYCLE_TICKS);
+        return spreadRadians * (VORTEX_TIGHTEST + (1 - VORTEX_TIGHTEST) * breathe);
     }
 
     /** True when the whole pattern should rotate over time rather than firing straight down. */

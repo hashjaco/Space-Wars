@@ -224,7 +224,60 @@ public enum Boss {
      * What it does not share is the reach. See {@code BurrowingWorm.strikeReach}.
      */
     STORM_SERPENT("The Storm Serpent", BossArt.STORM_SERPENT, 4700, 3850,
-            BossPhase.RING, BossPhase.SPREAD, BossPhase.AIMED_BURST);
+            BossPhase.RING, BossPhase.SPREAD, BossPhase.AIMED_BURST),
+
+    // ---- Galaxy 5: Null ------------------------------------------------------------------
+    // Eighty a step in health and fifty of score, opening above the Storm Serpent. The steepest
+    // health ladder in the game, and the last one, so there is nothing after it to leave room for.
+    //
+    // One set piece rather than Tempest's two, so nine warships and animals rather than eight. Six
+    // warships from three hull families and three creatures, and the finale is the only row here
+    // that needed a class written for it.
+
+    BONEPICKER("The Bonepicker", BossArt.BONEPICKER, 4780, 3900,
+            BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
+
+    HULK_CHOIR("Hulk Choir", BossArt.HULK_CHOIR, 4860, 3950,
+            BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
+
+    SHROUDMAW("Shroudmaw", BossArt.SHROUDMAW, 4940, 4000,
+            BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.RING),
+
+    LENSBREAKER("Lensbreaker", BossArt.LENSBREAKER, 5020, 4050,
+            BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
+
+    TIDEWRACK("Tidewrack", BossArt.TIDEWRACK, 5100, 4100,
+            BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
+
+    SHELLBORN("Shellborn", BossArt.SHELLBORN, 5180, 4150,
+            BossPhase.SPAWNER, BossPhase.SPIRAL, BossPhase.RING),
+
+    FRAME_DRAG("Frame-Drag", BossArt.FRAME_DRAG, 5260, 4200,
+            BossPhase.SPREAD, BossPhase.RING, BossPhase.SWEEPING_FAN),
+
+    PHOTON_HALO("Photon Halo", BossArt.PHOTON_HALO, 5340, 4250,
+            BossPhase.AIMED_BURST, BossPhase.SPREAD, BossPhase.SPIRAL),
+
+    GULLET("The Gullet", BossArt.GULLET, 5420, 4300,
+            BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
+
+    /**
+     * Level 50. Aeon, the Hollow Star: the last fight in the campaign.
+     *
+     * 6000 health at a maxed ship's roughly 200 damage a second is about thirty seconds of perfect
+     * fire -- a final boss rather than a sponge, and the jump a galaxy should end on.
+     *
+     * Four eyes, and they cost nothing but the art. {@code EnemyShip} builds a {@link BossHead} per
+     * head in its own constructor and a head re-reads its body's centre every tick, so four
+     * separately shootable eyes follow an orbiting body with no new code at all. Phase 2's work on
+     * {@code BossHead} paid for the Frozen Empress and is paying a second time here.
+     *
+     * VORTEX is the only thing in the game that fires it, and the only reason it exists. It sits in
+     * the final third because it is what this fight escalates into.
+     */
+    AEON("Aeon, the Hollow Star", BossArt.AEON, 6000, 4600,
+            BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.VORTEX,
+            4, BossArt.AEON_EYE);
 
     private final String label;
     private final BossArt art;

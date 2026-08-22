@@ -218,8 +218,12 @@ final class EnemyWeapons {
         }
         double centreAngle = centreAngleFor(phase, world, boss, target);
         int shots = phase.shots();
+        // Asked once and used twice, because a phase whose spread varies has to place its first
+        // shot and step between its shots at the same figure. Reading phase.spreadRadians() in both
+        // places was correct while every pattern's spread was a constant; VORTEX's is not.
+        double spread = phase.spreadRadiansAt(world.tick());
         // Distribute the shots evenly either side of the pattern's centre.
-        double firstOffset = -phase.spreadRadians() * (shots - 1) / 2.0;
+        double firstOffset = -spread * (shots - 1) / 2.0;
 
         // Damage scales without limit, speed does not: a bullet faster than the player's own
         // (GameConfig.BULLET_SPEED, 10) stops being dodgeable and starts being unfair.
@@ -228,7 +232,7 @@ final class EnemyWeapons {
         Orientation facing = boss.orientation();
 
         for (int i = 0; i < shots; i++) {
-            double angle = centreAngle + firstOffset + i * phase.spreadRadians();
+            double angle = centreAngle + firstOffset + i * spread;
             // Zero points down-arena, whichever way that is; the pattern turns with the level.
             addBullet(world, boss, Math.cos(angle) * speed, Math.sin(angle) * speed, damage);
         }
@@ -251,6 +255,12 @@ final class EnemyWeapons {
         if (phase == BossPhase.SPIRAL) {
             // Unbounded rotation rather than an oscillation, so the stream paints a continuous arc.
             return world.tick() * 0.11;
+        }
+        if (phase == BossPhase.VORTEX) {
+            // Unbounded like the spiral, and deliberately less than half its rate: this is twelve
+            // shots rather than four, and a full ring turning at spiral speed is a wall with no
+            // readable gap in it.
+            return world.tick() * 0.045;
         }
         if (phase.sweeps()) {
             // A slow oscillation driven by the world clock, so the fan tracks back and forth.
