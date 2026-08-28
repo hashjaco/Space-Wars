@@ -5,7 +5,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
-import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.Sprite;
 
 /**
  * Everything a pilot has bought for their ship: upgrade levels, the paint job and kit they are
@@ -52,8 +52,10 @@ public final class Loadout {
     private final Map<Upgrade, Integer> levels = new EnumMap<>(Upgrade.class);
     private final Set<Livery> unlockedLiveries = EnumSet.noneOf(Livery.class);
     private final Set<Kit> unlockedKits = EnumSet.noneOf(Kit.class);
+    private final Set<Chassis> unlockedChassis = EnumSet.noneOf(Chassis.class);
     private Livery livery;
     private Kit kit = Kit.STOCK;
+    private Chassis chassis = Chassis.STOCK;
 
     private Loadout(Livery stock) {
         this.livery = stock;
@@ -68,6 +70,9 @@ public final class Loadout {
             }
         }
         unlockedKits.add(Kit.STOCK);
+        // Granted here rather than only through the mask, because a record written before the
+        // chassis field existed carries no bits for it and still has to produce a flyable ship.
+        unlockedChassis.add(Chassis.STOCK);
     }
 
     /** A brand-new ship for the given seat: no upgrades, stock paint, no kit. */
@@ -104,9 +109,10 @@ public final class Loadout {
             int liveryOrdinal = valueAt(fields, cosmeticsAt);
             int kitOrdinal = valueAt(fields, cosmeticsAt + 1);
             loadout.unlockFromMask(valueAt(fields, cosmeticsAt + 2),
-                    valueAt(fields, cosmeticsAt + 3));
+                    valueAt(fields, cosmeticsAt + 3), valueAt(fields, cosmeticsAt + 5));
             loadout.select(liveryFor(liveryOrdinal, playerNumber));
             loadout.select(kitFor(kitOrdinal));
+            loadout.select(chassisFor(valueAt(fields, cosmeticsAt + 4)));
         } catch (NumberFormatException malformed) {
             // A hand-edited or truncated record. Stock is always a valid ship; refusing to start
             // the level would be a worse answer than losing the paint job.
@@ -195,7 +201,16 @@ public final class Loadout {
         return all[ordinal];
     }
 
-    private void unlockFromMask(int liveryMask, int kitMask) {
+    /** Zero is the stock airframe, which is what a record written before the field had reads as. */
+    private static Chassis chassisFor(int ordinal) {
+        Chassis[] all = Chassis.values();
+        if (ordinal < 0 || ordinal >= all.length) {
+            return Chassis.STOCK;
+        }
+        return all[ordinal];
+    }
+
+    private void unlockFromMask(int liveryMask, int kitMask, int chassisMask) {
         Livery[] liveries = Livery.values();
         for (int i = 0; i < liveries.length; i++) {
             if ((liveryMask & (1 << i)) != 0) {
@@ -206,6 +221,12 @@ public final class Loadout {
         for (int i = 0; i < kits.length; i++) {
             if ((kitMask & (1 << i)) != 0) {
                 unlockedKits.add(kits[i]);
+            }
+        }
+        Chassis[] frames = Chassis.values();
+        for (int i = 0; i < frames.length; i++) {
+            if ((chassisMask & (1 << i)) != 0) {
+                unlockedChassis.add(frames[i]);
             }
         }
     }
@@ -231,6 +252,11 @@ public final class Loadout {
         code.append(SEPARATOR).append(kit.ordinal());
         code.append(SEPARATOR).append(maskOf(unlockedLiveries, Livery.values().length));
         code.append(SEPARATOR).append(maskOf(unlockedKits, Kit.values().length));
+        // Appended rather than versioned. decode's `default -> -1` throws a whole record away on an
+        // unknown version, so bumping to 3 would make an older build lose a pilot's upgrades and
+        // paint as well as their airframe -- where two extra fields are simply not read.
+        code.append(SEPARATOR).append(chassis.ordinal());
+        code.append(SEPARATOR).append(maskOf(unlockedChassis, Chassis.values().length));
         return code.toString();
     }
 
@@ -270,6 +296,21 @@ public final class Loadout {
         return kit;
     }
 
+    public Chassis chassis() {
+        return chassis;
+    }
+
+    /**
+     * The frame this ship draws: the airframe, wearing the paint.
+     *
+     * The one place the stock-or-bought branch lives. Three callers need it -- the ship itself, the
+     * garage turntable and the garage's browse -- and a second copy of that branch is how one of
+     * them ends up drawing a hull the pilot is not flying.
+     */
+    public Sprite chassisPose(int leanIndex, boolean hit, boolean sideOn) {
+        return chassis.pose(livery, leanIndex, hit, sideOn);
+    }
+
     public boolean owns(Livery candidate) {
         boolean owned = unlockedLiveries.contains(candidate);
         return owned;
@@ -277,6 +318,11 @@ public final class Loadout {
 
     public boolean owns(Kit candidate) {
         boolean owned = unlockedKits.contains(candidate);
+        return owned;
+    }
+
+    public boolean owns(Chassis candidate) {
+        boolean owned = unlockedChassis.contains(candidate);
         return owned;
     }
 
@@ -291,10 +337,21 @@ public final class Loadout {
         kit = bought;
     }
 
+    public void unlock(Chassis bought) {
+        unlockedChassis.add(bought);
+        chassis = bought;
+    }
+
     /** Wears something already owned. Ignores anything that is not, so it cannot grant by accident. */
     public void select(Livery chosen) {
         if (owns(chosen)) {
             livery = chosen;
+        }
+    }
+
+    public void select(Chassis chosen) {
+        if (owns(chosen)) {
+            chassis = chosen;
         }
     }
 

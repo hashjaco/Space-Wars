@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Random;
 import java.util.function.Consumer;
 import java.util.function.IntFunction;
+import java.util.function.IntPredicate;
 
 import javafx.animation.AnimationTimer;
 import javafx.scene.input.KeyCode;
@@ -23,6 +24,7 @@ import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Rank;
@@ -80,6 +82,56 @@ public final class GameLoop {
     private final SaveGames saves;
     private final List<ShipController> controllers = new ArrayList<>();
     private final Consumer<RoundResult> onRoundOver;
+
+    /**
+     * Read once, here, rather than out of the settings on every tick.
+     *
+     * It decides enemy fire rate, the spawn cap and the boss scale, so it is simulation input and
+     * not a preference -- and reading it per tick meant two machines on different difficulties
+     * would have quietly played different games. In a networked run this is whatever the host sent
+     * at level start; the pause menu changing it mid-round is a local-only affordance.
+     */
+    private final Difficulty difficulty;
+
+    /**
+     * Whether the simulation may advance to the given tick. Always true for local play, so there is
+     * no networked branch anywhere else in this class.
+     *
+     * A networked game answers false until every peer's intent for that tick has arrived, which is
+     * what holds the machines in step. Rendering is outside this and keeps running, so a peer
+     * waiting on the network shows a frozen fight rather than a frozen application.
+     */
+    private IntPredicate canStep = tick -> true;
+
+    /**
+     * Where a player's intent for a tick comes from. Null means sample this machine's own keyboard
+     * and pad, which is every local game.
+     */
+    private IntentSource intents;
+
+    /** Told the fingerprint of each finished fight tick, when anybody is listening. */
+    private TickObserver tickObserver;
+
+    /**
+     * The other machines in this match, or null when there are none.
+     *
+     * One field rather than a scatter of networked branches: every place this class behaves
+     * differently online tests this and nothing else, so the local path is exactly the path it has
+     * always been.
+     */
+    private LevelHandshake handshake;
+
+    /**
+     * Which seat this machine's pilot flies, or {@link #EVERY_SEAT_IS_LOCAL} when they all are.
+     *
+     * Every peer runs the whole simulation, so every machine knows exactly what all four players
+     * did. What differs is whose business it is to write any of it down, open a garage bay for, or
+     * save. One field answers all three, because they are the same question.
+     */
+    private int localSeat = EVERY_SEAT_IS_LOCAL;
+
+    /** Single-machine play, where every ship at the keyboard is this pilot's business. */
+    private static final int EVERY_SEAT_IS_LOCAL = 0;
 
     /**
      * Whether this run ignores galaxy borders.
@@ -143,7 +195,23 @@ public final class GameLoop {
                     Settings settings, Pilots pilots, Random random,
                     Consumer<RoundResult> onRoundOver,
                     HighScores highScores, SaveGames saves, SaveSlot resume, boolean endless) {
-        this.world = new World(mode, List.of(pilots.name(1), pilots.name(2)));
+        this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver,
+                highScores, saves, resume, endless, mode.rules().playerCount());
+    }
+
+    /**
+     * @param seats how many ships to field, which an online room decides rather than the mode.
+     *              Local play passes {@code mode.rules().playerCount()} and is unchanged.
+     */
+    public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
+                    Settings settings, Pilots pilots, Random random,
+                    Consumer<RoundResult> onRoundOver,
+                    HighScores highScores, SaveGames saves, SaveSlot resume, boolean endless,
+                    int seats) {
+        // Exactly as many names as there are seats. Passing a fixed two was harmless while World
+        // trimmed the list to the mode's count; now that the list decides, a fixed two would field
+        // a wingman in a solo run.
+        this.world = new World(mode, pilotNames(pilots, seats));
         this.renderer = renderer;
         this.input = input;
         this.sounds = sounds;
@@ -153,9 +221,10 @@ public final class GameLoop {
         this.saves = saves;
         this.onRoundOver = onRoundOver;
         this.endless = endless;
+        this.difficulty = settings.difficulty();
         this.director = resume == null
-                ? new SpawnDirector(random, settings.difficulty(), mode.rules())
-                : new SpawnDirector(random, settings.difficulty(), mode.rules(),
+                ? new SpawnDirector(random, difficulty, mode.rules())
+                : new SpawnDirector(random, difficulty, mode.rules(),
                         resume.level(), resume.wavesSurvived(), resume.loop());
         // A resumed run or a level-select replay can start on a level that runs sideways, and only
         // stepWarp() used to say so -- leaving the pilots facing up on a side-view leg.
@@ -198,7 +267,11 @@ public final class GameLoop {
         // Same rule scoreLevel applies to recordClear: an endless run is not campaign progress.
         // It also wraps past the last level, so checkpointing one stored a looped save that the
         // load-time migration then read as "finished the campaign".
-        if (saves != null && !endless) {
+        // Not for a networked run either. SaveSlot stores per-player progress positionally, so a
+        // guest's checkpoint would put the host's pilot in slot 0 and hand it to them on a solo
+        // resume -- and resuming a multiplayer run without the other people is meaningless anyway.
+        // Clearing a level still counts: recordClear in scoreLevel is deliberately not guarded.
+        if (saves != null && !endless && localSeat == EVERY_SEAT_IS_LOCAL) {
             saves.saveCheckpoint(levelStartSave);
         }
     }
@@ -228,6 +301,95 @@ public final class GameLoop {
      */
     public void setSticks(IntFunction<PadState> sticks) {
         this.sticks = sticks;
+    }
+
+    /**
+     * How this player's stick should feel right now.
+     *
+     * Rebuilt per player per tick: sensitivity is per player, and all three values can change under
+     * the pause menu mid-round. Purely local -- these three settings are consumed by
+     * {@link ShipController#sample} and never reach the simulation, which is what lets two players
+     * on different sensitivities fly the same ship.
+     */
+    private StickTuning tuningFor(int playerNumber) {
+        return new StickTuning(settings.gamepadDeadzone(), settings.gamepadAnalog(),
+                settings.gamepadSensitivity(playerNumber));
+    }
+
+    /**
+     * Holds the simulation until the network says a tick may run. Pass null to hand it back.
+     *
+     * Set alongside {@link #setIntentSource}; a gate without a source would stall, and a source
+     * without a gate would read intents that had not arrived.
+     */
+    public void setStepGate(IntPredicate gate) {
+        this.canStep = gate == null ? tick -> true : gate;
+    }
+
+    /** Where per-tick intents come from. Null restores sampling this machine's own controls. */
+    public void setIntentSource(IntentSource intents) {
+        this.intents = intents;
+    }
+
+    /**
+     * Puts a barrier between levels, so peers that spent different amounts of time in the garage
+     * start the next fight together. Null restores single-machine play.
+     */
+    public void setLevelHandshake(LevelHandshake handshake) {
+        this.handshake = handshake;
+    }
+
+    /**
+     * Names the one seat this machine's pilot flies, for a networked run.
+     *
+     * Everything downstream of this is bookkeeping rather than simulation: a bay in the garage, a
+     * career to credit, a checkpoint to write. The fight itself is identical on every machine
+     * whatever this is set to.
+     */
+    public void setLocalSeat(int playerNumber) {
+        this.localSeat = playerNumber;
+    }
+
+    /**
+     * Fits the ships the loadouts the host named, for the first fight of a networked run.
+     *
+     * Later levels get theirs through {@link LevelHandshake}; the first one has no barrier before
+     * it, and {@code fitSavedLoadouts} has already fitted this machine's own pilot to every seat.
+     */
+    public void fitLoadouts(java.util.List<String> codes) {
+        world.fitLoadouts(codes);
+    }
+
+    /**
+     * This machine's own input for one seat, right now, read through the same path a local game
+     * uses.
+     *
+     * The one thing a networked game still needs from the keyboard. Everything else about a ship
+     * arrives from the wire, but somebody has to produce this machine's contribution, and doing it
+     * through {@link ShipController#sample} is what guarantees a player's deadzone and sensitivity
+     * feel the same online as off -- those settings are consumed here and never travel.
+     *
+     * @return that seat's intent, or {@link Intent#NEUTRAL} if this loop has no such seat
+     */
+    public Intent sampleLocal(int playerNumber) {
+        for (ShipController controller : controllers) {
+            if (controller.ship().playerNumber() == playerNumber) {
+                return controller.sample(input, tuningFor(playerNumber));
+            }
+        }
+        return Intent.NEUTRAL;
+    }
+
+    /**
+     * Watches each finished fight tick. Null, the default, means no checksum is ever computed.
+     */
+    public void setTickObserver(TickObserver tickObserver) {
+        this.tickObserver = tickObserver;
+    }
+
+    /** Whether this machine speaks for that ship's pilot. True for everyone in a local game. */
+    private boolean isLocal(PlayerShip player) {
+        return localSeat == EVERY_SEAT_IS_LOCAL || player.playerNumber() == localSeat;
     }
 
     private void attachControllers() {
@@ -261,6 +423,12 @@ public final class GameLoop {
         }
         int steps = timestep.stepsFor(frameNanos);
         for (int i = 0; i < steps && !finished; i++) {
+            // The accumulator has already been drained for these steps, so a tick we decline here
+            // is time lost rather than banked. That is the same trade MAX_STEPS_PER_FRAME makes,
+            // and the one worth making: the fight hitches, it does not fast-forward afterwards.
+            if (!canStep.test(world.tick())) {
+                break;
+            }
             step();
         }
         renderer.draw(world, director);
@@ -351,13 +519,15 @@ public final class GameLoop {
     }
 
     private void stepFight() {
+        // Read before the world moves. tickScenery advances the clock inside update(), so by the
+        // bottom of this method world.tick() names the *next* tick, not the one that just ran.
+        int tick = world.tick();
         for (ShipController controller : controllers) {
-            // Rebuilt per controller: sensitivity is per player, and all three values can change
-            // under the pause menu mid-round.
-            StickTuning tuning = new StickTuning(settings.gamepadDeadzone(),
-                    settings.gamepadAnalog(),
-                    settings.gamepadSensitivity(controller.ship().playerNumber()));
-            controller.apply(input, world, sounds, tuning);
+            int number = controller.ship().playerNumber();
+            Intent intent = intents == null
+                    ? controller.sample(input, tuningFor(number))
+                    : intents.intentFor(number, tick);
+            controller.apply(intent, world, sounds);
         }
 
         world.update();
@@ -365,6 +535,12 @@ public final class GameLoop {
         director.update(world);
         collisions.resolve(world);
         world.sweep();
+
+        // After sweep, so the fingerprint is of a settled world, and before the cosmetic calls
+        // below, which change nothing a peer could disagree about.
+        if (tickObserver != null) {
+            tickObserver.afterTick(tick, world.checksum());
+        }
 
         warnLowHealth();
         updateBossMusic();
@@ -456,7 +632,9 @@ public final class GameLoop {
         List<Loadout> loadouts = new ArrayList<>();
         for (ShipController controller : controllers) {
             PlayerShip player = controller.ship();
-            if (player.isOut()) {
+            // A bay for a ship this machine does not fly would be a shop window: its keys are
+            // unbound, and its credits are somebody else's to spend.
+            if (player.isOut() || !isLocal(player)) {
                 continue;
             }
             PlayerControls keys = controller.controls();
@@ -515,6 +693,14 @@ public final class GameLoop {
         if (phaseTicks < WARP_MINIMUM_TICKS || !Assets.warmedUp()) {
             return;
         }
+        // Every peer reaches this line having spent a different amount of time on the victory lap,
+        // the debrief and the garage -- all three end on something local. Nothing below may run
+        // until they have agreed on the terms, because world.tick() is simulation input and the
+        // loadouts bought in those garages change what each ship can do.
+        if (handshake != null && !handshake.readyToFight(director.level().ordinal() + 1, world)) {
+            return;
+        }
+
         Galaxy leaving = director.level().galaxy();
         director.advanceLevel();
         // A campaign run is one galaxy. Crossing the border ends it, which is what makes clearing a
@@ -538,6 +724,15 @@ public final class GameLoop {
         phase = Phase.FIGHTING;
         phaseTicks = 0;
         timestep.reset();
+    }
+
+    /** {@link Pilots#name} falls back to "PILOT n" for any seat, so three and four name themselves. */
+    private static List<String> pilotNames(Pilots pilots, int seats) {
+        List<String> names = new ArrayList<>();
+        for (int number = 1; number <= seats; number++) {
+            names.add(pilots.name(number));
+        }
+        return names;
     }
 
     /** Records where each player's counters stood as a level began, for the debrief to subtract. */
@@ -569,12 +764,24 @@ public final class GameLoop {
             debriefs.add(debrief);
 
             Rank held = pilots.rank(player.name());
+            // Not guarded: the score lives on the ship, which is simulation state every machine
+            // must agree about. Only the three writes below are this machine's own records.
             player.addScore(debrief.totalBonus());
-            int career = pilots.addCareerScore(player.name(), debrief.totalBonus());
-            // Paid here rather than in the garage, so the balance is already banked by the time
-            // the bay opens a few phases later and a level's work is spendable the same level.
-            pilots.addCredits(player.name(), debrief.credits());
-            if (highScores != null) {
+
+            // Every peer knows what all four players did, so four machines would otherwise each
+            // invent and credit four careers in their own preferences. Each writes down its own
+            // pilot and reads everyone else's, which needs no reconciling because the simulation
+            // already agreed.
+            boolean mine = isLocal(player);
+            int career = mine
+                    ? pilots.addCareerScore(player.name(), debrief.totalBonus())
+                    : pilots.careerScore(player.name());
+            if (mine) {
+                // Paid here rather than in the garage, so the balance is already banked by the time
+                // the bay opens a few phases later and a level's work is spendable the same level.
+                pilots.addCredits(player.name(), debrief.credits());
+            }
+            if (mine && highScores != null) {
                 // The level's own bonus, not the running score: a replay of level two and a deep
                 // run passing through it have wildly different totals but comparable level work.
                 highScores.submit(world.mode(), director.level(), debrief.totalBonus());
@@ -630,7 +837,8 @@ public final class GameLoop {
      * on the tick they arrive.
      */
     private void driveEnemies() {
-        int difficultyCooldown = settings.difficulty().enemyFireCooldown();
+        int difficultyCooldown = difficulty.enemyFireCooldown();
+        int enemyCap = difficulty.maxEnemies(world.players().size());
         List<EnemyShip> enemies = world.enemies();
         for (int i = 0, count = enemies.size(); i < count; i++) {
             EnemyShip enemy = enemies.get(i);
@@ -643,7 +851,7 @@ public final class GameLoop {
                 continue;
             }
             EnemyWeapons.driveWeapons(world, enemy, target, director.level(), difficultyCooldown,
-                    sounds);
+                    enemyCap, sounds);
         }
     }
 

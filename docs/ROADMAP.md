@@ -2,24 +2,29 @@
 
 Where the campaign is, and how to build the rest of it.
 
-The plan is five galaxies of ten levels. Four are done. This file is what the last one needs, the
-rules that will bite while building it, and the things already learned the hard way.
+The plan was five galaxies of ten levels. **All five are done.** This file is the rules that bit
+while building them and the things learned the hard way, kept because Phase 5 and anything after it
+still has to live with them.
 
 ## Where it stands
 
 | | |
 |---|---|
-| Levels | 40 of 50 |
-| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30), `TEMPEST` (31–40) |
-| Tests | 434, all headless |
-| `src/main/resources` | 65 MB |
-| Per galaxy, measured | ~155 PNGs, ~7 MB, ~5.5 s of generator time |
+| Levels | **50 of 50** |
+| Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30), `TEMPEST` (31–40), `NULL` (41–50) |
+| Tests | 453 executed, all headless |
+| `src/main/resources` | 71 MB |
+| Per galaxy, measured | ~150 PNGs, ~6 MB, ~5.9 s of generator time |
 
-One galaxy left, so budget roughly **155 PNGs and 7 MB**, finishing near 72 MB. Generator runtime is
-not a concern: it was 3.1 s at ten levels, 4 s at twenty, 4.9 s at thirty and 5.5 s at forty, so
-fifty lands well inside ten seconds. Ignore any advice about parallelising it.
+The campaign is complete. Null came in at 148 PNGs and 6 MB against a budget of 155 and 7, and the
+generator finished in 5.9 s at fifty levels against the 3.1 s it took at ten — so the projection
+held and the advice to ignore parallelising it still stands.
 
-The framework is finished. Everything below is data plus a small, named amount of new code.
+**The test figure counts executed cases, not `@Test` annotations.** The two disagree, because some
+cases are parameterised: at forty levels this table said 434, which was the annotation count at that
+commit and never the number of tests that ran. Quote one or the other and say which.
+
+Only Phase 5 is left, and none of it is content.
 
 ---
 
@@ -230,6 +235,15 @@ two hulls and read as one ship on `BossSheet`. They now span 0.75 to 2.06, and n
 broad classes share a hull. The two that repeat one are the tall Mast and the turned Delta, which
 cannot be confused with anything.
 
+**Rule 8 also covers the *number* of draws, not only new ones.** `maybeSpawnEnemy` checks the
+population against the difficulty cap *before* it rolls, so that early return decides whether
+`nextInt(1000)` is consumed this tick. Anything that changes how many enemies are on the field
+therefore shifts every subsequent draw in the stream, asteroids included — no new `random.next*()`
+call is added, but the stream moves just the same. Authored waves did exactly that, deliberately and
+with nowhere better to go: rolling before the cap check *adds* a draw, and exempting wave ships from
+the count makes the cap not a cap. Every seeded assertion in `SpawnDirectorTest` is a property
+rather than a golden number, which is why they survived it; if you add one, keep it that way.
+
 **`SpawnDirectorTest.theSameSeedProducesTheSameRun` does not enforce rule 8.** It counts asteroids
 over two runs in the same JVM at the same code version, so it proves determinism and nothing else. An
 added `random.next*()` call in a spawn path would fail no test at all. Rule 8 is a convention held by
@@ -240,9 +254,32 @@ to 0.8 of the arena breadth and subtracts half the body's width, so a wider rig 
 `PilotedMechTest` asserted `x() <= 996`, which is vacuously true of anything on screen — it now checks
 the trailing edge, for every rig rather than the two that exist.
 
-## Phase 4 — Null (41–50)
+## Phase 4 — Null (41–50) — **done**
 
-Void, gravity, the black hole. Seeds **4600–4690**. Accent `#9a6bff`.
+Void, gravity, the black hole. Seeds **4600–4690**. Accent `#9a6bff`. Built as described below. All
+three code pieces landed roughly as budgeted, which is the first phase that can be said of; what it
+did not budget was four defects in the art and the arithmetic, all four found by looking at the
+thing rather than by running the suite. They are in *Carried forward* below.
+
+The level list under-specified itself: it named backdrops for five of the ten and banned
+`ATMOSPHERE` and `SURFACE`, which left five to choose. The choice made was to spread the galaxy
+across **five recipes**, the widest any galaxy has used, and to give the four `EVENT_HORIZON` levels
+an authored disc progression — 0.10, 0.20, 0.26, 0.32 — so they read as one fall toward the hole
+rather than as four skies with the same object in them. Waves run `6,6,6,6,5,5,5,4,4,4`, the only
+galaxy that shortens as it goes.
+
+| # | Level | `Backdrop` | Waves | Notes |
+|---|---|---|---|---|
+| 41 | Dead Belt | `BELT` | 6 | |
+| 42 | Hulk Drift | `STARFIELD` | 6 | emptiest sky in the game |
+| 43 | Shroud | `PLANET_RISE` | 6 | a world that went out |
+| 44 | Lens Corridor | `EVENT_HORIZON` | 6 | `disc` 0.10, first sighting |
+| 45 | Tidal Shear | `BELT` | 5 | **side-on** |
+| 46 | The Shell | `CAVERN` | 5 | `CAVE` template |
+| 47 | Ergosphere | `EVENT_HORIZON` | 5 | `disc` 0.20 |
+| 48 | Photon Ring | `EVENT_HORIZON` | 4 | `disc` 0.26, brightest backdrop in the game |
+| 49 | The Throat | `CAVERN` | 4 | `CAVE` template |
+| 50 | Event Horizon | `EVENT_HORIZON` | 4 | `disc` 0.32, finale |
 
 **Structural identity: no sky and no ground.** Not one `ATMOSPHERE` or `SURFACE` level in the galaxy.
 Nothing to fly over and nothing overhead; the only enclosures are dead structures.
@@ -275,6 +312,54 @@ not a sponge.
 A galaxy with `engines = 0` on its flagships is free characterisation — a navy with no thrusters, in
 the galaxy about gravity. Verified safe: the engine loop simply does not run.
 
+## Carried forward from Null
+
+**A backdrop that occludes something must own every layer it appears on.** The renderer stacks far,
+mid and near with ordinary alpha, so anything opaque on a nearer layer lands on top of a subject
+painted on the far one. The black hole was drawn on the far layer with `stars()` still running on all
+three, and the finale shipped its first pass as a circle with stars inside it — a translucent hole,
+which is the one thing a hole cannot be. `eventHorizon` now draws its own stars and clips the horizon
+out of the two nearer layers. Nothing in the suite can see this; it took looking at the sheet.
+
+**A per-layer `Random` cannot place a feature that more than one layer has to agree about.**
+`backgrounds()` seeds one `Random` per image as `seed + layer` — which is right, and is what keeps a
+change to one layer from shifting another — but `stars()` draws from it a different number of times
+on each layer. So two draws taken afterwards for a position put that position somewhere different on
+all three. The lensing streaks were struck around a centre the disc was nowhere near, and the comment
+above them claimed they shared one. **Anything two layers must agree on has to come from the seed by
+arithmetic, not from the draw.** The false comment is the part worth remembering: it was written from
+the intent rather than from the code, and it hid the defect for as long as it stood.
+
+**For a multi-part boss that moves, the parts set the bounds, not the body.** A `BossArt`'s declared
+size is the collision box, so it is tempting to size an orbit against it — and it is wrong by a wide
+margin. `BossHead` spreads its sectors symmetrically but lengthens every neck by `NECK_LENGTH_STEP`
+per index, so the outermost head on the `+across` side is also the one on the longest neck: measured,
+Aeon's eyes reach 298 one way and 221 the other. The envelope is wider than the body and *not centred
+on it*. The first pass sized the orbit from an estimate of that reach, was 40 pixels out, and swung an
+eye through the side wall. `AeonTest` steps the parts rather than only the body for exactly that
+reason, and it caught it.
+
+**A subclass that wants parts must call the flagship constructor, not the protected one.**
+`EnemyShip(Boss, x, y, scale)` sizes the box from the art, applies `bodyShare` and builds a
+`BossHead` per declared head; the protected eight-argument constructor `BurrowingWorm` uses does none
+of the three, because a worm is deliberately one hitbox at full health. `VoidEntity` reached for the
+worm's out of habit and got a boss with no eyes and 145% of its authored health — the same trap the
+Tempest notes record for `PilotedMech`, arrived at from the other direction. One line either way, and
+nothing warns you.
+
+**The aspect lesson applies to creatures too.** Ashfall recorded it for hulls, Cryonis recorded it
+again, Tempest found the floor, and Null found that `CreatureProfile` has the same failure mode: its
+three creatures went in at 1.09, 1.28 and 1.59 and read as one dark rounded mass with pale ribs on
+it. Leg counts of 4, 0 and 8 did not save them — at two hundred pixels a leg is a stub and the eye
+has the outline first. They are 0.97, 1.94 and 1.25 now. **Whatever the record, separate its rows on
+the outline before separating them on anything else.**
+
+**`engines = 0` is free and it reads.** The thrusterless navy the Phase 4 entry proposed as
+characterisation cost exactly nothing — the engine loop in `bossFrame` does not run at zero — and on
+the boss sheet a fleet with no thrusters in the galaxy about gravity is legible as an idea, not just
+as an absence. Three galaxies of stepping the count down (five and six, three and four, two and
+three) were worth it for the arrival.
+
 ## Phase 5 — Polish
 
 - Per-upgrade garage icons: 12 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
@@ -290,7 +375,13 @@ the galaxy about gravity. Verified safe: the engine loop simply does not run.
   *entire fifty-level campaign*, not once per galaxy. Nothing raises spawn pressure between galaxy
   1 and galaxy 5 on a first play. So the flat feel this entry hedged against is real rather than
   already handled, and the only per-galaxy escalation in the game is the bosses' authored health.
-- HUD and debrief galaxy labels; `README.md` still describes a ten-level game.
+- HUD and debrief galaxy labels; `README.md` still describes a much smaller game.
+
+  This entry used to say the README described a ten-level game. It does not, and it is worse than
+  that: `README.md` lists **eight** places by name, says "the ten places" a few dozen lines later,
+  and still claims the run loops back after the eighth. Three mutually inconsistent descriptions of
+  what is now a fifty-level campaign. `tools/preview/README.md` is stale the same way — it still
+  says "the 420 passing tests".
 - The health bar's green → gold → red ramp is the primary health signal and a deutan collision. It
   deserves its own ticket rather than being folded into a content phase.
 

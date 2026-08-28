@@ -147,18 +147,9 @@ final class ControlsPanel extends VBox {
                 String bound = row == armed
                         ? "press a key"
                         : settings.key(player, action).getName();
-                row.setText("P" + player + " " + pad(action.label()) + bound);
+                row.setRow("P" + player + " " + action.label(), bound);
             }
         }
         noticeRow.setText(notice);
-    }
-
-    /** Column alignment without a monospaced font: the labels are all short and known. */
-    private static String pad(String label) {
-        StringBuilder padded = new StringBuilder(label);
-        while (padded.length() < 8) {
-            padded.append(' ');
-        }
-        return padded.toString();
     }
 }

@@ -26,7 +26,8 @@ Three origins appear below:
 | `player/p{1,2}-*-hit.png` | Original | Damage frames: each pose blended toward the hostile glow by the generator |
 | `player/{azure,amber,violet,chrome}-*.png` | Original | Garage paint jobs: player one's cut frames, hue-rotated by the generator. Outlines are unsaturated, so they survive the rotation and the shading is preserved |
 | `player/{azure,amber,violet,chrome}-*-hit.png` | Original | Damage frames for the paint jobs, same blend as the stock hulls |
-| `player/kit-{fins,armour,lance}-*.png` | Original | Garage body kits: transparent decals drawn over any hull, placed from each pose's alpha bounding box so they track the bank |
+| `player/{interceptor,gunship,twin-boom}-{militia,corsair,azure,amber,violet,chrome}-*.png` | Generated | Garage chassis: player one's cut frames rescaled into three silhouettes by the generator, then hue-rotated into all six paints. Generated rather than Original because the outline is the generator's arithmetic and not the sheet's — the colour is all the sheet still contributes |
+| `player/kit-{fins,armour,lance,canards,scoop,mast,rack}-*.png` | Original | Garage body kits: transparent decals drawn over any hull, placed from each pose's alpha bounding box so they track the bank |
 | `player/*-side.png`, `player/*-hit-side.png` | Original | Every hull, paint job and kit decal above, cut again for the one level flown side-on. A quarter turn of the frame beside it, applied by the generator rather than at draw time, so the art and the collision box are the same shape — the same bargain `level-9/enemy-*.png` makes. Their `Sprite` dimensions are transposed to match |
 | `insignia/{chevrons,rods,bars,stars}-{1..4}.png` | Generated | Rank badges for the debrief. Four tiers by four mark counts, which is the grid `prefs.Rank` folds all twenty-six ranks onto |
 | `PlayProjectile.png`, `EnemyProjectile1.png`, `MegaLaser.png` | Original | Projectiles |
@@ -54,6 +55,9 @@ Three origins appear below:
 | `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons |
 | `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | Pickup icons |
 | `pickup-rocket.png` | Generated | Pickup icon |
+| `pickup-scythe.png`, `pickup-flak.png`, `pickup-nova.png` | Generated | Pickup icons for the three weapons added with the chassis |
+| `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
+| `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
 | `level-9/{far,mid,near}.png` | Generated | Dust Reach. The one level flown side-on, so its sky tiles horizontally rather than vertically — do not reuse these on a top-down level or the wrap shows a seam |
 | `level-9/enemy-{scout,fighter,cruiser}.png` | Generated | Dust Reach's hostiles, cut pointing left because the level runs that way. Their `Sprite` dimensions are transposed to match |
 | `level-10/{far,mid,near}.png` | Generated | Hollow Womb; a cavern in shades of meat |
@@ -72,8 +76,15 @@ metadata. All instrumental.
 Which track plays when is decided by `asset/MusicCue`, not by the file names — a cue holds several
 suitable tracks and picks one per round so replaying a mode does not always sound the same.
 
-All ten are encoded at 128 kbps to keep the download reasonable; the soundtrack would otherwise be
-most of it. The higher-bitrate exports are in git history.
+Nine of the ten are encoded at about 128 kbps to keep the download reasonable; the soundtrack would
+otherwise be most of it. `starlight-circuit.mp3` is the exception at 200 kbps -- it never went
+through the same encode pass, which is also why it is the loudest of the ten and half again the
+size of its neighbours.
+
+Only three have a higher-bitrate export in git history: `death-metal.wav`, `death-punk.wav` and
+`garage-music.wav`. The other seven were committed as the shipped MP3 and nothing else, so for
+those the 128 kbps file is the only copy that exists and a re-encode would be generation loss
+rather than a remaster.
 
 | File | Origin | Cue |
 |---|---|---|
@@ -160,6 +171,17 @@ Storm and gas giant, and the galaxy with no floor: six of its ten levels are ins
 | Boss frames `1..8.png` in `boss-storm-rig`, `boss-storm-rig-cockpit`, `boss-storm-rig-arm` | Generated | Vaunt again, in a bigger one, and the payoff for having built him in Ashfall. Not new drawings: the three methods that draw the Forge-Rig now take their canvas and their plate colours as arguments, and at the literals Ashfall always passed they produce the frames already committed — so this rig exists without a pixel of that galaxy's art moving. Deliberately the same machine, same silhouette and the same man behind the same glass, with the furnace and cockpit ring left Ashfall orange; only the armour is repainted. Three directories because they are three separate targets, as the Forge-Rig's are |
 | Boss frames `1..8.png` in `boss-storm-serpent` | Generated | The finale, striking down out of the cloud deck. A new method beside the Dune Leviathan's rather than that one rotated and recoloured — the Leviathan's frames open leftward, and a galaxy-four finale that is visibly galaxy one's boss turned sideways reads as reused. Same species, not the same animal: three long petals against four short ones, a broad skull the Leviathan has no equivalent of, arcs jumping the gaps between its plates, and a throat lit from inside instead of flat black |
 | `storm-segment.png` | Generated | One ring of the Storm Serpent's body. Its own file rather than `worm-segment.png` because that one is not rotationally symmetric — it carries its bristles down one side, which is right for an animal crossing the screen and visibly wrong for one striking down it. This ring has no up |
+
+### Galaxy 5 — Null (levels 41–50)
+
+Void, gravity and the thing at the bottom of it. The galaxy with no sky and no ground: not one `ATMOSPHERE` or `SURFACE` backdrop, nothing to fly over and nothing overhead, and the only two enclosures are dead structures.
+
+| File | Origin | Notes |
+|---|---|---|
+| Level directories `level-41`, `level-42`, `level-43`, `level-44`, `level-45`, `level-46`, `level-47`, `level-48`, `level-49`, `level-50` — each holding `{far,mid,near}.png` and `enemy-{scout,fighter,cruiser}.png` | Generated | Seeds 4600–4690, ten apart. Five recipes over ten levels, the widest spread any galaxy has used, and the direct answer to Tempest putting six levels on one. Four of the ten run the new `EVENT_HORIZON` recipe, and they are not four skies with the same object in them: the disc grows 0.10 → 0.20 → 0.26 → 0.32 of the canvas across levels 44, 47, 48 and 50, so the galaxy reads as one continuous fall toward the hole. 0.32 is near the ceiling rather than a round number — the accretion ring reaches a further 35%, so the whole feature is about 746 across an 864 canvas, and anything taller than the canvas cannot tile without overlapping itself. `level-45` is the side-on leg, so its sky tiles horizontally and its hulls are cut pointing left; it uses `BELT`, safe sideways for the reason levels 21 and 29 are |
+| Boss frames `1..8.png` in `boss-bonepicker`, `boss-lensbreaker`, `boss-tidewrack`, `boss-frame-drag`, `boss-photon-halo`, `boss-gullet` | Generated | Six warships from three hulls and three vanes, paired six ways with no pair repeated, on the same 1.5× canvases. **Zero engines on all six** — Ashfall ran five and six, Cryonis three and four, Tempest two and three, and each of those blocks called the next a step toward the thrusterless navy this galaxy wanted: a fleet with nothing to push against, in the galaxy about gravity. Aspects run 0.82 to 2.10. The first pass had both Waist-hulled classes at 1.17 and 1.51 and they read as one ship on the boss sheet, which is the mistake Ashfall recorded, Cryonis recorded again and Tempest recorded a third time; they are now 0.95 and 1.87. `boss-tidewrack` guards the side-on leg and is turned once here rather than rotated each frame, so its box matches its picture |
+| Boss frames `1..8.png` in `boss-hulk-choir`, `boss-shroudmaw`, `boss-shellborn` | Generated | Three creatures from the same parameterised method the last three galaxies use. All three sit on top-down levels, because `CreatureProfile` still has no sideways flag. `boss-shroudmaw` is the first creature in the game with no legs at all, which that record already supported without a branch — `legs` at zero simply draws none. Aspects 0.97, 1.94 and 1.25: the first pass had them at 1.09, 1.28 and 1.59 and all three read as the same dark rounded mass, since at two hundred pixels a leg is a stub and the outline is what the eye gets first |
+| Boss frames `1..8.png` in `boss-aeon`, `boss-aeon-eye` | Generated | Aeon, the Hollow Star: the last fight in the campaign, four-eyed. A third pair of methods written beside the hydra's and the Empress's rather than by generalising either, for the reason their own rows give. The construction is the inverse of every other boss in the game — all of those are a lit body with a core burning inside it, and this one is a hole with its light entirely outside it, which is why it could not be a recolour of anything. Its four socket positions are computed from the same span the engine spreads necks across, so a body drawn for four eyes cannot disagree with the arc four necks are flown on |
 
 ## What was removed, and why
 

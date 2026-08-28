@@ -141,5 +141,81 @@
         </plugins>
       </build>
     </profile>
+
+    <!--
+      Native iOS and Android builds, via GraalVM native-image.
+
+      Everything here is a pin backwards, and the versions are not ours to choose. Gluon builds
+      its own GraalVM fork and its own static JavaFX libraries, and both lag the JDK badly:
+      substrate's DEFAULT_JAVAFX_STATIC_SDK_VERSION is "21-ea+11.3", and the newest GraalVM in
+      gluonhq/graal is a JDK 23 dev build from September 2024 (the last Final build is JDK 17, from
+      2022). So mobile gets JavaFX 21 and release 17 whether we like it or not.
+
+      Contained in a profile rather than applied to the project, because it does not have to
+      spread: the whole suite passes at -Djavafx.version=21.0.6 -Dmaven.compiler.release=17, so
+      nothing in this codebase actually needs 26. Desktop keeps the current runtime and the
+      installers are untouched.
+
+      Deliberately no dependency surgery. jamepad carries desktop-only SDL natives and javafx.media
+      is unsupported on both mobile targets, but native-image only compiles what it can reach, so
+      an entry point that never touches SoundBank or Gamepad leaves both out of the image without
+      the classpath having to differ. If that turns out to be wrong, splitting them into a desktop
+      profile is the next move: activate it on the absence of a property, never activeByDefault,
+      which any -P on the command line silently disables.
+
+      Build with:  mvn -Pmobile -Dgluonfx.target=android gluonfx:build gluonfx:package
+      Requires GRAALVM_HOME pointing at a Gluon GraalVM build, plus the Android SDK/NDK or Xcode.
+    -->
+    <profile>
+      <id>mobile</id>
+      <properties>
+        <javafx.version>21.0.6</javafx.version>
+        <maven.compiler.release>17</maven.compiler.release>
+        <!-- host builds a native binary for this machine, which is the cheapest way to find out
+             whether native-image can compile the project at all before any device is involved. -->
+        <gluonfx.target>host</gluonfx.target>
+        <gluonfx.mainClass>com.hashimjacobs.spacecase.Launcher</gluonfx.mainClass>
+      </properties>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.gluonhq</groupId>
+            <artifactId>gluonfx-maven-plugin</artifactId>
+            <version>1.0.29</version>
+            <configuration>
+              <target>${gluonfx.target}</target>
+              <mainClass>${gluonfx.mainClass}</mainClass>
+              <!--
+                There is no reflection anywhere in src/main, but JavaFX itself uses it to start:
+                Application.launch(String...) calls Class.forName on whatever class called it, so
+                without this the native binary boots the Gluon VM, boots JavaFX, and then dies with
+                ClassNotFoundException on our own entry point. Nothing else in the game needs
+                registering, which is why this list is one line rather than a file.
+              -->
+              <reflectionList>
+                <list>com.hashimjacobs.spacecase.Main</list>
+              </reflectionList>
+              <!--
+                GraalVM keeps only the resources it is told to. Gluon's defaults cover images,
+                fonts, css and a dozen other things, but no audio extension at all, so the first
+                native build started, drew the game, and then threw "Missing bundled audio" for
+                every effect and every track. The sprites were never at risk; png is on the default
+                list. txt is here for gamecontrollerdb.
+              -->
+              <resourcesList>
+                <!--
+                  Doubled backslashes on purpose. The plugin copies these into
+                  resourceconfig.json verbatim without escaping them, so a single backslash
+                  produces invalid JSON and native-image fails to parse its own config.
+                -->
+                <list>.*\\.wav$</list>
+                <list>.*\\.mp3$</list>
+                <list>.*\\.txt$</list>
+              </resourcesList>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>

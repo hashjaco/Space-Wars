@@ -116,15 +116,27 @@ class GarageSessionTest {
         assertEquals(0, session.cursor(0));
     }
 
+    /**
+     * The paint row, named rather than counted.
+     *
+     * These used to index it as {@code Upgrade.values().length}, which was right until the airframe
+     * row went in ahead of it. Both tests then bought a gunship and asserted the pilot owned their
+     * own livery -- which they always do -- and passed. A test that moves when the layout moves is
+     * worse than one that fails.
+     */
+    private static int paintRow() {
+        return GarageSession.launchRow() - 2;
+    }
+
     @Test
     void browsingReachesLockedPaintSoItCanBeBought() {
         GarageSession session = solo(1000);
-        moveTo(session, Upgrade.values().length);
+        moveTo(session, paintRow());
 
         // Step along the catalogue until something unowned is in view, then buy it.
         session.handleKey(KeyCode.D);
         session.handleKey(KeyCode.D);
-        GarageSession.Row paint = session.rows(0).get(Upgrade.values().length);
+        GarageSession.Row paint = session.rows(0).get(paintRow());
         assertFalse(paint.maxed(), "a locked paint job shows a price rather than reading as owned");
 
         session.handleKey(KeyCode.SHIFT);
@@ -136,7 +148,7 @@ class GarageSessionTest {
     @Test
     void reselectingPaintAlreadyOwnedIsFree() {
         GarageSession session = solo(1000);
-        moveTo(session, Upgrade.values().length);
+        moveTo(session, paintRow());
         session.handleKey(KeyCode.D);
         session.handleKey(KeyCode.SHIFT);
         int afterBuying = session.credits(0);
@@ -165,6 +177,22 @@ class GarageSessionTest {
         session.handleKey(KeyCode.COMMA);
 
         assertTrue(session.everyoneDone());
+    }
+
+    @Test
+    void playerTwosPadFireBuysWithoutLaunchingAnybody() {
+        // A pad sends the player's fire key and then a menu confirm tap; player two's confirm is
+        // Enter, which used to end every bay -- so buying from a pad warped the crew out instead.
+        GarageSession session = pair(500, 500);
+        int price = Upgrade.FIREPOWER.costFor(0);
+
+        session.handleKey(KeyCode.COMMA);
+        session.handleKey(KeyCode.ENTER);
+
+        assertEquals(1, session.loadout(1).level(Upgrade.FIREPOWER));
+        assertEquals(500 - price, session.credits(1));
+        assertFalse(session.everyoneDone(), "the confirm tap must not launch the garage");
+        assertFalse(session.done(1));
     }
 
     @Test

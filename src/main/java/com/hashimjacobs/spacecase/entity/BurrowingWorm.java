@@ -27,14 +27,24 @@ public final class BurrowingWorm extends EnemyShip {
      * Ticks of body between one ring and the next.
      *
      * Short, because the gap between rings is this multiplied by however fast the worm is moving.
-     * At the top of a lunge it covers around ten pixels a tick, so nine ticks left rings a hundred
-     * pixels apart -- a string of separate discs rather than one animal. Five keeps them
-     * overlapping through the fastest part of the strike.
+     * At the top of a lunge it covers around fourteen pixels a tick, so nine ticks left rings a
+     * hundred and thirty pixels apart -- a string of separate discs rather than one animal. Four
+     * keeps them overlapping through the fastest part of the strike.
+     *
+     * Was five, when a strike took 260 ticks rather than 190 and the peak was nearer ten pixels a
+     * tick. It is the lag times the speed that has to stay put, so shortening one means shortening
+     * the other. Nothing tests this -- it is a thing you look at.
      */
-    private static final int SEGMENT_LAG = 5;
+    private static final int SEGMENT_LAG = 4;
 
-    /** One full strike and withdrawal, a little over four seconds. */
-    private static final int CYCLE = 260;
+    /**
+     * One full strike and withdrawal, a little over three seconds.
+     *
+     * Was 260. Shortened rather than deepened: the reach is what makes a strike fair, and it is
+     * pinned to the pixel by StormSerpentTest, so the only honest way to make this animal more
+     * dangerous is to have it strike more often.
+     */
+    private static final int CYCLE = 190;
 
     /**
      * Ticks for one pass of the vertical drift.

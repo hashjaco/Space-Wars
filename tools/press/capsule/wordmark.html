@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Space Case wordmark</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: transparent; overflow: hidden; }
+  .stage { display: flex; align-items: center; justify-content: center;
+           width: 100vw; height: 100vh; }
+  .word {
+    font-family: Impact, "Arial Black", sans-serif;
+    font-size: 34vh; line-height: .9; text-align: center; white-space: nowrap;
+    background: linear-gradient(180deg, #fff 36%, #0ec417 126%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    -webkit-text-stroke: 2px #05070c;
+    filter: drop-shadow(0 0 4vh rgba(14,196,23,.42));
+  }
+  /* Stacked: two lines, for square and vertical placements. */
+  body.stacked .word { font-size: 30vh; white-space: normal; }
+  body.stacked .break { display: block; }
+  .break { display: inline; }
+  .break::before { content: "\00a0"; }
+  body.stacked .break::before { content: ""; }
+
+  /* Flat marks for print, stamping and anywhere the gradient cannot be trusted. */
+  body.mono-light .word,
+  body.mono-dark .word {
+    background: none; -webkit-background-clip: initial; background-clip: initial;
+    filter: none; -webkit-text-stroke: 0;
+  }
+  body.mono-light .word { color: #ffffff; }
+  body.mono-dark .word { color: #05070c; }
+</style>
+<div class="stage"><div class="word">SPACE<span class="break"></span>CASE</div></div>
+<script>
+  const v = new URLSearchParams(location.search).get("v");
+  if (v) document.body.classList.add(v);
+</script>

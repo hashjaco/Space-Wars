@@ -48,6 +48,17 @@ final class GameScreen {
     private SettingsPanel settingsPanel;
     private MenuNavigator saveNavigator;
 
+    /**
+     * The loop this screen drives, for the router to wire a networked game onto.
+     *
+     * Package-private: {@code SceneRouter} is the only caller and lives here too, so a networked
+     * run can reach {@code setStepGate}, {@code setIntentSource}, {@code setLevelHandshake},
+     * {@code setTickObserver} and {@code setLocalSeat} without any of that becoming public API.
+     */
+    GameLoop loop() {
+        return loop;
+    }
+
     GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
                HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
@@ -56,18 +67,35 @@ final class GameScreen {
                 onQuitToMenu, onRoundOver, padStatus, false);
     }
 
+    /** @param seats how many ships to field; an online room decides it, not the mode */
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus, int seats) {
+        this(mode, settings, sounds, pilots, highScores, saves, random, resume,
+                onQuitToMenu, onRoundOver, padStatus, false, seats);
+    }
+
     /** @param endless true for the post-campaign run, which ignores galaxy borders */
     GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
                HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
                Supplier<String> padStatus, boolean endless) {
+        this(mode, settings, sounds, pilots, highScores, saves, random, resume, onQuitToMenu,
+                onRoundOver, padStatus, endless, mode.rules().playerCount());
+    }
+
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus, boolean endless, int seats) {
         Canvas canvas = new Canvas(GameConfig.WIDTH, GameConfig.HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
         Renderer renderer = new Renderer(gc, settings);
 
         this.saves = saves;
         this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
-                onRoundOver, highScores, saves, resume, endless);
+                onRoundOver, highScores, saves, resume, endless, seats);
         this.pauseLayer = buildPauseLayer(onQuitToMenu);
         this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();
@@ -122,7 +150,7 @@ final class GameScreen {
         MenuButton[] rows = new MenuButton[SaveGames.SLOTS + 1];
         for (int i = 0; i < SaveGames.SLOTS; i++) {
             int number = i + 1;
-            slotButtons[i] = new MenuButton("", () -> {
+            slotButtons[i] = new MenuButton("Slot " + (i + 1), "", () -> {
                 saves.save(number, loop.checkpoint());
                 showPauseMenu();
             });
@@ -147,7 +175,7 @@ final class GameScreen {
         // Refreshed on open rather than at build time: a slot may have been written since.
         for (int i = 0; i < SaveGames.SLOTS; i++) {
             String held = saves.slot(i + 1).map(SaveSlot::describe).orElse("empty");
-            slotButtons[i].setText((i + 1) + "   " + held);
+            slotButtons[i].setDetail(held);
         }
         pauseLayer.setVisible(false);
         settingsLayer.setVisible(false);

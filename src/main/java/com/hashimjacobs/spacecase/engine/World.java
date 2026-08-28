@@ -14,6 +14,7 @@ import com.hashimjacobs.spacecase.entity.Facing;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
@@ -59,11 +60,17 @@ public final class World {
     private int shakeStartTick = -SHAKE_TICKS;
     private double shakeAmplitude;
 
-    /** Names shown under the ships when nobody has been to the pilots screen. */
-    private static final List<String> UNNAMED_PILOTS = List.of("PILOT 1", "PILOT 2");
+    /**
+     * Names shown under the ships when nobody has been to the pilots screen.
+     *
+     * Four, because an online room seats four. Only as many are read as there are ships, so a solo
+     * or two-player game is unchanged by the extra rows.
+     */
+    private static final List<String> UNNAMED_PILOTS =
+            List.of("PILOT 1", "PILOT 2", "PILOT 3", "PILOT 4");
 
     public World(GameMode mode) {
-        this(mode, UNNAMED_PILOTS);
+        this(mode, UNNAMED_PILOTS.subList(0, mode.rules().playerCount()));
     }
 
     /** @param pilotNames one per player slot, player one first */
@@ -72,10 +79,18 @@ public final class World {
         spawnPlayers(pilotNames);
     }
 
+    /**
+     * One ship per name, rather than the count on {@link ModeRules}.
+     *
+     * The names were always the better source and are already a constructor parameter: an online
+     * room seats two to four and its size is not known until everyone has joined, where
+     * {@code playerCount} is a constant baked into the mode. So the list decides, and the local
+     * constructor trims {@link #UNNAMED_PILOTS} to the mode's count -- which leaves solo and couch
+     * play exactly as they were, and lets a networked co-op field four without lying about the mode.
+     */
     private void spawnPlayers(List<String> pilotNames) {
-        players.add(new PlayerShip(1, pilotNames.get(0), Facing.UP, 0, 0));
-        if (mode.rules().playerCount() > 1) {
-            players.add(new PlayerShip(2, pilotNames.get(1), Facing.UP, 0, 0));
+        for (int number = 1; number <= pilotNames.size(); number++) {
+            players.add(new PlayerShip(number, pilotNames.get(number - 1), Facing.UP, 0, 0));
         }
         placeSpawns();
     }
@@ -126,14 +141,20 @@ public final class World {
         Facing near = orientation.playerFacing();
 
         for (PlayerShip player : players) {
-            boolean second = player.playerNumber() == 2;
-            boolean opposed = headToHead && second;
+            int number = player.playerNumber();
+            // Head-to-head alternates ends: odd numbers hold the near line, even numbers the far
+            // one, which keeps two-player battle exactly where it has always been and gives four
+            // players two a side rather than a queue at one end.
+            boolean opposed = headToHead && number % 2 == 0;
             double w = player.width();
             double h = player.height();
 
-            double lane = rules.playerCount() == 1 || headToHead
-                    ? orientation.arenaBreadth() / 2
-                    : orientation.arenaBreadth() * (second ? 2 : 1) / 3;
+            // Evenly spaced across the arena, one lane per ship. n/(count+1) reproduces the old
+            // numbers exactly -- one player at a half, two at a third and two thirds -- and keeps
+            // going for three and four rather than needing a case each.
+            double lane = players.size() == 1 || headToHead
+                    ? battleLane(number, players.size())
+                    : orientation.arenaBreadth() * number / (players.size() + 1.0);
             double across = lane - orientation.acrossExtent(w, h) / 2;
             // Battle's second seat starts at the far end facing back down the arena.
             double depth = opposed ? 70 : orientation.arenaDepth() - 130;
@@ -143,6 +164,24 @@ public final class World {
                     opposed ? near.opposite() : near);
             player.returnToSpawn();
         }
+    }
+
+    /**
+     * Where a ship lines up when the mode is head to head, or when it is flying alone.
+     *
+     * Both cases used to be "the middle", and for one ship or two facing off that is still exactly
+     * right. Four in a battle need spreading, so each end's ships are spaced across their own half
+     * of the breadth -- which leaves a lone ship, and each of a facing pair, on the centre line as
+     * before.
+     */
+    private double battleLane(int number, int count) {
+        int perEnd = (count + 1) / 2;
+        if (perEnd <= 1) {
+            return orientation.arenaBreadth() / 2;
+        }
+        // Position within this end: 1, 2, 3... among the ships that share it.
+        int placeAtEnd = (number + 1) / 2;
+        return orientation.arenaBreadth() * placeAtEnd / (perEnd + 1.0);
     }
 
     /** Moves everything and expires anything that has left the arena. Does not remove. */
@@ -156,6 +195,10 @@ public final class World {
             clampToArena(player);
         }
         for (EnemyShip enemy : enemies) {
+            // Beside update() rather than inside it, exactly as the players above are ticked: the
+            // set-piece flagships all override update() without calling super, so a timer in there
+            // would never run for any of them. See EnemyShip.tickTimers.
+            enemy.tickTimers();
             enemy.update();
             // Kept out of the rock, but never hurt by it: an enemy grinding along a wall is scenery,
             // an enemy killing itself on one is the level playing itself. Bosses are exempt because
@@ -227,7 +270,9 @@ public final class World {
      */
     public void reviveFallenAllies() {
         ModeRules rules = rules();
-        if (rules.lastPlayerStanding() || rules.playerCount() < 2) {
+        // players.size(), not rules.playerCount(): an online room's size is decided when everyone
+        // has joined, and the mode's constant no longer knows it.
+        if (rules.lastPlayerStanding() || players.size() < 2) {
             return;
         }
         for (PlayerShip player : players) {
@@ -357,6 +402,69 @@ public final class World {
         explosions.removeIf(ActiveExplosion::isFinished);
     }
 
+    /**
+     * Fits every ship the loadout its pilot is flying, by seat.
+     *
+     * The garage is local and what it sells is not: an upgrade changes a ship's damage, hull and
+     * speed, so a peer that did not hear about one simulates a different ship. Positional by player
+     * number, which is why the list that reaches here is built in seat order rather than in the
+     * order peers happened to speak.
+     *
+     * A short list leaves the later seats as they are, which is what a peer that has said nothing
+     * yet should mean.
+     */
+    public void fitLoadouts(List<String> codes) {
+        for (PlayerShip player : players) {
+            int seat = player.playerNumber() - 1;
+            if (seat >= 0 && seat < codes.size()) {
+                player.applyLoadout(Loadout.decode(codes.get(seat), player.playerNumber()));
+            }
+        }
+    }
+
+    /**
+     * A cheap fingerprint of everything the simulation decides, for comparing two runs tick by tick.
+     *
+     * Positions, the counts, and each pilot's health, lives and score. Anything that diverges
+     * without a position following it within a tick or two does not exist in this game: a shot
+     * leaving at a different angle has moved somewhere else by the next update, and a hit that
+     * lands on one machine and not the other changes a count immediately.
+     *
+     * Deliberately excludes the explosions and the screen shake. Both are read only by the
+     * renderer, and both are functions of the tick a draw happens on rather than of the
+     * simulation -- folding them in would make two machines drawing at different rates look like
+     * a divergence.
+     *
+     * Raw bits rather than the value, so -0.0 and a NaN are compared as they are stored. Two
+     * machines that disagree about a sign of zero have already diverged; the point here is to say
+     * so rather than to be forgiving about it.
+     *
+     * ponytail: positions, counts and pilot state. Widen it if a divergence ever hides behind it.
+     */
+    public long checksum() {
+        long hash = tick;
+        hash = fold(hash, players);
+        hash = fold(hash, enemies);
+        hash = fold(hash, asteroids);
+        hash = fold(hash, bullets);
+        hash = fold(hash, powerUps);
+        for (PlayerShip player : players) {
+            hash = hash * 31 + player.health();
+            hash = hash * 31 + player.lives();
+            hash = hash * 31 + player.score();
+        }
+        return hash;
+    }
+
+    private static long fold(long hash, List<? extends Entity> entities) {
+        hash = hash * 31 + entities.size();
+        for (Entity entity : entities) {
+            hash = hash * 31 + Double.doubleToRawLongBits(entity.x());
+            hash = hash * 31 + Double.doubleToRawLongBits(entity.y());
+        }
+        return hash;
+    }
+
     public void addBullet(Bullet bullet) {
         bullets.add(bullet);
     }
@@ -382,6 +490,18 @@ public final class World {
         powerUp.setVelocity(orientation.vx(GameConfig.POWERUP_DRIFT_SPEED, 0),
                 orientation.vy(GameConfig.POWERUP_DRIFT_SPEED, 0));
         powerUps.add(powerUp);
+    }
+
+    /**
+     * A detonation at a point rather than on a thing.
+     *
+     * The {@code Entity} form sizes itself off what blew up, which a blast has nothing to ask. One
+     * call per shell and never one per victim: this kicks the camera, and a nova into a group would
+     * otherwise shake it once for every ship in the radius.
+     */
+    public void addBlast(double centerX, double centerY, double radius) {
+        explosions.add(new ActiveExplosion(Explosion.LARGE, centerX, centerY, radius * 2));
+        shake(Math.min(SHAKE_MAX, radius * 0.09));
     }
 
     public void addExplosion(Entity source, Explosion size) {
@@ -517,6 +637,24 @@ public final class World {
 
     public int tick() {
         return tick;
+    }
+
+    /**
+     * Puts the clock at an agreed number, for a networked level start and nothing else.
+     *
+     * The tick is simulation input, not a counter: {@code EnemyWeapons} derives its firing patterns
+     * from it, the terrain scrolls by it, and the parallax reads it. Two machines that disagree
+     * about the tick are two machines playing different games from the first frame.
+     *
+     * They will disagree by the time a level ends, and legitimately so. Every phase between two
+     * fights -- the victory lap, the debrief, the garage, the warp -- runs {@link #tickScenery()},
+     * and three of the four end when a *local* thing happens: a pilot pressing a key, a pilot
+     * finishing their shopping, this machine's disk finishing a decode. That is the right design
+     * for those phases and it is why they are not lockstepped. The cost is this method: the host
+     * names the tick the next fight begins on, and everyone starts it there.
+     */
+    public void resumeAt(int tick) {
+        this.tick = tick;
     }
 
     public List<PlayerShip> players() {

@@ -175,14 +175,25 @@ public record SaveSlot(GameMode mode, Level level, int wavesSurvived, int loop,
         return all[ordinal];
     }
 
-    /** One line naming this run, for a menu row: "Co-op   Lv5 Undercity   12,400". */
+    /** Between the facts on a detail line. */
+    private static final String DETAIL_GAP = " \u00b7 ";
+
+    /**
+     * One line naming this run, for the detail line of a menu row:
+     * "Co-op \u00b7 Lv5 Undercity \u00b7 12,400".
+     *
+     * Middots rather than runs of three spaces: the rows are set in a proportional face, so spaces
+     * never lined anything up, and a separator that is visible is easier to read at a glance than
+     * a gap that has to be measured. The score is grouped, which the doc comment here has claimed
+     * since it was written but the code did not do.
+     */
     public String describe() {
         int best = 0;
         for (PlayerShip.Progress player : players) {
             best = Math.max(best, player.score());
         }
         String where = "Lv" + level.number() + " " + level.label();
-        String tail = players.isEmpty() ? "" : "   " + best;
-        return mode.label() + "   " + where + (loop > 1 ? "   loop " + loop : "") + tail;
+        String tail = players.isEmpty() ? "" : DETAIL_GAP + String.format("%,d", best);
+        return mode.label() + DETAIL_GAP + where + (loop > 1 ? DETAIL_GAP + "loop " + loop : "") + tail;
     }
 }
