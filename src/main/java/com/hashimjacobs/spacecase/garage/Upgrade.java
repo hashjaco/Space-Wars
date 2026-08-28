@@ -29,6 +29,12 @@ public enum Upgrade {
             Category.WEAPONS, 2, 220),
     FOCUS("Focusing coil", "The mega laser burns hotter.",
             Category.WEAPONS, 2, 240),
+    HONE("Honed edge", "The scythe comes round faster.",
+            Category.WEAPONS, 2, 200),
+    CHOKE("Choke", "The flak throws more.",
+            Category.WEAPONS, 2, 200),
+    YIELD("Yield", "The nova answers for more ground.",
+            Category.WEAPONS, 2, 260),
 
     // ---- Defence ------------------------------------------------------------------------------
 
@@ -147,27 +153,64 @@ public enum Upgrade {
      * and cannot drift from the effect as long as both read the same constants.
      */
     public String effectAt(int level) {
+        return effectAt(level, Chassis.STOCK);
+    }
+
+    /**
+     * The same readout for the airframe actually fitted.
+     *
+     * The one-argument form's promise -- that the readout cannot drift from the effect as long as
+     * both read the same constants -- stopped being true the moment a chassis could scale them. A
+     * garage row offering "5.50 speed" to an interceptor doing 6.60 is a lie the player pays for, so
+     * the row asks with the frame it is drawing.
+     *
+     * The arithmetic here has to match {@code entity.PlayerShip} exactly, which is the same bargain
+     * {@link #rocketCooldownAt} exists for.
+     */
+    public String effectAt(int level, Chassis chassis) {
         return switch (this) {
             case FIREPOWER -> "damage " + Math.round(GameConfig.BULLET_DAMAGE
                     * (1 + level * GameConfig.UPGRADE_DAMAGE_STEP));
-            case FIRE_RATE -> "every " + Math.max(GameConfig.PLAYER_FIRE_COOLDOWN_FLOOR,
-                    GameConfig.PLAYER_FIRE_COOLDOWN - level) + " ticks";
+            case FIRE_RATE -> "every " + fireIntervalAt(level, chassis) + " ticks";
             case SALVO -> "rocket every " + rocketCooldownAt(level) + " ticks";
             case FOCUS -> "beam " + (GameConfig.BEAM_DAMAGE_PER_TICK
                     + level * GameConfig.UPGRADE_BEAM_STEP) + " a tick";
-            case HULL -> (GameConfig.PLAYER_HEALTH + level * GameConfig.UPGRADE_HULL_STEP) + " health";
+            case HONE -> "scythe every " + (GameConfig.SCYTHE_FIRE_COOLDOWN
+                    - level * GameConfig.UPGRADE_HONE_STEP) + " ticks";
+            case CHOKE -> (GameConfig.FLAK_PELLETS + level * GameConfig.UPGRADE_CHOKE_STEP)
+                    + " pellets";
+            case YIELD -> "blast " + (int) (GameConfig.NOVA_BLAST_RADIUS
+                    + level * GameConfig.UPGRADE_YIELD_STEP) + "px";
+            case HULL -> (Math.round(GameConfig.PLAYER_HEALTH * chassis.healthFactor())
+                    + level * GameConfig.UPGRADE_HULL_STEP) + " health";
             case SHIELDING -> "-" + (level * GameConfig.UPGRADE_SHIELD_STEP) + " a hit";
             case CAPACITOR -> "shield soaks "
-                    + (GameConfig.SHIELD_CAPACITY + level * GameConfig.UPGRADE_CAPACITOR_STEP);
+                    + (Math.round(GameConfig.SHIELD_CAPACITY * chassis.healthFactor())
+                    + level * GameConfig.UPGRADE_CAPACITOR_STEP);
             case REPAIR -> level == 0 ? "none" : "1 health every "
                     + (GameConfig.REPAIR_INTERVAL_TICKS / level / 60) + "s";
             case SPEED -> String.format("%.2f speed",
-                    GameConfig.PLAYER_SPEED + level * GameConfig.UPGRADE_SPEED_STEP);
+                    GameConfig.PLAYER_SPEED * chassis.speedFactor()
+                            + level * GameConfig.UPGRADE_SPEED_STEP);
             case EJECT -> ((GameConfig.PLAYER_INVULNERABLE_TICKS
                     + level * GameConfig.UPGRADE_EJECT_STEP) / 60.0) + "s of grace";
             case COLLECTOR -> level == 0 ? "none"
                     : (level * GameConfig.UPGRADE_COLLECTOR_RANGE) + "px reach";
         };
+    }
+
+    /**
+     * The gun's interval on a given frame at a given fire-rate level.
+     *
+     * Shared with {@code entity.PlayerShip.startFireCooldown}, and the floor scales with the frame
+     * there for a reason worth repeating: held flat, a frame that reloads 20% faster would put the
+     * last two levels of this track both on it, and the second would buy nothing.
+     */
+    public static int fireIntervalAt(int level, Chassis chassis) {
+        double factor = chassis.reloadFactor();
+        int scaled = (int) Math.round(GameConfig.PLAYER_FIRE_COOLDOWN * factor);
+        int floor = (int) Math.ceil(GameConfig.PLAYER_FIRE_COOLDOWN_FLOOR * factor);
+        return Math.max(floor, scaled - level);
     }
 
     /** Shared by {@link #effectAt} and the controller, so the readout cannot lie about the reload. */

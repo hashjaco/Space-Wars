@@ -95,7 +95,7 @@ final class GarageOverlay {
         gc.fillText("GARAGE", GameConfig.WIDTH / 2, 58);
         gc.setFont(rowFont);
         gc.setFill(MUTED);
-        gc.fillText("Up/down choose    left/right browse paint and kits    fire to buy",
+        gc.fillText("Up/down choose    left/right browse frame, paint and kits    fire to buy",
                 GameConfig.WIDTH / 2, GameConfig.HEIGHT - 26);
 
         int bays = session.bayCount();
@@ -183,7 +183,7 @@ final class GarageOverlay {
         gc.restore();
 
         // Lean.NONE is index 2: the straight-ahead pose, which is the one worth showing off.
-        Sprite hull = loadout.livery().pose(2, false, false);
+        Sprite hull = loadout.chassisPose(2, false, false);
         Sprite kit = loadout.kit().overlay(2, false);
 
         gc.save();

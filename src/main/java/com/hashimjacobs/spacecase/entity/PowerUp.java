@@ -45,7 +45,19 @@ public final class PowerUp extends Entity {
         SPEED(Sprite.PICKUP_SPEED),
         SHIELD(Sprite.PICKUP_SHIELD),
         HEALTH(Sprite.PICKUP_HEALTH),
-        EXTRA_LIFE(Sprite.PICKUP_EXTRA_LIFE);
+        EXTRA_LIFE(Sprite.PICKUP_EXTRA_LIFE),
+
+        /**
+         * The three weapons that come off one archetype each rather than out of the common table.
+         *
+         * Kept out of {@link #COMMON} deliberately, and not only for rarity: that array's length is
+         * the modulus {@link #randomCommon} draws against, so adding to it re-rolls every seeded
+         * drop assertion in the suite for no gain. {@code engine.CollisionSystem.rollKind} hands
+         * these out per hull instead, the way the beam already was.
+         */
+        SCYTHE(Sprite.PICKUP_SCYTHE),
+        FLAK(Sprite.PICKUP_FLAK),
+        NOVA(Sprite.PICKUP_NOVA);
 
         /**
          * What anything may drop. The beam is deliberately not in here.

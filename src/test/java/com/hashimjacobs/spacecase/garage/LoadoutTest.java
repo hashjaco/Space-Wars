@@ -210,6 +210,56 @@ class LoadoutTest {
                 "encoded to " + maxed.encode().length() + " chars: " + maxed.encode());
     }
 
+    /**
+     * The whole reason the chassis fields were appended instead of versioned.
+     *
+     * Every record ever written before this build ends at the kit mask. Reading one has to leave a
+     * pilot with all of their upgrades, their paint and their kit, and put them in the free
+     * airframe -- not throw the record away, which is what bumping the version number would have
+     * made an older build do to a newer one.
+     */
+    @Test
+    void aRecordWrittenBeforeChassisExistedKeepsEverythingAndFliesTheStockFrame() {
+        Loadout back = Loadout.decode("2,FIREPOWER=3|HULL=2,2,1,7,3", 1);
+
+        assertEquals(3, back.level(Upgrade.FIREPOWER));
+        assertEquals(2, back.level(Upgrade.HULL));
+        assertEquals(Livery.values()[2], back.livery(), "paint must survive the new fields");
+        assertEquals(Kit.values()[1], back.kit());
+        assertEquals(Chassis.STOCK, back.chassis(), "a missing chassis field reads as the free one");
+        assertTrue(back.owns(Chassis.STOCK), "and it has to be owned, or the ship is unflyable");
+    }
+
+    @Test
+    void aChassisSurvivesTheRoundTrip() {
+        Loadout out = Loadout.stock(1);
+        out.unlock(Chassis.GUNSHIP);
+
+        Loadout back = Loadout.decode(out.encode(), 1);
+
+        assertEquals(Chassis.GUNSHIP, back.chassis());
+        assertTrue(back.owns(Chassis.GUNSHIP));
+        assertFalse(back.owns(Chassis.INTERCEPTOR), "an unbought frame must not come back owned");
+    }
+
+    /** Out of range is a hand-edited or future record, and stock is always a valid ship. */
+    @Test
+    void anOutOfRangeChassisFallsBackToTheStockFrame() {
+        Loadout back = Loadout.decode("2,,0,0,3,1,99,0", 1);
+
+        assertEquals(Chassis.STOCK, back.chassis());
+    }
+
+    /** A locked frame cannot be worn, for the same reason a locked paint job cannot. */
+    @Test
+    void aLockedChassisCannotBeWornWithoutBuyingIt() {
+        Loadout loadout = Loadout.stock(1);
+
+        loadout.select(Chassis.TWIN_BOOM);
+
+        assertEquals(Chassis.STOCK, loadout.chassis());
+    }
+
     @Test
     void anUnknownVersionYieldsAStockShip() {
         Loadout back = Loadout.decode("9,FIREPOWER=4,2,1,7,3", 1);

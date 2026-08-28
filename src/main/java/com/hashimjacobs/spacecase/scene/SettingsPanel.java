@@ -68,7 +68,10 @@ final class SettingsPanel extends VBox {
         controllerRow = new MenuButton("", this::toggleController);
         analogRow = new MenuButton("", this::toggleAnalog);
         reducedFlashRow = new MenuButton("", this::toggleReducedFlash);
-        controlsRow = onControls == null ? null : new MenuButton("Keyboard   >", onControls);
+        controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
+        if (controlsRow != null) {
+            controlsRow.setRow("Keyboard", ">");
+        }
         for (int slot = 0; slot < PLAYERS; slot++) {
             int player = slot + 1;
             fireButtonRow[slot] = new MenuButton("", () -> cycleFireButton(player));
@@ -202,23 +205,23 @@ final class SettingsPanel extends VBox {
     }
 
     private void refreshLabels() {
-        musicRow.setText("Music        " + percent(settings.musicVolume()));
-        sfxRow.setText("Sound FX     " + percent(settings.sfxVolume()));
-        difficultyRow.setText("Difficulty   " + settings.difficulty().label());
-        reducedFlashRow.setText("Flashing     " + (settings.reducedFlash() ? "Reduced" : "Full"));
-        controllerRow.setText("Controller   " + (settings.gamepadEnabled() ? "On" : "Off"));
-        analogRow.setText("Stick mode   " + (settings.gamepadAnalog() ? "Analog" : "Digital"));
+        musicRow.setRow("Music", percent(settings.musicVolume()));
+        sfxRow.setRow("Sound FX", percent(settings.sfxVolume()));
+        difficultyRow.setRow("Difficulty", settings.difficulty().label());
+        reducedFlashRow.setRow("Flashing", settings.reducedFlash() ? "Reduced" : "Full");
+        controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");
+        analogRow.setRow("Stick mode", settings.gamepadAnalog() ? "Analog" : "Digital");
         for (int slot = 0; slot < PLAYERS; slot++) {
             int player = slot + 1;
-            fireButtonRow[slot].setText(
-                    "P" + player + " fire      " + settings.gamepadFireButton(player).label());
-            pauseButtonRow[slot].setText(
-                    "P" + player + " pause     " + settings.gamepadPauseButton(player).label());
-            sensitivityRow[slot].setText(
-                    "P" + player + " stick     " + percent(settings.gamepadSensitivity(player)));
+            fireButtonRow[slot].setRow(
+                    "P" + player + " fire", settings.gamepadFireButton(player).label());
+            pauseButtonRow[slot].setRow(
+                    "P" + player + " pause", settings.gamepadPauseButton(player).label());
+            sensitivityRow[slot].setRow(
+                    "P" + player + " stick", percent(settings.gamepadSensitivity(player)));
         }
-        deadzoneRow.setText("Deadzone     " + percent(settings.gamepadDeadzone()));
-        padStatusRow.setText(padStatus == null ? "Pads         --" : padStatus.get());
+        deadzoneRow.setRow("Deadzone", percent(settings.gamepadDeadzone()));
+        padStatusRow.setRow("Pads", padStatus == null ? "--" : padStatus.get());
     }
 
     private static String percent(double value) {

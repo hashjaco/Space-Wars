@@ -9,3 +9,20 @@ dist/
 
 # macOS
 .DS_Store
+
+# Relay worker: installed deps and the types wrangler regenerates from wrangler.jsonc.
+server/node_modules/
+server/worker-configuration.d.ts
+server/.wrangler/
+
+# Press kit video. The stills and plates are committed; the trailer is not.
+#
+# Not because of its size today but because of its size repeated: video delta-compresses no better
+# than the PNGs "The one long-term cost" in docs/ROADMAP.md is about, and unlike the sprites it is
+# not a build input, cannot be checked by CI, and is re-cut whenever the marketing changes. Every
+# re-cut would append another full copy to a history that is already 280 MB. It ships as a Release
+# asset instead -- see docs/press/README.md.
+docs/press/trailer/*.mp4
+
+# The per-clip captures the trailer is joined from. Gigabytes, and trailer.sh rebuilds them.
+docs/press/trailer/clips/

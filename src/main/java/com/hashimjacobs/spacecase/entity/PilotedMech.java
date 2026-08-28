@@ -21,8 +21,14 @@ public final class PilotedMech extends EnemyShip {
     /** How far across the arena the rig strides, as a fraction of the lane. */
     private static final double STRIDE_REACH = 0.30;
 
-    /** Ticks for one full traverse and back. Slow: this thing is heavy. */
-    private static final double STRIDE_TICKS = 420;
+    /**
+     * Ticks for one full traverse and back. Still heavy, but no longer ponderous.
+     *
+     * Was 420 -- seven seconds to cross and seven back, which was slow enough that a player could
+     * pick a corner and reload in it. STRIDE_REACH is untouched, so the rig covers exactly the same
+     * ground; it just stops giving you as long to stand still in.
+     */
+    private static final double STRIDE_TICKS = 300;
 
     /** Where the rig holds station, as a fraction of the arena's depth. */
     private static final double HOLD_DEPTH = 0.20;

@@ -25,6 +25,9 @@ class BossAndDropsTest {
     /** Any level will do for firing patterns; it only decides which hull an escort wears. */
     private static final Level LEVEL = Level.values()[0];
 
+    /** The NORMAL preset's ceiling on ordinary enemies, which is what a spawner gets headroom over. */
+    private static final int ENEMY_CAP = 6;
+
     @Test
     void phaseFollowsRemainingHealth() {
         assertEquals(BossPhase.SPREAD, Boss.SENTINEL.phaseFor(1.0));
@@ -60,13 +63,13 @@ class BossAndDropsTest {
         PlayerShip target = world.players().get(0);
 
         EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, LEVEL.enemySprite(EnemyShip.EnemyKind.SCOUT), 400, 200);
-        EnemyWeapons.fire(world, scout, target, LEVEL);
+        EnemyWeapons.fire(world, scout, target, LEVEL, ENEMY_CAP);
         assertEquals(1, world.bullets().size(), "an ordinary enemy fires a single shot");
 
         world.bullets().clear();
         // Sentinel opens on SPREAD, so this reads the pattern rather than a spawner or a ring.
         EnemyShip boss = new EnemyShip(Boss.SENTINEL, 400, 90);
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
         assertEquals(BossPhase.SPREAD.shots(), world.bullets().size());
     }
 
@@ -76,7 +79,7 @@ class BossAndDropsTest {
         PlayerShip target = world.players().get(0);
         EnemyShip boss = new EnemyShip(Boss.SENTINEL, 400, 90);
 
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
 
         long movingLeft = world.bullets().stream().filter(b -> b.velocityX() < -0.01).count();
         long movingRight = world.bullets().stream().filter(b -> b.velocityX() > 0.01).count();
@@ -96,7 +99,7 @@ class BossAndDropsTest {
         EnemyShip boss = new EnemyShip(Boss.SENTINEL, 800, 90);
         boss.takeDamage((int) (Boss.SENTINEL.health() * 0.8));
 
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
 
         double averageX = world.bullets().stream()
                 .mapToDouble(Bullet::velocityX)
@@ -113,7 +116,7 @@ class BossAndDropsTest {
         EnemyShip boss = new EnemyShip(Boss.FOUNDRY_WARDEN, 400, 90);
         boss.takeDamage((int) (Boss.FOUNDRY_WARDEN.health() * 0.5));
 
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
 
         assertEquals(BossPhase.RING.shots(), world.bullets().size());
         for (Bullet bullet : world.bullets()) {
@@ -129,14 +132,14 @@ class BossAndDropsTest {
         // Void Weaver opens on the spiral.
         EnemyShip boss = new EnemyShip(Boss.VOID_WEAVER, 400, 90);
 
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
         double firstShotAngle = world.bullets().get(0).velocityX();
 
         world.bullets().clear();
         for (int i = 0; i < 12; i++) {
             world.update();
         }
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
         double laterShotAngle = world.bullets().get(0).velocityX();
 
         assertTrue(Math.abs(laterShotAngle - firstShotAngle) > 0.01,
@@ -151,7 +154,7 @@ class BossAndDropsTest {
         EnemyShip boss = new EnemyShip(Boss.SCRAP_HIVE, 400, 90);
         world.addEnemy(boss);
 
-        EnemyWeapons.fire(world, boss, target, LEVEL);
+        EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
 
         assertEquals(0, world.bullets().size(), "a spawner fires nothing");
         assertTrue(world.enemies().size() > 1, "a spawner should add escorts to the arena");
@@ -165,7 +168,7 @@ class BossAndDropsTest {
         world.addEnemy(boss);
 
         for (int volley = 0; volley < 40; volley++) {
-            EnemyWeapons.fire(world, boss, target, LEVEL);
+            EnemyWeapons.fire(world, boss, target, LEVEL, ENEMY_CAP);
         }
 
         assertTrue(world.enemies().size() <= 12,
@@ -185,7 +188,7 @@ class BossAndDropsTest {
             java.util.List<EnemyShip> enemies = world.enemies();
             for (int i = 0, count = enemies.size(); i < count; i++) {
                 // Through driveWeapons rather than fire, so the guard covers the rocket path too.
-                EnemyWeapons.driveWeapons(world, enemies.get(i), target, LEVEL, 60,
+                EnemyWeapons.driveWeapons(world, enemies.get(i), target, LEVEL, 60, ENEMY_CAP,
                         SoundPlayer.SILENT);
             }
             world.update();
@@ -222,8 +225,25 @@ class BossAndDropsTest {
         assertTrue(fast >= 4, "but never below the floor that keeps a pattern readable");
     }
 
+    /**
+     * The archetypes differ in rate of fire, not only in hull.
+     *
+     * A cruiser used to be a scout that took longer to kill; the gap between its shots is what
+     * makes it a different problem. The scout stays at exactly the preset's figure because that is
+     * the reference the other two are read against.
+     */
     @Test
-    void anOrdinaryEnemyIsNeverScaled() {
+    void aHeavyHullFiresFasterThanThePresetsOwnGap() {
+        EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 100, 100);
+        EnemyShip cruiser = new EnemyShip(EnemyShip.EnemyKind.CRUISER, Sprite.L1_CRUISER, 100, 100);
+
+        assertEquals(66, EnemyWeapons.cooldownFor(scout, 66), "the scout is the reference");
+        assertTrue(EnemyWeapons.cooldownFor(cruiser, 66) < 66);
+        assertTrue(EnemyWeapons.cooldownFor(cruiser, 16) >= 8, "but never below the readable floor");
+    }
+
+    @Test
+    void anOrdinaryEnemyIsAuthoredStrengthUnlessAPresetSaysOtherwise() {
         EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 100, 100);
 
         assertEquals(1.0, scout.scale());
@@ -239,7 +259,7 @@ class BossAndDropsTest {
 
         boolean sawRocket = false;
         for (int tick = 0; tick < 600 && !sawRocket; tick++) {
-            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
             sawRocket = world.bullets().stream().anyMatch(b -> b instanceof Rocket);
         }
 
@@ -254,7 +274,7 @@ class BossAndDropsTest {
         PlayerShip target = world.players().get(0);
 
         for (int tick = 0; tick < 600; tick++) {
-            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
 
         Bullet rocket = world.bullets().stream()
@@ -276,7 +296,7 @@ class BossAndDropsTest {
         PlayerShip target = world.players().get(0);
 
         for (int tick = 0; tick < 600; tick++) {
-            EnemyWeapons.driveWeapons(world, scout, target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, scout, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
 
         assertTrue(world.bullets().stream().noneMatch(b -> b instanceof Rocket));
@@ -330,24 +350,92 @@ class BossAndDropsTest {
                 "a boss should be worth several pickups; got " + world.powerUps().size());
     }
 
+    /**
+     * Loot comes from the hulls worth killing, and the rate rises with the hull.
+     *
+     * The rate used to be one flat figure for all three archetypes, tuned when a wave was five
+     * ships. A wave is three groups of six to ten now, so that figure rained -- and most of what it
+     * rained off was scouts, which are chaff rather than something a pilot chooses to fight. A
+     * scout drops nothing at all now, and that zero is the load-bearing half of this test.
+     *
+     * An ordering rather than exact counts, because these are odds: the rates stay retunable and
+     * only flattening the ladder or inverting it fails.
+     */
     @Test
-    void ordinaryEnemiesSometimesDropAPickup() {
-        int totalDrops = 0;
-        for (int seed = 0; seed < 40; seed++) {
+    void dropsRiseWithTheArchetypeAndScoutsCarryNothing() {
+        int fromScouts = dropsOver(EnemyShip.EnemyKind.SCOUT, 200);
+        int fromFighters = dropsOver(EnemyShip.EnemyKind.FIGHTER, 200);
+        int fromCruisers = dropsOver(EnemyShip.EnemyKind.CRUISER, 200);
+
+        assertEquals(0, fromScouts, "a scout is chaff and should carry nothing");
+        assertTrue(fromFighters > 0, "a fighter should drop sometimes; got " + fromFighters);
+        assertTrue(fromCruisers > fromFighters,
+                "a cruiser should out-drop a fighter; " + fromCruisers + " against " + fromFighters);
+        assertTrue(fromCruisers < 200, "not every cruiser should drop; drops were " + fromCruisers);
+    }
+
+    /** How many pickups fall out of {@code runs} shot kills of one archetype. */
+    private static int dropsOver(EnemyShip.EnemyKind kind, int runs) {
+        int drops = 0;
+        for (int seed = 0; seed < runs; seed++) {
             World world = new World(GameMode.SOLO);
             PlayerShip shooter = world.players().get(0);
-            EnemyShip scout = new EnemyShip(EnemyShip.EnemyKind.SCOUT, LEVEL.enemySprite(EnemyShip.EnemyKind.SCOUT), 400, 200);
-            world.addEnemy(scout);
+            EnemyShip enemy = new EnemyShip(kind, LEVEL.enemySprite(kind), 400, 200);
+            world.addEnemy(enemy);
 
             CollisionSystem collisions = new CollisionSystem(SoundPlayer.SILENT, new Random(seed));
-            world.addBullet(new Bullet(Sprite.PLAYER_BULLET, scout.centerX(), scout.centerY(),
+            world.addBullet(new Bullet(Sprite.PLAYER_BULLET, enemy.centerX(), enemy.centerY(),
                     0, 0, shooter, 999));
             collisions.resolve(world);
 
-            totalDrops += world.powerUps().size();
+            drops += world.powerUps().size();
         }
-        assertTrue(totalDrops > 0, "enemies should drop pickups at least sometimes");
-        assertTrue(totalDrops < 40, "not every enemy should drop; drops were " + totalDrops);
+        return drops;
+    }
+
+    /**
+     * Each new weapon comes off the archetype it belongs to, and off nothing else.
+     *
+     * This is what makes choosing what to fight worth doing rather than a chore. It is also the
+     * rule most likely to be broken by a careless edit to {@code rollKind}, because getting it wrong
+     * still produces pickups -- just the wrong ones, from the wrong ships, which reads as bad luck.
+     */
+    @Test
+    void eachRestrictedWeaponComesOffItsOwnArchetype() {
+        assertTrue(dropsOfKind(EnemyShip.EnemyKind.FIGHTER, PowerUp.Kind.SCYTHE, 400) > 0,
+                "fighters should give up the scythe");
+        assertEquals(0, dropsOfKind(EnemyShip.EnemyKind.CRUISER, PowerUp.Kind.SCYTHE, 400),
+                "and nothing else should");
+        assertTrue(dropsOfKind(EnemyShip.EnemyKind.CRUISER, PowerUp.Kind.FLAK, 400) > 0,
+                "cruisers should give up the flak");
+        assertEquals(0, dropsOfKind(EnemyShip.EnemyKind.FIGHTER, PowerUp.Kind.FLAK, 400),
+                "and nothing else should");
+        // The nova is the flagship's alone: an ordinary hull must never produce one.
+        assertEquals(0, dropsOfKind(EnemyShip.EnemyKind.CRUISER, PowerUp.Kind.NOVA, 400));
+        assertEquals(0, dropsOfKind(EnemyShip.EnemyKind.FIGHTER, PowerUp.Kind.NOVA, 400));
+    }
+
+    /** How many of one kind fall out of {@code runs} shot kills of one archetype. */
+    private static int dropsOfKind(EnemyShip.EnemyKind kind, PowerUp.Kind wanted, int runs) {
+        int found = 0;
+        for (int seed = 0; seed < runs; seed++) {
+            World world = new World(GameMode.SOLO);
+            PlayerShip shooter = world.players().get(0);
+            EnemyShip enemy = new EnemyShip(kind, LEVEL.enemySprite(kind), 400, 200);
+            world.addEnemy(enemy);
+
+            CollisionSystem collisions = new CollisionSystem(SoundPlayer.SILENT, new Random(seed));
+            world.addBullet(new Bullet(Sprite.PLAYER_BULLET, enemy.centerX(), enemy.centerY(),
+                    0, 0, shooter, 999));
+            collisions.resolve(world);
+
+            for (PowerUp dropped : world.powerUps()) {
+                if (dropped.kind() == wanted) {
+                    found++;
+                }
+            }
+        }
+        return found;
     }
 
     /**

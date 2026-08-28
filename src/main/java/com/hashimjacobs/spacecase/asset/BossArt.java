@@ -153,7 +153,49 @@ public enum BossArt {
      * the back wall. At the Dune Leviathan's shared 0.62 that would put the maw past the player's
      * line; the serpent carries its own reach instead. See {@code BurrowingWorm.strikeReach}.
      */
-    STORM_SERPENT("boss-storm-serpent", 8, 6, 320, 240);
+    STORM_SERPENT("boss-storm-serpent", 8, 6, 320, 240),
+
+    // ---- Galaxy 5: Null ------------------------------------------------------------------
+    // The same 1.5x source canvases the last three galaxies use.
+
+    BONEPICKER("boss-bonepicker", 8, 6, 248, 165),
+    HULK_CHOIR("boss-hulk-choir", 8, 6, 200, 207),
+    SHROUDMAW("boss-shroudmaw", 8, 6, 267, 137),
+    LENSBREAKER("boss-lensbreaker", 8, 6, 200, 211),
+
+    /**
+     * Level 45, turned for the galaxy's one right-to-left arena.
+     *
+     * Drawn nose-down at 236x340 and quarter-turned on the way out, so what the game decodes is 340
+     * wide -- which is why these numbers look transposed against the generator's profile. Same
+     * caveat as SUNWARD_LANCE, SHARD_CUTTER and ARC_LANCE.
+     */
+    TIDEWRACK("boss-tidewrack", 8, 6, 227, 157),
+
+    SHELLBORN("boss-shellborn", 8, 6, 224, 179),
+    FRAME_DRAG("boss-frame-drag", 8, 6, 267, 143),
+    PHOTON_HALO("boss-photon-halo", 8, 6, 283, 135),
+    GULLET("boss-gullet", 8, 6, 181, 220),
+
+    /**
+     * Level 50's finale, and the campaign's last fight. The eyes are not in these frames.
+     *
+     * 300x300 is not a free number, and it is not chosen to fit the picture. A BossArt's declared
+     * size *is* the collision box -- there is no separate hitbox anywhere to fall back on -- so this
+     * is a 300x300 box orbiting the arena centre, and it has to clear both the walls and the line
+     * the player spawns on at every point of the orbit. {@code entity.VoidEntity} carries the radii
+     * that make that true and AeonTest holds them against this number. Changing either without the
+     * other walks the campaign's last boss through the player's spawn.
+     */
+    AEON("boss-aeon", 8, 6, 300, 300),
+
+    /**
+     * One of Aeon's four eyes. Its box is {@code entity.BossHead.SIZE}, not this.
+     *
+     * Drawn a little larger than the box it defends, as FROZEN_EMPRESS_HEAD is: a target the exact
+     * size of its own art reads as unfairly small when it is swinging on a neck.
+     */
+    AEON_EYE("boss-aeon-eye", 8, 4, 104, 104);
 
     private final String directory;
     private final int frameCount;

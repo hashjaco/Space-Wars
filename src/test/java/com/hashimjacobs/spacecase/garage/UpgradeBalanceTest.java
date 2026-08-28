@@ -19,22 +19,45 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class UpgradeBalanceTest {
 
+    /**
+     * On every airframe, not just the stock one.
+     *
+     * This used to reason over {@code GameConfig} alone, which stopped enforcing anything the moment
+     * a chassis could scale the base: a fast enough frame would put a maxed ship over the boosted
+     * figure and turn the speed pickup into a downgrade, with this test still green. The arithmetic
+     * has to walk the catalogue, because that is where the numbers now live.
+     */
     @Test
-    void aMaxedShipIsStillSlowerThanTheSpeedPickupMakesIt() {
-        double maxed = GameConfig.PLAYER_SPEED
-                + GameConfig.UPGRADE_MAX_LEVEL * GameConfig.UPGRADE_SPEED_STEP;
+    void aMaxedShipIsStillSlowerThanTheSpeedPickupMakesItOnEveryChassis() {
+        for (Chassis chassis : Chassis.values()) {
+            double maxed = GameConfig.PLAYER_SPEED * chassis.speedFactor()
+                    + GameConfig.UPGRADE_MAX_LEVEL * GameConfig.UPGRADE_SPEED_STEP;
+            double boosted = GameConfig.PLAYER_SPEED_BOOSTED * chassis.speedFactor();
 
-        assertTrue(maxed < GameConfig.PLAYER_SPEED_BOOSTED,
-                "thrusters at " + maxed + " would make the speed pickup ("
-                        + GameConfig.PLAYER_SPEED_BOOSTED + ") a downgrade");
+            assertTrue(maxed < boosted, chassis + " thrusters at " + maxed
+                    + " would make the speed pickup (" + boosted + ") a downgrade");
+        }
     }
 
+    /**
+     * Every level of the fire-rate track has to buy a tick, on every airframe.
+     *
+     * There was one tick of headroom on the stock frame before chassis existed -- maxed 7 against a
+     * floor of 6 -- so any frame that reloads faster puts the top of the track on the floor unless
+     * the floor scales with it. That is why {@code Upgrade.fireIntervalAt} scales both, and this is
+     * the assertion that says so: distinct intervals all the way up, not merely one at the end.
+     */
     @Test
-    void theFireRateUpgradeCannotOutrunItsFloor() {
-        int fastest = GameConfig.PLAYER_FIRE_COOLDOWN - GameConfig.UPGRADE_MAX_LEVEL;
-
-        assertTrue(fastest >= GameConfig.PLAYER_FIRE_COOLDOWN_FLOOR,
-                "the floor would silently swallow the last levels of the fire-rate track");
+    void everyFireRateLevelBuysATickOnEveryChassis() {
+        for (Chassis chassis : Chassis.values()) {
+            int previous = Integer.MAX_VALUE;
+            for (int level = 0; level <= GameConfig.UPGRADE_MAX_LEVEL; level++) {
+                int interval = Upgrade.fireIntervalAt(level, chassis);
+                assertTrue(interval < previous, chassis + " level " + level + " reloads in "
+                        + interval + " ticks, the same as the level below it -- the floor swallowed it");
+                previous = interval;
+            }
+        }
     }
 
     @Test
@@ -120,13 +143,42 @@ class UpgradeBalanceTest {
      * hull upgrades stop mattering and the game becomes about holding a shield at all times.
      */
     @Test
-    void aShieldNeverSoaksMoreThanAFullHull() {
-        int shield = GameConfig.SHIELD_CAPACITY
-                + Upgrade.CAPACITOR.maxLevel() * GameConfig.UPGRADE_CAPACITOR_STEP;
+    void aShieldNeverSoaksMoreThanAFullHullOnEveryChassis() {
+        // Both sides scale on the frame's health factor, which is the only reason this holds for a
+        // frame carrying eighty points: a shield that did not shrink with the hull would outlast it.
+        for (Chassis chassis : Chassis.values()) {
+            long shield = Math.round(GameConfig.SHIELD_CAPACITY * chassis.healthFactor())
+                    + Upgrade.CAPACITOR.maxLevel() * GameConfig.UPGRADE_CAPACITOR_STEP;
+            long hull = Math.round(GameConfig.PLAYER_HEALTH * chassis.healthFactor());
 
-        assertTrue(shield < GameConfig.PLAYER_HEALTH,
-                "a shield soaking " + shield + " against a " + GameConfig.PLAYER_HEALTH
-                        + " health hull would be better than the hull");
+            assertTrue(shield < hull, chassis + ": a shield soaking " + shield + " against a "
+                    + hull + " health hull would be better than the hull");
+        }
+    }
+
+    /**
+     * Every airframe has to be sane on its own terms, whatever its factors are tuned to.
+     *
+     * The three factors are the only numbers in the game that multiply a base rather than adding to
+     * it, so a stray zero or a misplaced decimal does not read as obviously wrong the way
+     * {@code .health(16)} for {@code .health(1.6)} does in a wave row. This is that typo guard.
+     */
+    @Test
+    void everyChassisIsWellFormed() {
+        for (Chassis chassis : Chassis.values()) {
+            assertTrue(chassis.healthFactor() >= 0.5 && chassis.healthFactor() <= 2,
+                    chassis + " health factor is " + chassis.healthFactor());
+            assertTrue(chassis.speedFactor() >= 0.5 && chassis.speedFactor() <= 2,
+                    chassis + " speed factor is " + chassis.speedFactor());
+            assertTrue(chassis.reloadFactor() >= 0.5 && chassis.reloadFactor() <= 2,
+                    chassis + " reload factor is " + chassis.reloadFactor());
+            assertTrue(chassis.isStock() == (chassis.cost() == 0),
+                    chassis + " disagrees with itself about being free");
+            assertTrue(chassis.label() != null && !chassis.label().isBlank(),
+                    chassis + " has no label for the garage to draw");
+        }
+        assertTrue(Chassis.values()[0].isStock(),
+                "ordinal zero has to be the free frame -- a save with no chassis field reads as 0");
     }
 
     /** Every track has to be reachable, priced, and describable. */

@@ -88,6 +88,24 @@ public final class Renderer {
         return gradient;
     }
 
+    /**
+     * The corner falloff, built once because it never changes.
+     *
+     * Clear across the middle two thirds -- nothing that matters to a fight may be dimmed -- then
+     * down to a little over half black in the corners, which is where the arena has nothing in it
+     * anyway. Proportional, so it stretches to the arena's shape rather than staying circular.
+     */
+    private static final Paint VIGNETTE = new RadialGradient(
+            0, 0, 0.5, 0.5, 0.78, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.TRANSPARENT),
+            new Stop(0.62, Color.TRANSPARENT),
+            new Stop(1, Color.web("#05070c", 0.55)));
+
+    /** The falloff itself, so {@code tools/preview} can draw the real one rather than a copy. */
+    static Paint vignettePaint() {
+        return VIGNETTE;
+    }
+
     /** How far past the canvas the sky is painted, so a camera throw never runs off the paint. */
     private static final double SHAKE_MARGIN = 16;
 
@@ -132,6 +150,7 @@ public final class Renderer {
             } else {
                 drawSprite(enemy);
             }
+            drawHitBar(enemy);
         }
         for (Bullet bullet : world.bullets()) {
             drawBullet(bullet);
@@ -150,7 +169,26 @@ public final class Renderer {
         }
         gc.restore();
 
+        drawVignette();
         hud.draw(world, director);
+    }
+
+    /**
+     * Darkens the corners, so the arena reads as lit rather than as a flat rectangle.
+     *
+     * Outside the shake and before the HUD: it belongs to the screen, not to the world. Thrown
+     * with the arena it would slide its dark corners across the play area on every hit, and baked
+     * into a backdrop it would scroll with that layer -- which is also the rule that an occluding
+     * backdrop owns every parallax layer, and this owns none of them.
+     *
+     * Off with reducedFlash, which already governs everything else that dims or pulses the arena.
+     */
+    private void drawVignette() {
+        if (settings.reducedFlash()) {
+            return;
+        }
+        gc.setFill(VIGNETTE);
+        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
     }
 
     /**
@@ -253,7 +291,7 @@ public final class Renderer {
         // Fill first: the layers have transparent gaps, so without this the previous frame shows.
         // Overdrawn by the shake margin, because this is a fill rather than a clear -- a thrown
         // camera would otherwise drag a band of last frame's pixels in at two edges.
-        gc.setFill(Color.web("#0a0e1a"));
+        gc.setFill(Tokens.SPACE);
         gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN,
                 GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
 
@@ -371,7 +409,34 @@ public final class Renderer {
         gc.setGlobalAlpha(1);
         gc.setFill(BEAM_HALO);
         gc.fillOval(player.centerX() - bloom / 2, player.centerY() - bloom / 2, bloom, bloom);
+        // And one where it lands, when it lands on something. This is the whole point of the beam
+        // ending at a hull rather than at the wall -- without it the shortened column reads as the
+        // beam having failed rather than as it burning through something.
+        if (player.beamStopped()) {
+            double impact = bloom * (settings.reducedFlash() ? 1.15 : 1.15 + 0.2 * Math.sin(tick * 0.6));
+            double[] end = beamImpactPoint(player, beam, vertical);
+            gc.fillOval(end[0] - impact / 2, end[1] - impact / 2, impact, impact);
+            gc.setGlobalAlpha(0.85);
+            gc.setFill(Color.WHITE);
+            double core = GameConfig.BEAM_WIDTH * 0.8;
+            gc.fillOval(end[0] - core / 2, end[1] - core / 2, core, core);
+        }
         gc.restore();
+    }
+
+    /**
+     * Where a shortened beam ends: the far end of its box, on whichever side the ship is not.
+     *
+     * Off {@code beamBox} rather than off the thing that stopped the beam, so the bloom sits exactly
+     * where the burn does even if the target moved between the collision pass and this one.
+     */
+    private static double[] beamImpactPoint(PlayerShip player, double[] beam, boolean vertical) {
+        if (vertical) {
+            double y = player.facing().yDirection() < 0 ? beam[1] : beam[1] + beam[3];
+            return new double[] {beam[0] + beam[2] / 2, y};
+        }
+        double x = player.facing().xDirection() < 0 ? beam[0] : beam[0] + beam[2];
+        return new double[] {x, beam[1] + beam[3] / 2};
     }
 
     /** One layer of the beam, scaled about its own centre line so all three stay concentric. */
@@ -532,6 +597,48 @@ public final class Renderer {
      * something is about to hit you, and that is not where your eyes are. No pulse and no flash:
      * it is a quantity, not an alarm.
      */
+    /**
+     * How much is left in an enemy that was shot in the last three seconds.
+     *
+     * Over the hull rather than in the HUD, because the question it answers is "is this one nearly
+     * dead", and that is asked while looking at the ship rather than at the panel. The same green,
+     * gold and red as the player's own bar, so a bar means one thing wherever it appears.
+     *
+     * That is also what keeps this from reading as a second copy of the HUD's boss bar. This one
+     * always describes the box underneath it; that one always describes the fight. On a multi-part
+     * flagship the difference is the whole point -- the heads drain their own bars while the torso
+     * sits at a full one that will not move, which teaches the guard rather than duplicating it.
+     *
+     * Not gated on reduced flash, and that is deliberate. Nothing here oscillates: it appears, it
+     * holds, and it fades once in one direction. Every existing reduced-flash site holds an
+     * animation still rather than deleting a signal, and gating this would delete the whole feature
+     * for anyone who has the setting on.
+     */
+    private void drawHitBar(EnemyShip enemy) {
+        double alpha = enemy.hitBarAlpha();
+        if (alpha <= 0) {
+            return;
+        }
+        // Capped so a 210-pixel flagship does not grow a bar half the width of the HUD's, floored
+        // so a 64-pixel hydra head still gets one that can be read.
+        double width = Math.min(96, Math.max(36, enemy.width()));
+        double x = enemy.centerX() - width / 2;
+        // Screen-horizontal above the hull in every level. Enemy hulls are drawn at zero degrees
+        // even in the side-on levels, so a bar turned to the arena axis would be the only rotated
+        // thing on screen -- and this is a readout, which is read the way the HUD is read.
+        double y = enemy.y() - 12;
+        double fraction = enemy.hullFraction();
+
+        // ponytail: no anti-overlap pass. Two ships stacked and both shot inside the same three
+        // seconds will stack their bars. If it ever shows, offset y by the enemy's list index.
+        gc.setGlobalAlpha(alpha);
+        gc.setFill(Tokens.TRACK);
+        gc.fillRoundRect(x, y, width, 5, 3, 3);
+        gc.setFill(fraction > 0.5 ? Tokens.BRAND : fraction > 0.25 ? Tokens.WARN : Tokens.DANGER_LOW);
+        gc.fillRoundRect(x, y, width * fraction, 5, 3, 3);
+        gc.setGlobalAlpha(1);
+    }
+
     private void drawShieldBar(PlayerShip player) {
         double width = Math.max(player.width(), 36);
         double x = player.centerX() - width / 2;

@@ -1,7 +1,9 @@
 package com.hashimjacobs.spacecase.entity;
 
 import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.Map;
+import java.util.Set;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -78,6 +80,11 @@ public final class PlayerShip extends Entity {
         this.loadout = loadout;
         // Health is not topped up here. Buying hull mid-run raises the ceiling; the extra points
         // arrive on the next respawn or health pickup, so an upgrade cannot double as a heal.
+        //
+        // It is clamped down, though, which the ceiling-only version did not have to be: a chassis
+        // can *lower* maxHealth, and a pilot who swaps to a smaller frame at full health would
+        // otherwise fly out of the garage with a health bar reading over full.
+        health = Math.min(health, maxHealth());
         refreshSprite();
     }
 
@@ -140,8 +147,13 @@ public final class PlayerShip extends Entity {
      *             gun's rate -- rockets are far heavier per shot and would be absurd at it
      */
     public void startFireCooldown(int base) {
-        int upgraded = base - loadout.level(Upgrade.FIRE_RATE);
-        fireCooldown = Math.max(GameConfig.PLAYER_FIRE_COOLDOWN_FLOOR, upgraded);
+        double factor = loadout.chassis().reloadFactor();
+        int scaled = (int) Math.round(base * factor);
+        // The floor scales with the frame, and that is not a flourish. It exists to stop the gun
+        // becoming a beam; held flat, a frame that fires 20% faster would put the last two levels of
+        // the fire-rate track both on it, and the second of them would buy nothing at all.
+        int floor = (int) Math.ceil(GameConfig.PLAYER_FIRE_COOLDOWN_FLOOR * factor);
+        fireCooldown = Math.max(floor, scaled - loadout.level(Upgrade.FIRE_RATE));
     }
 
     /** True while the trigger is held with the mega laser fitted. Set every tick by the controller. */
@@ -200,7 +212,24 @@ public final class PlayerShip extends Entity {
         // the only thing that takes them away and the only reason to fear a hit once shielded.
         activeEffects.clear();
         firingBeam = false;
+        beamReach = UNSTOPPED;
     }
+
+    /**
+     * The pickups that are a gun. One at a time, and taking one puts the last one down.
+     *
+     * This is what stops the arsenal being a ratchet. The effects map only ever grew, and
+     * {@code engine.ShipController.applyFire} resolved beam then rockets then gun every tick, so a
+     * pilot who had found the beam could fly through anything else for free and never lose it --
+     * there was no choice to make and nothing to avoid. Now a tri-shot on the floor in front of a
+     * beam is a decision.
+     *
+     * SPEED and SHIELD are not in here. They are not weapons; nothing about holding one stops the
+     * other from being useful, and taking those away would only be punishing.
+     */
+    private static final Set<PowerUp.Kind> WEAPONS =
+            EnumSet.of(PowerUp.Kind.TRI_SHOT, PowerUp.Kind.MEGA_LASER, PowerUp.Kind.ROCKETS,
+                    PowerUp.Kind.SCYTHE, PowerUp.Kind.FLAK, PowerUp.Kind.NOVA);
 
     /**
      * Arms a pickup. Exhaustive over {@link PowerUp.Kind} on purpose: a new pickup that nobody
@@ -210,12 +239,35 @@ public final class PlayerShip extends Entity {
         switch (kind) {
             case HEALTH -> health = maxHealth();
             case EXTRA_LIFE -> lives++;
-            case TRI_SHOT -> activeEffects.merge(PowerUp.Kind.TRI_SHOT, 1,
-                    (held, one) -> Math.min(held + one, GameConfig.TRI_SHOT_MAX_STACKS));
+            // Stacks only onto itself. Coming back to the tri-shot from a rocket rack starts the fan
+            // at one stream again, which is the cost of having swapped.
+            case TRI_SHOT -> {
+                holsterWeaponsExcept(PowerUp.Kind.TRI_SHOT);
+                activeEffects.merge(PowerUp.Kind.TRI_SHOT, 1,
+                        (held, one) -> Math.min(held + one, GameConfig.TRI_SHOT_MAX_STACKS));
+            }
             // A second shield refills rather than adding: a stacked one would be an eventual
             // invulnerability, which is exactly what giving it a bar was meant to end.
             case SHIELD -> activeEffects.put(PowerUp.Kind.SHIELD, shieldCapacity());
-            case MEGA_LASER, ROCKETS, SPEED -> activeEffects.put(kind, 1);
+            case MEGA_LASER, ROCKETS, SCYTHE, FLAK, NOVA -> {
+                holsterWeaponsExcept(kind);
+                activeEffects.put(kind, 1);
+            }
+            case SPEED -> activeEffects.put(kind, 1);
+        }
+    }
+
+    /** Drops every weapon but the one being armed. See {@link #WEAPONS}. */
+    private void holsterWeaponsExcept(PowerUp.Kind armed) {
+        for (PowerUp.Kind weapon : WEAPONS) {
+            if (weapon != armed) {
+                activeEffects.remove(weapon);
+            }
+        }
+        // The beam is a held state rather than a shot, so dropping it has to stop it as well as
+        // forget it -- otherwise the lane keeps burning until the next time the trigger is read.
+        if (armed != PowerUp.Kind.MEGA_LASER) {
+            firingBeam = false;
         }
     }
 
@@ -225,13 +277,41 @@ public final class PlayerShip extends Entity {
     }
 
     /**
-     * The mega laser's footprint: {@code {x, y, width, height}} from the nose to the arena wall.
+     * How far down the lane the beam reaches, in pixels from the muzzle.
+     *
+     * {@link #UNSTOPPED} until something in the lane shortens it. Set once a tick by
+     * {@code engine.CollisionSystem.resolveBeams} and read by {@link #beamBox}, which is the single
+     * box both the burn and the render use -- so truncating here truncates both, and they cannot
+     * disagree about where the beam ends.
+     */
+    private double beamReach = UNSTOPPED;
+
+    /** A beam nothing is standing in: long enough that {@link #beamBox} clamps it to the wall. */
+    public static final double UNSTOPPED = Double.MAX_VALUE;
+
+    /** @param reach pixels from the muzzle, or {@link #UNSTOPPED} for a clear lane */
+    public void setBeamReach(double reach) {
+        this.beamReach = Math.max(0, reach);
+    }
+
+    /** Whether the beam is landing on something rather than running out to the wall. */
+    public boolean beamStopped() {
+        boolean stopped = beamReach != UNSTOPPED;
+        return stopped;
+    }
+
+    /**
+     * The mega laser's footprint: {@code {x, y, width, height}} from the nose to whatever stops it.
      *
      * Lives on the ship rather than in the collision or render code because both of them need it
      * and they must agree exactly -- a beam that burns a lane it is not drawn in is the one bug
      * this weapon can have. The box runs along whichever axis the nose points and is
      * {@code GameConfig.BEAM_WIDTH} across, so it turns with the ship in a side-view level for
      * free.
+     *
+     * The far end used to be the arena wall unconditionally, which drew the beam straight through a
+     * flagship and out the other side with nothing reading as impact. It is {@link #beamReach} now,
+     * and at {@link #UNSTOPPED} the arithmetic below collapses to exactly the old wall-to-wall box.
      */
     public double[] beamBox() {
         double half = GameConfig.BEAM_WIDTH / 2;
@@ -239,12 +319,14 @@ public final class PlayerShip extends Entity {
                 ? centerX() + facing.xDirection() * width() / 2
                 : centerY() + facing.yDirection() * height() / 2;
         return switch (facing) {
-            case UP -> new double[] {centerX() - half, 0, GameConfig.BEAM_WIDTH, Math.max(0, nose)};
+            case UP -> new double[] {centerX() - half, Math.max(0, nose - beamReach),
+                    GameConfig.BEAM_WIDTH, Math.min(beamReach, Math.max(0, nose))};
             case DOWN -> new double[] {centerX() - half, nose, GameConfig.BEAM_WIDTH,
-                    Math.max(0, GameConfig.HEIGHT - nose)};
-            case LEFT -> new double[] {0, centerY() - half, Math.max(0, nose), GameConfig.BEAM_WIDTH};
+                    Math.min(beamReach, Math.max(0, GameConfig.HEIGHT - nose))};
+            case LEFT -> new double[] {Math.max(0, nose - beamReach), centerY() - half,
+                    Math.min(beamReach, Math.max(0, nose)), GameConfig.BEAM_WIDTH};
             case RIGHT -> new double[] {nose, centerY() - half,
-                    Math.max(0, GameConfig.WIDTH - nose), GameConfig.BEAM_WIDTH};
+                    Math.min(beamReach, Math.max(0, GameConfig.WIDTH - nose)), GameConfig.BEAM_WIDTH};
         };
     }
 
@@ -256,7 +338,10 @@ public final class PlayerShip extends Entity {
 
     /** What a shield pickup is worth to this ship, capacitor included. */
     public int shieldCapacity() {
-        return GameConfig.SHIELD_CAPACITY
+        // On the health factor, not a factor of its own: a shield that did not shrink with the frame
+        // would outlast an interceptor's own hull, which is the one thing
+        // UpgradeBalanceTest.aShieldNeverSoaksMoreThanAFullHull exists to forbid.
+        return (int) Math.round(GameConfig.SHIELD_CAPACITY * loadout.chassis().healthFactor())
                 + loadout.level(Upgrade.CAPACITOR) * GameConfig.UPGRADE_CAPACITOR_STEP;
     }
 
@@ -277,7 +362,11 @@ public final class PlayerShip extends Entity {
         double base = hasEffect(PowerUp.Kind.SPEED)
                 ? GameConfig.PLAYER_SPEED_BOOSTED
                 : GameConfig.PLAYER_SPEED;
-        double speed = base + loadout.level(Upgrade.SPEED) * GameConfig.UPGRADE_SPEED_STEP;
+        // The frame scales the base, boosted and not alike, so the pickup stays an upgrade on every
+        // chassis. Scaling the thrusters ladder too would let a fast frame compound with it past
+        // the boost and invert that.
+        double speed = base * loadout.chassis().speedFactor()
+                + loadout.level(Upgrade.SPEED) * GameConfig.UPGRADE_SPEED_STEP;
         return speed;
     }
 
@@ -297,7 +386,7 @@ public final class PlayerShip extends Entity {
     /** Sets which way the ship is leaning so the renderer can pick the banked sprite. */
     public void setLean(Lean lean) {
         this.lean = lean;
-        Sprite next = loadout.livery().pose(lean.ordinal(), hitFlashTicks > 0, facing.horizontal());
+        Sprite next = loadout.chassisPose(lean.ordinal(), hitFlashTicks > 0, facing.horizontal());
         setSprite(next);
     }
 
@@ -408,7 +497,7 @@ public final class PlayerShip extends Entity {
      * over-full bar.
      */
     public int maxHealth() {
-        int upgraded = GameConfig.PLAYER_HEALTH
+        int upgraded = (int) Math.round(GameConfig.PLAYER_HEALTH * loadout.chassis().healthFactor())
                 + loadout.level(Upgrade.HULL) * GameConfig.UPGRADE_HULL_STEP;
         return upgraded;
     }

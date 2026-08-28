@@ -5,9 +5,25 @@ import com.hashimjacobs.spacecase.mode.Galaxy;
 /** Spawn pressure presets. Chances are per-thousand rolls per tick. */
 public enum Difficulty {
 
-    EASY("Easy", 7, 3, 100, 4, 0.85),
-    NORMAL("Normal", 11, 6, 66, 6, 1.0),
-    HARD("Hard", 17, 10, 40, 9, 1.20);
+    EASY("Easy", 7, 3, 100, 4, 0.85, 0.90, 0),
+    NORMAL("Normal", 11, 6, 66, 6, 1.0, 1.0, 0),
+    HARD("Hard", 17, 10, 40, 9, 1.20, 1.15, 0),
+
+    /**
+     * The two joke-name presets, which are not a joke.
+     *
+     * They move every lever at once rather than one -- rocks, waves, the enemy cap, how fast the
+     * ordinary hostiles shoot, how much hull they carry, how many of them are the heavy archetype,
+     * and the flagship on top. Cranking a single one of those gives a mode that is annoying in one
+     * direction and trivially exploitable in the others; cranking them together is what makes the
+     * arena itself the opponent.
+     *
+     * DIE is deliberately past what is fair: twice the flagship, near twice the hull on everything
+     * else, a quarter of NORMAL's gap between enemy shots, and more than three times as many ships
+     * allowed on the field. Nobody is expected to clear a galaxy on it.
+     */
+    SUFFER("I Want To Suffer", 26, 17, 26, 14, 1.75, 1.45, 12),
+    DIE("I Want To Die", 38, 26, 16, 20, 2.50, 1.90, 25);
 
     /** How much tougher a flagship gets for each level into its galaxy. */
     private static final double BOSS_LEVEL_STEP = 0.04;
@@ -26,15 +42,19 @@ public enum Difficulty {
     private final int enemyFireCooldown;
     private final int maxEnemies;
     private final double bossFactor;
+    private final double enemyScale;
+    private final int heavyBias;
 
     Difficulty(String label, int asteroidChance, int enemyChance, int enemyFireCooldown,
-               int maxEnemies, double bossFactor) {
+               int maxEnemies, double bossFactor, double enemyScale, int heavyBias) {
         this.label = label;
         this.asteroidChance = asteroidChance;
         this.enemyChance = enemyChance;
         this.enemyFireCooldown = enemyFireCooldown;
         this.maxEnemies = maxEnemies;
         this.bossFactor = bossFactor;
+        this.enemyScale = enemyScale;
+        this.heavyBias = heavyBias;
     }
 
     /**
@@ -84,8 +104,65 @@ public enum Difficulty {
         return enemyFireCooldown;
     }
 
+    /**
+     * How many ordinary hostiles the <em>filler</em> may put on the field.
+     *
+     * It used to be the ceiling on the whole population, back when the whole population was filler.
+     * A level now fields the waves {@code mode.Waves} authors for it and this arrives on top, so it
+     * has to be read as "how much noise over the fight" rather than "how big a fight may be" --
+     * otherwise EASY, whose ceiling is four, could not field a six-ship wave at all and every level
+     * would quietly play differently from the way it was written.
+     *
+     * The authored wave ignores it outright. What that means in practice is that on EASY the wave
+     * lands whole and the trickle is simply off until the wave thins, which is the right reading of
+     * "easy"; on DIE you get the wave and fourteen more on top.
+     */
     public int maxEnemies() {
         return maxEnemies;
+    }
+
+    /**
+     * The cap, opened up for a crowd.
+     *
+     * The authored numbers were tuned against one or two ships and are left exactly alone at those
+     * counts -- a couch co-op game must field what it always fielded. Beyond two the sky would
+     * otherwise thin out with every player added, four guns against the same six enemies.
+     *
+     * A cap, deliberately, and not a spawn chance. Raising the chance would mean touching the draw
+     * order in {@code SpawnDirector}, which {@code SpawnDirectorTest} pins on fixed seeds and
+     * {@code docs/ROADMAP.md} rule 8 forbids; clamping the result after the draw is the move the
+     * terrain lane check already makes.
+     *
+     * ponytail: linear in the player count. It is arithmetic, not playtesting -- four players on
+     * DIE get forty enemies, and whether that is a fight or a slideshow is a question for a
+     * controller in someone's hands.
+     */
+    public int maxEnemies(int players) {
+        return players <= 2 ? maxEnemies : maxEnemies * players / 2;
+    }
+
+    /**
+     * How much tougher an ordinary hostile is than its authored archetype.
+     *
+     * The sibling of {@link #bossScale}, for everything that is not a flagship. Multiplies hull in
+     * {@code entity.EnemyShip}; speed too, but capped there, because a scout that outruns the
+     * player's own top speed cannot be fought, only absorbed.
+     *
+     * Score is left alone on purpose, for the same reason a scaled flagship pays its authored
+     * bounty: choosing a harder preset should not also be the fastest way to farm the leaderboard.
+     */
+    public double enemyScale() {
+        return enemyScale;
+    }
+
+    /**
+     * Percentage points added to the roll that picks the heavy archetype over the light one.
+     *
+     * Zero for the three original presets, so their wave composition is exactly what it was and the
+     * seeded spawn tests still describe the game. Only the two new modes lean on it.
+     */
+    public int heavyBias() {
+        return heavyBias;
     }
 
     public Difficulty next() {

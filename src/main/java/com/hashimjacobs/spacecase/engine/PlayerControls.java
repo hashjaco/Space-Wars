@@ -21,13 +21,31 @@ public record PlayerControls(
         Set<KeyCode> right,
         Set<KeyCode> fire) {
 
+    /** How many seats {@link Settings} holds bindings for. One keyboard carries two. */
+    private static final int SEATS_WITH_KEYS = 2;
+
     /**
      * This player's bound keys, plus the alternates the game has always also accepted.
      *
      * @param player one or two
      * @param solo   whether player one is flying alone, which is what opens the arrows to them
      */
+    /**
+     * A seat with nothing bound, for a ship this machine does not fly.
+     *
+     * An online room seats four; {@link Settings} binds two, because two is what one keyboard can
+     * carry. A networked game takes every ship's input from the wire rather than from
+     * {@link ShipController#sample}, so the far seats need no keys -- and giving them an empty set
+     * is closer to the truth than inventing bindings nobody can press.
+     */
+    public static PlayerControls none() {
+        return new PlayerControls(Set.of(), Set.of(), Set.of(), Set.of(), Set.of());
+    }
+
     public static PlayerControls of(Settings settings, int player, boolean solo) {
+        if (player > SEATS_WITH_KEYS) {
+            return none();
+        }
         return new PlayerControls(
                 keys(settings, player, solo, ControlAction.UP),
                 keys(settings, player, solo, ControlAction.DOWN),

@@ -88,7 +88,7 @@ class SaveSlotTest {
 
         assertTrue(row.contains("Co-op"), row);
         assertTrue(row.contains(Level.values()[4].label()), row);
-        assertTrue(row.contains("12400"), "should show the leading score, got: " + row);
+        assertTrue(row.contains("12,400"), "should show the leading score, got: " + row);
     }
 
     @Test

@@ -29,11 +29,53 @@ jobs:
 
       # Generated assets are committed, and the generator is seeded. If regenerating changes
       # anything, the committed assets and the generator have drifted apart.
+      #
+      # Sounds as well as sprites: the generator synthesises six of the ten effects, and this
+      # check watched only sprites for a long time -- which is precisely where three Math.exp
+      # calls sat breaking rule 1 with nothing to catch them.
       - name: Verify generated assets are reproducible
         run: |
-          if [ -n "$(git status --porcelain src/main/resources/sprites)" ]; then
+          if [ -n "$(git status --porcelain src/main/resources/sprites src/main/resources/sounds)" ]; then
             echo "Regenerating assets changed the working tree:"
-            git status --porcelain src/main/resources/sprites
+            git status --porcelain src/main/resources/sprites src/main/resources/sounds
             echo "Run 'java tools/GenerateAssets.java' and commit the result."
             exit 1
           fi
+
+  # Two machines running the same ticks from the same seed must reach the same world, or
+  # networked play is two people in different games. DeterminismTest pins the half of that
+  # which fits inside one JVM; this job is the other half, because Math.sin is allowed a ulp
+  # of error and may answer differently on aarch64 than on x86_64.
+  #
+  # It prints rather than asserts. Pinning the number would fail the build on any weapon or
+  # spawn-rate tuning -- a change to the game, not to its determinism -- and the suite would
+  # learn to ignore it. Read the two lines in the run summary and compare them.
+  #
+  # ponytail: printed, compared by eye. Once the StrictMath sweep lands and the two agree,
+  # make this fail the build on a mismatch by passing the first platform's value as an artifact.
+  determinism:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 26
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+
+      - name: Print the simulation checksum
+        run: |
+          # Without this the pipe into tee swallows a failing exit code and the job goes green.
+          set -o pipefail
+          mvn -B --no-transfer-progress test \
+            -Dtest=DeterminismTest -DfailIfNoSpecifiedTests=false -Dprint.checksum \
+            | tee output.txt
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          grep '^checksum' output.txt >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

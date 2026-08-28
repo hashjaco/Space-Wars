@@ -46,8 +46,16 @@ public final class BossHead extends EnemyShip {
     /** How far a head sweeps inside its own sector. */
     private static final double SWING = 0.18;
 
-    /** Ticks for one full sweep. Long enough to read as deliberate rather than twitchy. */
-    private static final double SWEEP_TICKS = 190;
+    /**
+     * Ticks for one full sweep. Still deliberate rather than twitchy, at a bit over two seconds.
+     *
+     * Was 190. SWING, SECTOR_SPAN, REACH_MIN, REACH_MAX and NECK_LENGTH_STEP are all untouched, so
+     * a head traces exactly the arc it always did and only travels it faster -- which is why the
+     * bounds HydraTest and FrozenEmpressTest hold the necks to are unaffected by this. What does
+     * change is which points of that arc land on integer ticks, so the no-two-heads-overlap
+     * property is worth re-running rather than reasoning about.
+     */
+    private static final double SWEEP_TICKS = 140;
 
     /**
      * Where necks leave the torso: spread across this much of its width, centred.

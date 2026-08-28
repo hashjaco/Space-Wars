@@ -23,10 +23,11 @@ public final class GarageSession {
 
     /** The fixed rows in every bay, in the order they are drawn and cursored through. */
     private static final int UPGRADE_ROWS = Upgrade.values().length;
-    private static final int LIVERY_ROW = UPGRADE_ROWS;
-    private static final int KIT_ROW = UPGRADE_ROWS + 1;
-    private static final int LAUNCH_ROW = UPGRADE_ROWS + 2;
-    private static final int ROW_COUNT = UPGRADE_ROWS + 3;
+    private static final int CHASSIS_ROW = UPGRADE_ROWS;
+    private static final int LIVERY_ROW = UPGRADE_ROWS + 1;
+    private static final int KIT_ROW = UPGRADE_ROWS + 2;
+    private static final int LAUNCH_ROW = UPGRADE_ROWS + 3;
+    private static final int ROW_COUNT = UPGRADE_ROWS + 4;
 
     /**
      * Rows a bay shows at once.
@@ -74,6 +75,7 @@ public final class GarageSession {
         private int credits;
         private int cursor;
         private final MenuWindow window = new MenuWindow(ROW_COUNT, VISIBLE_ROWS);
+        private int chassisBrowse;
         private int liveryBrowse;
         private int kitBrowse;
         private boolean done;
@@ -83,6 +85,7 @@ public final class GarageSession {
             this.seat = seat;
             this.credits = credits;
             this.loadout = loadout;
+            this.chassisBrowse = loadout.chassis().ordinal();
             this.liveryBrowse = loadout.livery().ordinal();
             this.kitBrowse = loadout.kit().ordinal();
         }
@@ -93,6 +96,10 @@ public final class GarageSession {
 
         private Kit browsedKit() {
             return Kit.values()[kitBrowse];
+        }
+
+        private Chassis browsedChassis() {
+            return Chassis.values()[chassisBrowse];
         }
     }
 
@@ -110,9 +117,15 @@ public final class GarageSession {
      * @return true when a bay consumed it, so the caller knows not to pass it on to the ships
      */
     public boolean handleKey(KeyCode code) {
-        // Escape and Enter belong to everyone: whatever the cursor is on, they mean "I am finished".
-        // Without them a pilot who cursors away from LAUNCH would have no way out of the garage.
-        if (code == KeyCode.ESCAPE || code == KeyCode.ENTER) {
+        // Escape belongs to everyone: whatever the cursor is on, it means "I am finished". Without
+        // it a pilot who cursors away from LAUNCH would have no way out of the garage.
+        //
+        // Enter is deliberately not a second hatch here, though every menu treats it as confirm. A
+        // pad's fire button sends the player's fire key plus a menu confirm tap, and player two's
+        // confirm is Enter -- so buying anything from a pad launched the whole crew out of the
+        // garage on the same press. The bays are driven by each seat's own keys; the shared confirm
+        // keys have no business in them.
+        if (code == KeyCode.ESCAPE) {
             boolean any = false;
             for (Bay bay : bays) {
                 any |= !bay.done;
@@ -177,6 +190,11 @@ public final class GarageSession {
      */
     private void cycle(Bay bay, int delta) {
         bay.message = "";
+        if (bay.cursor == CHASSIS_ROW) {
+            bay.chassisBrowse = Math.floorMod(bay.chassisBrowse + delta, Chassis.values().length);
+            bay.loadout.select(bay.browsedChassis());
+            return;
+        }
         if (bay.cursor == LIVERY_ROW) {
             bay.liveryBrowse = Math.floorMod(bay.liveryBrowse + delta, Livery.values().length);
             bay.loadout.select(bay.browsedLivery());
@@ -198,11 +216,21 @@ public final class GarageSession {
             buyUpgrade(bay, Upgrade.values()[bay.cursor]);
             return;
         }
+        if (bay.cursor == CHASSIS_ROW) {
+            buyChassis(bay);
+            return;
+        }
         if (bay.cursor == LIVERY_ROW) {
             buyLivery(bay);
             return;
         }
-        buyKit(bay);
+        // Spelled out rather than left as the fall-through it used to be. With three browsable rows
+        // instead of two, "anything that is not launch, an upgrade or paint" stopped being a safe
+        // way to say "the kit row", and a mis-ordered constant would have bought the wrong thing
+        // with nothing to report it.
+        if (bay.cursor == KIT_ROW) {
+            buyKit(bay);
+        }
     }
 
     private void buyUpgrade(Bay bay, Upgrade upgrade) {
@@ -225,6 +253,18 @@ public final class GarageSession {
      */
     private void buyLivery(Bay bay) {
         Livery chosen = bay.browsedLivery();
+        if (bay.loadout.owns(chosen)) {
+            bay.loadout.select(chosen);
+            return;
+        }
+        if (!charge(bay, chosen.cost())) {
+            return;
+        }
+        bay.loadout.unlock(chosen);
+    }
+
+    private void buyChassis(Bay bay) {
+        Chassis chosen = bay.browsedChassis();
         if (bay.loadout.owns(chosen)) {
             bay.loadout.select(chosen);
             return;
@@ -307,8 +347,9 @@ public final class GarageSession {
             boolean maxed = bay.loadout.isMaxed(upgrade);
             int cost = upgrade.costFor(level);
             String detail = maxed
-                    ? upgrade.effectAt(level)
-                    : upgrade.effectAt(level) + "  ->  " + upgrade.effectAt(level + 1);
+                    ? upgrade.effectAt(level, bay.loadout.chassis())
+                    : upgrade.effectAt(level, bay.loadout.chassis()) + "  ->  "
+                            + upgrade.effectAt(level + 1, bay.loadout.chassis());
             rows.add(new Row(upgrade.label(), upgrade.description(), cost,
                     !maxed && cost <= bay.credits, maxed,
                     level, upgrade.maxLevel(), detail));
@@ -316,6 +357,13 @@ public final class GarageSession {
 
         // The browsed item, not the worn one: an unowned paint job has to show its price to be
         // worth buying, and it is never worn until it is paid for.
+        //
+        // This block's order has to match the row constants above, and nothing enforces that.
+        Chassis chassis = bay.browsedChassis();
+        boolean chassisOwned = bay.loadout.owns(chassis);
+        rows.add(new Row("Airframe", chassis.label(), chassisOwned ? 0 : chassis.cost(),
+                chassisOwned || chassis.cost() <= bay.credits, chassisOwned));
+
         Livery livery = bay.browsedLivery();
         boolean liveryOwned = bay.loadout.owns(livery);
         rows.add(new Row("Paint", livery.label(), liveryOwned ? 0 : livery.cost(),

@@ -28,6 +28,9 @@ class HydraTest {
     // galaxy. The hydra guards Hollow Womb specifically; the test wants that level's art and waves.
     private static final Level LEVEL = Level.HOLLOW_WOMB;
 
+    /** The NORMAL preset's ceiling on ordinary enemies, which is what a spawner gets headroom over. */
+    private static final int ENEMY_CAP = 6;
+
     private static World withHydra() {
         World world = new World(GameMode.SOLO);
         EnemyShip torso = new EnemyShip(Boss.HYDRA, 400, 90, 1);
@@ -99,13 +102,13 @@ class HydraTest {
 
         int before = world.bullets().size();
         for (int tick = 0; tick < 300; tick++) {
-            EnemyWeapons.driveWeapons(world, doomed, target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, doomed, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
         assertEquals(before, world.bullets().size(), "a dead head must not keep firing");
 
         EnemyShip living = headsOf(world).get(1);
         for (int tick = 0; tick < 300; tick++) {
-            EnemyWeapons.driveWeapons(world, living, target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, living, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
         assertTrue(world.bullets().size() > before, "the others carry on");
     }
@@ -222,13 +225,13 @@ class HydraTest {
         PlayerShip target = world.players().get(0);
 
         for (int tick = 0; tick < 600; tick++) {
-            EnemyWeapons.driveWeapons(world, torsoOf(world), target, LEVEL, 60, SoundPlayer.SILENT);
+            EnemyWeapons.driveWeapons(world, torsoOf(world), target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
         assertTrue(world.bullets().stream().noneMatch(b -> b instanceof Rocket),
                 "the torso has no mouth of its own");
 
         for (int tick = 0; tick < 600; tick++) {
-            EnemyWeapons.driveWeapons(world, headsOf(world).get(0), target, LEVEL, 60,
+            EnemyWeapons.driveWeapons(world, headsOf(world).get(0), target, LEVEL, 60, ENEMY_CAP,
                     SoundPlayer.SILENT);
         }
         assertTrue(world.bullets().stream().anyMatch(b -> b instanceof Rocket),
@@ -244,7 +247,7 @@ class HydraTest {
 
         for (int tick = 0; tick < 3000; tick++) {
             for (EnemyShip head : headsOf(world)) {
-                EnemyWeapons.driveWeapons(world, head, target, LEVEL, 600, SoundPlayer.SILENT);
+                EnemyWeapons.driveWeapons(world, head, target, LEVEL, 600, ENEMY_CAP, SoundPlayer.SILENT);
             }
             world.update();
             world.sweep();

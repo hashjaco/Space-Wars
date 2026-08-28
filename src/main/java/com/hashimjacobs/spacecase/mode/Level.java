@@ -285,7 +285,87 @@ public enum Level {
     STORM_CROWN("Storm Crown",
             Sprite.L40_FAR, Sprite.L40_MID, Sprite.L40_NEAR,
             Sprite.L40_SCOUT, Sprite.L40_FIGHTER, Sprite.L40_CRUISER,
-            Boss.STORM_SERPENT, 6);
+            Boss.STORM_SERPENT, 6),
+
+    // ---- Galaxy 5: Null (levels 41-50) ---------------------------------------------------
+    // No sky and no ground: not one ATMOSPHERE or SURFACE backdrop in the galaxy, so there is
+    // nothing to fly over and nothing overhead, and the only enclosures are dead structures.
+    //
+    // The waves run 6,6,6,6,5,5,5,4,4,4 -- the only galaxy that shortens as it goes. Verdance and
+    // Tempest climb and Cryonis alternates; this one falls in, so the bosses arrive faster and
+    // faster. It is not a difficulty cut: the bosses are the hard part of a leg and this delivers
+    // more of them per minute, against the steepest health ladder in the game.
+
+    /** Dead Belt: a graveyard of a belt, and the last ordinary sky in the campaign. */
+    DEAD_BELT("Dead Belt",
+            Sprite.L41_FAR, Sprite.L41_MID, Sprite.L41_NEAR,
+            Sprite.L41_SCOUT, Sprite.L41_FIGHTER, Sprite.L41_CRUISER,
+            Boss.BONEPICKER, 6),
+
+    /** Hulk Drift: a dead fleet, and something living in it. */
+    HULK_DRIFT("Hulk Drift",
+            Sprite.L42_FAR, Sprite.L42_MID, Sprite.L42_NEAR,
+            Sprite.L42_SCOUT, Sprite.L42_FIGHTER, Sprite.L42_CRUISER,
+            Boss.HULK_CHOIR, 6),
+
+    /** Shroud: a world that went out. The galaxy's one planet, and it is not lit. */
+    SHROUD("Shroud",
+            Sprite.L43_FAR, Sprite.L43_MID, Sprite.L43_NEAR,
+            Sprite.L43_SCOUT, Sprite.L43_FIGHTER, Sprite.L43_CRUISER,
+            Boss.SHROUDMAW, 6),
+
+    /** Lens Corridor: the first sight of the thing this galaxy is about. */
+    LENS_CORRIDOR("Lens Corridor",
+            Sprite.L44_FAR, Sprite.L44_MID, Sprite.L44_NEAR,
+            Sprite.L44_SCOUT, Sprite.L44_FIGHTER, Sprite.L44_CRUISER,
+            Boss.LENSBREAKER, 6),
+
+    /**
+     * Tidal Shear: the galaxy's side-on leg.
+     *
+     * A belt for the reason levels 9, 17 and 39 are open space: rock and stars look the same lying
+     * on their side, where a sky, a ground or a cavern each has a built-in up. This galaxy has no
+     * sky or ground to get wrong anyway, and its two enclosures are needed elsewhere.
+     *
+     * The four things that have to agree are all set -- the belt tiles horizontally, the hulls are
+     * cut pointing left, their Sprite constants declare transposed sizes, and the flagship's frames
+     * are turned once by the generator rather than rotated per frame. It fields a warship rather
+     * than a creature because CreatureProfile has no sideways field, so it cannot guard one.
+     */
+    TIDAL_SHEAR("Tidal Shear",
+            Sprite.L45_FAR, Sprite.L45_MID, Sprite.L45_NEAR,
+            Sprite.L45_SCOUT, Sprite.L45_FIGHTER, Sprite.L45_CRUISER,
+            Boss.TIDEWRACK, 5, Orientation.RIGHT_TO_LEFT),
+
+    /** The Shell: inside a dead structure, which is the only kind of enclosure out here. */
+    THE_SHELL("The Shell",
+            Sprite.L46_FAR, Sprite.L46_MID, Sprite.L46_NEAR,
+            Sprite.L46_SCOUT, Sprite.L46_FIGHTER, Sprite.L46_CRUISER,
+            Boss.SHELLBORN, 5, WorldTemplate.CAVE),
+
+    /** Ergosphere: close enough that spacetime is visibly turning. */
+    ERGOSPHERE("Ergosphere",
+            Sprite.L47_FAR, Sprite.L47_MID, Sprite.L47_NEAR,
+            Sprite.L47_SCOUT, Sprite.L47_FIGHTER, Sprite.L47_CRUISER,
+            Boss.FRAME_DRAG, 5),
+
+    /** Photon Ring: the brightest sky in the game, and the ring is all of it. */
+    PHOTON_RING("Photon Ring",
+            Sprite.L48_FAR, Sprite.L48_MID, Sprite.L48_NEAR,
+            Sprite.L48_SCOUT, Sprite.L48_FIGHTER, Sprite.L48_CRUISER,
+            Boss.PHOTON_HALO, 4),
+
+    /** The Throat: the second dead structure, and the last enclosure in the campaign. */
+    THE_THROAT("The Throat",
+            Sprite.L49_FAR, Sprite.L49_MID, Sprite.L49_NEAR,
+            Sprite.L49_SCOUT, Sprite.L49_FIGHTER, Sprite.L49_CRUISER,
+            Boss.GULLET, 4, WorldTemplate.CAVE),
+
+    /** Event Horizon: the last level. The hole fills the frame and Aeon is in front of it. */
+    EVENT_HORIZON("Event Horizon",
+            Sprite.L50_FAR, Sprite.L50_MID, Sprite.L50_NEAR,
+            Sprite.L50_SCOUT, Sprite.L50_FIGHTER, Sprite.L50_CRUISER,
+            Boss.AEON, 4);
 
     private final String label;
     private final List<Sprite> layers;

@@ -54,6 +54,15 @@ public final class GameConfig {
     public static final int UPGRADE_SALVO_STEP = 5;
     public static final int ROCKET_FIRE_COOLDOWN_FLOOR = 14;
     public static final int UPGRADE_BEAM_STEP = 1;
+
+    /** Ticks off the scythe's reload per level of the hone. */
+    public static final int UPGRADE_HONE_STEP = 5;
+
+    /** Extra pellets per level of the choke. */
+    public static final int UPGRADE_CHOKE_STEP = 2;
+
+    /** Pixels of blast radius per level of the yield. */
+    public static final int UPGRADE_YIELD_STEP = 30;
     public static final int UPGRADE_CAPACITOR_STEP = 15;
 
     /**
@@ -107,6 +116,42 @@ public final class GameConfig {
 
     /** Rockets fire far slower than the gun, which is what keeps 45 points a shot fair. */
     public static final int ROCKET_FIRE_COOLDOWN = 26;
+
+    /**
+     * The scythe: a wide blade that crosses the lane and does not stop at the first hull.
+     *
+     * Slower than a bullet and reloaded far slower than the gun, because piercing a group of eight
+     * is worth about eight shots. Its damage is per ship burned, not per throw.
+     */
+    public static final double SCYTHE_SPEED = 5.0;
+    public static final int SCYTHE_DAMAGE = 14;
+    public static final int SCYTHE_FIRE_COOLDOWN = 30;
+
+    /**
+     * The flak: a cone of short-lived pellets, devastating close and useless past its fuse.
+     *
+     * The fuse is the range. At {@code FLAK_SPEED} a pellet covers about two hundred pixels before
+     * it expires, which is a quarter of the arena -- close enough that using this weapon means
+     * closing with the thing you are shooting.
+     */
+    public static final double FLAK_SPEED = 13.0;
+    public static final int FLAK_DAMAGE = 9;
+    public static final int FLAK_PELLETS = 7;
+    public static final double FLAK_SPREAD = 2.6;
+    public static final int FLAK_FUSE_TICKS = 16;
+    public static final int FLAK_FIRE_COOLDOWN = 20;
+
+    /**
+     * The nova: a slow shell that detonates on what it touches.
+     *
+     * The radius is what it is for, so the direct hit is deliberately weak -- a nova aimed at one
+     * scout is a wasted shell, and a nova into a flagship's escort is the whole point.
+     */
+    public static final double NOVA_SPEED = 3.6;
+    public static final int NOVA_DAMAGE = 20;
+    public static final int NOVA_BLAST_DAMAGE = 55;
+    public static final double NOVA_BLAST_RADIUS = 130;
+    public static final int NOVA_FIRE_COOLDOWN = 46;
 
     public static final double ENEMY_BULLET_SPEED = 4.5;
     public static final int ENEMY_BULLET_DAMAGE = 6;

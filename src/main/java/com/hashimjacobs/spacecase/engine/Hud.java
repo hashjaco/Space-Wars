@@ -24,6 +24,19 @@ final class Hud {
 
     private static final double PANEL_WIDTH = 210;
     private static final double BAR_HEIGHT = 14;
+
+    /**
+     * How far a player panel reaches below its top edge, so the lower two can be anchored to the
+     * bottom of the arena rather than guessed at.
+     *
+     * Measured from the lowest thing {@link #drawPlayerPanel} draws -- the effects line at
+     * {@code barY + BAR_HEIGHT + 22}, plus its own text height. Nothing else in the HUD uses the
+     * bottom of the screen, so there is nothing down there to collide with.
+     */
+    private static final double PANEL_HEIGHT = 97;
+
+    /** Inset from whichever corner a panel is anchored to. */
+    private static final double PANEL_MARGIN = 16;
     private static final Color BRAND = Tokens.BRAND;
 
     /** Share of full health below which the bar starts pulsing. Mirrored by GameLoop's alarm. */
@@ -50,10 +63,13 @@ final class Hud {
         gc.setTextBaseline(VPos.TOP);
         List<PlayerShip> players = world.players();
 
+        // A corner each, filling across before down: one and two keep the top-left and top-right
+        // they have always had, and an online room's third and fourth take the bottom corners.
         for (PlayerShip player : players) {
-            boolean rightAligned = player.playerNumber() == 2;
-            double x = rightAligned ? GameConfig.WIDTH - PANEL_WIDTH - 16 : 16;
-            drawPlayerPanel(player, x, world.tick());
+            int seat = player.playerNumber() - 1;
+            double x = seat % 2 == 1 ? GameConfig.WIDTH - PANEL_WIDTH - PANEL_MARGIN : PANEL_MARGIN;
+            double y = seat >= 2 ? GameConfig.HEIGHT - PANEL_HEIGHT - PANEL_MARGIN : 14;
+            drawPlayerPanel(player, x, y, world.tick());
         }
 
         // Battle mode has no enemies, so it has no level and no boss to progress through either.
@@ -69,9 +85,7 @@ final class Hud {
         }
     }
 
-    private void drawPlayerPanel(PlayerShip player, double x, int tick) {
-        double y = 14;
-
+    private void drawPlayerPanel(PlayerShip player, double x, double y, int tick) {
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(labelFont);
         gc.setFill(Tokens.LABEL);
@@ -179,6 +193,9 @@ final class Hud {
             case SHIELD -> "SHLD";
             case HEALTH -> "HP";
             case EXTRA_LIFE -> "LIFE";
+            case SCYTHE -> "SCY";
+            case FLAK -> "FLAK";
+            case NOVA -> "NOVA";
         };
         return name;
     }

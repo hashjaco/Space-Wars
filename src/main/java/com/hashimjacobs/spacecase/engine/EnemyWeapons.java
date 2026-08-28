@@ -7,6 +7,7 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Ordnance;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.Rocket;
@@ -24,15 +25,57 @@ final class EnemyWeapons {
     private static final int MINIONS_PER_VOLLEY = 2;
 
     /**
-     * Ceiling on enemies while a spawner is working.
+     * Headroom a spawner is allowed above the preset's own ceiling on enemies.
      *
      * The difficulty cap is enforced in {@link SpawnDirector}, which knows nothing about bosses
      * calling in help, so without a limit here a spawner fills the arena unopposed.
+     *
+     * Relative rather than the flat twelve it used to be. That flat number was the NORMAL cap of
+     * six plus this, which is why the figure is six -- NORMAL is unchanged. It had to stop being
+     * flat once a preset could allow twenty ordinary enemies on the field: at a fixed twelve the
+     * SPAWNER phase would silently do nothing for the whole of a fight on the two hardest presets,
+     * so the flagship would stand there venting no escorts and firing no shots either.
      */
-    private static final int MAX_ENEMIES_WITH_MINIONS = 12;
+    private static final int MINION_HEADROOM = 6;
 
     /** Floor on a scaled boss cooldown, so a late loop cannot turn a pattern into a solid wall. */
     private static final int MIN_BOSS_COOLDOWN_TICKS = 4;
+
+    /**
+     * What an enraged flagship's reload is multiplied by. Below one is faster.
+     *
+     * Gentler than the strafe, deliberately. Movement is the half a player answers by moving, and
+     * fire rate is the half they cannot; doubling both is how a last phase stops being a fight.
+     * MIN_BOSS_COOLDOWN_TICKS still floors the result, so a late loop cannot compound this into a
+     * wall.
+     */
+    private static final double ENRAGE_COOLDOWN_SCALE = 0.80;
+
+    /**
+     * The same floor for an ordinary hull, once its archetype's rate is applied to the preset's gap.
+     *
+     * Higher than the boss floor because there are up to twenty of these on the field at once,
+     * against one flagship: a cruiser at DIE's sixteen-tick gap already fires every eighth tick, and
+     * that is the point at which a lane of them is a wall rather than a fight.
+     */
+    private static final int MIN_ENEMY_COOLDOWN_TICKS = 8;
+
+    /**
+     * How far apart an ordinary ship's shots go when its wave asked for more than one.
+     *
+     * Between AIMED_BURST's 0.14 and SWEEPING_FAN's 0.22, so it sits inside the vocabulary of
+     * spreads the flagships already established rather than introducing a new one.
+     */
+    private static final double ENEMY_SPREAD_RADIANS = 0.18;
+
+    /**
+     * Ceiling on one ordinary ship's volley.
+     *
+     * MIN_ENEMY_COOLDOWN_TICKS throttles the rate, not the count, and the two multiply: twenty
+     * ships at the hardest preset's gap firing three apiece is already most of a wall. A wave that
+     * wants a heavy gun should pair a high count with a slow fireGap rather than reaching past this.
+     */
+    private static final int MAX_ENEMY_SHOTS = 3;
 
     /**
      * How much slower one part fires than a whole flagship would, per part the flagship fields.
@@ -103,7 +146,7 @@ final class EnemyWeapons {
      * this one entry point so {@link GameLoop#driveEnemies} stays a single call.
      */
     static void driveWeapons(World world, EnemyShip enemy, PlayerShip target, Level level,
-                             int difficultyCooldown, SoundPlayer sounds) {
+                             int difficultyCooldown, int enemyCap, SoundPlayer sounds) {
         // The sweep usually clears the dead before this runs, but not always: a hydra head is
         // killed by its own dying torso from inside World.update, which is earlier in the same
         // frame. Without this it gets a parting shot.
@@ -111,11 +154,18 @@ final class EnemyWeapons {
             return;
         }
         if (enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown))) {
-            fire(world, enemy, target, level);
+            BossPhase fired = enemy.isBoss() ? enemy.firingPhase() : null;
+            fire(world, enemy, target, level, enemyCap);
             // Ordinary enemies stay silent, as they always have; a spawner is venting escorts
             // rather than shooting, so a machine gun over it would be describing the wrong thing.
-            if (enemy.isBoss() && enemy.phase() != BossPhase.SPAWNER) {
-                sounds.play(SoundFx.BOSS_GUN);
+            if (enemy.isBoss() && fired != BossPhase.SPAWNER) {
+                sounds.play(fired != null && fired.isSpecial() ? SoundFx.BOSS_ROCKET
+                        : SoundFx.BOSS_GUN);
+            }
+            if (enemy.isBoss()) {
+                // After the shot, never before: firingPhase has to give the cooldown and the fire
+                // the same answer within one tick.
+                enemy.countVolley();
             }
         }
         int salvo = secondarySalvoFor(enemy);
@@ -190,47 +240,85 @@ final class EnemyWeapons {
     }
 
     /** The level is needed only so a spawner's escorts wear the local faction's hull. */
-    static void fire(World world, EnemyShip enemy, PlayerShip target, Level level) {
+    static void fire(World world, EnemyShip enemy, PlayerShip target, Level level, int enemyCap) {
         if (!enemy.isBoss()) {
-            // Straight down-arena, no spread.
-            addBullet(world, enemy, GameConfig.ENEMY_BULLET_SPEED, 0, GameConfig.ENEMY_BULLET_DAMAGE);
+            fireOrdinary(world, enemy);
             return;
         }
-        firePattern(world, enemy, target, level);
+        firePattern(world, enemy, target, level, enemyCap);
+    }
+
+    /**
+     * An ordinary ship's gun: one shot straight down-arena, or a narrow fan if its wave asked.
+     *
+     * A fan rather than a {@code BossPhase}. Letting an ordinary hull carry a phase would put four
+     * more branches in the file that most wants to stay a readable sequence, and would let a wave
+     * row hand a scout SPAWNER or a twelve-shot VORTEX. What a wave actually wants from "more
+     * firepower" is more bullets, and this is that.
+     *
+     * At one shot the arithmetic is exactly the single straight shot this used to be: the offset is
+     * -0.0, whose cosine is 1 and whose sine is -0.0, so the bullet leaves on the same vector it
+     * always did.
+     */
+    private static void fireOrdinary(World world, EnemyShip enemy) {
+        int shots = Math.max(1, Math.min(MAX_ENEMY_SHOTS, enemy.shots()));
+        double first = -ENEMY_SPREAD_RADIANS * (shots - 1) / 2.0;
+        for (int i = 0; i < shots; i++) {
+            double angle = first + i * ENEMY_SPREAD_RADIANS;
+            addBullet(world, enemy,
+                    Math.cos(angle) * GameConfig.ENEMY_BULLET_SPEED,
+                    Math.sin(angle) * GameConfig.ENEMY_BULLET_SPEED,
+                    GameConfig.ENEMY_BULLET_DAMAGE, Sprite.ENEMY_BULLET);
+        }
     }
 
     /** Cooldown for this enemy's next shot: the boss's varies by phase, everything else is fixed. */
     static int cooldownFor(EnemyShip enemy, int difficultyCooldown) {
         if (!enemy.isBoss()) {
-            return difficultyCooldown;
+            // The preset names the gap; the ship decides what share of it it waits -- its
+            // archetype's share, times whatever its wave row asked for.
+            return Math.max(MIN_ENEMY_COOLDOWN_TICKS,
+                    (int) Math.round(difficultyCooldown * enemy.fireFactor()));
         }
-        BossPhase phase = enemy.phase();
+        BossPhase phase = enemy.firingPhase();
         double share = enemy.isBossPart() ? partCooldownFactor(enemy.siblingParts()) : 1;
-        int scaled = (int) Math.round(phase.cooldownTicks() * share / enemy.scale());
+        // An enraged flagship reloads faster as well as strafing harder. Both come off the same
+        // flag, so a fight that speeds up does it in one readable way rather than two.
+        double rage = enemy.isEnraged() ? ENRAGE_COOLDOWN_SCALE : 1;
+        int scaled = (int) Math.round(phase.cooldownTicks() * share * rage / enemy.scale());
         return Math.max(MIN_BOSS_COOLDOWN_TICKS, scaled);
     }
 
-    private static void firePattern(World world, EnemyShip boss, PlayerShip target, Level level) {
-        BossPhase phase = boss.phase();
+    private static void firePattern(World world, EnemyShip boss, PlayerShip target, Level level,
+                                    int enemyCap) {
+        BossPhase phase = boss.firingPhase();
         if (phase == BossPhase.SPAWNER) {
-            spawnMinions(world, boss, level);
+            spawnMinions(world, boss, level, enemyCap);
             return;
         }
         double centreAngle = centreAngleFor(phase, world, boss, target);
         int shots = phase.shots();
+        // Asked once and used twice, because a phase whose spread varies has to place its first
+        // shot and step between its shots at the same figure. Reading phase.spreadRadians() in both
+        // places was correct while every pattern's spread was a constant; VORTEX's is not.
+        double spread = phase.spreadRadiansAt(world.tick());
         // Distribute the shots evenly either side of the pattern's centre.
-        double firstOffset = -phase.spreadRadians() * (shots - 1) / 2.0;
+        double firstOffset = -spread * (shots - 1) / 2.0;
 
         // Damage scales without limit, speed does not: a bullet faster than the player's own
         // (GameConfig.BULLET_SPEED, 10) stops being dodgeable and starts being unfair.
-        double speed = GameConfig.ENEMY_BULLET_SPEED * Math.min(boss.scale(), SPEED_SCALE_CAP);
-        int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * boss.scale());
-        Orientation facing = boss.orientation();
+        // The galaxy's round decides how fast and how hard; the pattern decides how many and where.
+        Ordnance round = boss.boss().ordnance();
+        double speed = GameConfig.ENEMY_BULLET_SPEED * round.speedFactor()
+                * Math.min(boss.scale(), SPEED_SCALE_CAP);
+        int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * round.damageFactor()
+                * phase.damageScale() * boss.scale());
 
         for (int i = 0; i < shots; i++) {
-            double angle = centreAngle + firstOffset + i * phase.spreadRadians();
+            double angle = centreAngle + firstOffset + i * spread;
             // Zero points down-arena, whichever way that is; the pattern turns with the level.
-            addBullet(world, boss, Math.cos(angle) * speed, Math.sin(angle) * speed, damage);
+            addBullet(world, boss, Math.cos(angle) * speed, Math.sin(angle) * speed, damage,
+                    round.art());
         }
     }
 
@@ -252,6 +340,12 @@ final class EnemyWeapons {
             // Unbounded rotation rather than an oscillation, so the stream paints a continuous arc.
             return world.tick() * 0.11;
         }
+        if (phase == BossPhase.VORTEX) {
+            // Unbounded like the spiral, and deliberately less than half its rate: this is twelve
+            // shots rather than four, and a full ring turning at spiral speed is a wall with no
+            // readable gap in it.
+            return world.tick() * 0.045;
+        }
         if (phase.sweeps()) {
             // A slow oscillation driven by the world clock, so the fan tracks back and forth.
             double sweep = Math.sin(world.tick() / 42.0);
@@ -266,8 +360,8 @@ final class EnemyWeapons {
      * Note this mutates the enemy list, which is the list {@link GameLoop} is iterating when it calls
      * in here -- that loop indexes rather than using an iterator for exactly this reason.
      */
-    private static void spawnMinions(World world, EnemyShip boss, Level level) {
-        if (world.enemies().size() + MINIONS_PER_VOLLEY > MAX_ENEMIES_WITH_MINIONS) {
+    private static void spawnMinions(World world, EnemyShip boss, Level level, int enemyCap) {
+        if (world.enemies().size() + MINIONS_PER_VOLLEY > enemyCap + MINION_HEADROOM) {
             return;
         }
         Sprite art = level.enemySprite(EnemyShip.EnemyKind.SCOUT);
@@ -290,12 +384,12 @@ final class EnemyWeapons {
      * The muzzle sits three quarters of the way down the hull along the direction of travel.
      */
     private static void addBullet(World world, EnemyShip enemy, double along, double across,
-                                  int damage) {
+                                  int damage, Sprite art) {
         Orientation facing = enemy.orientation();
         double lead = facing.alongExtent(enemy.width(), enemy.height()) * 0.25;
-        double x = enemy.centerX() - Sprite.ENEMY_BULLET.width() / 2 + facing.vx(lead, 0);
-        double y = enemy.centerY() - Sprite.ENEMY_BULLET.height() / 2 + facing.vy(lead, 0);
-        Bullet bullet = new Bullet(Sprite.ENEMY_BULLET, x, y,
+        double x = enemy.centerX() - art.width() / 2 + facing.vx(lead, 0);
+        double y = enemy.centerY() - art.height() / 2 + facing.vy(lead, 0);
+        Bullet bullet = new Bullet(art, x, y,
                 facing.vx(along, across), facing.vy(along, across), null, damage);
         world.addBullet(bullet);
     }

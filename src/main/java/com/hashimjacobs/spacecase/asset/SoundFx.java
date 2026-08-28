@@ -1,13 +1,17 @@
 package com.hashimjacobs.spacecase.asset;
 
 /**
- * Short sound effects. Played through AudioClip so overlapping shots do not cut each other off.
+ * Short sound effects, played through {@code javax.sound.sampled} by {@code SoundBank}, which
+ * keeps a few clips open per effect so overlapping shots do not cut each other off.
  *
- * Each constant carries how long its sample runs, because a voice holds a native media player open
- * for exactly that long and {@link VoiceLimiter} has to know when one frees up. Voices alive is
- * duration times fire rate, so length here is not a detail -- it is the thing that decides how
- * many native players the game keeps open at once. Keep the seconds honest: a test checks each one
- * against the file.
+ * The second value is a level, not a length: {@code SoundBank} applies it as decibels on every
+ * play, on top of the player's own SFX setting. It is the mix. The files themselves sit nearly
+ * twelve decibels apart, and these numbers are what pull them back into one bed -- so a change
+ * here is a mixing decision, and the effect it has is best judged by ear rather than by reading
+ * the file's level.
+ *
+ * Effects must stay in a format the JDK can decode: {@code AssetProvenanceTest} checks that,
+ * because {@code javax.sound.sampled} cannot read MP3 and an MP3 effect would be silently silent.
  */
 public enum SoundFx {
 
@@ -36,8 +40,15 @@ public enum SoundFx {
 
     COLLISION("collision.wav", 0.6),
 
-    /** Retriggered on a timer while a player is nearly dead, rather than looped; see GameLoop. */
-    LOW_HEALTH("low-health.wav", 0.4),
+    /**
+     * Retriggered on a timer while a player is nearly dead, rather than looped; see GameLoop.
+     *
+     * Was 0.4, which put it at about -15dB effective against a combat bed sitting near -23dB: the
+     * loudest thing in the game, and hotter than the music, for a sound that fires over and over
+     * while you are trying to survive. 0.18 lands it a shade above the bed -- audible through
+     * gunfire, which is the whole job, without taking the mix over.
+     */
+    LOW_HEALTH("low-health.wav", 0.18),
 
     /**
      * The flagship's primary weapon, fired with its phase pattern.

@@ -37,9 +37,11 @@ import javax.imageio.ImageIO;
  * Three rules keep that true, and CI only catches a breach of them once someone builds on a
  * different machine:
  *
- *   1. Trig goes through {@link StrictMath}, never {@code Math}. Math.sin, cos and pow are allowed
- *      one ulp of error and may differ between JVM implementations; only StrictMath is specified
- *      bit for bit. Math.min/max/abs/sqrt are exact and fine.
+ *   1. Every transcendental goes through {@link StrictMath}, never {@code Math}. Math.sin, cos,
+ *      pow, exp and log are allowed one ulp of error and may differ between JVM implementations;
+ *      only StrictMath is specified bit for bit. Math.min/max/abs/sqrt and Math.PI are exact and
+ *      fine. Said as "every transcendental" rather than "trig" because three Math.exp calls in
+ *      the sound synthesis sat here for a long time reading the narrower rule as permission.
  *   2. Never draw text. Graphics2D.drawString depends on which fonts the host has installed, so a
  *      rendered glyph is not reproducible. Every mark here is a shape -- see insignia() for how to
  *      draw a symbol without a font.
@@ -78,6 +80,7 @@ public final class GenerateAssets {
         creatures();
         mech();
         pickups();
+        projectiles();
         insignia();
         backgrounds();
 
@@ -153,8 +156,50 @@ public final class GenerateAssets {
         }
     }
 
+    /**
+     * The six paints a bought chassis is cut in, in {@code garage.Livery}'s declaration order.
+     *
+     * Separate from {@link Paintwork} rather than an extension of it, and deliberately: adding the
+     * two stock hues to that enum would put player one's row through the recolour loop twice more
+     * and write forty frames nobody asked for. The overlap is two rows of numbers; merging them
+     * would cost forty PNGs to save them.
+     *
+     * Militia green and corsair red are hues here where they are sheet rows for the stock ships --
+     * a bought chassis has no sheet row of its own to be green in, so every one of its paints has to
+     * come from a rotation.
+     */
+    private enum Coat {
+        MILITIA(0.33f, 1.0f),
+        CORSAIR(0.98f, 1.0f),
+        AZURE(0.55f, 1.0f),
+        AMBER(0.10f, 1.0f),
+        VIOLET(0.76f, 1.0f),
+        CHROME(0.00f, 0.15f);
+
+        private final float hue;
+        private final float saturationScale;
+
+        Coat(float hue, float saturationScale) {
+            this.hue = hue;
+            this.saturationScale = saturationScale;
+        }
+    }
+
+    /**
+     * Bought chassis, as transforms of player one's cut hull.
+     *
+     * Order matches {@code garage.Chassis}'s bought constants. A silhouette rather than a repaint is
+     * what makes these ships instead of paint jobs -- the roadmap's aspect lesson, four galaxies
+     * running: at sixty pixels the eye has the outline long before it has anything else.
+     *
+     * Moderate transforms on purpose. The kit decals are one P1-derived set measured off the alpha
+     * bounding box, so a wholesale reshape would leave them sitting off the wing.
+     */
+    private static final String[] CHASSIS = {"interceptor", "gunship", "twin-boom"};
+
     /** Body kits, drawn as transparent decals so one set serves every paint job. */
-    private static final String[] KITS = {"fins", "armour", "lance"};
+    private static final String[] KITS =
+            {"fins", "armour", "lance", "canards", "scoop", "mast", "rack"};
 
     private static void players() throws IOException {
         BufferedImage sheet = ImageIO.read(ART.resolve("spritesheet.png").toFile());
@@ -187,6 +232,114 @@ public final class GenerateAssets {
                 write(decal, SPRITES.resolve(name + ".png"));
                 write(quarterTurnLeft(decal), SPRITES.resolve(name + "-side.png"));
             }
+            // The bought chassis: a silhouette each, in all six paints. Every frame goes through
+            // writeHull like a stock hull does, so a chassis is scorched and turned for the side-on
+            // level on exactly the same terms.
+            for (int chassis = 0; chassis < CHASSIS.length; chassis++) {
+                BufferedImage shape = chassisFrame(hull, chassis);
+                for (Coat coat : Coat.values()) {
+                    BufferedImage painted = recolour(shape, coat.hue, coat.saturationScale);
+                    writeHull(painted, "player/" + CHASSIS[chassis] + "-"
+                            + coat.name().toLowerCase() + "-" + POSES[pose]);
+                }
+            }
+        }
+    }
+
+    /**
+     * One bought chassis's silhouette, from the hull the stock ship flies.
+     *
+     * Every result is the same {@link #PLAYER_FRAME_WIDTH} by {@link #PLAYER_FRAME_HEIGHT} canvas as
+     * a cut frame. That padding is not decoration -- decoding at a fixed on-screen size preserves
+     * each image's own aspect ratio, so a chassis on a different canvas would draw at a visibly
+     * different size from the ship beside it.
+     */
+    private static BufferedImage chassisFrame(BufferedImage hull, int chassis) {
+        return switch (chassis) {
+            // Narrowed and drawn out: the whole hull becomes one lens with a long tail.
+            case 0 -> rescaled(hull, 0.56, 1.22);
+            // Widened and squatter: a hull built around what it is carrying.
+            case 1 -> rescaled(hull, 1.46, 0.80);
+            // Two booms either side of a spine, which is the one outline here that is not the stock
+            // ship at another aspect.
+            default -> twinBoom(hull);
+        };
+    }
+
+    private static BufferedImage twinBoom(BufferedImage hull) {
+        BufferedImage boom = rescaled(hull, 0.40, 0.86);
+        BufferedImage spine = rescaled(hull, 0.34, 1.06);
+        BufferedImage frame = blank(hull.getWidth(), hull.getHeight());
+        int outboard = (int) (hull.getWidth() * 0.17);
+        int aft = (int) (hull.getHeight() * 0.06);
+        stamp(frame, boom, -outboard, aft);
+        stamp(frame, boom, outboard, aft);
+        // The spine last, so it sits over the roots of both booms rather than between them.
+        stamp(frame, spine, 0, 0);
+        return frame;
+    }
+
+    /**
+     * Nearest-neighbour would drop whole columns at these factors and leave a stepped edge, so this
+     * box-filters a fixed three-by-three of source samples per output pixel.
+     *
+     * All integer arithmetic, and the same samples on every JVM -- a {@code drawImage} with
+     * interpolation hints would not be, and CI regenerates these. Colour is accumulated
+     * premultiplied by alpha so a half-covered edge pixel does not pull the hull's dark outline into
+     * the transparent side as a fringe.
+     */
+    private static BufferedImage rescaled(BufferedImage frame, double scaleX, double scaleY) {
+        int w = frame.getWidth();
+        int h = frame.getHeight();
+        BufferedImage out = blank(w, h);
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int red = 0;
+                int green = 0;
+                int blue = 0;
+                int alpha = 0;
+                for (int sub = 0; sub < 9; sub++) {
+                    double sx = (x + (sub % 3) / 3.0 - cx) / scaleX + cx;
+                    double sy = (y + (sub / 3) / 3.0 - cy) / scaleY + cy;
+                    int px = (int) Math.floor(sx);
+                    int py = (int) Math.floor(sy);
+                    if (px < 0 || py < 0 || px >= w || py >= h) {
+                        continue;
+                    }
+                    int argb = frame.getRGB(px, py);
+                    int a = argb >>> 24;
+                    alpha += a;
+                    red += ((argb >> 16) & 0xff) * a;
+                    green += ((argb >> 8) & 0xff) * a;
+                    blue += (argb & 0xff) * a;
+                }
+                if (alpha == 0) {
+                    continue;
+                }
+                out.setRGB(x, y, ((alpha / 9) << 24) | ((red / alpha) << 16)
+                        | ((green / alpha) << 8) | (blue / alpha));
+            }
+        }
+        return out;
+    }
+
+    /** Copies every non-transparent pixel of a frame onto a canvas at an offset. */
+    private static void stamp(BufferedImage canvas, BufferedImage frame, int dx, int dy) {
+        for (int y = 0; y < frame.getHeight(); y++) {
+            for (int x = 0; x < frame.getWidth(); x++) {
+                int argb = frame.getRGB(x, y);
+                if ((argb >>> 24) == 0) {
+                    continue;
+                }
+                int tx = x + dx;
+                int ty = y + dy;
+                if (tx < 0 || ty < 0 || tx >= canvas.getWidth() || ty >= canvas.getHeight()) {
+                    continue;
+                }
+                canvas.setRGB(tx, ty, argb);
+            }
         }
     }
 
@@ -213,6 +366,16 @@ public final class GenerateAssets {
 
     /** Rotates every opaque pixel's hue, preserving its brightness, shading and alpha. */
     private static BufferedImage recolour(BufferedImage frame, Paintwork paint) {
+        return recolour(frame, paint.hue, paint.saturationScale);
+    }
+
+    /**
+     * The same rotation, taking the hue directly.
+     *
+     * An overload rather than a widened signature: the four {@link Paintwork} rows have to keep
+     * producing the bytes they always did, and a chassis paint comes from {@link Coat} instead.
+     */
+    private static BufferedImage recolour(BufferedImage frame, float hue, float saturationScale) {
         BufferedImage painted = blank(frame.getWidth(), frame.getHeight());
         float[] hsb = new float[3];
         for (int y = 0; y < frame.getHeight(); y++) {
@@ -223,8 +386,8 @@ public final class GenerateAssets {
                     continue;
                 }
                 Color.RGBtoHSB((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff, hsb);
-                float saturation = Math.min(1f, hsb[1] * paint.saturationScale);
-                int rgb = Color.HSBtoRGB(paint.hue, saturation, hsb[2]);
+                float saturation = Math.min(1f, hsb[1] * saturationScale);
+                int rgb = Color.HSBtoRGB(hue, saturation, hsb[2]);
                 painted.setRGB(x, y, (alpha << 24) | (rgb & 0xffffff));
             }
         }
@@ -270,7 +433,10 @@ public final class GenerateAssets {
                 g.draw(new Rectangle2D.Double(box.getMaxX() - box.width * 0.04 - plateW, plateY,
                         plateW, plateH));
             }
-            default -> {
+            // Was the default arm, which is why it is spelled out now: a fourth kit appended as
+            // case 3 would never have been reached, and would have drawn a lance under its own name
+            // with nothing to report it.
+            case 2 -> {
                 // Nose lance: a spike off the prow with a hot tip.
                 g.setColor(HULL_LIGHT);
                 g.fill(path(1, 1, new double[][]{
@@ -281,9 +447,85 @@ public final class GenerateAssets {
                 g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.022,
                         box.y - box.height * 0.09, box.width * 0.044, box.height * 0.045));
             }
+            case 3 -> {
+                // Canards: a second, smaller wing pair forward of the shoulder.
+                g.setColor(HULL_LIGHT);
+                g.fill(canardAt(box, -1));
+                g.fill(canardAt(box, 1));
+                g.setColor(HULL_MID);
+                g.setStroke(new BasicStroke((float) Math.max(1, box.width * 0.010)));
+                g.draw(canardAt(box, -1));
+                g.draw(canardAt(box, 1));
+            }
+            case 4 -> {
+                // Ram scoop: an intake slung under the prow, with its throat darker than its lip.
+                double mouthW = box.width * 0.30;
+                double mouthH = box.height * 0.15;
+                double mouthX = box.getCenterX() - mouthW / 2;
+                double mouthY = box.y + box.height * 0.07;
+                g.setColor(HULL_MID);
+                g.fill(new RoundRectangle2D.Double(mouthX, mouthY, mouthW, mouthH,
+                        mouthH * 0.7, mouthH * 0.7));
+                g.setColor(HULL_DARK);
+                g.fill(new RoundRectangle2D.Double(mouthX + mouthW * 0.14,
+                        mouthY + mouthH * 0.26, mouthW * 0.72, mouthH * 0.48,
+                        mouthH * 0.4, mouthH * 0.4));
+                g.setColor(HULL_LIGHT);
+                g.setStroke(new BasicStroke((float) Math.max(1, box.width * 0.012)));
+                g.draw(new RoundRectangle2D.Double(mouthX, mouthY, mouthW, mouthH,
+                        mouthH * 0.7, mouthH * 0.7));
+            }
+            case 5 -> {
+                // Sensor mast: a tall aft array. The one kit that breaks the hull's outline upward
+                // rather than sideways, so it reads at a glance against the other six.
+                double mastW = box.width * 0.09;
+                double mastX = box.getCenterX() - mastW / 2;
+                g.setColor(HULL_MID);
+                g.fill(new Rectangle2D.Double(mastX, box.getMaxY() - box.height * 0.30,
+                        mastW, box.height * 0.56));
+                g.setColor(HULL_LIGHT);
+                for (int rung = 0; rung < 3; rung++) {
+                    double y = box.getMaxY() + box.height * (0.05 + rung * 0.075);
+                    double span = box.width * (0.40 - rung * 0.11);
+                    g.fill(new Rectangle2D.Double(box.getCenterX() - span / 2, y,
+                            span, box.height * 0.055));
+                }
+                g.setColor(BRAND);
+                g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.045,
+                        box.getMaxY() + box.height * 0.26, box.width * 0.09, box.height * 0.075));
+            }
+            default -> {
+                // Drone rack: pods in a file along each flank, the outermost pair shortest.
+                g.setColor(HULL_MID);
+                double podW = box.width * 0.15;
+                double podH = box.height * 0.17;
+                for (int side = -1; side <= 1; side += 2) {
+                    for (int pod = 0; pod < 3; pod++) {
+                        double x = box.getCenterX() + side * box.width * 0.30 - podW / 2;
+                        double y = box.getCenterY() - box.height * 0.22 + pod * podH * 1.15;
+                        g.setColor(pod == 2 ? HULL_LIGHT : HULL_MID);
+                        g.fill(new RoundRectangle2D.Double(x, y, podW,
+                                podH * (pod == 2 ? 0.7 : 1), podW * 0.5, podW * 0.5));
+                        g.setColor(BRAND);
+                        g.fill(new Ellipse2D.Double(x + podW * 0.32, y + podH * 0.12,
+                                podW * 0.36, podH * 0.22));
+                    }
+                }
+            }
         }
         g.dispose();
         return decal;
+    }
+
+    /** One forward canard, smaller than a fin and set ahead of the shoulder; side -1 is left. */
+    private static Path2D canardAt(Rectangle box, int side) {
+        double rootX = box.getCenterX() + side * box.width * 0.14;
+        double tipX = rootX + side * box.width * 0.32;
+        return path(1, 1, new double[][]{
+                {rootX, box.y + box.height * 0.13},
+                {rootX, box.y + box.height * 0.34},
+                {tipX, box.y + box.height * 0.31},
+                {tipX, box.y + box.height * 0.21}});
     }
 
     /** One swept fin off the hull's trailing edge; side is -1 for left, 1 for right. */
@@ -606,6 +848,21 @@ public final class GenerateAssets {
     private static final Color STORM_ACCENT = new Color(0x7ea8ff);
     private static final Color STORM_GLOW = new Color(0x9ec2ff);
 
+    /**
+     * Null: void, gravity, and the thing at the bottom of it.
+     *
+     * One palette again, at the dark end of the register. These are the darkest hulls in the game,
+     * so the glow is a mid-saturated violet rather than a pale one -- for the third galaxy running,
+     * because a near-white core on any hull is the flare that swallows it, and that is the one
+     * mistake this palette has managed to repeat in every galaxy that tried it.
+     *
+     * The accent is worn by the ships and nowhere else. It stays out of Theme.tintB, which means a
+     * lit surface to rocks() and ground(); see the note on the Null theme rows.
+     */
+    private static final Color VOID_HULL = new Color(0x1d1830);
+    private static final Color VOID_ACCENT = new Color(0x9a6bff);
+    private static final Color VOID_GLOW = new Color(0xa274f0);
+
     private static final Faction[] FACTIONS = {
             // Level 1 keeps the original palette exactly, so the opening minutes stay tuned.
             new Faction("level-1", HULL_MID, HOSTILE, HOSTILE_GLOW, HullStyle.MECHANICAL),
@@ -700,6 +957,35 @@ public final class GenerateAssets {
                     new Color(0xd6e6ff), HullStyle.MECHANICAL, true),
             new Faction("level-40", new Color(0x121a2e), STORM_ACCENT, new Color(0xb4d0ff),
                     HullStyle.MECHANICAL),
+            // ---- Galaxy 5: Null (levels 41-50) -------------------------------------------
+            // The darkest navy in the game, so the separation between legs is carried by the
+            // accent rather than the hull -- there is not much room left below 0x1d1830. Accents
+            // run from 0x6f46cc to 0xc0a0ff, brightest at the Photon Ring and dimmest in the
+            // Shell, which is the one level with rock instead of sky around it.
+            //
+            // Organic on 42, 43 and 46, the three levels with something living in them.
+            new Faction("level-41", VOID_HULL, VOID_ACCENT, VOID_GLOW, HullStyle.MECHANICAL),
+            new Faction("level-42", new Color(0x241c3c), new Color(0x8a5ef0),
+                    new Color(0xc4a8ff), HullStyle.ORGANIC),
+            new Faction("level-43", new Color(0x1a1530), new Color(0x7d52e0),
+                    new Color(0xb493ff), HullStyle.ORGANIC),
+            new Faction("level-44", new Color(0x272040), new Color(0xa87eff), VOID_GLOW,
+                    HullStyle.MECHANICAL),
+            // Tidal Shear: the galaxy's side-on leg, so its hulls are cut pointing left.
+            new Faction("level-45", new Color(0x2b2348), new Color(0xb490ff),
+                    new Color(0xd0bcff), HullStyle.MECHANICAL, true),
+            new Faction("level-46", new Color(0x120e22), new Color(0x6f46cc),
+                    new Color(0xa87eff), HullStyle.ORGANIC),
+            new Faction("level-47", new Color(0x211a38), VOID_ACCENT, VOID_GLOW,
+                    HullStyle.MECHANICAL),
+            // Photon Ring: the brightest thing in the galaxy is the backdrop, so its navy is the
+            // one that has to compete with it.
+            new Faction("level-48", new Color(0x2e2652), new Color(0xc0a0ff),
+                    new Color(0xdcccff), HullStyle.MECHANICAL),
+            new Faction("level-49", new Color(0x100c1e), new Color(0x8257e8),
+                    new Color(0xab86ff), HullStyle.MECHANICAL),
+            new Faction("level-50", new Color(0x0d0a18), VOID_ACCENT,
+                    new Color(0xc8b0ff), HullStyle.MECHANICAL),
     };
 
     /** Three hostile silhouettes per level, angular and pointing down the arena at the player. */
@@ -1103,6 +1389,69 @@ public final class GenerateAssets {
             {0.14, 0.76}, {0.30, 0.72},
     };
 
+    /**
+     * Null's navy, as three hulls and three vanes.
+     *
+     * Aspects run 0.82, 0.95, 1.50, 1.87 and 2.10, plus the turned one -- the widest band any
+     * galaxy has used, because six warships is the most any galaxy has fielded since Ashfall proved
+     * six on one hull read as one ship. Each hull is flown twice and each vane worn twice, with no
+     * pair repeated.
+     *
+     * Every hull is flown twice, so what matters is how far apart its two classes sit. The first
+     * pass had both Waists at 1.17 and 1.51 and they read as one ship on the sheet, which is the
+     * failure Ashfall recorded, Cryonis recorded again and Tempest recorded a third time. They are
+     * now 0.95 and 1.87 -- upright and wide -- and the two Forks are 1.50 and 2.10.
+     *
+     * The two Shards are 0.82 and, drawn, 0.69. They are the pair that cannot be confused anyway:
+     * one guards the side-on leg and is turned once by the generator, so what the game decodes is
+     * 340 wide against the other's 272 tall. Tempest made the same call for the same reason -- see
+     * the note on its tall Mast and turned Delta.
+     *
+     * Nose-down, like every hull: y = 0.99 is the nose where bossFrame puts the prow blade, and
+     * y = 0.04 is the tail. None of the three is widest at the nose, which is the shape that
+     * collapsed three of Tempest's hulls into one dome.
+     *
+     * Deliberately none of the silhouettes any earlier galaxy used: not Ashfall's blunt wedges,
+     * not Cryonis's lens, spindle and shelf, not Tempest's delta, slab and plank.
+     */
+    /** Waist: pinched amidships, shouldered at the nose and flared again at the tail. */
+    private static final double[][] VOID_WAIST = {
+            {0.50, 0.99}, {0.32, 0.91}, {0.24, 0.74}, {0.39, 0.56}, {0.35, 0.36},
+            {0.28, 0.14}, {0.43, 0.05}, {0.57, 0.05}, {0.72, 0.14}, {0.65, 0.36},
+            {0.61, 0.56}, {0.76, 0.74}, {0.68, 0.91},
+    };
+
+    /** Fork: a deep notch cut clean to amidships, so the tail reads as two prongs. */
+    private static final double[][] VOID_FORK = {
+            {0.50, 0.99}, {0.36, 0.84}, {0.26, 0.60}, {0.20, 0.34}, {0.14, 0.06},
+            {0.34, 0.14}, {0.50, 0.46}, {0.66, 0.14}, {0.86, 0.06}, {0.80, 0.34},
+            {0.74, 0.60}, {0.64, 0.84},
+    };
+
+    /** Shard: the tall-narrow outlier. A dagger -- pointed nose, straight taper, square tail. */
+    private static final double[][] VOID_SHARD = {
+            {0.50, 0.99}, {0.43, 0.76}, {0.39, 0.50}, {0.33, 0.22}, {0.31, 0.04},
+            {0.69, 0.04}, {0.67, 0.22}, {0.61, 0.50}, {0.57, 0.76},
+    };
+
+    /** Rib: a long blade, notched on the leading edge so it reads as two points rather than a lobe. */
+    private static final double[][] VOID_RIB = {
+            {0.35, 0.40}, {0.16, 0.28}, {0.00, 0.24}, {0.08, 0.42}, {0.01, 0.56},
+            {0.15, 0.70}, {0.30, 0.64},
+    };
+
+    /** Claw: three points off one root, jagged enough to read as a grasping thing. */
+    private static final double[][] VOID_CLAW = {
+            {0.36, 0.40}, {0.18, 0.22}, {0.06, 0.10}, {0.10, 0.30}, {0.00, 0.28},
+            {0.06, 0.46}, {0.02, 0.58}, {0.14, 0.66}, {0.30, 0.62},
+    };
+
+    /** Lobe: a rounded paddle, the only vane in the game with no point on it at all. */
+    private static final double[][] VOID_LOBE = {
+            {0.34, 0.46}, {0.24, 0.30}, {0.12, 0.24}, {0.03, 0.32}, {0.00, 0.46},
+            {0.04, 0.60}, {0.14, 0.70}, {0.26, 0.68}, {0.32, 0.58},
+    };
+
     private static final BossProfile[] BOSSES = {
             // Sentinel: the level 1 fight, unchanged, so the opening minutes stay tuned.
             new BossProfile("boss-sentinel", 440, 340, HOSTILE, HOSTILE_GLOW, 3, 0.11,
@@ -1351,6 +1700,74 @@ public final class GenerateAssets {
                     new double[][]{{0.31, 0.56, 0.048}, {0.21, 0.38, 0.036},
                             {0.25, 0.74, 0.032}, {0.14, 0.64, 0.028}},
                     true, new Color(0x30406a)),
+
+            // ---- Galaxy 5: Null ---------------------------------------------------------------
+            // Six warships, the most since Ashfall, because this galaxy fields one set piece
+            // rather than Tempest's two. Three hulls and three vanes, paired six ways with no
+            // pair repeated. See the note on the shape constants for the aspect band.
+            //
+            // Engines are zero on all six, and that is the point of them. Ashfall ran five and
+            // six, Cryonis three and four, Tempest two and three; the comment on each of those
+            // blocks calls the next one a step toward the thrusterless navy, and this is it. A
+            // fleet with nothing to push against, in the galaxy about gravity. The engine loop in
+            // bossFrame simply does not run at zero, so it costs nothing but the reading.
+            //
+            // Turrets still escalate two to four across the galaxy.
+
+            // The Bonepicker: what works a dead belt. The Fork on claws, and the only flagship
+            // here whose silhouette is mostly gap. Squarer than the Photon Halo on the same hull.
+            new BossProfile("boss-bonepicker", 372, 248,
+                    VOID_ACCENT, VOID_GLOW, 0, 0.12,
+                    VOID_FORK, VOID_CLAW,
+                    new double[][]{{0.31, 0.60, 0.046}, {0.20, 0.42, 0.034}},
+                    false, new Color(0x2a2246)),
+
+            // Lensbreaker: guards the first sight of the hole. The Waist flown upright, on ribs --
+            // the only warship here taller than it is wide that is not turned.
+            new BossProfile("boss-lensbreaker", 300, 316,
+                    new Color(0xa87eff), VOID_GLOW, 0, 0.12,
+                    VOID_WAIST, VOID_RIB,
+                    new double[][]{{0.29, 0.58, 0.044}, {0.19, 0.40, 0.034},
+                            {0.23, 0.76, 0.030}},
+                    false, new Color(0x332a52)),
+
+            // Tidewrack guards the galaxy's side-on leg, and is turned once here rather than
+            // rotated per frame, so its collision box keeps the shape of the picture. Drawn
+            // nose-down at 236x340, so what the game decodes is 340 wide -- the BossArt constant
+            // declares that transposed size. See Theme.sideways and the note on boss-arc-lance.
+            new BossProfile("boss-tidewrack", 236, 340,
+                    new Color(0xb490ff), new Color(0xae86f4), 0, 0.11,
+                    VOID_SHARD, VOID_CLAW,
+                    new double[][]{{0.28, 0.58, 0.044}, {0.18, 0.40, 0.034},
+                            {0.22, 0.76, 0.030}, {0.12, 0.66, 0.026}},
+                    true, new Color(0x3a2f60)),
+
+            // Frame-Drag: the Waist again on lobes, flown wide where the Lensbreaker is upright.
+            // Nearly a square of difference in aspect between the two, which is what it took.
+            new BossProfile("boss-frame-drag", 400, 214,
+                    VOID_ACCENT, VOID_GLOW, 0, 0.13,
+                    VOID_WAIST, VOID_LOBE,
+                    new double[][]{{0.30, 0.62, 0.046}, {0.20, 0.44, 0.034},
+                            {0.24, 0.78, 0.030}},
+                    false, new Color(0x261f40)),
+
+            // Photon Halo: the widest and flattest thing in the game, against the brightest
+            // backdrop in the game. The Fork on lobes, so it shares no fitting with the Bonepicker.
+            new BossProfile("boss-photon-halo", 424, 202,
+                    new Color(0xc0a0ff), new Color(0xbe9cf8), 0, 0.13,
+                    VOID_FORK, VOID_LOBE,
+                    new double[][]{{0.33, 0.64, 0.048}, {0.22, 0.46, 0.036},
+                            {0.26, 0.82, 0.030}, {0.15, 0.72, 0.026}},
+                    false, new Color(0x413466)),
+
+            // The Gullet: set in the throat, and the tall one that is not turned. The Shard on
+            // ribs -- the darkest plate here, on the darkest level.
+            new BossProfile("boss-gullet", 272, 330,
+                    new Color(0x8257e8), new Color(0x9068e0), 0, 0.10,
+                    VOID_SHARD, VOID_RIB,
+                    new double[][]{{0.27, 0.56, 0.044}, {0.18, 0.38, 0.034},
+                            {0.21, 0.74, 0.030}, {0.12, 0.64, 0.026}},
+                    false, new Color(0x1b1630)),
     };
 
     private static void bosses() throws IOException {
@@ -1494,6 +1911,54 @@ public final class GenerateAssets {
                     new double[][]{{0.50, 0.98}, {0.34, 0.91}, {0.24, 0.73}, {0.21, 0.49},
                             {0.29, 0.27}, {0.39, 0.14}, {0.50, 0.18}, {0.61, 0.14},
                             {0.71, 0.27}, {0.79, 0.49}, {0.76, 0.73}, {0.66, 0.91}}),
+
+            // ---- Galaxy 5: Null ---------------------------------------------------------------
+            // Three again, on 42, 43 and 46 -- none of them the side-on leg, for the reason the
+            // Cryonis block gives: CreatureProfile has no sideways field, so a creature cannot
+            // guard one.
+            //
+            // These three are the widest spread of the record's own knobs any galaxy has used,
+            // because Null's palette has less room to separate them than any galaxy before it --
+            // there is not much daylight between three hides this dark. So the separation is
+            // structural instead: eight legs, four legs and none at all.
+
+            // Aspects run 0.97, 1.25 and 1.94, which is the widest spread of three creatures the
+            // game has had. The first pass put them at 1.09, 1.28 and 1.59 and all three read as
+            // the same dark rounded mass with pale ribs on it -- Ashfall's lesson about hulls, one
+            // record over. Leg counts of 4, 0 and 8 were never going to carry it on their own: at
+            // two hundred pixels a leg is a stub and the eye reads the outline first.
+
+            // Hulk Choir: what took up residence in a dead fleet. Upright and gathered, the sac
+            // carried high -- it sings out of the wrecks. The first creature in the game taller
+            // than it is wide, which is most of what separates it here.
+            new CreatureProfile("boss-hulk-choir", 300, 310,
+                    new Color(0x241c3c), new Color(0x0d0a18), new Color(0xded4f4),
+                    new Color(0xa878ff), 4, 6, 0.26,
+                    new double[][]{{0.50, 0.96}, {0.38, 0.88}, {0.31, 0.70}, {0.29, 0.48},
+                            {0.34, 0.28}, {0.42, 0.14}, {0.50, 0.18}, {0.58, 0.14},
+                            {0.66, 0.28}, {0.71, 0.48}, {0.69, 0.70}, {0.62, 0.88}}),
+
+            // Shroudmaw: the shroud itself, with a mouth in it. No legs at all -- the first
+            // creature in the game that does not stand on anything, which the record supports
+            // without a branch: legs at zero simply draws none. Fewest ribs and the largest sac,
+            // so what reads is a spread of hide with a light behind it -- and the flattest outline
+            // in the galaxy, warships included.
+            new CreatureProfile("boss-shroudmaw", 400, 206,
+                    new Color(0x1a1530), new Color(0x07050e), new Color(0xcfc2ec),
+                    new Color(0x7d52e0), 0, 3, 0.31,
+                    new double[][]{{0.50, 0.97}, {0.28, 0.92}, {0.16, 0.78}, {0.12, 0.58},
+                            {0.20, 0.40}, {0.34, 0.28}, {0.50, 0.32}, {0.66, 0.28},
+                            {0.80, 0.40}, {0.88, 0.58}, {0.84, 0.78}, {0.72, 0.92}}),
+
+            // Shellborn: grown into the dead structure it guards. The most legs and the most ribs
+            // in the game against the smallest sac -- all carapace and almost no light, which is
+            // the opposite corner of this record from the Shroudmaw two levels earlier.
+            new CreatureProfile("boss-shellborn", 336, 268,
+                    new Color(0x120e22), new Color(0x050409), new Color(0xb9abd8),
+                    new Color(0x6f46cc), 8, 8, 0.14,
+                    new double[][]{{0.50, 0.98}, {0.33, 0.92}, {0.22, 0.76}, {0.19, 0.54},
+                            {0.26, 0.34}, {0.38, 0.20}, {0.50, 0.24}, {0.62, 0.20},
+                            {0.74, 0.34}, {0.81, 0.54}, {0.78, 0.76}, {0.67, 0.92}}),
     };
 
     private static void creatures() throws IOException {
@@ -1777,6 +2242,9 @@ public final class GenerateAssets {
                     SPRITES.resolve("boss-frozen-empress-head").resolve(frame + ".png"));
             write(stormMawFrame(frame),
                     SPRITES.resolve("boss-storm-serpent").resolve(frame + ".png"));
+            write(aeonFrame(frame), SPRITES.resolve("boss-aeon").resolve(frame + ".png"));
+            write(aeonEyeFrame(frame),
+                    SPRITES.resolve("boss-aeon-eye").resolve(frame + ".png"));
         }
         write(wormSegment(), SPRITES.resolve("worm-segment.png"));
         write(stormSegment(), SPRITES.resolve("storm-segment.png"));
@@ -2079,6 +2547,163 @@ public final class GenerateAssets {
     }
 
     /** The worm's maw, seen from the side and opening left, into the player. */
+    /**
+     * Aeon's eyes ride the same span the engine spreads its necks across.
+     *
+     * Its own constant rather than the Empress's, even though the number is the same one. What both
+     * must match is {@code entity.BossHead.SOCKET_SPAN}; they do not have to match each other, and
+     * naming this one after her would tie two unrelated bosses together for the sake of a literal.
+     */
+    private static final int AEON_EYES = 4;
+    private static final double AEON_SOCKET_SPAN = 0.40;
+
+    /** Void violet, and the only palette in the game whose light is entirely outside its body. */
+    private static final Color AEON_HIDE = new Color(0x140f26);
+    private static final Color AEON_HIDE_DARK = new Color(0x06040c);
+    private static final Color AEON_BONE = new Color(0xd8ccf8);
+    private static final Color AEON_CORE = new Color(0x9a6bff);
+
+    /**
+     * Aeon, the Hollow Star: the campaign's last boss, and a star with its middle gone.
+     *
+     * A third method beside {@link #hydraTorsoFrame} and {@link #frozenTorsoFrame} rather than a
+     * generalisation of either, for the third time and the same reason -- their committed frames are
+     * what CI's byte-identical check protects, and forty saved lines is not worth thirty levels of
+     * art. The trade {@link CreatureProfile} documents.
+     *
+     * The construction is the inverse of every other boss in the game. Every one of them is a lit
+     * body: hull or hide with a core burning inside it. This one is a hole with the light outside
+     * it, which is the whole reason it does not reuse a torso.
+     */
+    private static BufferedImage aeonFrame(int oneBasedFrame) {
+        int size = 450;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
+
+        double cx = size * 0.5;
+        double cy = size * 0.48;
+        double shell = size * 0.29 * (1 + 0.04 * pulse);
+
+        // Filaments first, so they read as coming out from behind the body rather than over it.
+        // Alternating thickness: sixteen identical spokes read as a mechanical gear rather than as
+        // something being pulled apart.
+        g.setColor(alpha(AEON_CORE, 70));
+        for (int spoke = 0; spoke < 16; spoke++) {
+            double angle = 2 * Math.PI * spoke / 16.0;
+            double reach = shell * (1.20 + 0.24 * StrictMath.cos(angle * 3 + 2 * Math.PI * phase));
+            double half = size * (spoke % 2 == 0 ? 0.011 : 0.006);
+            double ax = StrictMath.cos(angle);
+            double ay = StrictMath.sin(angle);
+            Path2D filament = new Path2D.Double();
+            filament.moveTo(cx + ay * half, cy - ax * half);
+            filament.lineTo(cx + ax * reach, cy + ay * reach);
+            filament.lineTo(cx - ay * half, cy + ax * half);
+            filament.closePath();
+            g.fill(filament);
+        }
+
+        // The corona, as two annuli. One gradient from the centre would put its brightest pixel
+        // exactly where this thing is emptiest, which is the opposite of the read.
+        for (int ring = 0; ring < 2; ring++) {
+            double outer = shell * (1.32 + ring * 0.26);
+            float inner = (float) (shell * (0.96 + ring * 0.18) / outer);
+            Color tint = ring == 0 ? brighten(AEON_CORE, 40) : AEON_CORE;
+            g.setPaint(new RadialGradientPaint(
+                    (float) cx, (float) cy, (float) outer,
+                    new float[]{0f, inner, inner + 0.06f, 1f},
+                    new Color[]{alpha(tint, 0), alpha(tint, 0),
+                            alpha(tint, ring == 0 ? 150 : 92), alpha(tint, 0)}));
+            g.fill(new Ellipse2D.Double(cx - outer, cy - outer, outer * 2, outer * 2));
+        }
+
+        // The hollow itself.
+        g.setColor(AEON_HIDE_DARK);
+        g.fill(new Ellipse2D.Double(cx - shell, cy - shell, shell * 2, shell * 2));
+
+        // Shells inside it, dimming inward, so the hole has depth instead of being a flat disc.
+        for (int inner = 1; inner <= 3; inner++) {
+            double r = shell * (1 - inner * 0.22);
+            g.setColor(alpha(AEON_CORE, 44 - inner * 11));
+            g.setStroke(new BasicStroke((float) (size * 0.004)));
+            g.draw(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2));
+        }
+
+        // The rim, where the hollow stops and the light starts. The brightest edge in the frame.
+        g.setColor(AEON_BONE);
+        g.setStroke(new BasicStroke((float) (size * 0.008)));
+        g.draw(new Ellipse2D.Double(cx - shell, cy - shell, shell * 2, shell * 2));
+
+        // A collar of hide across the lower body, so the sockets sit in something solid rather
+        // than in open light.
+        g.setColor(AEON_HIDE);
+        g.fill(path(size, size, new double[][]{
+                {0.20, 0.62}, {0.30, 0.86}, {0.50, 0.93}, {0.70, 0.86}, {0.80, 0.62},
+                {0.66, 0.72}, {0.50, 0.76}, {0.34, 0.72}}));
+
+        // Neck sockets, at the span and depth the engine spreads its necks across, so four eyes
+        // land on four sockets. Same arithmetic as frozenTorsoFrame and it must stay that way:
+        // BossHead.socket() is 0.5 + SOCKET_SPAN * (spread - 0.5), and a body drawn with the wrong
+        // count grows a neck out of blank hide.
+        double socketOuter = size * 0.075;
+        double socketInner = size * 0.052;
+        for (int eye = 0; eye < AEON_EYES; eye++) {
+            double spread = eye / (double) (AEON_EYES - 1);
+            double sx = size * (0.5 + AEON_SOCKET_SPAN * (spread - 0.5));
+            double sy = size * NECK_SOCKET_DEPTH;
+            g.setColor(AEON_HIDE_DARK);
+            g.fill(new Ellipse2D.Double(sx - socketOuter / 2, sy - socketOuter / 2,
+                    socketOuter, socketOuter));
+            g.setColor(alpha(AEON_CORE, 120));
+            g.fill(new Ellipse2D.Double(sx - socketInner / 2, sy - socketInner / 2,
+                    socketInner, socketInner));
+        }
+        g.dispose();
+        return image;
+    }
+
+    /**
+     * One of Aeon's four eyes: hollow like the thing it belongs to.
+     *
+     * Its own method rather than a recolour of {@link #empressHeadFrame} or
+     * {@link #hydraHeadFrame}, for the reason the Ashfall notes give about hulls -- at a hundred
+     * pixels the eye reads silhouette, and a third multi-headed boss wearing the second one's
+     * skulls is the second one in a different palette.
+     */
+    private static BufferedImage aeonEyeFrame(int oneBasedFrame) {
+        int size = 156;
+        BufferedImage image = blank(size, size);
+        Graphics2D g = paint(image);
+        double phase = (oneBasedFrame - 1) / (double) BOSS_FRAMES;
+        double pulse = StrictMath.sin(2 * Math.PI * phase);
+        double cx = size * 0.5;
+        double cy = size * 0.5;
+        double r = size * 0.40;
+
+        g.setColor(AEON_HIDE);
+        g.fill(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2));
+        g.setColor(AEON_HIDE_DARK);
+        g.setStroke(new BasicStroke(size * 0.045f));
+        g.draw(new Ellipse2D.Double(cx - r, cy - r, r * 2, r * 2));
+
+        // The iris is an annulus, not a disc -- the body's construction at one twelfth the size.
+        double iris = r * (0.62 + 0.06 * pulse);
+        g.setPaint(new RadialGradientPaint(
+                (float) cx, (float) cy, (float) iris,
+                new float[]{0f, 0.55f, 0.82f, 1f},
+                new Color[]{alpha(AEON_CORE, 0), alpha(AEON_CORE, 30),
+                        brighten(AEON_CORE, 50), alpha(AEON_CORE, 0)}));
+        g.fill(new Ellipse2D.Double(cx - iris, cy - iris, iris * 2, iris * 2));
+
+        // The pupil, in bone rather than core, so there is exactly one warm point in the frame.
+        double pupil = r * 0.14;
+        g.setColor(AEON_BONE);
+        g.fill(new Ellipse2D.Double(cx - pupil, cy - pupil, pupil * 2, pupil * 2));
+        g.dispose();
+        return image;
+    }
+
     private static BufferedImage wormMawFrame(int oneBasedFrame) {
         int w = 420;
         int h = 300;
@@ -2701,6 +3326,228 @@ public final class GenerateAssets {
             g.drawLine(64, 80, 64, 106);
             g.drawLine(51, 93, 77, 93);
         }), SPRITES.resolve("pickup-extra-life.png"));
+
+        write(icon(g -> {
+            // A crescent blade: the scythe cuts across the lane rather than down it, so the glyph
+            // lies on its side where every other weapon's stands up.
+            Color steel = new Color(0xbcd4e6);
+            capsule(g, steel);
+            Path2D blade = new Path2D.Double();
+            blade.moveTo(24, 74);
+            blade.curveTo(44, 40, 84, 40, 104, 74);
+            blade.curveTo(84, 58, 44, 58, 24, 74);
+            blade.closePath();
+            g.setColor(steel);
+            g.fill(blade);
+            g.setColor(new Color(0x5b8fa8));
+            g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(blade);
+            // The haft, short and off to one side, so the crescent is not a smile.
+            g.setColor(new Color(0x6d5a48));
+            g.fillRoundRect(60, 70, 8, 34, 4, 4);
+        }), SPRITES.resolve("pickup-scythe.png"));
+
+        write(icon(g -> {
+            // A burst: short strokes fanning from one point, which is the shape the cone throws.
+            Color ember = new Color(0xffb038);
+            capsule(g, ember);
+            g.setColor(ember);
+            g.setStroke(new BasicStroke(7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            for (int i = 0; i < 5; i++) {
+                double angle = StrictMath.PI * (0.62 + 0.19 * i);
+                g.draw(new java.awt.geom.Line2D.Double(64, 104,
+                        64 + StrictMath.cos(angle) * 40, 104 + StrictMath.sin(angle) * 40));
+            }
+            g.setColor(new Color(0xfff0c4));
+            for (int i = 0; i < 4; i++) {
+                double angle = StrictMath.PI * (0.71 + 0.19 * i);
+                g.fill(new Ellipse2D.Double(64 + StrictMath.cos(angle) * 46 - 5,
+                        104 + StrictMath.sin(angle) * 46 - 5, 10, 10));
+            }
+            g.setColor(new Color(0x8a5a1c));
+            g.fillRoundRect(56, 98, 16, 16, 6, 6);
+        }), SPRITES.resolve("pickup-flak.png"));
+
+        write(icon(g -> {
+            // A shell inside a ring: the bomb and the radius it answers for.
+            Color violet = new Color(0xb46bff);
+            capsule(g, violet);
+            g.setColor(alpha(violet, 150));
+            g.setStroke(new BasicStroke(5f));
+            g.draw(new Ellipse2D.Double(26, 26, 76, 76));
+            g.setColor(alpha(violet, 90));
+            g.setStroke(new BasicStroke(3f));
+            g.draw(new Ellipse2D.Double(36, 36, 56, 56));
+            g.setPaint(new RadialGradientPaint(64f, 64f, 26f,
+                    new float[]{0f, 0.55f, 1f},
+                    new Color[]{new Color(0xfff2ff), violet, alpha(violet, 210)}));
+            g.fill(new Ellipse2D.Double(44, 44, 40, 40));
+            g.setColor(new Color(0x3a1a5c));
+            g.setStroke(new BasicStroke(4f));
+            g.draw(new Ellipse2D.Double(44, 44, 40, 40));
+        }), SPRITES.resolve("pickup-nova.png"));
+    }
+
+    /**
+     * The three rounds the new weapons put on screen.
+     *
+     * The first generated projectiles in the game -- the others are the author's own and better than
+     * anything here would produce. These are generated because there is no hand-drawn sheet for
+     * them, and each is drawn at the size it is fired at rather than at icon size, so what the
+     * player sees is what was drawn.
+     */
+    private static void projectiles() throws IOException {
+        // The scythe: a broad crescent, wider than it is tall, drawn lying across the lane.
+        BufferedImage blade = blank(192, 64);
+        Graphics2D g = paint(blade);
+        Path2D crescent = new Path2D.Double();
+        crescent.moveTo(8, 44);
+        crescent.curveTo(52, 4, 140, 4, 184, 44);
+        crescent.curveTo(140, 26, 52, 26, 8, 44);
+        crescent.closePath();
+        g.setColor(new Color(0xdfeaf5));
+        g.fill(crescent);
+        g.setColor(new Color(0x7fa6c8));
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(crescent);
+        g.setColor(alpha(new Color(0xbcd4e6), 140));
+        g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new java.awt.geom.Line2D.Double(20, 50, 172, 50));
+        g.dispose();
+        write(blade, SPRITES.resolve("scythe-blade.png"));
+
+        // A flak pellet: small, hot, and round enough to read at twelve pixels.
+        BufferedImage pellet = blank(32, 32);
+        g = paint(pellet);
+        g.setPaint(new RadialGradientPaint(16f, 16f, 15f,
+                new float[]{0f, 0.5f, 1f},
+                new Color[]{new Color(0xfff4d2), new Color(0xffb038), alpha(new Color(0xc7411f), 0)}));
+        g.fill(new Ellipse2D.Double(1, 1, 30, 30));
+        g.setColor(new Color(0xfff4d2));
+        g.fill(new Ellipse2D.Double(11, 11, 10, 10));
+        g.dispose();
+        write(pellet, SPRITES.resolve("flak-pellet.png"));
+
+        // The nova shell: a dark core with a violet corona, so it reads as carrying something.
+        BufferedImage shell = blank(64, 80);
+        g = paint(shell);
+        g.setPaint(new RadialGradientPaint(32f, 40f, 31f,
+                new float[]{0f, 0.6f, 1f},
+                new Color[]{alpha(new Color(0xb46bff), 210), alpha(new Color(0x7a3ccc), 120),
+                        alpha(new Color(0x7a3ccc), 0)}));
+        g.fill(new Ellipse2D.Double(0, 8, 64, 64));
+        g.setColor(new Color(0x2a1240));
+        g.fill(new Ellipse2D.Double(18, 26, 28, 28));
+        g.setColor(new Color(0xd9b0ff));
+        g.setStroke(new BasicStroke(3f));
+        g.draw(new Ellipse2D.Double(18, 26, 28, 28));
+        g.setColor(new Color(0xfff2ff));
+        g.fill(new Ellipse2D.Double(28, 36, 8, 8));
+        g.dispose();
+        write(shell, SPRITES.resolve("nova-shell.png"));
+
+        ordnance();
+    }
+
+    /**
+     * A round per galaxy for the flagships to fire.
+     *
+     * Every boss in the game fired the same green bolt, which made fifty fights look like one at any
+     * distance -- the pattern varied and the projectile never did. A navy shares a weapon, so these
+     * go by galaxy: what a flagship shoots says which part of the campaign you are in before the
+     * backdrop does.
+     *
+     * Verdance keeps the hand-drawn original and is not here. The four below are drawn nose-up like
+     * every other projectile, and the renderer turns them by velocity.
+     */
+    private static void ordnance() throws IOException {
+        // Ashfall: a cinder, trailing. Hot core, ragged edge, and the only one that is not symmetric
+        // about its waist -- it reads as something thrown rather than fired.
+        BufferedImage ember = blank(24, 34);
+        Graphics2D g = paint(ember);
+        g.setPaint(new RadialGradientPaint(12f, 20f, 16f,
+                new float[]{0f, 0.45f, 1f},
+                new Color[]{new Color(0xfff0c0), alpha(new Color(0xff7a1e), 190),
+                        alpha(new Color(0xc7411f), 0)}));
+        g.fill(new Ellipse2D.Double(-4, 2, 32, 32));
+        g.setColor(new Color(0xffd47a));
+        Path2D cinder = new Path2D.Double();
+        cinder.moveTo(12, 2);
+        cinder.lineTo(19, 16);
+        cinder.lineTo(14, 30);
+        cinder.lineTo(9, 20);
+        cinder.lineTo(5, 13);
+        cinder.closePath();
+        g.fill(cinder);
+        g.setColor(new Color(0xfffbe8));
+        g.fill(new Ellipse2D.Double(9, 10, 6, 9));
+        g.dispose();
+        write(ember, SPRITES.resolve("boss-ember.png"));
+
+        // Cryonis: a splinter of ice. Long, pale, hard-edged -- the one round with a point on it.
+        BufferedImage shard = blank(20, 38);
+        g = paint(shard);
+        Path2D splinter = new Path2D.Double();
+        splinter.moveTo(10, 0);
+        splinter.lineTo(16, 16);
+        splinter.lineTo(12, 38);
+        splinter.lineTo(8, 38);
+        splinter.lineTo(4, 16);
+        splinter.closePath();
+        g.setColor(alpha(new Color(0x6fd8ff), 120));
+        g.fill(new Ellipse2D.Double(-2, 4, 24, 30));
+        g.setColor(new Color(0xcdf2ff));
+        g.fill(splinter);
+        g.setColor(new Color(0x3d9ec4));
+        g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(splinter);
+        g.setColor(new Color(0xffffff));
+        g.fill(new Rectangle2D.Double(9, 6, 2, 22));
+        g.dispose();
+        write(shard, SPRITES.resolve("boss-shard.png"));
+
+        // Tempest: a lightning bolt, drawn as a zigzag rather than a blob so it is the one round with
+        // corners in it.
+        BufferedImage bolt = blank(22, 36);
+        g = paint(bolt);
+        g.setPaint(new RadialGradientPaint(11f, 18f, 15f,
+                new float[]{0f, 0.5f, 1f},
+                new Color[]{alpha(new Color(0xbfe0ff), 170), alpha(new Color(0x4f7dff), 110),
+                        alpha(new Color(0x4f7dff), 0)}));
+        g.fill(new Ellipse2D.Double(-4, 3, 30, 30));
+        Path2D zig = new Path2D.Double();
+        zig.moveTo(13, 1);
+        zig.lineTo(6, 17);
+        zig.lineTo(11, 17);
+        zig.lineTo(8, 35);
+        zig.lineTo(17, 15);
+        zig.lineTo(12, 15);
+        zig.lineTo(16, 1);
+        zig.closePath();
+        g.setColor(new Color(0xeaf3ff));
+        g.fill(zig);
+        g.setColor(new Color(0x7ea8ff));
+        g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(zig);
+        g.dispose();
+        write(bolt, SPRITES.resolve("boss-bolt.png"));
+
+        // Null: a hole with a rim. Darker in the middle than the arena behind it, which is the only
+        // round in the game that takes light rather than giving it.
+        BufferedImage orb = blank(30, 30);
+        g = paint(orb);
+        g.setPaint(new RadialGradientPaint(15f, 15f, 15f,
+                new float[]{0f, 0.62f, 1f},
+                new Color[]{alpha(new Color(0x9a6bff), 200), alpha(new Color(0x5a2ea8), 140),
+                        alpha(new Color(0x5a2ea8), 0)}));
+        g.fill(new Ellipse2D.Double(0, 0, 30, 30));
+        g.setColor(new Color(0x07050f));
+        g.fill(new Ellipse2D.Double(8, 8, 14, 14));
+        g.setColor(new Color(0xd9b0ff));
+        g.setStroke(new BasicStroke(2.2f));
+        g.draw(new Ellipse2D.Double(8, 8, 14, 14));
+        g.dispose();
+        write(orb, SPRITES.resolve("boss-void.png"));
     }
 
     /**
@@ -2753,13 +3600,32 @@ public final class GenerateAssets {
      */
     private record Theme(String directory, Backdrop kind, long seed, Color tintA, Color tintB,
                          int blobs, double density, int starRed, int starGreen, int starBlue,
-                         boolean sideways) {
+                         boolean sideways, double disc) {
 
-        /** A level that scrolls top to bottom, which is all of them but the side-view leg. */
+        /**
+         * The disc radius EVENT_HORIZON uses when a row does not say, as a fraction of the canvas
+         * height.
+         *
+         * Equal to the factor {@code planet()} has always used for the one other disc in the game,
+         * so the default is not an invented number. Only EVENT_HORIZON reads this field; every
+         * other recipe ignores it, which is why forty existing rows can leave it unsaid and stay
+         * byte-identical.
+         */
+        private static final double DEFAULT_DISC = 0.26;
+
+        /** A level that scrolls top to bottom, which is all of them but the side-view legs. */
         Theme(String directory, Backdrop kind, long seed, Color tintA, Color tintB,
               int blobs, double density, int starRed, int starGreen, int starBlue) {
             this(directory, kind, seed, tintA, tintB, blobs, density,
-                    starRed, starGreen, starBlue, false);
+                    starRed, starGreen, starBlue, false, DEFAULT_DISC);
+        }
+
+        /** A level that scrolls the other way. */
+        Theme(String directory, Backdrop kind, long seed, Color tintA, Color tintB,
+              int blobs, double density, int starRed, int starGreen, int starBlue,
+              boolean sideways) {
+            this(directory, kind, seed, tintA, tintB, blobs, density,
+                    starRed, starGreen, starBlue, sideways, DEFAULT_DISC);
         }
     }
 
@@ -2768,8 +3634,12 @@ public final class GenerateAssets {
      *
      * STARFIELD is open space. PLANET_RISE adds a world to look at. ATMOSPHERE is inside the air of
      * one, SURFACE is low over its ground, and CAVERN is enclosed by rock on both sides.
+     * EVENT_HORIZON is open space with a black hole in it, and is the only one of the seven whose
+     * subject sits on a different parallax layer from its detail.
      */
-    private enum Backdrop { STARFIELD, PLANET_RISE, ATMOSPHERE, SURFACE, CAVERN, BELT }
+    private enum Backdrop {
+        STARFIELD, PLANET_RISE, ATMOSPHERE, SURFACE, CAVERN, BELT, EVENT_HORIZON
+    }
 
     private static final int BACKDROP_WIDTH = 996;
     private static final int BACKDROP_HEIGHT = 864;
@@ -2988,6 +3858,82 @@ public final class GenerateAssets {
             new Theme("level-40", Backdrop.ATMOSPHERE, 4590,
                     new Color(0x0e, 0x10, 0x24), new Color(0x6f, 0x7c, 0xe8),
                     9, 1.8, 0, 0, 0),
+            // ---- Galaxy 5: Null (levels 41-50) ----------------------------------------------
+            // Seeds 4600 to 4690, ten apart, finishing the pattern.
+            //
+            // No sky and no ground: not one ATMOSPHERE or SURFACE row, which rules out the two
+            // recipes four galaxies leaned on hardest. What is left is five recipes over ten
+            // levels -- the widest spread the game has had, and the answer to the failure Tempest
+            // recorded, which was ten levels sharing two.
+            //
+            // Four of the ten run EVENT_HORIZON, and those four are not four skies with the same
+            // object in them. They are one approach, authored on the disc field: 0.10 at the
+            // corridor where the hole is first sighted, 0.20 in the ergosphere, 0.26 at the photon
+            // ring where the ring is the whole image, and 0.32 at the finale where it fills the
+            // frame. The ring and streak counts move with it, so the galaxy tells its story in the
+            // backdrops rather than only in the level names.
+            //
+            // 0.32 is near the ceiling, not a round number: the ring reaches RING_REACH past the
+            // horizon, so at 0.32 the whole feature is about 746 across against an 864 canvas, and
+            // a feature taller than the canvas cannot wrap without overlapping itself.
+            //
+            // The accent stays off tintB on the belt rows for the reason Cryonis records -- there
+            // it means a lit surface to rocks(). 0x50, 0x40, 0x76 and 0x5e, 0x4a, 0x88 are
+            // Ashfall's mid-dark weight in void violet. The two CAVERN rows are the exception,
+            // where tintB becomes wall light strips and the full 0x9a6bff belongs.
+
+            // Dead Belt: a graveyard, and the last ordinary sky in the game. Separated from Tidal
+            // Shear on blobs and density, which are the two fields stars() and rocks() both read.
+            new Theme("level-41", Backdrop.BELT, 4600,
+                    new Color(0x2a, 0x22, 0x42, 30), new Color(0x50, 0x40, 0x76, 24),
+                    6, 1.1, 18, -8, 30),
+            // Hulk Drift: the emptiest sky in the galaxy and the most washed -- barely any stars
+            // over the most nebula in the game. A dead fleet in dust.
+            new Theme("level-42", Backdrop.STARFIELD, 4610,
+                    new Color(0x24, 0x18, 0x40, 34), new Color(0x46, 0x2c, 0x74, 26),
+                    8, 0.55, 16, -10, 34),
+            // Shroud: a dead world, shrouded. The galaxy's one PLANET_RISE, and the only body in
+            // it that is not a hole -- near-black with a violet limb, so it reads as a planet that
+            // went out rather than one hanging in the light.
+            new Theme("level-43", Backdrop.PLANET_RISE, 4620,
+                    new Color(0x1e, 0x18, 0x30, 30), new Color(0x8a, 0x62, 0xd8, 22),
+                    7, 0.8, 14, -12, 30),
+            // Lens Corridor: first sighting. The smallest disc, the tightest ring and the fewest
+            // streaks -- it is a long way off and it is the only thing out here.
+            new Theme("level-44", Backdrop.EVENT_HORIZON, 4630,
+                    new Color(0x6e, 0x48, 0xc8, 24), new Color(0x9a, 0x6b, 0xff, 20),
+                    3, 0.9, 12, -10, 28, false, 0.10),
+            // Tidal Shear: the galaxy's side-on leg. A belt for the reason levels 9, 17 and 39 are
+            // open space -- rock and stars look the same lying on their side, and this galaxy has
+            // no sky or ground to get wrong anyway. Densest debris in the galaxy, sheared fine.
+            new Theme("level-45", Backdrop.BELT, 4640,
+                    new Color(0x32, 0x28, 0x50, 32), new Color(0x5e, 0x4a, 0x88, 26),
+                    3, 1.6, 22, -6, 34, true),
+            // The Shell: inside a dead structure. Sparse strips on near-black -- the enclosure is
+            // a hull, not a cave, so there is less of it lit than in any tunnel so far.
+            new Theme("level-46", Backdrop.CAVERN, 4650,
+                    new Color(0x08, 0x06, 0x10), new Color(0x9a, 0x6b, 0xff),
+                    5, 1.0, 0, 0, 0),
+            // Ergosphere: close enough that spacetime is visibly turning. Twice the disc, a bright
+            // ring and the most streaks so far.
+            new Theme("level-47", Backdrop.EVENT_HORIZON, 4660,
+                    new Color(0x7e, 0x52, 0xe0, 26), new Color(0xb4, 0x8c, 0xff, 22),
+                    9, 1.2, 10, -8, 26, false, 0.20),
+            // Photon Ring: the brightest backdrop in the game, and the only one where the ring is
+            // the subject. Palest tints and fewest streaks -- nothing else in frame competes.
+            new Theme("level-48", Backdrop.EVENT_HORIZON, 4670,
+                    new Color(0xa0, 0x80, 0xe0, 28), new Color(0xc8, 0xb4, 0xf4, 20),
+                    2, 0.7, 8, 0, 22, false, 0.26),
+            // The Throat: the second dead structure, and the opposite corner of tunnel() from the
+            // Shell -- most strips in the galaxy, densest detail, dimmer light.
+            new Theme("level-49", Backdrop.CAVERN, 4680,
+                    new Color(0x0c, 0x08, 0x14), new Color(0x6f, 0x46, 0xcc),
+                    8, 1.6, 0, 0, 0),
+            // Event Horizon: the last level in the campaign. Largest disc, most streaks, and the
+            // dimmest ring of the four -- this close, the light is behind you.
+            new Theme("level-50", Backdrop.EVENT_HORIZON, 4690,
+                    new Color(0x4a, 0x2e, 0x88, 30), new Color(0x74, 0x50, 0xc0, 24),
+                    12, 1.5, 6, -12, 24, false, 0.32),
     };
 
     /** Three parallax layers per level, scrolled at different rates by the renderer. */
@@ -3014,6 +3960,8 @@ public final class GenerateAssets {
                         stars(g, theme, layer, random);
                         rocks(g, theme, layer, random);
                     }
+                    // Draws its own stars, because it has to clip them; see eventHorizon.
+                    case EVENT_HORIZON -> eventHorizon(g, theme, layer, random);
                 }
                 g.dispose();
                 write(image, SPRITES.resolve(theme.directory())
@@ -3096,6 +4044,126 @@ public final class GenerateAssets {
                     new Color[]{alpha(rim, 0), alpha(rim, 0), alpha(rim, 96), alpha(rim, 0)}));
             copy.fill(new Ellipse2D.Double(cx - halo, cy - halo, halo * 2, halo * 2));
         });
+    }
+
+    /** How far past the horizon the outer accretion ring reaches, as a multiple of the radius. */
+    private static final double RING_REACH = 1.35;
+
+    /** Base lensing streaks per layer, before the theme's blob count scales them. Far layer: none. */
+    private static final int[] STREAK_COUNTS = {0, 5, 3};
+
+    /**
+     * A black hole. The one image in the game worth extra time.
+     *
+     * Three things, and which layer each lands on is the point of it. The disc and its accretion
+     * ring sit on the far layer only, as {@link #planet} does, so they hang almost still while the
+     * lensing streaks on the two nearer layers rush past -- which is what makes the hole read as
+     * something at the bottom of a distance rather than a circle painted on the sky. It is also
+     * what stops four levels of this recipe being four copies: the nearer layers differ between
+     * them too, not just the far one.
+     *
+     * Four levels do run it, which is more than any galaxy has put on one backdrop since Tempest
+     * put six on {@code sky()} and got one sky back. The lesson recorded from that is to check
+     * which fields the recipe actually consumes before tuning them, so: this one reads {@code disc}
+     * for the radius, {@code blobs} for the streak count, {@code density} through {@code stars()},
+     * and both tints for the ring. All four vary across the four rows, and {@code disc} exists
+     * precisely so the radius is not welded to something else that is already doing a job.
+     *
+     * No trigonometry, deliberately -- {@code Arc2D} takes degrees and {@code Math.toDegrees} is a
+     * multiply. There is nothing here for {@code StrictMath} to protect.
+     */
+    private static void eventHorizon(Graphics2D g, Theme theme, int layer, Random random) {
+        int w = BACKDROP_WIDTH;
+        int h = BACKDROP_HEIGHT;
+        double radius = h * theme.disc();
+
+        // Kept clear of the side edges for planet()'s reason: on a top-down level only the vertical
+        // axis wraps, so a limb cut flat by a side edge just looks like a mistake. It is the ring
+        // that has to clear them, not the disc, because the ring reaches further.
+        double margin = radius * RING_REACH;
+        double span = Math.max(1, w - margin * 2);
+
+        // Derived from the seed by arithmetic rather than drawn from the Random, and that is not a
+        // style choice. backgrounds() seeds one Random per image as seed + layer, and stars() draws
+        // from it a different number of times on each layer, so two draws taken here would put the
+        // hole somewhere different on all three layers. Every layer has to agree on where it is:
+        // the far layer paints it and the two nearer ones have to keep out of it.
+        double cx = margin + (theme.seed() % 97) / 96.0 * span;
+        double cy = h * (0.25 + (theme.seed() / 97 % 89) / 88.0 * 0.5);
+
+        // Nothing on a nearer layer may be drawn inside the horizon. The renderer stacks far, mid
+        // then near with ordinary alpha, so one opaque star on the near layer lands on top of the
+        // hole painted on the far one, and a hole with stars in it stops reading as a hole at all.
+        // Excluded rather than painted over, because on these layers there is nothing to paint with.
+        // All three wrap copies come out, since wrapped() will draw the streaks at all three.
+        if (layer > 0) {
+            java.awt.geom.Area allowed =
+                    new java.awt.geom.Area(new Rectangle2D.Double(0, 0, w, h));
+            for (int copy = -1; copy <= 1; copy++) {
+                double ox = theme.sideways() ? copy * w : 0;
+                double oy = theme.sideways() ? 0 : copy * h;
+                allowed.subtract(new java.awt.geom.Area(new Ellipse2D.Double(
+                        cx - radius + ox, cy - radius + oy, radius * 2, radius * 2)));
+            }
+            g.setClip(allowed);
+        }
+
+        // Behind the hole on the far layer, and outside it on the two nearer ones.
+        stars(g, theme, layer, random);
+
+        if (layer == 0) {
+            Color inner = opaque(theme.tintA());
+            Color outer = opaque(theme.tintB());
+            wrapped(g, theme, copy -> {
+                // The accretion ring, as two annuli: hot and tight against the horizon, cooler and
+                // wider outside it. One gradient from the centre would put its brightest pixel
+                // inside the event horizon, where by definition there is nothing to light.
+                for (int ring = 0; ring < 2; ring++) {
+                    double reach = radius * (1.12 + ring * (RING_REACH - 1.12));
+                    float edge = (float) (radius / reach);
+                    Color tint = ring == 0 ? brighten(inner, 30) : outer;
+                    int peak = ring == 0 ? 190 : 110;
+                    copy.setPaint(new RadialGradientPaint(
+                            (float) cx, (float) cy, (float) reach,
+                            new float[]{0f, edge * 0.97f, edge, 1f},
+                            new Color[]{alpha(tint, 0), alpha(tint, 0), alpha(tint, peak),
+                                    alpha(tint, 0)}));
+                    copy.fill(new Ellipse2D.Double(cx - reach, cy - reach, reach * 2, reach * 2));
+                }
+
+                // The hole. Flat black and fully opaque: the one shape in the game that is not
+                // allowed to have anything behind it showing through.
+                copy.setColor(Color.BLACK);
+                copy.fill(new Ellipse2D.Double(cx - radius, cy - radius, radius * 2, radius * 2));
+
+                // The photon ring: one bright hairline hugging the horizon. This is the detail that
+                // stops the disc reading as a hole punched in the picture.
+                copy.setColor(alpha(brighten(inner, 70), 210));
+                copy.setStroke(new BasicStroke((float) Math.max(1.5, radius * 0.018)));
+                copy.draw(new Ellipse2D.Double(cx - radius, cy - radius, radius * 2, radius * 2));
+            });
+            return;
+        }
+
+        // Lensing streaks: arcs of light dragged round the hole. Struck about the same centre the
+        // far layer painted the disc at -- which is what the seed-derived placement above buys --
+        // so they read as light being pulled round it rather than as scratches near it.
+        int streaks = (int) Math.round(STREAK_COUNTS[layer] * Math.max(1, theme.blobs()) / 3.0);
+        Color tint = opaque(theme.tintB());
+        for (int i = 0; i < streaks; i++) {
+            double arcRadius = radius * (1.5 + random.nextDouble() * 2.4);
+            double start = random.nextDouble() * 360;
+            double sweep = 14 + random.nextDouble() * 46;
+            double thickness = 1.2 + random.nextDouble() * (layer == 2 ? 3.4 : 1.8);
+            int streakAlpha = (layer == 2 ? 70 : 44) + random.nextInt(40);
+            g.setColor(alpha(tint, streakAlpha));
+            g.setStroke(new BasicStroke((float) thickness, BasicStroke.CAP_ROUND,
+                    BasicStroke.JOIN_ROUND));
+            wrapped(g, theme, copy -> copy.draw(new java.awt.geom.Arc2D.Double(
+                    cx - arcRadius, cy - arcRadius, arcRadius * 2, arcRadius * 2,
+                    start, sweep, java.awt.geom.Arc2D.OPEN)));
+        }
+        g.setClip(null);
     }
 
     private static final int[] DECK_COUNTS = {7, 12, 17};
@@ -3421,7 +4489,7 @@ public final class GenerateAssets {
             double t = i / (double) SAMPLE_RATE;
             double progress = t / duration;
             double freq = 1500 - 1050 * progress;
-            double envelope = Math.exp(-5.5 * progress);
+            double envelope = StrictMath.exp(-5.5 * progress);
             mix[i] = square(freq, t) * 0.35 * envelope;
         }
         writeWav(mix, SOUNDS.resolve("laser.wav"));
@@ -3434,7 +4502,7 @@ public final class GenerateAssets {
         double lowpass = 0;
         for (int i = 0; i < mix.length; i++) {
             double progress = i / (double) mix.length;
-            double envelope = Math.exp(-4.2 * progress);
+            double envelope = StrictMath.exp(-4.2 * progress);
             double white = random.nextDouble() * 2 - 1;
             // One-pole lowpass, opening then closing, so it reads as a boom not a hiss.
             double cutoff = 0.36 - 0.26 * progress;
@@ -3451,7 +4519,7 @@ public final class GenerateAssets {
         Random random = new Random(21);
         for (int i = 0; i < mix.length; i++) {
             double progress = i / (double) mix.length;
-            double envelope = Math.exp(-11 * progress);
+            double envelope = StrictMath.exp(-11 * progress);
             double body = StrictMath.sin(2 * Math.PI * (150 - 90 * progress) * i / SAMPLE_RATE);
             double grit = (random.nextDouble() * 2 - 1) * 0.3;
             mix[i] = (body + grit) * envelope * 0.55;

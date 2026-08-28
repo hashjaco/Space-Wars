@@ -91,4 +91,18 @@ public final class MenuNavigator {
     public int focusedIndex() {
         return index;
     }
+
+    /**
+     * Puts the cursor on a row other than the first.
+     *
+     * For a panel whose opening rows are there to be read rather than pressed -- a score table --
+     * where landing on row one means the first thing the player does is move off it. Out-of-range
+     * is ignored rather than thrown: a caller is describing a layout, not asserting one.
+     */
+    public void focus(int row) {
+        if (row >= 0 && row < items.size()) {
+            index = row;
+            applyFocus();
+        }
+    }
 }
