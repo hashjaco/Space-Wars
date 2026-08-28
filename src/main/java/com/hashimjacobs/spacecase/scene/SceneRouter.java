@@ -7,6 +7,7 @@ import java.util.Random;
 import java.util.function.Predicate;
 
 import javafx.animation.AnimationTimer;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Parent;
@@ -31,12 +32,26 @@ import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Account;
 import com.hashimjacobs.spacecase.prefs.ControlAction;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.SaveGames;
+import com.hashimjacobs.spacecase.prefs.Profile;
 import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.Settings;
+import com.hashimjacobs.spacecase.net.Cloud;
+import com.hashimjacobs.spacecase.net.RelayClient;
+import com.hashimjacobs.spacecase.net.Packet;
+import com.hashimjacobs.spacecase.net.NetworkedGame;
+import com.hashimjacobs.spacecase.net.LobbyModel;
+import com.hashimjacobs.spacecase.net.LevelStart;
+import com.hashimjacobs.spacecase.engine.GameLoop;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CancellationException;
+import java.net.URI;
+import java.io.IOException;
 
 /**
  * Owns the window and swaps whole screens through it.
@@ -55,7 +70,17 @@ public final class SceneRouter {
     private final HighScores highScores;
     private final Pilots pilots;
     private final SaveGames saves = SaveGames.load();
+    /**
+     * Who this machine is to the board and the profile shelf.
+     *
+     * Made here rather than passed in, like {@link #saves}: nothing outside these screens has ever
+     * needed it, and both of its values make themselves on first use.
+     */
+    private final Account account = Account.load();
     private final Random random = new Random();
+
+    /** How many places the board shows. Ten is what fits under a title beside two more rows. */
+    private static final int BOARD_ROWS = 10;
 
     /** Black surround; whatever is left over when the window is not exactly 996x864. */
     private final StackPane shell = new StackPane();
@@ -72,7 +97,21 @@ public final class SceneRouter {
      * any route -- Escape, launching a level, the Back row -- cannot leave a timer running against a
      * canvas that is no longer mounted.
      */
-    private AnimationTimer mapPulse;
+    /**
+     * The one timer any screen may run, stopped centrally by {@link #show}.
+     *
+     * The system map pulses with it and the lobby polls the relay with it. One field rather than
+     * one per screen because only one screen is ever up, and because a timer nobody stops is a
+     * screen that keeps running after the player has left it.
+     */
+    private AnimationTimer screenPulse;
+
+    /** The room being joined or waited in, or null when no lobby is open. */
+    private RelayClient lobbyRelay;
+    private CompletableFuture<RelayClient> lobbyJoin;
+
+    /** The network side of a running game, or null for a local one. */
+    private NetworkedGame networked;
 
     public SceneRouter(Stage stage, Settings settings, SoundBank sounds, HighScores highScores,
                        Pilots pilots) {
@@ -96,7 +135,7 @@ public final class SceneRouter {
         // menu entry that appears from nowhere after the first game.
         List<MenuButton> rows = new ArrayList<>();
         Optional<SaveSlot> held = saves.checkpoint();
-        held.ifPresent(save -> rows.add(new MenuButton("Continue  -  " + save.describe(),
+        held.ifPresent(save -> rows.add(new MenuButton("Continue", save.describe(),
                 () -> startGame(save.mode(), save))));
         rows.add(new MenuButton("Universe Map", () -> showGalaxySelect(GameMode.SOLO)));
         rows.add(new MenuButton("Single Player", () -> startGame(GameMode.SOLO)));
@@ -106,6 +145,7 @@ public final class SceneRouter {
         rows.add(new MenuButton("Multiplayer", this::showMultiplayerMenu));
         rows.add(new MenuButton("Load Game", this::showLoadMenu));
         rows.add(new MenuButton("Pilots", this::showPilots));
+        rows.add(new MenuButton("Leaderboard", () -> showLeaderboard(GameMode.SOLO)));
         rows.add(new MenuButton("Settings", () -> showSettings(this::showStartMenu)));
         rows.add(new MenuButton("Help", this::showHelp));
         rows.add(new MenuButton("Exit", this::exit));
@@ -119,10 +159,10 @@ public final class SceneRouter {
         StackPane root = MenuScreen.build("SPACE CASE",
                 ships,
                 panel,
-                MenuScreen.caption("Best solo run: " + highScores.best(GameMode.SOLO), 12,
-                        Tokens.TEXT_FAINT),
-                MenuScreen.caption("↑↓ move    Enter select    F11 fullscreen", 11,
-                        Tokens.TEXT_GHOST));
+                MenuScreen.caption("Best solo run: " + highScores.best(GameMode.SOLO),
+                        Tokens.SIZE_SMALL, Tokens.TEXT_FAINT),
+                MenuScreen.caption("↑↓ move    Enter select    F11 fullscreen",
+                        Tokens.SIZE_CAPTION, Tokens.TEXT_GHOST));
         MenuNavigator navigator = panel.navigator();
         show(root, navigator::handleKey);
     }
@@ -142,19 +182,21 @@ public final class SceneRouter {
         for (Galaxy galaxy : Galaxy.values()) {
             boolean open = saves.isGalaxyUnlocked(mode, galaxy);
             int done = saves.clearedCount(mode, galaxy);
-            String label = roman(galaxy.number()) + "   " + galaxy.label() + "   ";
+            String label = roman(galaxy.number()) + "   " + galaxy.label();
+            String status;
             if (!open) {
                 // Safe only because SaveGames.isGalaxyUnlocked returns true for ordinal zero
                 // unconditionally, so the first galaxy never reaches this branch. That invariant
                 // lives in another class; if it ever gains a condition, this reads values()[-1].
                 Galaxy before = Galaxy.values()[galaxy.ordinal() - 1];
-                label += "locked - clear " + before.label();
+                status = "locked - clear " + before.label();
             } else if (done == Galaxy.LEVELS_PER_GALAXY) {
-                label += "complete";
+                status = "complete";
             } else {
-                label += done + "/" + Galaxy.LEVELS_PER_GALAXY + " cleared";
+                status = done + "/" + Galaxy.LEVELS_PER_GALAXY + " cleared";
             }
             MenuButton row = new MenuButton(label, () -> showSystemMap(mode, galaxy));
+            row.setValue(status);
             row.setLocked(!open);
             rows.add(row);
         }
@@ -229,7 +271,7 @@ public final class SceneRouter {
                 }
             };
             pulse.start();
-            mapPulse = pulse;
+            screenPulse = pulse;
         }
     }
 
@@ -254,14 +296,18 @@ public final class SceneRouter {
         List<MenuButton> rows = new ArrayList<>();
         for (int number = 1; number <= SaveGames.SLOTS; number++) {
             Optional<SaveSlot> held = saves.slot(number);
-            String label = number + "   " + held.map(SaveSlot::describe).orElse("empty");
+            String detail = held.map(SaveSlot::describe).orElse("empty");
             // An empty slot does nothing when chosen, which is the right amount of feedback for
             // a row that says "empty".
             Runnable action = held.<Runnable>map(save -> () -> startGame(save.mode(), save))
                     .orElse(() -> {
                     });
-            rows.add(new MenuButton(label, action));
+            rows.add(new MenuButton("Slot " + number, detail, action));
         }
+        // Here rather than on the main menu because this is the screen a player is already on when
+        // they are thinking about where their runs live.
+        rows.add(new MenuButton("Cloud Save", "carry this profile to another machine",
+                this::showCloudSave));
         rows.add(new MenuButton("Back", this::showStartMenu));
 
         MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
@@ -283,22 +329,257 @@ public final class SceneRouter {
         show(root, panel::handleKey);
     }
 
+    /**
+     * The board, best first, for one mode.
+     *
+     * Built empty and filled in when the answer arrives, rather than held on the previous screen
+     * while a server is asked. The rows never change shape, only their text -- the same reason
+     * {@code LobbyPanel} rewrites rows instead of rebuilding itself, and here it also means a slow
+     * board cannot move the cursor out from under somebody who has already pressed down.
+     */
+    public void showLeaderboard(GameMode mode) {
+        GameMode other = mode == GameMode.SOLO ? GameMode.COOP : GameMode.SOLO;
+        MenuButton[] entries = new MenuButton[BOARD_ROWS];
+        for (int at = 0; at < entries.length; at++) {
+            entries[at] = new MenuButton("", () -> { });
+            entries[at].setRow(String.valueOf(at + 1), at == 0 ? "loading..." : "");
+            entries[at].setLocked(true);
+        }
+        MenuButton[] rows = new MenuButton[entries.length + 2];
+        System.arraycopy(entries, 0, rows, 0, entries.length);
+        rows[rows.length - 2] = new MenuButton(other.label() + " board",
+                () -> showLeaderboard(other));
+        rows[rows.length - 1] = new MenuButton("Back", this::showStartMenu);
+
+        MenuPanel panel = new MenuPanel(rows);
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showStartMenu);
+        // The cursor starts on the first thing worth pressing rather than on row one, which here is
+        // a score nobody can do anything with.
+        navigator.focus(entries.length);
+
+        StackPane root = MenuScreen.build(mode.label().toUpperCase() + " BOARD", panel,
+                MenuScreen.caption("Every run you finish is posted under your pilot's name.", 12,
+                        Tokens.TEXT_FAINT));
+        show(root, navigator::handleKey);
+
+        URI base = RelayClient.defaultBase();
+        CompletableFuture.supplyAsync(() -> Cloud.top(base, mode))
+                .thenAccept(board -> Platform.runLater(() -> fillBoard(entries, board)));
+    }
+
+    /**
+     * Writes a fetched board into the rows that are already on screen.
+     *
+     * Guarded on the rows still being mounted, because a board takes as long as it takes and the
+     * player may well have left: {@code getScene()} going null is how a node says it is no longer
+     * anybody\'s business.
+     */
+    private void fillBoard(MenuButton[] entries, List<Cloud.Entry> board) {
+        if (entries.length == 0 || entries[0].getScene() == null) {
+            return;
+        }
+        for (int at = 0; at < entries.length; at++) {
+            Cloud.Entry entry = at < board.size() ? board.get(at) : null;
+            // A dash is a place nobody holds yet, which only reads that way next to places someone
+            // does. On a board with nothing on it at all, nine of them read as a broken screen, so
+            // the first row says so plainly and the rest say nothing.
+            String value = entry != null
+                    ? entry.name() + "   " + String.format("%,d", entry.score())
+                    : board.isEmpty() ? "" : "-";
+            entries[at].setRow(String.valueOf(at + 1), value);
+        }
+        if (board.isEmpty()) {
+            entries[0].setRow("1", "nothing posted yet");
+        }
+    }
+
+    /** Carrying a profile between machines. The panel does the talking; this screen only hosts it. */
+    public void showCloudSave() {
+        CloudPanel panel = new CloudPanel(account, this::showRestoreConfirm, this::showLoadMenu);
+        StackPane root = MenuScreen.build("CLOUD SAVE", panel,
+                MenuScreen.caption("Upload here, then type this code on your other machine.", 12,
+                        Tokens.TEXT_FAINT),
+                MenuScreen.caption("Anyone with the code has the profile. Read it to nobody else.",
+                        11, Tokens.TEXT_GHOST));
+        show(root, panel::handleKey);
+    }
+
+    /**
+     * Asks before a downloaded profile replaces this machine\'s.
+     *
+     * The same shape as {@link #showResetConfirm}, and for the same reason: this erases runs that
+     * cannot be got back, and the cautious row is row one because {@code MenuPanel} focuses row one
+     * -- so the reflex of pressing Enter twice keeps the campaign rather than losing it.
+     */
+    private void showRestoreConfirm(String profile) {
+        MenuPanel panel = new MenuPanel(
+                new MenuButton("No, keep this machine\'s progress", this::showCloudSave),
+                new MenuButton("Yes, replace it with the download", () -> {
+                    boolean written = Profile.restore(profile);
+                    showLoadMenu();
+                    if (!written) {
+                        // Nothing was touched -- restore parses before it clears -- so there is
+                        // nothing to undo and nothing to say beyond that it did not happen.
+                        showCloudSave();
+                    }
+                }));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showCloudSave);
+
+        StackPane root = MenuScreen.build("REPLACE PROGRESS", panel,
+                MenuScreen.caption("The downloaded profile replaces this machine\'s runs, pilots "
+                        + "and high scores. This cannot be undone.", 12, Tokens.TEXT_FAINT),
+                MenuScreen.caption("Settings and controls stay as they are on this machine.", 11,
+                        Tokens.TEXT_GHOST));
+        show(root, navigator::handleKey);
+    }
+
     public void showMultiplayerMenu() {
-        MenuButton coop = new MenuButton("Co-op  (survive together)", () -> startGame(GameMode.COOP));
+        MenuButton coop = new MenuButton("Co-op", "survive together", () -> startGame(GameMode.COOP));
         // Co-op keeps its own cleared-levels record, so it gets its own way into the map rather
         // than inheriting whichever galaxy the solo campaign happens to be in.
         MenuButton coopMap = new MenuButton("Co-op Campaign", () -> showGalaxySelect(GameMode.COOP));
-        MenuButton battle = new MenuButton("Battle  (face each other)", () -> startGame(GameMode.BATTLE));
+        MenuButton battle = new MenuButton("Battle", "face each other", () -> startGame(GameMode.BATTLE));
+        MenuButton host = new MenuButton("Host Online", "get a room code", () -> showLobby(true));
+        MenuButton join = new MenuButton("Join Online", "someone gave you a code", () -> showLobby(false));
         MenuButton back = new MenuButton("Back", this::showStartMenu);
-        MenuPanel panel = new MenuPanel(coop, coopMap, battle, back);
+        MenuPanel panel = new MenuPanel(coop, coopMap, battle, host, join, back);
 
         MenuNavigator navigator = panel.navigator();
         navigator.setOnBack(this::showStartMenu);
 
         StackPane root = MenuScreen.build("MULTIPLAYER",
                 panel,
-                MenuScreen.caption("Two players, one keyboard", 12, Tokens.TEXT_FAINT));
+                // It said "two players, one keyboard" until the two rows above it existed.
+                MenuScreen.caption("One keyboard, or up to four over the wire", 12, Tokens.TEXT_FAINT));
         show(root, navigator::handleKey);
+    }
+
+    /**
+     * The room: opening a socket, watching who arrives, and beginning when the host says so.
+     *
+     * The one screen in the game that waits on something outside the machine. Nothing in
+     * {@code scene} has ever done that, and the shape here is deliberately the one the engine
+     * already uses for slow work: {@link RelayClient#join} blocks for up to ten seconds, so it runs
+     * on a background thread, and a timer polls -- the same bargain {@code Assets.warmedUp()} and
+     * {@code GameLoop.stepWarp} make. A callback firing on the socket's thread would be touching
+     * scene graph nodes from the wrong one.
+     *
+     * @param asHost true to ask the relay for a new code, false to type one somebody read out
+     */
+    public void showLobby(boolean asHost) {
+        closeLobby();
+        LobbyModel model = new LobbyModel();
+        LobbyPanel panel = new LobbyPanel(model,
+                () -> lobbyAction(model, asHost), this::showMultiplayerMenu);
+
+        StackPane root = MenuScreen.build(asHost ? "HOST" : "JOIN", panel,
+                MenuScreen.caption(asHost
+                        ? "read the code out; they type it"
+                        : "type the code they read you", 12, Tokens.TEXT_FAINT));
+        show(root, panel::handleKey);
+
+        if (asHost) {
+            connectToRelay(model, null);
+        }
+        AnimationTimer poll = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                pollLobby(model, panel);
+            }
+        };
+        poll.start();
+        screenPulse = poll;
+    }
+
+    /** The action row: join the typed room, or -- once everyone is in -- start the fight. */
+    private void lobbyAction(LobbyModel model, boolean asHost) {
+        if (model.state() == LobbyModel.State.CHOOSING && model.codeIsComplete()) {
+            connectToRelay(model, model.typed());
+            return;
+        }
+        if (model.canStart() && lobbyRelay != null) {
+            // Only the host reaches here, and it begins its own game rather than waiting for its
+            // own packet: the relay forwards to everyone else, never back to the sender.
+            LevelStart opening = new LevelStart(new Random().nextLong(), 0, settings.difficulty(),
+                    SaveSlot.forReplay(GameMode.COOP, Level.values()[0]),
+                    model.loadoutsInSeatOrder());
+            lobbyRelay.send(Packet.start(model.localSlot(), opening).encode());
+            model.starting();
+            beginNetworkedGame(model, opening);
+        }
+    }
+
+    /** Opens the socket off the FX thread. A ten-second block here would be a frozen window. */
+    private void connectToRelay(LobbyModel model, String room) {
+        model.connecting();
+        URI base = RelayClient.defaultBase();
+        lobbyJoin = CompletableFuture.supplyAsync(() -> {
+            try {
+                return RelayClient.join(base, room == null ? RelayClient.newRoom(base) : room);
+            } catch (IOException | InterruptedException refused) {
+                throw new CompletionException(refused);
+            }
+        });
+    }
+
+    /**
+     * One frame of lobby: has the socket opened, who is here, and has the host spoken.
+     *
+     * Everything the relay says arrives through {@code drainTo} on this thread, which is the whole
+     * of {@link RelayClient}'s threading contract. Draining here is safe because no intent can be
+     * in flight yet -- the lockstep that would want them is not built until the terms arrive.
+     */
+    private void pollLobby(LobbyModel model, LobbyPanel panel) {
+        if (lobbyJoin != null && lobbyJoin.isDone()) {
+            try {
+                lobbyRelay = lobbyJoin.join();
+                RelayClient.Welcome welcome = lobbyRelay.welcome();
+                model.joined(welcome.room(), welcome.slot(), welcome.peers(), welcome.isHost());
+                model.loadout(welcome.slot(), localLoadoutCode());
+                // Announced immediately, so the host can start the moment the room is full rather
+                // than waiting for a round of introductions.
+                lobbyRelay.send(Packet.ready(welcome.slot(), 0, localLoadoutCode()).encode());
+            } catch (CompletionException | CancellationException refused) {
+                model.failed(reasonFor(refused));
+            }
+            lobbyJoin = null;
+        }
+
+        if (lobbyRelay != null && model.state() == LobbyModel.State.WAITING) {
+            model.roster(lobbyRelay.peers());
+            lobbyRelay.drainTo(bytes -> acceptInLobby(model, bytes));
+        }
+        panel.refresh();
+    }
+
+    private void acceptInLobby(LobbyModel model, byte[] bytes) {
+        Packet packet = Packet.decode(bytes);
+        switch (packet.kind()) {
+            case READY -> model.loadout(packet.playerNumber(), packet.text());
+            case START -> LevelStart.decode(packet.text()).ifPresent(opening -> {
+                model.starting();
+                beginNetworkedGame(model, opening);
+            });
+            default -> {
+            }
+        }
+    }
+
+    /** Turns a failed join into something a player can act on rather than a stack trace. */
+    private static String reasonFor(Throwable refused) {
+        Throwable cause = refused.getCause() == null ? refused : refused.getCause();
+        String message = cause.getMessage();
+        if (message != null && message.contains("409")) {
+            return "that room is full";
+        }
+        return message == null ? "the relay did not answer" : message;
+    }
+
+    /** This machine's pilot is always seat one locally, whatever seat they hold in the room. */
+    private String localLoadoutCode() {
+        return pilots.loadoutCode(pilots.name(1));
     }
 
     public void showSettings(Runnable onBack) {
@@ -414,6 +695,58 @@ public final class SceneRouter {
     }
 
     /**
+     * Hands a fresh game everything the network decided, then lets it run like any other.
+     *
+     * The five calls below are the whole of what makes a game networked. Everything else -- the
+     * renderer, the phases, the garage, the debrief -- is the code a single player has always run.
+     */
+    private void beginNetworkedGame(LobbyModel model, LevelStart opening) {
+        RelayClient relay = lobbyRelay;
+        // Handed to the game, so closeLobby() below must not shut its socket.
+        lobbyRelay = null;
+        List<Integer> seats = model.peers();
+
+        stopActiveGame();
+        closeLobby();
+        sounds.playMusic(GameMode.COOP.music());
+
+        GameScreen screen = new GameScreen(GameMode.COOP, settings, sounds, pilots, highScores,
+                saves, new Random(opening.seed()), opening.slot(), this::showStartMenu,
+                this::showGameOver, this::padStatus, seats.size());
+        GameLoop loop = screen.loop();
+        NetworkedGame net = NetworkedGame.begin(relay, opening, seats,
+                () -> loop.sampleLocal(relay.welcome().slot()),
+                loop::checkpoint, this::localLoadoutCode);
+
+        // The ships the host named, not the ones this machine's pilot happens to own: fitSavedLoadouts
+        // has already fitted the local pilot's to every seat, which is wrong for everyone but one.
+        loop.fitLoadouts(opening.loadouts());
+        loop.setLocalSeat(net.localSeat());
+        loop.setStepGate(net.stepGate());
+        loop.setIntentSource(net.intents());
+        loop.setLevelHandshake(net.handshake());
+        loop.setTickObserver(net.tickObserver());
+
+        networked = net;
+        activeGame = screen;
+        show(screen.root(), null);
+        screen.attachInput(stage.getScene());
+        screen.start();
+    }
+
+    /** Drops a lobby's socket, unless a game has already taken it over. */
+    private void closeLobby() {
+        if (lobbyJoin != null) {
+            lobbyJoin.cancel(true);
+            lobbyJoin = null;
+        }
+        if (lobbyRelay != null) {
+            lobbyRelay.close();
+            lobbyRelay = null;
+        }
+    }
+
+    /**
      * The post-campaign run: no galaxy borders, and {@code Level.next} wrapping forever.
      *
      * Started fresh from the first level rather than resumed, and never checkpointed, because it is
@@ -433,6 +766,9 @@ public final class SceneRouter {
     }
 
     private void showGameOver(RoundResult result) {
+        // Before stopActiveGame, which is what closes the socket and forgets which seat this
+        // machine was flying.
+        submitToBoard(result);
         stopActiveGame();
         sounds.playMusic(MusicCue.MENU);
         sounds.play(SoundFx.GAME_OVER);
@@ -481,6 +817,35 @@ public final class SceneRouter {
         show(root, navigator::handleKey);
     }
 
+    /**
+     * Posts this machine\'s run to the board, and does not wait to hear how it went.
+     *
+     * Fire and forget on a background thread, because the score is already recorded locally by
+     * {@code prefs.HighScores}: a board that cannot be reached should cost a row on a screen
+     * nobody has open, not a pause on the one they are looking at.
+     *
+     * <b>The local seat, never every seat.</b> Same rule as {@code GameLoop.scoreLevel}, and for
+     * the same reason -- every peer simulates every player, so four machines each posting four
+     * scores would put one run on the board sixteen times, four of them under the wrong pilot.
+     */
+    private void submitToBoard(RoundResult result) {
+        int seat = networked == null ? 1 : networked.localSeat();
+        if (seat < 1 || seat > result.scores().size()) {
+            return;
+        }
+        int score = result.scores().get(seat - 1);
+        if (score <= 0) {
+            // Nothing to say about a run that scored nothing, and it would otherwise take a board
+            // row from somebody who played.
+            return;
+        }
+        String name = pilots.name(seat);
+        String player = account.id();
+        GameMode mode = result.mode();
+        URI base = RelayClient.defaultBase();
+        CompletableFuture.runAsync(() -> Cloud.submit(base, player, mode, name, score));
+    }
+
     public void exit() {
         stopActiveGame();
         settings.save();
@@ -497,7 +862,7 @@ public final class SceneRouter {
     }
 
     /**
-     * One line naming what SDL currently recognises, for the settings screen.
+     * What SDL currently recognises, for the value column of the settings screen's Pads row.
      *
      * SDL only opens a pad it has a mapping for, so an unrecognised controller is indistinguishable
      * here from no controller at all -- Jamepad binds no raw joystick count. Saying so plainly, and
@@ -506,16 +871,19 @@ public final class SceneRouter {
      */
     private String padStatus() {
         if (gamepad == null) {
-            return "Pads         unavailable";
+            return "unavailable";
         }
         if (gamepad.recognisedPads() == 0) {
-            return "Pads         none recognised -- see README";
+            return "none recognised -- see README";
         }
-        StringBuilder text = new StringBuilder("Pads        ");
+        StringBuilder text = new StringBuilder();
         for (int slot = 0; slot < 2; slot++) {
             String name = gamepad.padName(slot);
             if (name != null) {
-                text.append(" P").append(slot + 1).append(' ').append(name);
+                if (text.length() > 0) {
+                    text.append("  ");
+                }
+                text.append('P').append(slot + 1).append(' ').append(name);
             }
         }
         return text.toString();
@@ -525,6 +893,12 @@ public final class SceneRouter {
         if (activeGame != null) {
             activeGame.stop();
             activeGame = null;
+        }
+        // The socket outlives the screen by design -- the game owns it once the lobby hands it over
+        // -- so leaving a round is what finally closes it.
+        if (networked != null) {
+            networked.close();
+            networked = null;
         }
     }
 
@@ -538,9 +912,9 @@ public final class SceneRouter {
      * navigation keys and letters that belong in a name.
      */
     private void show(Parent root, Predicate<KeyCode> keys) {
-        if (mapPulse != null) {
-            mapPulse.stop();
-            mapPulse = null;
+        if (screenPulse != null) {
+            screenPulse.stop();
+            screenPulse = null;
         }
         stage2d.getChildren().setAll(root);
 

@@ -66,7 +66,9 @@ class PreferencesRoundTripTest {
     void difficultyCyclesThroughEveryPreset() {
         assertEquals(Difficulty.NORMAL, Difficulty.EASY.next());
         assertEquals(Difficulty.HARD, Difficulty.NORMAL.next());
-        assertEquals(Difficulty.EASY, Difficulty.HARD.next(), "cycling wraps around");
+        assertEquals(Difficulty.SUFFER, Difficulty.HARD.next());
+        assertEquals(Difficulty.DIE, Difficulty.SUFFER.next());
+        assertEquals(Difficulty.EASY, Difficulty.DIE.next(), "cycling wraps around");
     }
 
     @Test

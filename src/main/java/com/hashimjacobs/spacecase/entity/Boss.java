@@ -10,41 +10,48 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
  * {@link BossPhase}s applied in turn as its health falls, which is what keeps eight fights against
  * the same construction from feeling like one fight with a bigger number.
  *
+ * Every health here is exactly half again what it was first authored at -- one pass over all fifty
+ * rows, so the ladder's shape, its per-galaxy steps and its finale jumps are all unchanged and only
+ * its scale moved. Written into the rows rather than applied as a multiplier somewhere downstream
+ * because {@code prefs.Difficulty.bossScale} says escalation belongs in authored health, "which is
+ * where a designer can see and tune it"; a table reading 6000 while the game fights 9000 is the
+ * thing somebody has to decode at three in the morning.
+ *
  * Pure data on purpose: nothing here touches the asset loader, so the enum is usable in tests that
  * never start the JavaFX toolkit.
  */
 public enum Boss {
 
-    /** Level 1. The original fight, unchanged, so the opening minutes stay tuned. */
-    SENTINEL("Sentinel", BossArt.SENTINEL, 600, 500,
+    /** Level 1. The shape of the original fight, at the health every flagship was raised to. */
+    SENTINEL("Sentinel", BossArt.SENTINEL, 900, 500,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
     /** Level 2. Broods escorts while it is healthy, then fights for itself. */
-    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH, 720, 620,
+    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH, 1080, 620,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 3. Opens with a curtain and never gives a straight line to sit in. */
-    BLOOM_COLOSSUS("Bloom Colossus", BossArt.BLOOM_COLOSSUS, 840, 740,
+    BLOOM_COLOSSUS("Bloom Colossus", BossArt.BLOOM_COLOSSUS, 1260, 740,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
 
     /** Level 4. Hides behind escorts while it is healthy and fights for itself once they are gone. */
-    SCRAP_HIVE("Scrap Hive", BossArt.SCRAP_HIVE, 960, 860,
+    SCRAP_HIVE("Scrap Hive", BossArt.SCRAP_HIVE, 1440, 860,
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.AIMED_BURST),
 
     /** Level 5. Sweeps, then curtains, then picks you out: no safe column at any health. */
-    FOUNDRY_WARDEN("Foundry Warden", BossArt.FOUNDRY_WARDEN, 1080, 980,
+    FOUNDRY_WARDEN("Foundry Warden", BossArt.FOUNDRY_WARDEN, 1620, 980,
             BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.AIMED_BURST),
 
     /** Level 6. Never fires straight: an arc, then a sweep, then a curtain. */
-    VOID_WEAVER("Void Weaver", BossArt.VOID_WEAVER, 1200, 1100,
+    VOID_WEAVER("Void Weaver", BossArt.VOID_WEAVER, 1800, 1100,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
     /** Level 7. Opens at its most dangerous and calls in help on the way down. */
-    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT, 1350, 1250,
+    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT, 2025, 1250,
             BossPhase.RING, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 8. The last thing between the run and its next loop, and armed like it. */
-    EXODUS_DREADNOUGHT("Exodus Dreadnought", BossArt.EXODUS_DREADNOUGHT, 1500, 1500,
+    EXODUS_DREADNOUGHT("Exodus Dreadnought", BossArt.EXODUS_DREADNOUGHT, 2250, 1500,
             BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.RING),
 
     /**
@@ -52,7 +59,7 @@ public enum Boss {
      *
      * The first boss in the run that is alive rather than built, and the first fought side-on.
      */
-    DUNE_LEVIATHAN("Dune Leviathan", BossArt.DUNE_LEVIATHAN, 1700, 1600,
+    DUNE_LEVIATHAN("Dune Leviathan", BossArt.DUNE_LEVIATHAN, 2550, 1600,
             BossPhase.SPREAD, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
     /**
@@ -62,43 +69,43 @@ public enum Boss {
      * opens on SPAWNER deliberately -- the torso vents crawlers while the heads do the shooting,
      * so there is never a fourth gun in the mix.
      */
-    HYDRA("Hydra", BossArt.HYDRA, 2000, 1900,
+    HYDRA("Hydra", BossArt.HYDRA, 3000, 1900,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.AIMED_BURST,
             3, BossArt.HYDRA_HEAD),
 
     // ---- Galaxy 2: Ashfall ---------------------------------------------------------------
     // Health and score keep rising with the enum order, which BossTest holds them to, so the
-    // ladder continues from the hydra rather than restarting. Sixty points of health a step
+    // ladder continues from the hydra rather than restarting. Ninety points of health a step
     // inside the galaxy and a visible jump at its finale; the per-level difficulty ramp in
     // prefs.Difficulty restarts each galaxy so the two do not compound.
     //
     // Phase orders are picked so no two flagships in the galaxy open the same way.
 
-    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN, 2060, 1950,
+    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN, 3090, 1950,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
-    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT, 2120, 2000,
+    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT, 3180, 2000,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
 
-    SLAG_BARON("Slag Baron", BossArt.SLAG_BARON, 2180, 2050,
+    SLAG_BARON("Slag Baron", BossArt.SLAG_BARON, 3270, 2050,
             BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
-    VENT_CRAWLER("Vent Crawler", BossArt.VENT_CRAWLER, 2240, 2100,
+    VENT_CRAWLER("Vent Crawler", BossArt.VENT_CRAWLER, 3360, 2100,
             BossPhase.SPIRAL, BossPhase.RING, BossPhase.SPREAD),
 
-    FORGE_OVERSEER("Forge Overseer", BossArt.FORGE_OVERSEER, 2300, 2150,
+    FORGE_OVERSEER("Forge Overseer", BossArt.FORGE_OVERSEER, 3450, 2150,
             BossPhase.SPAWNER, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN, 2360, 2200,
+    PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN, 3540, 2200,
             BossPhase.RING, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE, 2420, 2250,
+    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE, 3630, 2250,
             BossPhase.AIMED_BURST, BossPhase.SWEEPING_FAN, BossPhase.SPIRAL),
 
-    CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD, 2480, 2300,
+    CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD, 3720, 2300,
             BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.SPAWNER),
 
-    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN, 2540, 2350,
+    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN, 3810, 2350,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.SPIRAL),
 
     /**
@@ -111,42 +118,42 @@ public enum Boss {
      *
      * A jump rather than a step at the health ladder, because a galaxy should end on one.
      */
-    VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG, 2800, 2550,
+    VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG, 4200, 2550,
             BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
             2, BossArt.FORGE_RIG_COCKPIT),
 
     // ---- Galaxy 3: Cryonis ---------------------------------------------------------------
-    // The ladder continues rather than restarting: sixty a step inside the galaxy again, opening
+    // The ladder continues rather than restarting: ninety a step inside the galaxy again, opening
     // above Vaunt, and a jump at the finale. Score rises fifty a step for the same reason.
     //
     // Phase orders are picked so no two flagships in the galaxy open the same way, as Ashfall's
     // are -- and so the two side-on legs, 21 and 29, do not share an opener either.
 
-    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER, 2860, 2600,
+    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER, 4290, 2600,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER, 2920, 2650,
+    FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER, 4380, 2650,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER, 2980, 2700,
+    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER, 4470, 2700,
             BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.SPAWNER),
 
-    ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH, 3040, 2750,
+    ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH, 4560, 2750,
             BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
-    CRYO_MARSHAL("Cryo Marshal", BossArt.CRYO_MARSHAL, 3100, 2800,
+    CRYO_MARSHAL("Cryo Marshal", BossArt.CRYO_MARSHAL, 4650, 2800,
             BossPhase.AIMED_BURST, BossPhase.SPAWNER, BossPhase.SWEEPING_FAN),
 
-    TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR, 3160, 2850,
+    TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR, 4740, 2850,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
 
-    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW, 3220, 2900,
+    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW, 4830, 2900,
             BossPhase.SPREAD, BossPhase.RING, BossPhase.SPAWNER),
 
-    HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION, 3280, 2950,
+    HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION, 4920, 2950,
             BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW, 3340, 3000,
+    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW, 5010, 3000,
             BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.RING),
 
     /**
@@ -160,35 +167,35 @@ public enum Boss {
      *
      * A jump rather than a step, because a galaxy should end on one.
      */
-    FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS, 3700, 3200,
+    FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS, 5550, 3200,
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.RING,
             4, BossArt.FROZEN_EMPRESS_HEAD),
 
     // ---- Galaxy 4: Tempest ---------------------------------------------------------------
-    // Sixty a step and fifty of score again, opening above the Frozen Empress, jump at the finale.
+    // Ninety a step and fifty of score again, opening above the Frozen Empress, jump at the finale.
     //
     // Two set pieces rather than one, so eight warships and animals rather than nine. Both reuse a
     // class that already exists -- PilotedMech and BurrowingWorm -- and neither needed a new one.
 
-    SQUALL_WARDEN("Squall Warden", BossArt.SQUALL_WARDEN, 3760, 3250,
+    SQUALL_WARDEN("Squall Warden", BossArt.SQUALL_WARDEN, 5640, 3250,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    THUNDER_BROOD("Thunder Brood", BossArt.THUNDER_BROOD, 3820, 3300,
+    THUNDER_BROOD("Thunder Brood", BossArt.THUNDER_BROOD, 5730, 3300,
             BossPhase.SPAWNER, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    EYEWALL_LANCE("Eyewall Lance", BossArt.EYEWALL_LANCE, 3880, 3350,
+    EYEWALL_LANCE("Eyewall Lance", BossArt.EYEWALL_LANCE, 5820, 3350,
             BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
-    RING_REAVER("Ring Reaver", BossArt.RING_REAVER, 3940, 3400,
+    RING_REAVER("Ring Reaver", BossArt.RING_REAVER, 5910, 3400,
             BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.SWEEPING_FAN),
 
-    STATIC_CRAWLER("Static Crawler", BossArt.STATIC_CRAWLER, 4000, 3450,
+    STATIC_CRAWLER("Static Crawler", BossArt.STATIC_CRAWLER, 6000, 3450,
             BossPhase.AIMED_BURST, BossPhase.RING, BossPhase.SPAWNER),
 
-    MAGNETAR_MAW("Magnetar Maw", BossArt.MAGNETAR_MAW, 4060, 3500,
+    MAGNETAR_MAW("Magnetar Maw", BossArt.MAGNETAR_MAW, 6090, 3500,
             BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.SPREAD),
 
-    DOWNDRAFT_PROW("Downdraft Prow", BossArt.DOWNDRAFT_PROW, 4120, 3550,
+    DOWNDRAFT_PROW("Downdraft Prow", BossArt.DOWNDRAFT_PROW, 6180, 3550,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
     /**
@@ -206,11 +213,11 @@ public enum Boss {
      *
      * Phases are Vaunt's own, deliberately. Same man, same doctrine, heavier machine.
      */
-    VAUNT_IN_THE_STORM_RIG("Vaunt, in the Storm-Rig", BossArt.STORM_RIG, 4180, 3600,
+    VAUNT_IN_THE_STORM_RIG("Vaunt, in the Storm-Rig", BossArt.STORM_RIG, 6270, 3600,
             BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
             2, BossArt.STORM_RIG_COCKPIT),
 
-    ARC_LANCE("Arc Lance", BossArt.ARC_LANCE, 4240, 3650,
+    ARC_LANCE("Arc Lance", BossArt.ARC_LANCE, 6360, 3650,
             BossPhase.SPIRAL, BossPhase.RING, BossPhase.SPREAD),
 
     /**
@@ -223,49 +230,53 @@ public enum Boss {
      *
      * What it does not share is the reach. See {@code BurrowingWorm.strikeReach}.
      */
-    STORM_SERPENT("The Storm Serpent", BossArt.STORM_SERPENT, 4700, 3850,
+    STORM_SERPENT("The Storm Serpent", BossArt.STORM_SERPENT, 7050, 3850,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.AIMED_BURST),
 
     // ---- Galaxy 5: Null ------------------------------------------------------------------
-    // Eighty a step in health and fifty of score, opening above the Storm Serpent. The steepest
-    // health ladder in the game, and the last one, so there is nothing after it to leave room for.
+    // A hundred and twenty a step in health and fifty of score, opening above the Storm Serpent.
+    // The steepest health ladder in the game, and the last one, so there is nothing after it to
+    // leave room for.
     //
     // One set piece rather than Tempest's two, so nine warships and animals rather than eight. Six
     // warships from three hull families and three creatures, and the finale is the only row here
     // that needed a class written for it.
 
-    BONEPICKER("The Bonepicker", BossArt.BONEPICKER, 4780, 3900,
+    BONEPICKER("The Bonepicker", BossArt.BONEPICKER, 7170, 3900,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    HULK_CHOIR("Hulk Choir", BossArt.HULK_CHOIR, 4860, 3950,
+    HULK_CHOIR("Hulk Choir", BossArt.HULK_CHOIR, 7290, 3950,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
 
-    SHROUDMAW("Shroudmaw", BossArt.SHROUDMAW, 4940, 4000,
+    SHROUDMAW("Shroudmaw", BossArt.SHROUDMAW, 7410, 4000,
             BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.RING),
 
-    LENSBREAKER("Lensbreaker", BossArt.LENSBREAKER, 5020, 4050,
+    LENSBREAKER("Lensbreaker", BossArt.LENSBREAKER, 7530, 4050,
             BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
-    TIDEWRACK("Tidewrack", BossArt.TIDEWRACK, 5100, 4100,
+    TIDEWRACK("Tidewrack", BossArt.TIDEWRACK, 7650, 4100,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
-    SHELLBORN("Shellborn", BossArt.SHELLBORN, 5180, 4150,
+    SHELLBORN("Shellborn", BossArt.SHELLBORN, 7770, 4150,
             BossPhase.SPAWNER, BossPhase.SPIRAL, BossPhase.RING),
 
-    FRAME_DRAG("Frame-Drag", BossArt.FRAME_DRAG, 5260, 4200,
+    FRAME_DRAG("Frame-Drag", BossArt.FRAME_DRAG, 7890, 4200,
             BossPhase.SPREAD, BossPhase.RING, BossPhase.SWEEPING_FAN),
 
-    PHOTON_HALO("Photon Halo", BossArt.PHOTON_HALO, 5340, 4250,
+    PHOTON_HALO("Photon Halo", BossArt.PHOTON_HALO, 8010, 4250,
             BossPhase.AIMED_BURST, BossPhase.SPREAD, BossPhase.SPIRAL),
 
-    GULLET("The Gullet", BossArt.GULLET, 5420, 4300,
+    GULLET("The Gullet", BossArt.GULLET, 8130, 4300,
             BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /**
      * Level 50. Aeon, the Hollow Star: the last fight in the campaign.
      *
-     * 6000 health at a maxed ship's roughly 200 damage a second is about thirty seconds of perfect
-     * fire -- a final boss rather than a sponge, and the jump a galaxy should end on.
+     * 9000 health at a maxed ship's roughly 200 damage a second is about forty-five seconds of
+     * perfect fire, and about sixty as actually fought once the level ramp is on it -- a final boss
+     * rather than a sponge, and the jump a galaxy should end on. The line this is staying the right
+     * side of is prefs.Difficulty.bossScale's: three times a flagship's written numbers is ninety
+     * seconds, which that javadoc calls a sponge rather than a hard fight.
      *
      * Four eyes, and they cost nothing but the art. {@code EnemyShip} builds a {@link BossHead} per
      * head in its own constructor and a head re-reads its body's centre every tick, so four
@@ -275,7 +286,7 @@ public enum Boss {
      * VORTEX is the only thing in the game that fires it, and the only reason it exists. It sits in
      * the final third because it is what this fight escalates into.
      */
-    AEON("Aeon, the Hollow Star", BossArt.AEON, 6000, 4600,
+    AEON("Aeon, the Hollow Star", BossArt.AEON, 9000, 4600,
             BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.VORTEX,
             4, BossArt.AEON_EYE);
 
@@ -348,6 +359,68 @@ public enum Boss {
             case VAUNT -> BossArt.FORGE_RIG_ARM;
             default -> null;
         };
+    }
+
+    /**
+     * The pattern this flagship breaks its own rhythm with, fired every fourth volley.
+     *
+     * A method rather than a fourth constructor argument, for the reason {@link #music()} is one --
+     * except the reasoning runs the other way and is worth being honest about. {@code music()} is a
+     * method because three constants answer it; every constant answers this. What makes it a method
+     * anyway is that the answer is per <em>galaxy</em> rather than per boss, so a table would be
+     * fifty rows carrying five values.
+     *
+     * Grouped by galaxy with the finale of each taking its own, so a galaxy has a signature attack
+     * and the thing at the end of it does something nobody has seen. Combined with the three health
+     * phases -- which already differ per flagship -- and the galaxy's {@link Ordnance}, no two
+     * fights in the campaign field the same three-plus-one.
+     *
+     * ponytail: per galaxy, not per boss. If a particular flagship ever wants its own, this becomes
+     * a fourth constructor argument and fifty rows grow a column.
+     */
+    public BossPhase special() {
+        boolean finale = indexInGalaxy() == LEVELS_PER_GALAXY;
+        return switch (ordinal() / LEVELS_PER_GALAXY) {
+            case 0 -> finale ? BossPhase.SCATTER : BossPhase.LANCE;
+            case 1 -> finale ? BossPhase.CROSSFIRE : BossPhase.BARRAGE;
+            case 2 -> finale ? BossPhase.BARRAGE : BossPhase.SCATTER;
+            case 3 -> finale ? BossPhase.LANCE : BossPhase.CROSSFIRE;
+            default -> finale ? BossPhase.SCATTER : BossPhase.LANCE;
+        };
+    }
+
+    /**
+     * Whether this flagship speeds up once it is nearly dead.
+     *
+     * The last third of a fight is where a health bar stops being a fight and starts being a chore,
+     * and a boss that strafes harder is the cheapest honest answer: nothing new on screen to read,
+     * the same pattern, less room to stand in. Not every flagship -- a thing that is frightening
+     * because it is slow should not stop being that at 30% -- so this is the half of the roster that
+     * reads as machinery or as an animal, and the set pieces sit it out.
+     *
+     * The finales all enrage. Whatever else a galaxy's last fight is, it should not be the fight
+     * that got easier once you were winning.
+     */
+    public boolean enrages() {
+        if (indexInGalaxy() == LEVELS_PER_GALAXY) {
+            return true;
+        }
+        // Every other flagship, by position: enough that it is a property of the campaign rather
+        // than a special case, and not so many that it stops being a thing you notice.
+        return indexInGalaxy() % 2 == 1;
+    }
+
+    /** Levels in a galaxy. Mirrors {@code mode.Galaxy.LEVELS_PER_GALAXY}, which entity cannot see. */
+    private static final int LEVELS_PER_GALAXY = 10;
+
+    /** This flagship's position within its galaxy, counting from one. */
+    private int indexInGalaxy() {
+        return ordinal() % LEVELS_PER_GALAXY + 1;
+    }
+
+    /** What this flagship's primary weapon puts in the air. */
+    public Ordnance ordnance() {
+        return Ordnance.forBoss(this);
     }
 
     /** Phase for this boss at the given 0..1 remaining-health fraction. */

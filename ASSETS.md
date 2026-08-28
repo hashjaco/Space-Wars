@@ -26,7 +26,8 @@ Three origins appear below:
 | `player/p{1,2}-*-hit.png` | Original | Damage frames: each pose blended toward the hostile glow by the generator |
 | `player/{azure,amber,violet,chrome}-*.png` | Original | Garage paint jobs: player one's cut frames, hue-rotated by the generator. Outlines are unsaturated, so they survive the rotation and the shading is preserved |
 | `player/{azure,amber,violet,chrome}-*-hit.png` | Original | Damage frames for the paint jobs, same blend as the stock hulls |
-| `player/kit-{fins,armour,lance}-*.png` | Original | Garage body kits: transparent decals drawn over any hull, placed from each pose's alpha bounding box so they track the bank |
+| `player/{interceptor,gunship,twin-boom}-{militia,corsair,azure,amber,violet,chrome}-*.png` | Generated | Garage chassis: player one's cut frames rescaled into three silhouettes by the generator, then hue-rotated into all six paints. Generated rather than Original because the outline is the generator's arithmetic and not the sheet's — the colour is all the sheet still contributes |
+| `player/kit-{fins,armour,lance,canards,scoop,mast,rack}-*.png` | Original | Garage body kits: transparent decals drawn over any hull, placed from each pose's alpha bounding box so they track the bank |
 | `player/*-side.png`, `player/*-hit-side.png` | Original | Every hull, paint job and kit decal above, cut again for the one level flown side-on. A quarter turn of the frame beside it, applied by the generator rather than at draw time, so the art and the collision box are the same shape — the same bargain `level-9/enemy-*.png` makes. Their `Sprite` dimensions are transposed to match |
 | `insignia/{chevrons,rods,bars,stars}-{1..4}.png` | Generated | Rank badges for the debrief. Four tiers by four mark counts, which is the grid `prefs.Rank` folds all twenty-six ranks onto |
 | `PlayProjectile.png`, `EnemyProjectile1.png`, `MegaLaser.png` | Original | Projectiles |
@@ -54,6 +55,9 @@ Three origins appear below:
 | `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons |
 | `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | Pickup icons |
 | `pickup-rocket.png` | Generated | Pickup icon |
+| `pickup-scythe.png`, `pickup-flak.png`, `pickup-nova.png` | Generated | Pickup icons for the three weapons added with the chassis |
+| `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
+| `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
 | `level-9/{far,mid,near}.png` | Generated | Dust Reach. The one level flown side-on, so its sky tiles horizontally rather than vertically — do not reuse these on a top-down level or the wrap shows a seam |
 | `level-9/enemy-{scout,fighter,cruiser}.png` | Generated | Dust Reach's hostiles, cut pointing left because the level runs that way. Their `Sprite` dimensions are transposed to match |
 | `level-10/{far,mid,near}.png` | Generated | Hollow Womb; a cavern in shades of meat |
@@ -72,8 +76,15 @@ metadata. All instrumental.
 Which track plays when is decided by `asset/MusicCue`, not by the file names — a cue holds several
 suitable tracks and picks one per round so replaying a mode does not always sound the same.
 
-All ten are encoded at 128 kbps to keep the download reasonable; the soundtrack would otherwise be
-most of it. The higher-bitrate exports are in git history.
+Nine of the ten are encoded at about 128 kbps to keep the download reasonable; the soundtrack would
+otherwise be most of it. `starlight-circuit.mp3` is the exception at 200 kbps -- it never went
+through the same encode pass, which is also why it is the loudest of the ten and half again the
+size of its neighbours.
+
+Only three have a higher-bitrate export in git history: `death-metal.wav`, `death-punk.wav` and
+`garage-music.wav`. The other seven were committed as the shipped MP3 and nothing else, so for
+those the 128 kbps file is the only copy that exists and a re-encode would be generation loss
+rather than a remaster.
 
 | File | Origin | Cue |
 |---|---|---|

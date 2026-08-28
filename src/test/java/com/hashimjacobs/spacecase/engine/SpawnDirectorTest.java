@@ -1,12 +1,16 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.entity.WaveShip;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.mode.Waves;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -46,8 +50,20 @@ class SpawnDirectorTest {
         assertTrue(world.asteroids().size() > 0, "battle mode keeps asteroid hazards");
     }
 
+    /**
+     * The difficulty cap governs the filler, not the fight the level authored.
+     *
+     * It used to govern everything, because everything was filler. Now a level fields designed
+     * waves and the trickle arrives on top of them, and the cap has to be read as "how much noise
+     * over the top" rather than "how big a fight may be" -- otherwise Easy, whose cap is four,
+     * could not field a six-ship wave at all, and the levels would quietly play differently from
+     * the way they were written.
+     *
+     * So the bound here is the biggest wave the level authors plus the cap: enough headroom for the
+     * fight and its filler, and still tight enough to catch a trickle that has stopped counting.
+     */
     @Test
-    void soloModeEventuallyFieldsEnemiesWithinTheDifficultyCap() {
+    void theDifficultyCapGovernsTheFillerNotTheAuthoredWave() {
         World world = new World(GameMode.SOLO);
         SpawnDirector director = new SpawnDirector(
                 new Random(3), Difficulty.NORMAL, GameMode.SOLO.rules());
@@ -56,9 +72,134 @@ class SpawnDirectorTest {
             director.update(world);
         }
 
+        // Every authored ship the level can field, because this loop never runs the world: nothing
+        // descends, nothing is culled and nothing dies, so each wave times out with all its ships
+        // still standing and they pile up. In a real fight they leave through the bottom.
+        int authored = 0;
+        for (List<WaveShip> wave : Waves.forLevel(Level.values()[0])) {
+            for (int group = 0; group < Waves.GROUPS_PER_WAVE; group++) {
+                authored += Waves.group(wave, group).size();
+            }
+        }
+
         assertTrue(world.enemies().size() > 0, "solo mode should field enemies");
-        assertTrue(world.enemies().size() <= Difficulty.NORMAL.maxEnemies(),
-                "enemy count must respect the difficulty cap");
+        assertTrue(world.enemies().size() <= authored + Difficulty.NORMAL.maxEnemies(),
+                "the filler has stopped respecting the difficulty cap");
+    }
+
+    /** Easy's cap is four; the level still gets to field the six-ship wave somebody wrote for it. */
+    @Test
+    void anAuthoredWaveArrivesWholeEvenWhenTheCapIsSmallerThanItIs() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(5), Difficulty.EASY, GameMode.SOLO.rules());
+        int authored = Waves.group(Waves.forLevel(Level.values()[0]).get(0), 0).size();
+        assertTrue(authored > Difficulty.EASY.maxEnemies(), "this level no longer proves the point");
+
+        director.update(world);
+
+        assertEquals(authored, world.enemies().size(),
+                "the whole wave should arrive, cap or no cap");
+    }
+
+    /**
+     * A wave arrives as a group. This is the whole feature: before it, a "wave" was a clock and
+     * enemies trickled in one at a time wherever the generator put them.
+     */
+    @Test
+    void aWaveArrivesAsAGroupRatherThanAsATrickle() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(17), Difficulty.NORMAL, GameMode.SOLO.rules());
+
+        director.update(world);
+
+        assertEquals(Waves.group(Waves.forLevel(Level.values()[0]).get(0), 0).size(),
+                world.enemies().size(),
+                "the wave's first group should be on the field after one tick");
+    }
+
+    /**
+     * Killing a group is what sends the next one, and killing the last of them ends the wave.
+     *
+     * Asserts it happens far inside the timeout, so a pass cannot be the clock quietly doing the
+     * work -- which is exactly how this feature would fail without anybody noticing.
+     *
+     * Three clears rather than one, because a wave is three groups now. The mid-loop assertion is
+     * the half worth having: without it, a build that launched all three groups at once, or that
+     * ended the wave on the first clear, would still reach wave two and pass.
+     */
+    @Test
+    void killingAGroupStartsTheNextOneEarlyAndTheThirdEndsTheWave() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(19), Difficulty.NORMAL, GameMode.SOLO.rules());
+
+        for (int group = 0; group < Waves.GROUPS_PER_WAVE; group++) {
+            // One tick to put the group up, and one after the kills for the director to notice.
+            director.update(world);
+            assertEquals(group + 1, director.groupInWave(), "each group waits for the last one");
+            assertEquals(1, director.waveInLevel(),
+                    "the wave should still be its first until every group of it is dead");
+            for (EnemyShip enemy : world.enemies()) {
+                enemy.kill();
+            }
+            world.sweep();
+            director.update(world);
+        }
+
+        assertEquals(2, director.waveInLevel(), "the next wave should already be running");
+        assertEquals(1, director.groupInWave(), "which opens on its own first group");
+    }
+
+    /**
+     * A survivor parked in a corner must not be able to hold a level open forever.
+     *
+     * The timeout is per group, so a wave nobody touches costs three of them.
+     */
+    @Test
+    void aCampedWaveTurnsOverAnyway() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(23), Difficulty.NORMAL, GameMode.SOLO.rules());
+
+        int waveTimeout = SpawnDirector.WAVE_TIMEOUT_TICKS * Waves.GROUPS_PER_WAVE;
+        for (int i = 0; i < waveTimeout + 1; i++) {
+            director.update(world);
+        }
+
+        assertTrue(director.waveInLevel() > 1, "the wave should have timed out");
+    }
+
+    /**
+     * The filler cannot hold a group open.
+     *
+     * A group is cleared when the ships <em>it</em> ordered are gone, not when the arena is empty.
+     * Getting that backwards would be invisible in play and fatal to the feature: the trickle never
+     * stops, so an arena-empty rule would mean every group ran to its timeout and nothing else.
+     */
+    @Test
+    void theFillerCannotStopAGroupFromClearing() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = new SpawnDirector(
+                new Random(29), Difficulty.HARD, GameMode.SOLO.rules());
+
+        director.update(world);
+        List<EnemyShip> wave = new ArrayList<>(world.enemies());
+        // Let the trickle put something else on the field alongside the wave.
+        for (int i = 0; i < 600 && world.enemies().size() <= wave.size(); i++) {
+            director.update(world);
+        }
+        assertTrue(world.enemies().size() > wave.size(), "no filler arrived, so this proves nothing");
+
+        for (EnemyShip enemy : wave) {
+            enemy.kill();
+        }
+        world.sweep();
+        director.update(world);
+
+        assertFalse(world.enemies().isEmpty(), "filler should still be on the field");
+        assertEquals(2, director.groupInWave(), "the group cleared when its own ships died");
     }
 
     @Test
@@ -347,8 +488,13 @@ class SpawnDirectorTest {
     void enemiesInATunnelSpawnInsideTheOpenLane() {
         World world = new World(GameMode.SOLO);
         world.enterLevel(Level.UNDERCITY);
+        // The director has to be in the tunnel too, not just the world. It used to be left on level
+        // one while the world was told to be Undercity, which passed only because both levels run
+        // top-down and the trickle is clamped against whatever terrain the world hands it. The
+        // moment level one fielded a wave of its own, six ships authored for open sky arrived in a
+        // cave -- which is not what this test is called, and not a fair thing to assert about.
         SpawnDirector director = new SpawnDirector(
-                new Random(31), Difficulty.HARD, GameMode.SOLO.rules());
+                new Random(31), Difficulty.HARD, GameMode.SOLO.rules(), Level.UNDERCITY, 1, 1);
 
         Terrain terrain = world.terrain();
         assertFalse(terrain.isEmpty(), "Undercity is supposed to be a cave");

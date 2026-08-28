@@ -1,0 +1,159 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Space Case capsule</title>
+<style>
+  :root {
+    --space: #0a0e1a;
+    --brand: #0ec417;
+    --verdance: #0ec417;
+    --ashfall: #e8641c;
+    --cryonis: #4fd0e8;
+    --tempest: #7ea8ff;
+    --null: #9a6bff;
+    --sprites: "file:///Users/hashim/Projects/Space-Wars/src/main/resources/sprites";
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: var(--space); }
+
+  .stage {
+    position: relative;
+    width: 100vw;
+    height: 100vh;
+    overflow: hidden;
+    background: var(--space);
+  }
+
+  /* The sky, pushed right and dimmed so type has a clean left field to sit on. */
+  .sky {
+    position: absolute;
+    inset: -6% -6% -6% 18%;
+    background: url("file:///Users/hashim/Projects/Space-Wars/src/main/resources/sprites/level-47/far.png")
+                center/cover no-repeat;
+    filter: brightness(0.78) saturate(1.15);
+  }
+  .vignette {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(120% 90% at 68% 45%, transparent 20%, rgba(10,14,26,.55) 70%, rgba(10,14,26,.95) 100%),
+      linear-gradient(90deg, var(--space) 6%, rgba(10,14,26,.90) 26%, rgba(10,14,26,.10) 58%, rgba(10,14,26,.55) 100%);
+  }
+
+  .boss {
+    position: absolute;
+    right: -2%;
+    top: 50%;
+    transform: translateY(-50%);
+    height: 96%;
+    aspect-ratio: 1 / 1;
+    background: url("file:///Users/hashim/Projects/Space-Wars/src/main/resources/sprites/boss-aeon/1.png")
+                center/contain no-repeat;
+    filter: drop-shadow(0 0 4vmin rgba(154,107,255,.55));
+  }
+
+  .ship {
+    position: absolute;
+    left: 52%;
+    bottom: 7%;
+    height: 17%;
+    aspect-ratio: 0.62 / 1;
+    background: url("file:///Users/hashim/Projects/Space-Wars/src/main/resources/sprites/player/p1-straight.png")
+                center/contain no-repeat;
+    filter: drop-shadow(0 0 1.6vmin rgba(124,232,255,.75));
+  }
+
+  .type {
+    position: absolute;
+    left: 6.5%;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 3;
+  }
+  .rule { width: 5.2em; height: 3px; background: var(--brand); margin-bottom: .5em; }
+  .word {
+    font-family: Impact, "Haettenschweiler", "Arial Black", sans-serif;
+    font-size: 15.5vh;
+    line-height: .84;
+    letter-spacing: .005em;
+    background: linear-gradient(180deg, #ffffff 34%, var(--brand) 128%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-stroke: 1.5px #05070c;
+    filter: drop-shadow(0 0 2.4vh rgba(14,196,23,.42));
+    white-space: nowrap;
+  }
+  .tag {
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    font-size: 3.05vh;
+    letter-spacing: .155em;
+    color: #a9b6c9;
+    margin-top: 1.15em;
+    white-space: nowrap;
+  }
+  .spectrum { display: flex; gap: 5px; margin-top: 1.5em; }
+  .spectrum i { width: 2.6em; height: 5px; border-radius: 1px; }
+
+  /* Tall shapes: stack the wordmark and let the boss sit behind it. */
+  body.vertical .sky { inset: 8% -10% 26% -10%; }
+  body.vertical .vignette {
+    background:
+      radial-gradient(110% 60% at 50% 26%, transparent 12%, rgba(10,14,26,.5) 62%, rgba(10,14,26,.96) 100%),
+      linear-gradient(180deg, rgba(10,14,26,.62) 0%, rgba(10,14,26,.05) 34%, rgba(10,14,26,.92) 74%, var(--space) 100%);
+  }
+  body.vertical .boss {
+    right: auto; left: 50%; top: 30%;
+    transform: translate(-50%, -50%);
+    height: auto; width: 88%;
+  }
+  /* Parked in the gap between the flagship and the type, not under either. */
+  body.vertical .ship { left: 50%; transform: translateX(-50%); bottom: 35%; height: 7%; }
+  body.vertical .type {
+    left: 50%; top: auto; bottom: 7%;
+    transform: translateX(-50%);
+    text-align: center;
+    width: 92%;
+  }
+  body.vertical .rule { margin-left: auto; margin-right: auto; }
+  body.vertical .word { font-size: 11.5vw; line-height: .9; white-space: normal; }
+  body.vertical .tag { font-size: 2.9vw; }
+  body.vertical .spectrum { justify-content: center; }
+
+  /* The 231x87 capsule: nothing survives at this size but the name. */
+  body.tiny .sky, body.tiny .boss, body.tiny .ship, body.tiny .spectrum, body.tiny .tag { display: none; }
+  body.tiny .vignette { background: linear-gradient(90deg, #05070c, #0c1120); }
+  /* Impact sits low in its line box, so the optical centre is above the geometric one. */
+  body.tiny .type { left: 50%; top: 43%; transform: translate(-50%, -50%); text-align: center; }
+  /* One line, sized to the width rather than the height: 87px of height is not the constraint,
+     231px of width is. The line break is dropped and a space put back in its place. */
+  body.tiny .word br { display: none; }
+  body.tiny .word span:last-of-type::before { content: "\00a0"; }
+  body.tiny .word {
+    font-size: 14vw;
+    line-height: 1.2;
+    white-space: nowrap;
+    -webkit-text-stroke: 0.75px #05070c;
+  }
+  body.tiny .rule { display: none; }
+</style>
+<div class="stage">
+  <div class="sky"></div>
+  <div class="vignette"></div>
+  <div class="boss"></div>
+  <div class="ship"></div>
+  <div class="type">
+    <div class="rule"></div>
+    <div class="word"><span>SPACE</span><br><span>CASE</span></div>
+    <div class="tag">FIFTY LEVELS · FIFTY FLAGSHIPS</div>
+    <div class="spectrum">
+      <i style="background:var(--verdance)"></i>
+      <i style="background:var(--ashfall)"></i>
+      <i style="background:var(--cryonis)"></i>
+      <i style="background:var(--tempest)"></i>
+      <i style="background:var(--null)"></i>
+    </div>
+  </div>
+</div>
+<script>
+  const q = new URLSearchParams(location.search);
+  if (q.get("shape")) document.body.classList.add(q.get("shape"));
+</script>

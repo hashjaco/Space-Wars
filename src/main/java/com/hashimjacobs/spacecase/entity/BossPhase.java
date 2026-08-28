@@ -43,16 +43,62 @@ public enum BossPhase {
      * Twelve shots at this spread span very nearly the whole circle. The spread is the widest the
      * pattern ever draws, not a constant -- see {@link #spreadRadiansAt}.
      */
-    VORTEX(12, 30, Math.PI / 6);
+    VORTEX(12, 30, Math.PI / 6),
+
+    // ---- Specials ----------------------------------------------------------------------------
+    //
+    // Fired on every fourth volley instead of the health phase, by Boss.special(). They are ordinary
+    // BossPhases and go through the same firing path -- what makes them special is when they arrive,
+    // not a second mechanism. Each hits harder than a phase does, which is what a player should feel
+    // when the rhythm they have been reading breaks.
+
+    /** One heavy round, aimed. The answer is to not be standing there when it comes. */
+    LANCE(1, 26, 0, 3.4),
+
+    /** A dense one-off curtain, wider and tighter than RING. Fired rarely because it fills the arena. */
+    SCATTER(15, 44, Math.PI / 14, 1.15),
+
+    /**
+     * Four rounds at right angles.
+     *
+     * The one pattern with a gap you can stand in on purpose rather than by luck, which is why it is
+     * the heaviest per round: reading it is the whole defence.
+     */
+    CROSSFIRE(4, 30, Math.PI / 2, 2.2),
+
+    /** A tight wall driven straight down the lane, with no spread to slip between. */
+    BARRAGE(7, 24, 0.09, 1.6);
 
     private final int shots;
     private final int cooldownTicks;
     private final double spreadRadians;
+    private final double damageScale;
 
     BossPhase(int shots, int cooldownTicks, double spreadRadians) {
+        this(shots, cooldownTicks, spreadRadians, 1);
+    }
+
+    BossPhase(int shots, int cooldownTicks, double spreadRadians, double damageScale) {
         this.shots = shots;
         this.cooldownTicks = cooldownTicks;
         this.spreadRadians = spreadRadians;
+        this.damageScale = damageScale;
+    }
+
+    /**
+     * What one round of this pattern hits for, against the ordinary enemy shot.
+     *
+     * One for every pattern that existed before the specials, so no fight in the campaign as it
+     * stood changes. A special earns its weight here rather than by firing more often -- a rare
+     * heavy round is readable, and a fast one is just a higher number on the same wall.
+     */
+    public double damageScale() {
+        return damageScale;
+    }
+
+    /** True when this pattern is one of the specials, which is what breaks the primary's rhythm. */
+    public boolean isSpecial() {
+        return this == LANCE || this == SCATTER || this == CROSSFIRE || this == BARRAGE;
     }
 
     public int shots() {
@@ -103,7 +149,7 @@ public enum BossPhase {
 
     /** True when the pattern should be aimed at a player rather than fired downward. */
     public boolean aimsAtPlayer() {
-        boolean aimed = this == AIMED_BURST;
+        boolean aimed = this == AIMED_BURST || this == LANCE;
         return aimed;
     }
 }

@@ -235,6 +235,15 @@ two hulls and read as one ship on `BossSheet`. They now span 0.75 to 2.06, and n
 broad classes share a hull. The two that repeat one are the tall Mast and the turned Delta, which
 cannot be confused with anything.
 
+**Rule 8 also covers the *number* of draws, not only new ones.** `maybeSpawnEnemy` checks the
+population against the difficulty cap *before* it rolls, so that early return decides whether
+`nextInt(1000)` is consumed this tick. Anything that changes how many enemies are on the field
+therefore shifts every subsequent draw in the stream, asteroids included — no new `random.next*()`
+call is added, but the stream moves just the same. Authored waves did exactly that, deliberately and
+with nowhere better to go: rolling before the cap check *adds* a draw, and exempting wave ships from
+the count makes the cap not a cap. Every seeded assertion in `SpawnDirectorTest` is a property
+rather than a golden number, which is why they survived it; if you add one, keep it that way.
+
 **`SpawnDirectorTest.theSameSeedProducesTheSameRun` does not enforce rule 8.** It counts asteroids
 over two runs in the same JVM at the same code version, so it proves determinism and nothing else. An
 added `random.next*()` call in a spawn path would fail no test at all. Rule 8 is a convention held by

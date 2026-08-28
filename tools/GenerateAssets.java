@@ -37,9 +37,11 @@ import javax.imageio.ImageIO;
  * Three rules keep that true, and CI only catches a breach of them once someone builds on a
  * different machine:
  *
- *   1. Trig goes through {@link StrictMath}, never {@code Math}. Math.sin, cos and pow are allowed
- *      one ulp of error and may differ between JVM implementations; only StrictMath is specified
- *      bit for bit. Math.min/max/abs/sqrt are exact and fine.
+ *   1. Every transcendental goes through {@link StrictMath}, never {@code Math}. Math.sin, cos,
+ *      pow, exp and log are allowed one ulp of error and may differ between JVM implementations;
+ *      only StrictMath is specified bit for bit. Math.min/max/abs/sqrt and Math.PI are exact and
+ *      fine. Said as "every transcendental" rather than "trig" because three Math.exp calls in
+ *      the sound synthesis sat here for a long time reading the narrower rule as permission.
  *   2. Never draw text. Graphics2D.drawString depends on which fonts the host has installed, so a
  *      rendered glyph is not reproducible. Every mark here is a shape -- see insignia() for how to
  *      draw a symbol without a font.
@@ -78,6 +80,7 @@ public final class GenerateAssets {
         creatures();
         mech();
         pickups();
+        projectiles();
         insignia();
         backgrounds();
 
@@ -153,8 +156,50 @@ public final class GenerateAssets {
         }
     }
 
+    /**
+     * The six paints a bought chassis is cut in, in {@code garage.Livery}'s declaration order.
+     *
+     * Separate from {@link Paintwork} rather than an extension of it, and deliberately: adding the
+     * two stock hues to that enum would put player one's row through the recolour loop twice more
+     * and write forty frames nobody asked for. The overlap is two rows of numbers; merging them
+     * would cost forty PNGs to save them.
+     *
+     * Militia green and corsair red are hues here where they are sheet rows for the stock ships --
+     * a bought chassis has no sheet row of its own to be green in, so every one of its paints has to
+     * come from a rotation.
+     */
+    private enum Coat {
+        MILITIA(0.33f, 1.0f),
+        CORSAIR(0.98f, 1.0f),
+        AZURE(0.55f, 1.0f),
+        AMBER(0.10f, 1.0f),
+        VIOLET(0.76f, 1.0f),
+        CHROME(0.00f, 0.15f);
+
+        private final float hue;
+        private final float saturationScale;
+
+        Coat(float hue, float saturationScale) {
+            this.hue = hue;
+            this.saturationScale = saturationScale;
+        }
+    }
+
+    /**
+     * Bought chassis, as transforms of player one's cut hull.
+     *
+     * Order matches {@code garage.Chassis}'s bought constants. A silhouette rather than a repaint is
+     * what makes these ships instead of paint jobs -- the roadmap's aspect lesson, four galaxies
+     * running: at sixty pixels the eye has the outline long before it has anything else.
+     *
+     * Moderate transforms on purpose. The kit decals are one P1-derived set measured off the alpha
+     * bounding box, so a wholesale reshape would leave them sitting off the wing.
+     */
+    private static final String[] CHASSIS = {"interceptor", "gunship", "twin-boom"};
+
     /** Body kits, drawn as transparent decals so one set serves every paint job. */
-    private static final String[] KITS = {"fins", "armour", "lance"};
+    private static final String[] KITS =
+            {"fins", "armour", "lance", "canards", "scoop", "mast", "rack"};
 
     private static void players() throws IOException {
         BufferedImage sheet = ImageIO.read(ART.resolve("spritesheet.png").toFile());
@@ -187,6 +232,114 @@ public final class GenerateAssets {
                 write(decal, SPRITES.resolve(name + ".png"));
                 write(quarterTurnLeft(decal), SPRITES.resolve(name + "-side.png"));
             }
+            // The bought chassis: a silhouette each, in all six paints. Every frame goes through
+            // writeHull like a stock hull does, so a chassis is scorched and turned for the side-on
+            // level on exactly the same terms.
+            for (int chassis = 0; chassis < CHASSIS.length; chassis++) {
+                BufferedImage shape = chassisFrame(hull, chassis);
+                for (Coat coat : Coat.values()) {
+                    BufferedImage painted = recolour(shape, coat.hue, coat.saturationScale);
+                    writeHull(painted, "player/" + CHASSIS[chassis] + "-"
+                            + coat.name().toLowerCase() + "-" + POSES[pose]);
+                }
+            }
+        }
+    }
+
+    /**
+     * One bought chassis's silhouette, from the hull the stock ship flies.
+     *
+     * Every result is the same {@link #PLAYER_FRAME_WIDTH} by {@link #PLAYER_FRAME_HEIGHT} canvas as
+     * a cut frame. That padding is not decoration -- decoding at a fixed on-screen size preserves
+     * each image's own aspect ratio, so a chassis on a different canvas would draw at a visibly
+     * different size from the ship beside it.
+     */
+    private static BufferedImage chassisFrame(BufferedImage hull, int chassis) {
+        return switch (chassis) {
+            // Narrowed and drawn out: the whole hull becomes one lens with a long tail.
+            case 0 -> rescaled(hull, 0.56, 1.22);
+            // Widened and squatter: a hull built around what it is carrying.
+            case 1 -> rescaled(hull, 1.46, 0.80);
+            // Two booms either side of a spine, which is the one outline here that is not the stock
+            // ship at another aspect.
+            default -> twinBoom(hull);
+        };
+    }
+
+    private static BufferedImage twinBoom(BufferedImage hull) {
+        BufferedImage boom = rescaled(hull, 0.40, 0.86);
+        BufferedImage spine = rescaled(hull, 0.34, 1.06);
+        BufferedImage frame = blank(hull.getWidth(), hull.getHeight());
+        int outboard = (int) (hull.getWidth() * 0.17);
+        int aft = (int) (hull.getHeight() * 0.06);
+        stamp(frame, boom, -outboard, aft);
+        stamp(frame, boom, outboard, aft);
+        // The spine last, so it sits over the roots of both booms rather than between them.
+        stamp(frame, spine, 0, 0);
+        return frame;
+    }
+
+    /**
+     * Nearest-neighbour would drop whole columns at these factors and leave a stepped edge, so this
+     * box-filters a fixed three-by-three of source samples per output pixel.
+     *
+     * All integer arithmetic, and the same samples on every JVM -- a {@code drawImage} with
+     * interpolation hints would not be, and CI regenerates these. Colour is accumulated
+     * premultiplied by alpha so a half-covered edge pixel does not pull the hull's dark outline into
+     * the transparent side as a fringe.
+     */
+    private static BufferedImage rescaled(BufferedImage frame, double scaleX, double scaleY) {
+        int w = frame.getWidth();
+        int h = frame.getHeight();
+        BufferedImage out = blank(w, h);
+        double cx = w / 2.0;
+        double cy = h / 2.0;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int red = 0;
+                int green = 0;
+                int blue = 0;
+                int alpha = 0;
+                for (int sub = 0; sub < 9; sub++) {
+                    double sx = (x + (sub % 3) / 3.0 - cx) / scaleX + cx;
+                    double sy = (y + (sub / 3) / 3.0 - cy) / scaleY + cy;
+                    int px = (int) Math.floor(sx);
+                    int py = (int) Math.floor(sy);
+                    if (px < 0 || py < 0 || px >= w || py >= h) {
+                        continue;
+                    }
+                    int argb = frame.getRGB(px, py);
+                    int a = argb >>> 24;
+                    alpha += a;
+                    red += ((argb >> 16) & 0xff) * a;
+                    green += ((argb >> 8) & 0xff) * a;
+                    blue += (argb & 0xff) * a;
+                }
+                if (alpha == 0) {
+                    continue;
+                }
+                out.setRGB(x, y, ((alpha / 9) << 24) | ((red / alpha) << 16)
+                        | ((green / alpha) << 8) | (blue / alpha));
+            }
+        }
+        return out;
+    }
+
+    /** Copies every non-transparent pixel of a frame onto a canvas at an offset. */
+    private static void stamp(BufferedImage canvas, BufferedImage frame, int dx, int dy) {
+        for (int y = 0; y < frame.getHeight(); y++) {
+            for (int x = 0; x < frame.getWidth(); x++) {
+                int argb = frame.getRGB(x, y);
+                if ((argb >>> 24) == 0) {
+                    continue;
+                }
+                int tx = x + dx;
+                int ty = y + dy;
+                if (tx < 0 || ty < 0 || tx >= canvas.getWidth() || ty >= canvas.getHeight()) {
+                    continue;
+                }
+                canvas.setRGB(tx, ty, argb);
+            }
         }
     }
 
@@ -213,6 +366,16 @@ public final class GenerateAssets {
 
     /** Rotates every opaque pixel's hue, preserving its brightness, shading and alpha. */
     private static BufferedImage recolour(BufferedImage frame, Paintwork paint) {
+        return recolour(frame, paint.hue, paint.saturationScale);
+    }
+
+    /**
+     * The same rotation, taking the hue directly.
+     *
+     * An overload rather than a widened signature: the four {@link Paintwork} rows have to keep
+     * producing the bytes they always did, and a chassis paint comes from {@link Coat} instead.
+     */
+    private static BufferedImage recolour(BufferedImage frame, float hue, float saturationScale) {
         BufferedImage painted = blank(frame.getWidth(), frame.getHeight());
         float[] hsb = new float[3];
         for (int y = 0; y < frame.getHeight(); y++) {
@@ -223,8 +386,8 @@ public final class GenerateAssets {
                     continue;
                 }
                 Color.RGBtoHSB((argb >> 16) & 0xff, (argb >> 8) & 0xff, argb & 0xff, hsb);
-                float saturation = Math.min(1f, hsb[1] * paint.saturationScale);
-                int rgb = Color.HSBtoRGB(paint.hue, saturation, hsb[2]);
+                float saturation = Math.min(1f, hsb[1] * saturationScale);
+                int rgb = Color.HSBtoRGB(hue, saturation, hsb[2]);
                 painted.setRGB(x, y, (alpha << 24) | (rgb & 0xffffff));
             }
         }
@@ -270,7 +433,10 @@ public final class GenerateAssets {
                 g.draw(new Rectangle2D.Double(box.getMaxX() - box.width * 0.04 - plateW, plateY,
                         plateW, plateH));
             }
-            default -> {
+            // Was the default arm, which is why it is spelled out now: a fourth kit appended as
+            // case 3 would never have been reached, and would have drawn a lance under its own name
+            // with nothing to report it.
+            case 2 -> {
                 // Nose lance: a spike off the prow with a hot tip.
                 g.setColor(HULL_LIGHT);
                 g.fill(path(1, 1, new double[][]{
@@ -281,9 +447,85 @@ public final class GenerateAssets {
                 g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.022,
                         box.y - box.height * 0.09, box.width * 0.044, box.height * 0.045));
             }
+            case 3 -> {
+                // Canards: a second, smaller wing pair forward of the shoulder.
+                g.setColor(HULL_LIGHT);
+                g.fill(canardAt(box, -1));
+                g.fill(canardAt(box, 1));
+                g.setColor(HULL_MID);
+                g.setStroke(new BasicStroke((float) Math.max(1, box.width * 0.010)));
+                g.draw(canardAt(box, -1));
+                g.draw(canardAt(box, 1));
+            }
+            case 4 -> {
+                // Ram scoop: an intake slung under the prow, with its throat darker than its lip.
+                double mouthW = box.width * 0.30;
+                double mouthH = box.height * 0.15;
+                double mouthX = box.getCenterX() - mouthW / 2;
+                double mouthY = box.y + box.height * 0.07;
+                g.setColor(HULL_MID);
+                g.fill(new RoundRectangle2D.Double(mouthX, mouthY, mouthW, mouthH,
+                        mouthH * 0.7, mouthH * 0.7));
+                g.setColor(HULL_DARK);
+                g.fill(new RoundRectangle2D.Double(mouthX + mouthW * 0.14,
+                        mouthY + mouthH * 0.26, mouthW * 0.72, mouthH * 0.48,
+                        mouthH * 0.4, mouthH * 0.4));
+                g.setColor(HULL_LIGHT);
+                g.setStroke(new BasicStroke((float) Math.max(1, box.width * 0.012)));
+                g.draw(new RoundRectangle2D.Double(mouthX, mouthY, mouthW, mouthH,
+                        mouthH * 0.7, mouthH * 0.7));
+            }
+            case 5 -> {
+                // Sensor mast: a tall aft array. The one kit that breaks the hull's outline upward
+                // rather than sideways, so it reads at a glance against the other six.
+                double mastW = box.width * 0.09;
+                double mastX = box.getCenterX() - mastW / 2;
+                g.setColor(HULL_MID);
+                g.fill(new Rectangle2D.Double(mastX, box.getMaxY() - box.height * 0.30,
+                        mastW, box.height * 0.56));
+                g.setColor(HULL_LIGHT);
+                for (int rung = 0; rung < 3; rung++) {
+                    double y = box.getMaxY() + box.height * (0.05 + rung * 0.075);
+                    double span = box.width * (0.40 - rung * 0.11);
+                    g.fill(new Rectangle2D.Double(box.getCenterX() - span / 2, y,
+                            span, box.height * 0.055));
+                }
+                g.setColor(BRAND);
+                g.fill(new Ellipse2D.Double(box.getCenterX() - box.width * 0.045,
+                        box.getMaxY() + box.height * 0.26, box.width * 0.09, box.height * 0.075));
+            }
+            default -> {
+                // Drone rack: pods in a file along each flank, the outermost pair shortest.
+                g.setColor(HULL_MID);
+                double podW = box.width * 0.15;
+                double podH = box.height * 0.17;
+                for (int side = -1; side <= 1; side += 2) {
+                    for (int pod = 0; pod < 3; pod++) {
+                        double x = box.getCenterX() + side * box.width * 0.30 - podW / 2;
+                        double y = box.getCenterY() - box.height * 0.22 + pod * podH * 1.15;
+                        g.setColor(pod == 2 ? HULL_LIGHT : HULL_MID);
+                        g.fill(new RoundRectangle2D.Double(x, y, podW,
+                                podH * (pod == 2 ? 0.7 : 1), podW * 0.5, podW * 0.5));
+                        g.setColor(BRAND);
+                        g.fill(new Ellipse2D.Double(x + podW * 0.32, y + podH * 0.12,
+                                podW * 0.36, podH * 0.22));
+                    }
+                }
+            }
         }
         g.dispose();
         return decal;
+    }
+
+    /** One forward canard, smaller than a fin and set ahead of the shoulder; side -1 is left. */
+    private static Path2D canardAt(Rectangle box, int side) {
+        double rootX = box.getCenterX() + side * box.width * 0.14;
+        double tipX = rootX + side * box.width * 0.32;
+        return path(1, 1, new double[][]{
+                {rootX, box.y + box.height * 0.13},
+                {rootX, box.y + box.height * 0.34},
+                {tipX, box.y + box.height * 0.31},
+                {tipX, box.y + box.height * 0.21}});
     }
 
     /** One swept fin off the hull's trailing edge; side is -1 for left, 1 for right. */
@@ -3084,6 +3326,228 @@ public final class GenerateAssets {
             g.drawLine(64, 80, 64, 106);
             g.drawLine(51, 93, 77, 93);
         }), SPRITES.resolve("pickup-extra-life.png"));
+
+        write(icon(g -> {
+            // A crescent blade: the scythe cuts across the lane rather than down it, so the glyph
+            // lies on its side where every other weapon's stands up.
+            Color steel = new Color(0xbcd4e6);
+            capsule(g, steel);
+            Path2D blade = new Path2D.Double();
+            blade.moveTo(24, 74);
+            blade.curveTo(44, 40, 84, 40, 104, 74);
+            blade.curveTo(84, 58, 44, 58, 24, 74);
+            blade.closePath();
+            g.setColor(steel);
+            g.fill(blade);
+            g.setColor(new Color(0x5b8fa8));
+            g.setStroke(new BasicStroke(4f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g.draw(blade);
+            // The haft, short and off to one side, so the crescent is not a smile.
+            g.setColor(new Color(0x6d5a48));
+            g.fillRoundRect(60, 70, 8, 34, 4, 4);
+        }), SPRITES.resolve("pickup-scythe.png"));
+
+        write(icon(g -> {
+            // A burst: short strokes fanning from one point, which is the shape the cone throws.
+            Color ember = new Color(0xffb038);
+            capsule(g, ember);
+            g.setColor(ember);
+            g.setStroke(new BasicStroke(7f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            for (int i = 0; i < 5; i++) {
+                double angle = StrictMath.PI * (0.62 + 0.19 * i);
+                g.draw(new java.awt.geom.Line2D.Double(64, 104,
+                        64 + StrictMath.cos(angle) * 40, 104 + StrictMath.sin(angle) * 40));
+            }
+            g.setColor(new Color(0xfff0c4));
+            for (int i = 0; i < 4; i++) {
+                double angle = StrictMath.PI * (0.71 + 0.19 * i);
+                g.fill(new Ellipse2D.Double(64 + StrictMath.cos(angle) * 46 - 5,
+                        104 + StrictMath.sin(angle) * 46 - 5, 10, 10));
+            }
+            g.setColor(new Color(0x8a5a1c));
+            g.fillRoundRect(56, 98, 16, 16, 6, 6);
+        }), SPRITES.resolve("pickup-flak.png"));
+
+        write(icon(g -> {
+            // A shell inside a ring: the bomb and the radius it answers for.
+            Color violet = new Color(0xb46bff);
+            capsule(g, violet);
+            g.setColor(alpha(violet, 150));
+            g.setStroke(new BasicStroke(5f));
+            g.draw(new Ellipse2D.Double(26, 26, 76, 76));
+            g.setColor(alpha(violet, 90));
+            g.setStroke(new BasicStroke(3f));
+            g.draw(new Ellipse2D.Double(36, 36, 56, 56));
+            g.setPaint(new RadialGradientPaint(64f, 64f, 26f,
+                    new float[]{0f, 0.55f, 1f},
+                    new Color[]{new Color(0xfff2ff), violet, alpha(violet, 210)}));
+            g.fill(new Ellipse2D.Double(44, 44, 40, 40));
+            g.setColor(new Color(0x3a1a5c));
+            g.setStroke(new BasicStroke(4f));
+            g.draw(new Ellipse2D.Double(44, 44, 40, 40));
+        }), SPRITES.resolve("pickup-nova.png"));
+    }
+
+    /**
+     * The three rounds the new weapons put on screen.
+     *
+     * The first generated projectiles in the game -- the others are the author's own and better than
+     * anything here would produce. These are generated because there is no hand-drawn sheet for
+     * them, and each is drawn at the size it is fired at rather than at icon size, so what the
+     * player sees is what was drawn.
+     */
+    private static void projectiles() throws IOException {
+        // The scythe: a broad crescent, wider than it is tall, drawn lying across the lane.
+        BufferedImage blade = blank(192, 64);
+        Graphics2D g = paint(blade);
+        Path2D crescent = new Path2D.Double();
+        crescent.moveTo(8, 44);
+        crescent.curveTo(52, 4, 140, 4, 184, 44);
+        crescent.curveTo(140, 26, 52, 26, 8, 44);
+        crescent.closePath();
+        g.setColor(new Color(0xdfeaf5));
+        g.fill(crescent);
+        g.setColor(new Color(0x7fa6c8));
+        g.setStroke(new BasicStroke(3f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(crescent);
+        g.setColor(alpha(new Color(0xbcd4e6), 140));
+        g.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(new java.awt.geom.Line2D.Double(20, 50, 172, 50));
+        g.dispose();
+        write(blade, SPRITES.resolve("scythe-blade.png"));
+
+        // A flak pellet: small, hot, and round enough to read at twelve pixels.
+        BufferedImage pellet = blank(32, 32);
+        g = paint(pellet);
+        g.setPaint(new RadialGradientPaint(16f, 16f, 15f,
+                new float[]{0f, 0.5f, 1f},
+                new Color[]{new Color(0xfff4d2), new Color(0xffb038), alpha(new Color(0xc7411f), 0)}));
+        g.fill(new Ellipse2D.Double(1, 1, 30, 30));
+        g.setColor(new Color(0xfff4d2));
+        g.fill(new Ellipse2D.Double(11, 11, 10, 10));
+        g.dispose();
+        write(pellet, SPRITES.resolve("flak-pellet.png"));
+
+        // The nova shell: a dark core with a violet corona, so it reads as carrying something.
+        BufferedImage shell = blank(64, 80);
+        g = paint(shell);
+        g.setPaint(new RadialGradientPaint(32f, 40f, 31f,
+                new float[]{0f, 0.6f, 1f},
+                new Color[]{alpha(new Color(0xb46bff), 210), alpha(new Color(0x7a3ccc), 120),
+                        alpha(new Color(0x7a3ccc), 0)}));
+        g.fill(new Ellipse2D.Double(0, 8, 64, 64));
+        g.setColor(new Color(0x2a1240));
+        g.fill(new Ellipse2D.Double(18, 26, 28, 28));
+        g.setColor(new Color(0xd9b0ff));
+        g.setStroke(new BasicStroke(3f));
+        g.draw(new Ellipse2D.Double(18, 26, 28, 28));
+        g.setColor(new Color(0xfff2ff));
+        g.fill(new Ellipse2D.Double(28, 36, 8, 8));
+        g.dispose();
+        write(shell, SPRITES.resolve("nova-shell.png"));
+
+        ordnance();
+    }
+
+    /**
+     * A round per galaxy for the flagships to fire.
+     *
+     * Every boss in the game fired the same green bolt, which made fifty fights look like one at any
+     * distance -- the pattern varied and the projectile never did. A navy shares a weapon, so these
+     * go by galaxy: what a flagship shoots says which part of the campaign you are in before the
+     * backdrop does.
+     *
+     * Verdance keeps the hand-drawn original and is not here. The four below are drawn nose-up like
+     * every other projectile, and the renderer turns them by velocity.
+     */
+    private static void ordnance() throws IOException {
+        // Ashfall: a cinder, trailing. Hot core, ragged edge, and the only one that is not symmetric
+        // about its waist -- it reads as something thrown rather than fired.
+        BufferedImage ember = blank(24, 34);
+        Graphics2D g = paint(ember);
+        g.setPaint(new RadialGradientPaint(12f, 20f, 16f,
+                new float[]{0f, 0.45f, 1f},
+                new Color[]{new Color(0xfff0c0), alpha(new Color(0xff7a1e), 190),
+                        alpha(new Color(0xc7411f), 0)}));
+        g.fill(new Ellipse2D.Double(-4, 2, 32, 32));
+        g.setColor(new Color(0xffd47a));
+        Path2D cinder = new Path2D.Double();
+        cinder.moveTo(12, 2);
+        cinder.lineTo(19, 16);
+        cinder.lineTo(14, 30);
+        cinder.lineTo(9, 20);
+        cinder.lineTo(5, 13);
+        cinder.closePath();
+        g.fill(cinder);
+        g.setColor(new Color(0xfffbe8));
+        g.fill(new Ellipse2D.Double(9, 10, 6, 9));
+        g.dispose();
+        write(ember, SPRITES.resolve("boss-ember.png"));
+
+        // Cryonis: a splinter of ice. Long, pale, hard-edged -- the one round with a point on it.
+        BufferedImage shard = blank(20, 38);
+        g = paint(shard);
+        Path2D splinter = new Path2D.Double();
+        splinter.moveTo(10, 0);
+        splinter.lineTo(16, 16);
+        splinter.lineTo(12, 38);
+        splinter.lineTo(8, 38);
+        splinter.lineTo(4, 16);
+        splinter.closePath();
+        g.setColor(alpha(new Color(0x6fd8ff), 120));
+        g.fill(new Ellipse2D.Double(-2, 4, 24, 30));
+        g.setColor(new Color(0xcdf2ff));
+        g.fill(splinter);
+        g.setColor(new Color(0x3d9ec4));
+        g.setStroke(new BasicStroke(2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(splinter);
+        g.setColor(new Color(0xffffff));
+        g.fill(new Rectangle2D.Double(9, 6, 2, 22));
+        g.dispose();
+        write(shard, SPRITES.resolve("boss-shard.png"));
+
+        // Tempest: a lightning bolt, drawn as a zigzag rather than a blob so it is the one round with
+        // corners in it.
+        BufferedImage bolt = blank(22, 36);
+        g = paint(bolt);
+        g.setPaint(new RadialGradientPaint(11f, 18f, 15f,
+                new float[]{0f, 0.5f, 1f},
+                new Color[]{alpha(new Color(0xbfe0ff), 170), alpha(new Color(0x4f7dff), 110),
+                        alpha(new Color(0x4f7dff), 0)}));
+        g.fill(new Ellipse2D.Double(-4, 3, 30, 30));
+        Path2D zig = new Path2D.Double();
+        zig.moveTo(13, 1);
+        zig.lineTo(6, 17);
+        zig.lineTo(11, 17);
+        zig.lineTo(8, 35);
+        zig.lineTo(17, 15);
+        zig.lineTo(12, 15);
+        zig.lineTo(16, 1);
+        zig.closePath();
+        g.setColor(new Color(0xeaf3ff));
+        g.fill(zig);
+        g.setColor(new Color(0x7ea8ff));
+        g.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.draw(zig);
+        g.dispose();
+        write(bolt, SPRITES.resolve("boss-bolt.png"));
+
+        // Null: a hole with a rim. Darker in the middle than the arena behind it, which is the only
+        // round in the game that takes light rather than giving it.
+        BufferedImage orb = blank(30, 30);
+        g = paint(orb);
+        g.setPaint(new RadialGradientPaint(15f, 15f, 15f,
+                new float[]{0f, 0.62f, 1f},
+                new Color[]{alpha(new Color(0x9a6bff), 200), alpha(new Color(0x5a2ea8), 140),
+                        alpha(new Color(0x5a2ea8), 0)}));
+        g.fill(new Ellipse2D.Double(0, 0, 30, 30));
+        g.setColor(new Color(0x07050f));
+        g.fill(new Ellipse2D.Double(8, 8, 14, 14));
+        g.setColor(new Color(0xd9b0ff));
+        g.setStroke(new BasicStroke(2.2f));
+        g.draw(new Ellipse2D.Double(8, 8, 14, 14));
+        g.dispose();
+        write(orb, SPRITES.resolve("boss-void.png"));
     }
 
     /**
@@ -4025,7 +4489,7 @@ public final class GenerateAssets {
             double t = i / (double) SAMPLE_RATE;
             double progress = t / duration;
             double freq = 1500 - 1050 * progress;
-            double envelope = Math.exp(-5.5 * progress);
+            double envelope = StrictMath.exp(-5.5 * progress);
             mix[i] = square(freq, t) * 0.35 * envelope;
         }
         writeWav(mix, SOUNDS.resolve("laser.wav"));
@@ -4038,7 +4502,7 @@ public final class GenerateAssets {
         double lowpass = 0;
         for (int i = 0; i < mix.length; i++) {
             double progress = i / (double) mix.length;
-            double envelope = Math.exp(-4.2 * progress);
+            double envelope = StrictMath.exp(-4.2 * progress);
             double white = random.nextDouble() * 2 - 1;
             // One-pole lowpass, opening then closing, so it reads as a boom not a hiss.
             double cutoff = 0.36 - 0.26 * progress;
@@ -4055,7 +4519,7 @@ public final class GenerateAssets {
         Random random = new Random(21);
         for (int i = 0; i < mix.length; i++) {
             double progress = i / (double) mix.length;
-            double envelope = Math.exp(-11 * progress);
+            double envelope = StrictMath.exp(-11 * progress);
             double body = StrictMath.sin(2 * Math.PI * (150 - 90 * progress) * i / SAMPLE_RATE);
             double grit = (random.nextDouble() * 2 - 1) * 0.3;
             mix[i] = (body + grit) * envelope * 0.55;

@@ -80,6 +80,10 @@ public final class MechPart extends EnemyShip {
     @Override
     public void takeDamage(int amount) {
         if (guarded && body.hasLivingGuard()) {
+            // Same reason the flash and the sound still play: a full bar that will not move reads
+            // as armour, and nothing at all reads as the shot having missed. Explicit here because
+            // this returns before super.takeDamage, which is where every other hull is stamped.
+            showHitBar();
             return;
         }
         super.takeDamage(amount);

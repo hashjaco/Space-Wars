@@ -21,10 +21,15 @@ package com.hashimjacobs.spacecase.entity;
 public final class VoidEntity extends EnemyShip {
 
     /**
-     * Ticks for one lap. Slow on purpose: this is the last fight in the game and the arena is the
-     * puzzle, so the orbit has to be readable far enough ahead to be flown around.
+     * Ticks for one lap. Still readable, and no longer sedate.
+     *
+     * Slow on purpose: this is the last fight in the game and the arena is the puzzle, so the orbit
+     * has to be readable far enough ahead to be flown around. Six and a bit seconds a lap is; the
+     * old 520 was nearly nine, which read less as a puzzle than as waiting. Both radii are
+     * untouched, so the path is the same ellipse and every bound AeonTest holds it to is a bound on
+     * that path rather than on how fast it is walked.
      */
-    private static final double ORBIT_TICKS = 520;
+    private static final double ORBIT_TICKS = 380;
 
     /**
      * Half the width of the orbit, across the lane.

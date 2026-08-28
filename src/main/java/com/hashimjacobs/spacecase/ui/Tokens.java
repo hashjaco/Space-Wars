@@ -37,6 +37,13 @@ public final class Tokens {
 
     // ---- Surfaces, back to front ----------------------------------------------------------
 
+    /**
+     * Empty space, behind every parallax layer.
+     *
+     * The backdrop art is transparent where there is nothing in it, so both the arena and the
+     * menus need something opaque underneath or the previous frame shows through.
+     */
+    public static final Color SPACE = Color.web("#0a0e1a");
     /** Menu button fill, drawn under its own opacity. */
     public static final Color SURFACE_0 = Color.web("#05070c");
     /** Panels: garage bays, debrief columns, map detail. */
@@ -128,6 +135,18 @@ public final class Tokens {
     public static final double STROKE_HAIR = 1;
     public static final double STROKE = 1.5;
     public static final double STROKE_BOLD = 2;
+
+    /**
+     * Menu row width.
+     *
+     * One number for every menu row, because the button and the rule that used to sit under it were
+     * two independent constants in two files with an implied relationship, and they drifted.
+     *
+     * Sized so a two-line save row's detail fits without truncating: the worst case is
+     * "Single Player - Lv50 Mag-Storm Caverns - loop 9 - 12,345,678", about 60 characters, which at
+     * Verdana 12 comes to roughly 410px inside 460 less the row padding.
+     */
+    public static final double ROW_WIDTH = 460;
 
     /** Row pitches. A menu row is a button; the others are lines of text in a panel. */
     public static final double ROW_MENU = 42;

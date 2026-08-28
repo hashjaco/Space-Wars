@@ -136,15 +136,18 @@ class CollisionSystemTest {
 
     /** Health is private; a scout's remaining fraction against its archetype maximum stands in. */
     /**
-     * The mega laser, which is the one weapon that does not stop at what it hits.
+     * The mega laser stops at the first hull in its lane, and the hull shields what is behind it.
      *
-     * Two enemies stacked in the same column both take the tick. A bullet fired at the same pair
-     * would hit exactly one -- {@code aShotStopsAtTheFirstThingItHits} above pins that -- so this
-     * is the difference between the beam and everything else, and the thing most likely to be
-     * quietly broken by a change to the collision pass.
+     * It used to pierce, and the pierce was the weapon's whole identity -- but it was also drawn
+     * nose-to-wall through whatever it met, which read as the beam missing the thing it was in fact
+     * killing. Stopping is what buys the impact.
+     *
+     * Both halves matter and both are here. The near enemy still burns for a full tick -- a beam
+     * that stopped <em>short</em> of what it hit would pass a test that only checked the far one --
+     * and the far enemy takes nothing at all.
      */
     @Test
-    void theBeamBurnsEverythingInTheLaneRatherThanStoppingAtTheFirst() {
+    void theBeamStopsAtTheFirstThingItHits() {
         World world = new World(GameMode.SOLO);
         PlayerShip player = world.players().get(0);
         EnemyShip near = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT,
@@ -158,10 +161,99 @@ class CollisionSystemTest {
 
         system().resolve(world);
 
-        int expected = EnemyShip.EnemyKind.SCOUT.health()
+        int burnt = EnemyShip.EnemyKind.SCOUT.health()
                 - player.damageFor(GameConfig.BEAM_DAMAGE_PER_TICK);
-        assertEquals(expected, healthOf(near), "the near enemy burns");
-        assertEquals(expected, healthOf(far), "and so does the one behind it");
+        assertEquals(burnt, healthOf(near), "the near enemy burns");
+        assertEquals(EnemyShip.EnemyKind.SCOUT.health(), healthOf(far),
+                "the one behind it is shielded by the one in front");
+        assertTrue(player.beamStopped(), "and the beam knows it landed, so the renderer can bloom it");
+    }
+
+    /** A clear lane is still a full-length beam: the stop is a clamp, not a new default. */
+    @Test
+    void aBeamWithNothingInItStillReachesTheWall() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        player.collect(PowerUp.Kind.MEGA_LASER);
+        player.setFiringBeam(true);
+
+        system().resolve(world);
+
+        assertFalse(player.beamStopped(), "nothing was in the lane");
+        assertEquals(0, player.beamBox()[1], "the beam should run to the top wall");
+    }
+
+    /**
+     * The scythe goes through a column and burns every hull in it exactly once.
+     *
+     * Both halves matter. A blade that stopped would be a slow bullet, and one that did not remember
+     * what it had already cut would burn the first ship sixty times a second on its way past --
+     * which is one line away from the first and invisible in a screenshot.
+     */
+    @Test
+    void aPiercingRoundCutsEveryHullOnceAndKeepsGoing() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        EnemyShip near = new EnemyShip(EnemyShip.EnemyKind.CRUISER, Sprite.L1_CRUISER, 400, 300);
+        EnemyShip far = new EnemyShip(EnemyShip.EnemyKind.CRUISER, Sprite.L1_CRUISER, 400, 260);
+        world.addEnemy(near);
+        world.addEnemy(far);
+        Bullet blade = new Bullet(Sprite.SCYTHE_BLADE, 400, 305, 0, -4, player, 7).piercing();
+        world.addBullet(blade);
+
+        CollisionSystem system = system();
+        system.resolve(world);
+        system.resolve(world);
+
+        assertTrue(blade.isAlive(), "a piercing round must not die on what it hits");
+        int max = EnemyShip.EnemyKind.CRUISER.health();
+        assertEquals(max - 7, healthOf(near), "the near hull is cut once, not once a tick");
+        assertEquals(max - 7, healthOf(far), "and the one behind it is cut too");
+    }
+
+    /** A fused round is a range limit: it expires on its own rather than leaving through the wall. */
+    @Test
+    void aFusedRoundExpiresWhereItsRangeRunsOut() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        Bullet pellet = new Bullet(Sprite.FLAK_PELLET, 400, 300, 0, -13, player, 9).withFuse(3);
+        world.addBullet(pellet);
+
+        for (int tick = 0; tick < 3; tick++) {
+            assertTrue(pellet.isAlive(), "the pellet died before its fuse ran out");
+            pellet.update();
+        }
+
+        assertFalse(pellet.isAlive(), "the pellet outlived its fuse");
+    }
+
+    /**
+     * The nova answers for a radius, and for one explosion rather than one per victim.
+     *
+     * That second half is why the count is asserted: {@code World.addExplosion} kicks the camera on
+     * every call, so a blast that spawned one per kill would shake the screen once per ship in it.
+     */
+    @Test
+    void aDetonatingRoundBurnsEverythingInItsRadiusAndShakesOnce() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip player = world.players().get(0);
+        EnemyShip hit = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 400, 300);
+        EnemyShip beside = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 460, 300);
+        EnemyShip clear = new EnemyShip(EnemyShip.EnemyKind.SCOUT, Sprite.L1_SCOUT, 900, 100);
+        world.addEnemy(hit);
+        world.addEnemy(beside);
+        world.addEnemy(clear);
+        world.addBullet(new Bullet(Sprite.NOVA_SHELL, 405, 305, 0, -1, player, 5).detonating(120));
+
+        system().resolve(world);
+
+        assertFalse(hit.isAlive(), "the shell's own target should be inside its blast");
+        assertFalse(beside.isAlive(), "so should the one standing next to it");
+        assertEquals(EnemyShip.EnemyKind.SCOUT.health(), healthOf(clear),
+                "a ship across the arena is not in a 120px radius");
+        // Two kills each explode through awardKill as any kill does, and the blast adds exactly one
+        // more. Four would mean the blast was spawning one per victim.
+        assertEquals(3, world.explosions().size(), "the blast must add one explosion, not one each");
     }
 
     /** Nothing burns when the trigger is up, however long the pickup has been held. */
