@@ -4,8 +4,6 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 
-import javafx.scene.input.KeyCode;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -13,18 +11,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /**
  * Getting into a room, without a room to get into.
  *
- * The whole point of keeping the lobby's rules apart from its screen: typing, the roster changing
- * under you, and the conditions for starting are all exercised here in milliseconds, with no
- * toolkit, no socket and no relay. {@link KeyCode} is the only JavaFX type in sight, which is what
- * {@code docs/ROADMAP.md} rule 6 permits.
+ * The whole point of keeping the lobby's rules apart from its screen: the code being entered, the
+ * roster changing under you, and the conditions for starting are all exercised here in
+ * milliseconds, with no toolkit, no socket and no relay. There is no JavaFX left in it at all.
+ *
+ * The code arrives from {@code OnScreenKeyboard} as a finished string rather than a keystroke at a
+ * time, but the filtering stays here: {@link LobbyModel#codeIsComplete} checks length alone and the
+ * screen hands {@link LobbyModel#typed} to the relay, so this is the last guard before the wire.
  */
 class LobbyModelTest {
 
     private static LobbyModel typing(String characters) {
         LobbyModel lobby = new LobbyModel();
-        for (char c : characters.toCharArray()) {
-            lobby.handleKey(KeyCode.getKeyCode(String.valueOf(c)));
-        }
+        lobby.setTyped(characters);
         return lobby;
     }
 
@@ -34,7 +33,7 @@ class LobbyModelTest {
         assertEquals("K7QPM", lobby.typed());
         assertFalse(lobby.codeIsComplete());
 
-        lobby.handleKey(KeyCode.R);
+        lobby.setTyped("K7QPMR");
         assertEquals("K7QPMR", lobby.typed());
         assertTrue(lobby.codeIsComplete());
     }
@@ -50,47 +49,37 @@ class LobbyModelTest {
     }
 
     @Test
-    void backspaceDeletesAndStopsAtEmpty() {
+    void theCodeCanBeClearedBackToEmpty() {
         LobbyModel lobby = typing("AB");
-        lobby.handleKey(KeyCode.BACK_SPACE);
-        lobby.handleKey(KeyCode.BACK_SPACE);
-        lobby.handleKey(KeyCode.BACK_SPACE);
-        assertEquals("", lobby.typed(), "deleting an empty field must not throw");
+        lobby.setTyped("");
+        assertEquals("", lobby.typed(), "the keyboard's CLEAR has to reach the model");
     }
 
     /**
-     * The alphabet drops I, O, 0 and 1 so a code read out loud cannot be mistyped. A player who
-     * presses one is aiming at this field, so the keystroke is swallowed rather than passed on to
-     * walk the menu behind it.
+     * The alphabet drops I, O, 0 and 1 so a code read out loud cannot be mistyped.
+     *
+     * The on-screen keyboard is built from the same alphabet and cannot offer them, so this is
+     * belt and braces -- but it is the belt: {@code codeIsComplete} checks length alone, and the
+     * screen hands what is here straight to {@code RelayClient.join}.
      */
     @Test
-    void charactersOutsideTheCodeAlphabetAreRefusedButStillConsumed() {
-        LobbyModel lobby = new LobbyModel();
-
-        assertTrue(lobby.handleKey(KeyCode.I), "I is a real keystroke aimed at the field");
-        assertTrue(lobby.handleKey(KeyCode.O));
-        assertTrue(lobby.handleKey(KeyCode.DIGIT0));
-        assertTrue(lobby.handleKey(KeyCode.DIGIT1));
-
-        assertEquals("", lobby.typed(), "none of them can appear in a room code");
+    void charactersOutsideTheCodeAlphabetAreDropped() {
+        assertEquals("", typing("IO01").typed(), "none of them can appear in a room code");
+        assertEquals("K7", typing("KI7O").typed(), "and they are dropped, not truncated at");
     }
 
     @Test
-    void keysThatAreNotCharactersFallThroughToTheMenu() {
-        LobbyModel lobby = new LobbyModel();
-
-        assertFalse(lobby.handleKey(KeyCode.UP), "the menu still needs its arrows");
-        assertFalse(lobby.handleKey(KeyCode.ENTER));
-        assertFalse(lobby.handleKey(KeyCode.ESCAPE));
+    void lowercaseIsRaisedRatherThanRefused() {
+        assertEquals("K7QPMR", typing("k7qpmr").typed());
     }
 
     @Test
-    void typingStopsOnceTheSocketIsOpening() {
+    void theCodeStopsBeingEditableOnceTheSocketIsOpening() {
         LobbyModel lobby = typing("K7QPMR");
         lobby.connecting();
 
-        assertFalse(lobby.handleKey(KeyCode.A), "the code is already sent; typing is over");
-        assertEquals("K7QPMR", lobby.typed());
+        lobby.setTyped("AAAAAA");
+        assertEquals("K7QPMR", lobby.typed(), "the code is already sent; editing is over");
     }
 
     @Test
@@ -173,13 +162,11 @@ class LobbyModelTest {
         assertEquals("", lobby.failure());
     }
 
-    /** The typing filter must accept every character the relay can actually issue. */
+    /** The filter must accept every character the relay can actually issue. */
     @Test
     void everyCharacterTheRelayCanIssueCanBeTyped() {
         for (char c : LobbyModel.CODE_ALPHABET.toCharArray()) {
-            LobbyModel lobby = new LobbyModel();
-            lobby.handleKey(KeyCode.getKeyCode(String.valueOf(c)));
-            assertEquals(String.valueOf(c), lobby.typed(),
+            assertEquals(String.valueOf(c), typing(String.valueOf(c)).typed(),
                     "'" + c + "' is in the relay's alphabet and must be typeable");
         }
     }

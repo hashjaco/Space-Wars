@@ -95,6 +95,11 @@ and it works without setup: menus included. The first pad plays as player one an
 player two, and the keyboard keeps working alongside them, so two people can share a pad and the
 keys. Both pads drive the menu cursor, the same way two people on one keyboard would.
 
+Anywhere the game wants a name or a code -- Pilots, Cloud Save, a room code -- choosing the field
+opens an on-screen keyboard you walk with the d-pad. Nothing types letters straight off a keypress
+any more: player one's pad speaks the same `W A S D` the ship does, so a field that read letters had
+no way to tell a d-pad push from a typed W.
+
 The left stick is analog: the ship flies at the speed you push it, and the hull banks harder the
 further you lean. Switch `Stick mode` to `Digital` in Settings for the older all-or-nothing feel.
 `Start` pauses.
@@ -156,7 +161,9 @@ is also when the next level's art is decoded in the background.
 
 ## Pilots and rank
 
-Name both seats from **Pilots** on the start menu; the name shows under the ship. Level bonuses are
+Name both seats from **Pilots** on the start menu; choose a seat and an on-screen keyboard opens over
+it, so a name can be entered with a controller as easily as with the keys. The name shows under the
+ship. Level bonuses are
 credited to a career total stored against that name, and the career total sets a rank on a
 twenty-six-step ladder from Recruit to Fleet Marshal. Career progress is keyed by name rather than by
 seat, so a pilot keeps their rank whichever side of the keyboard they take.

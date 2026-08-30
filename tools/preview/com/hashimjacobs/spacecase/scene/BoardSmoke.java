@@ -6,6 +6,7 @@ import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.image.WritableImage;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.StackPane;
 
 import com.hashimjacobs.spacecase.GameConfig;
@@ -105,21 +106,84 @@ public final class BoardSmoke {
 
     /**
      * The real panel, not a stand-in: it is package-private, which is what this class is in this
-     * package for. Half a code is typed into the other-code field, because a half-entered code is
+     * package for. Half a code is entered into the other-code field, because a half-entered code is
      * what the underscores are there to make legible.
+     *
+     * Driven the way a controller drives it -- open the field, walk the grid, press DONE -- rather
+     * than by poking a string in. Entering a code is the whole reason this screen has a keyboard,
+     * so the picture is worth nothing if it is produced by a path no player can take.
      */
     private static StackPane cloud(Account account) {
         CloudPanel panel = new CloudPanel(account, profile -> { }, () -> { });
-        // Up onto the other-code row, which is the only row that takes letters, then type into it.
-        panel.handleKey(javafx.scene.input.KeyCode.UP);
-        for (char typed : "K7QP".toCharArray()) {
-            panel.handleKey(javafx.scene.input.KeyCode.getKeyCode(String.valueOf(typed)));
-        }
-        return MenuScreen.build("CLOUD SAVE", panel,
-                MenuScreen.caption("Upload here, then type this code on your other machine.",
+        StackPane root = MenuScreen.build("CLOUD SAVE", panel,
+                MenuScreen.caption("Upload here, then choose the code row to enter theirs.",
                         Tokens.SIZE_SMALL, Tokens.TEXT_FAINT),
                 MenuScreen.caption("Anyone with the code has the profile. Read it to nobody else.",
                         Tokens.SIZE_CAPTION, Tokens.TEXT_GHOST));
+        panel.setOverlayHost(root);
+
+        // Up onto the other-code row, then Enter to open the keyboard over it.
+        panel.handleKey(KeyCode.UP);
+        panel.handleKey(KeyCode.ENTER);
+        GridWalk walk = new GridWalk(Account.CODE_ALPHABET);
+        for (char wanted : "K7QP".toCharArray()) {
+            walk.press(panel::handleKey, wanted);
+        }
+        walk.done(panel::handleKey);
+        return root;
+    }
+
+    /**
+     * Drives an {@link OnScreenKeyboard} the way a d-pad does, one direction at a time.
+     *
+     * Tracks the cursor rather than asking for it, because the card keeps its model to itself. The
+     * rules mirrored here are the two in {@code KeyGridModel}: rows and columns wrap, and a move
+     * onto a shorter row slides the column to its end. If those ever diverge, this walker lands on
+     * the wrong cell and the PNG says so.
+     */
+    private static final class GridWalk {
+
+        private final String alphabet;
+        private final int rows;
+        private int row;
+        private int column;
+
+        GridWalk(String alphabet) {
+            this.alphabet = alphabet;
+            // The alphabet in rows of eight, plus the DEL/CLEAR/DONE row the cursor opens on.
+            this.rows = (alphabet.length() + KeyGridModel.COLUMNS - 1) / KeyGridModel.COLUMNS + 1;
+            this.row = rows - 1;
+            this.column = 2;
+        }
+
+        void press(java.util.function.Consumer<KeyCode> keys, char wanted) {
+            int at = alphabet.indexOf(wanted);
+            goTo(keys, at / KeyGridModel.COLUMNS, at % KeyGridModel.COLUMNS);
+            keys.accept(KeyCode.ENTER);
+        }
+
+        void done(java.util.function.Consumer<KeyCode> keys) {
+            goTo(keys, rows - 1, 2);
+            keys.accept(KeyCode.ENTER);
+        }
+
+        private void goTo(java.util.function.Consumer<KeyCode> keys, int wantedRow, int wantedColumn) {
+            int downs = Math.floorMod(wantedRow - row, rows);
+            for (int step = 0; step < downs; step++) {
+                keys.accept(KeyCode.DOWN);
+                row = (row + 1) % rows;
+                column = Math.min(column, width(row) - 1);
+            }
+            for (int step = Math.floorMod(wantedColumn - column, width(row)); step > 0; step--) {
+                keys.accept(KeyCode.RIGHT);
+            }
+            column = wantedColumn;
+        }
+
+        private int width(int atRow) {
+            return atRow == rows - 1 ? 3
+                    : Math.min(KeyGridModel.COLUMNS, alphabet.length() - atRow * KeyGridModel.COLUMNS);
+        }
     }
 
     /** The screen that stands between a download and somebody's campaign. */

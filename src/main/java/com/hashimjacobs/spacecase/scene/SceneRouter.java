@@ -326,6 +326,10 @@ public final class SceneRouter {
                 panel,
                 MenuScreen.caption("Names show under your ship. Rank is earned across every run.", 12,
                         Tokens.TEXT_FAINT));
+        // The keyboard mounts into the root rather than into the panel, so it covers the title and
+        // the caption too and the column underneath never re-lays out. Same for the two screens
+        // below, which are the other places a code gets entered.
+        panel.setOverlayHost(root);
         show(root, panel::handleKey);
     }
 
@@ -402,6 +406,7 @@ public final class SceneRouter {
                         Tokens.TEXT_FAINT),
                 MenuScreen.caption("Anyone with the code has the profile. Read it to nobody else.",
                         11, Tokens.TEXT_GHOST));
+        panel.setOverlayHost(root);
         show(root, panel::handleKey);
     }
 
@@ -476,8 +481,9 @@ public final class SceneRouter {
 
         StackPane root = MenuScreen.build(asHost ? "HOST" : "JOIN", panel,
                 MenuScreen.caption(asHost
-                        ? "read the code out; they type it"
-                        : "type the code they read you", 12, Tokens.TEXT_FAINT));
+                        ? "read the code out; they enter it"
+                        : "choose the code row and enter theirs", 12, Tokens.TEXT_FAINT));
+        panel.setOverlayHost(root);
         show(root, panel::handleKey);
 
         if (asHost) {
@@ -908,8 +914,8 @@ public final class SceneRouter {
      * the keyboard instead.
      *
      * A predicate rather than a {@link MenuNavigator} so a screen can compose one with something else
-     * -- the pilots screen puts letter capture in front of the navigator, since W and S are both
-     * navigation keys and letters that belong in a name.
+     * -- the pilots, cloud save and lobby screens put an {@code OnScreenKeyboard} in front of the
+     * navigator while one is open, and the rebinding screen puts its key capture there.
      */
     private void show(Parent root, Predicate<KeyCode> keys) {
         if (screenPulse != null) {
