@@ -40,9 +40,7 @@ final class NameEntryPanel extends VBox {
             // appending to it; the default is still what the row shows and what gets used.
             String existing = pilots.isNamed(seat) ? pilots.name(seat) : "";
             typed.add(new StringBuilder(existing));
-            // No action: the row is a text field, and Enter only moves focus along.
-            MenuButton row = new MenuButton("", () -> {
-            });
+            MenuButton row = new MenuButton("", this::focusNext);
             rows.add(row);
             items.add(row);
         }
@@ -59,6 +57,17 @@ final class NameEntryPanel extends VBox {
         navigator = panel.navigator();
         navigator.setOnBack(leave);
         refresh();
+    }
+
+    /**
+     * Enter on a seat row moves to the next one.
+     *
+     * Without this the row was built with a no-op action, so the only way off a half-typed name was
+     * an arrow key -- and W and S, which move the cursor on every other menu, land in the name
+     * instead. That is how a career ends up split between MAVERICK and MAVERICKSW.
+     */
+    private void focusNext() {
+        navigator.focus(navigator.focusedIndex() + 1);
     }
 
     /**
@@ -117,12 +126,12 @@ final class NameEntryPanel extends VBox {
         }
         String name = typed.get(focused).toString();
         if (name.isEmpty()) {
-            standing.setText("Type a name to replace the default");
+            standing.setText("Type a name to replace the default    Enter for the next row");
             return;
         }
         int career = pilots.careerScore(name);
         Rank rank = Rank.forCareerScore(career);
-        standing.setText(rank.label() + "    career " + career);
+        standing.setText(rank.label() + "    career " + career + "    Enter for the next row");
     }
 
     /** Writes both names back on the way out, so a half-typed name is never saved mid-edit. */
