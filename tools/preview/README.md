@@ -45,9 +45,9 @@ everything else here did: the first pass built its twelve creatures as one ellip
 parameter sets and they were, unmistakably on the sheet, one creature. They are six construction
 families now. Nothing but looking would have said so.
 
-## The five that need JavaFX
+## The six that need JavaFX
 
-`MapSmoke`, `GarageSmoke`, `MenuSmoke`, `BoardSmoke` and `VignetteSmoke` start the toolkit and
+`MapSmoke`, `GarageSmoke`, `MenuSmoke`, `BoardSmoke`, `KeyboardSmoke` and `VignetteSmoke` start the toolkit and
 snapshot a real screen, so they need the JavaFX jars on the classpath and they live in the package of the thing they
 draw (most of what they reach for is package-private).
 
@@ -66,13 +66,23 @@ node, so it never touches real progress. `GarageSmoke` takes `<out.png>`.
 the pass that moved the menu off `L1_MID`, the level-one layer with nothing in it, onto `L1_FAR`,
 which has the planet: the menus had been reading as a plain black field for want of one constant.
 
+`KeyboardSmoke` takes `<outDir>` and writes two: the Pilots screen, and the same screen with the
+on-screen keyboard open over it. Written for the pass that took free typing off the name and code
+fields -- player one's pad speaks `W A S D`, so its d-pad had been typing four letters into the name
+instead of moving the cursor. It draws the name alphabet rather than a code one because 37
+characters is the layout with a short last row, and it is what caught that row centring itself
+instead of keeping its columns under the ones above. It writes into a throwaway `Preferences` node,
+so a capture run cannot rename whoever actually flies on this machine.
+
 `BoardSmoke` takes `<outDir>` and writes four: the score board full and empty, cloud save, and the
 confirmation that stands in front of a download. The board is the longest panel in the game -- ten
 entries plus two rows is exactly `MenuPanel`'s twelve-row window -- so it is drawn at its worst
 case, ten-character names against eight-digit scores, which is the pair that decides whether a row
 can fit its own text. It builds a throwaway `Preferences` node for the account: `Account.load()`
 would mint and keep this machine's real sync code, and that is the one value in the game that must
-never end up in a PNG.
+never end up in a PNG. Its cloud-save picture drives the on-screen keyboard the way a controller
+does -- open the field, walk the grid, press DONE -- rather than poking a string in, because a
+picture of code entry produced by a path no player can take is worth nothing.
 
 `VignetteSmoke` takes `<out.png> [levelNumber] [0|1]` and draws a level's sky with and without the
 corner falloff, reading the real paint off `Renderer` so the preview cannot drift from the game.

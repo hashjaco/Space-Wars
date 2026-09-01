@@ -5,15 +5,13 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import javafx.scene.input.KeyCode;
-
 /**
  * Getting from "Multiplayer" to a fight: the rules half, with no screen attached.
  *
  * Apart from the view for the reason {@code SystemMapModel} is apart from {@code SystemMapView} and
  * {@code MenuNavigator} is apart from the panels it drives -- so it can be tested without starting
  * the JavaFX toolkit, which {@code docs/ROADMAP.md} rule 6 forbids the suite from doing.
- * {@link KeyCode} is fine here; a {@code Font} or a {@code Scene} would not be.
+ * There is no JavaFX left in it at all now that the code arrives as a string.
  *
  * Knows nothing about sockets either. The screen hands it what arrived and asks what to draw, which
  * is what lets the whole flow -- typing a code, peers arriving and leaving, the host starting -- be
@@ -111,41 +109,28 @@ public final class LobbyModel {
     }
 
     /**
-     * A typed character, a deleted one, or neither.
+     * Sets the code being typed, from the on-screen keyboard.
      *
-     * The typing rule is lifted from {@code NameEntryPanel.type}: {@link KeyCode#getName} rather
-     * than the event's character, because the gamepad layer synthesises key presses carrying no
-     * character at all, and a single-character check to drop the numpad, whose names read
-     * "Numpad 4". Filtered further against {@link #CODE_ALPHABET}, so a code that could not exist
-     * cannot be typed. {@code MenuRepeat} does not throttle letters or digits, so a held key
-     * repeating is the keyboard's business and not this class's.
+     * The keyboard already offers only {@link #CODE_ALPHABET}, but the filter, the length clamp and
+     * the state guard stay here rather than moving out to it. {@link #codeIsComplete} checks length
+     * alone and the screen hands {@link #typed} straight to the relay, so this is the last place
+     * that can stop a room code that could not exist from going on the wire.
      *
-     * @return true when the keystroke was consumed and must not reach the menu underneath
+     * Replaced a {@code handleKey} that read letters off the keystroke. That is what made this
+     * screen unusable on a controller: player one's d-pad speaks {@code W A S D}, so it typed into
+     * the code field instead of walking the menu.
      */
-    public boolean handleKey(KeyCode code) {
+    public void setTyped(String code) {
         if (state != State.CHOOSING) {
-            return false;
+            return;
         }
-        if (code == KeyCode.BACK_SPACE) {
-            if (typed.length() > 0) {
-                typed.deleteCharAt(typed.length() - 1);
+        typed.setLength(0);
+        for (int at = 0; at < code.length() && typed.length() < CODE_LENGTH; at++) {
+            char character = Character.toUpperCase(code.charAt(at));
+            if (CODE_ALPHABET.indexOf(character) >= 0) {
+                typed.append(character);
             }
-            return true;
         }
-        String key = code.getName();
-        if (!((code.isLetterKey() || code.isDigitKey()) && key.length() == 1)) {
-            return false;
-        }
-        String character = key.toUpperCase();
-        if (CODE_ALPHABET.indexOf(character) < 0) {
-            // A real keystroke aimed at this field, just not one a room code can contain. Consumed
-            // rather than passed on, so an I or an O does not walk the menu behind the field.
-            return true;
-        }
-        if (typed.length() < CODE_LENGTH) {
-            typed.append(character);
-        }
-        return true;
     }
 
     /** Whether enough has been typed to try joining. */

@@ -8,6 +8,7 @@ import java.util.function.Consumer;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 
@@ -51,6 +52,10 @@ final class CloudPanel extends VBox {
     /** What has been typed into the other-code row, unpunctuated. */
     private final StringBuilder typed = new StringBuilder();
 
+    /** The screen root the keyboard mounts into. Null until the router says which one. */
+    private StackPane overlayHost;
+    private OnScreenKeyboard keyboard;
+
     /** Set while a request is out, so neither button can be pressed twice into the same answer. */
     private boolean busy;
 
@@ -66,7 +71,7 @@ final class CloudPanel extends VBox {
 
         codeRow = new MenuButton("", () -> { });
         codeRow.setLocked(true);
-        typedRow = new MenuButton("", () -> { });
+        typedRow = new MenuButton("", this::edit);
         uploadRow = new MenuButton("Upload this machine", this::upload);
         downloadRow = new MenuButton("Download to this machine", this::download);
         MenuButton backRow = new MenuButton("Back", onBack);
@@ -79,52 +84,51 @@ final class CloudPanel extends VBox {
         navigator.setOnBack(onBack);
         // On Upload rather than row one, which is the code this machine already has and cannot be
         // pressed. Upload is also the first half of the flow: it is what the machine holding the
-        // campaign does, and the machine receiving one arrives here to type into the row above.
+        // campaign does, and the machine receiving one arrives here to open the row above.
         navigator.focus(2);
         refresh();
     }
 
+    /** Where the keyboard mounts: the screen root, which {@code SceneRouter} owns. */
+    void setOverlayHost(StackPane overlayHost) {
+        this.overlayHost = overlayHost;
+    }
+
     /**
-     * Typing is offered the key first, for the reason it is on every other screen that types: the
-     * navigator claims W and S to walk the rows, and both are characters a code can contain.
+     * This screen's keys.
+     *
+     * The keyboard gets them all while it is up, so a direction cannot fall through and scroll the
+     * menu behind the card.
      */
     boolean handleKey(KeyCode code) {
-        boolean handled = type(code) || navigator.handleKey(code);
+        if (keyboard != null) {
+            return keyboard.handleKey(code);
+        }
+        boolean handled = navigator.handleKey(code);
         if (handled) {
             refresh();
         }
         return handled;
     }
 
-    private boolean type(KeyCode code) {
-        // Only while the other-code row is the focused one. Everywhere else a letter is a letter
-        // the menu wants, and typing into a row nobody is looking at is how a code gets half
-        // entered without anybody noticing.
-        if (navigator.focusedIndex() != 1 || busy) {
-            return false;
+    /**
+     * Opens the keyboard on the other-machine code.
+     *
+     * Letters used to type straight into the row. That could not survive a controller: player one's
+     * d-pad speaks {@code W A S D}, so it fed the field four letters and never moved the cursor --
+     * see {@link KeyGridModel}.
+     */
+    private void edit() {
+        if (overlayHost == null || keyboard != null || busy) {
+            return;
         }
-        if (code == KeyCode.BACK_SPACE) {
-            if (typed.length() > 0) {
-                typed.deleteCharAt(typed.length() - 1);
-            }
-            return true;
-        }
-        // KeyCode.getName() rather than the event's character, so a gamepad-synthesised press --
-        // which carries no character at all -- still types. The same filter LobbyModel applies.
-        String key = code.getName();
-        if (!((code.isLetterKey() || code.isDigitKey()) && key.length() == 1)) {
-            return false;
-        }
-        char character = Character.toUpperCase(key.charAt(0));
-        if (!Account.isCodeCharacter(character)) {
-            // Not in the alphabet. Swallowed rather than passed on, because a player pressing O
-            // where they meant zero is aiming at this field and not at the menu behind it.
-            return true;
-        }
-        if (typed.length() < Account.CODE_LENGTH) {
-            typed.append(character);
-        }
-        return true;
+        keyboard = new OnScreenKeyboard(overlayHost, "OTHER CODE", Account.CODE_ALPHABET,
+                Account.CODE_LENGTH, typed.toString(), entered -> {
+                    typed.setLength(0);
+                    typed.append(entered);
+                    keyboard = null;
+                    refresh();
+                });
     }
 
     private void upload() {
@@ -217,6 +221,7 @@ final class CloudPanel extends VBox {
     private void refresh() {
         codeRow.setRow("THIS MACHINE", Account.grouped(account.code()));
         typedRow.setRow("OTHER CODE", Account.grouped(pad(typed.toString())));
+        typedRow.setLocked(busy);
         uploadRow.setLocked(busy);
         downloadRow.setLocked(busy);
     }
