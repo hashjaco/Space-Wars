@@ -1,11 +1,13 @@
-const BASE = "http://127.0.0.1:8787";
+// Localhost by default; `RELAY_BASE=https://... npm test` runs the same checks against production.
+const BASE = process.env.RELAY_BASE ?? "http://127.0.0.1:8787";
+const SOCKET = BASE.replace(/^http/, "ws");
 let failures = 0;
 const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : "  <- " + detail}`);
   if (!ok) failures++;
 };
 const open = (room) => new Promise((res, rej) => {
-  const ws = new WebSocket(`ws://127.0.0.1:8787/room/${room}`);
+  const ws = new WebSocket(`${SOCKET}/room/${room}`);
   ws.binaryType = "arraybuffer";
   ws.inbox = []; ws.control = [];
   ws.onmessage = (e) => (typeof e.data === "string" ? ws.control.push(parseControl(e.data)) : ws.inbox.push(new Uint8Array(e.data)));

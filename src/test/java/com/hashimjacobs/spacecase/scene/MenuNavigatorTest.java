@@ -58,6 +58,14 @@ class MenuNavigatorTest {
         assertEquals(2, navigator.focusedIndex());
     }
 
+    /**
+     * W and S are player one's pad, not just a keyboard convenience.
+     *
+     * {@link GamepadMapping} has nothing else to give a d-pad -- those are the ship's keys -- so
+     * this is the assertion that a controller can move a menu cursor at all. It is load-bearing for
+     * every screen: name and code entry gave up reading letters off a keypress precisely because a
+     * field that typed W could not also let W mean up. {@code KeyGridModelTest} holds the other end.
+     */
     @Test
     void wasdMirrorsTheArrowKeys() {
         MenuNavigator navigator = new MenuNavigator(List.copyOf(spies(3)));

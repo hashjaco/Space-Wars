@@ -3,6 +3,7 @@ package com.hashimjacobs.spacecase.scene;
 import java.util.List;
 
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 
 import com.hashimjacobs.spacecase.net.LobbyModel;
@@ -30,14 +31,17 @@ final class LobbyPanel extends VBox {
     private final MenuPanel panel;
     private final MenuNavigator navigator;
 
+    /** The screen root the keyboard mounts into. Null until the router says which one. */
+    private StackPane overlayHost;
+    private OnScreenKeyboard keyboard;
+
     /** @param onAct run when the player presses the action row: join a room, or start the game */
     LobbyPanel(LobbyModel model, Runnable onAct, Runnable onBack) {
         super(Tokens.GAP_L);
         this.model = model;
         this.onAct = onAct;
 
-        roomRow = new MenuButton("", () -> { });
-        roomRow.setLocked(true);
+        roomRow = new MenuButton("", this::edit);
         for (int i = 0; i < seatRows.length; i++) {
             seatRows[i] = new MenuButton("", () -> { });
             seatRows[i].setLocked(true);
@@ -62,17 +66,41 @@ final class LobbyPanel extends VBox {
         return navigator;
     }
 
+    /** Where the keyboard mounts: the screen root, which {@code SceneRouter} owns. */
+    void setOverlayHost(StackPane overlayHost) {
+        this.overlayHost = overlayHost;
+    }
+
     /**
-     * Typing gets first refusal, the same order {@code NameEntryPanel} uses and for the same
-     * reason: the navigator claims W and S, which are also letters somebody may need to type.
+     * This screen's keys.
+     *
+     * The keyboard gets them all while it is up, so a direction cannot fall through and scroll the
+     * menu behind the card.
      */
     boolean handleKey(KeyCode code) {
-        boolean typed = model.handleKey(code);
-        if (typed) {
-            refresh();
-            return true;
+        if (keyboard != null) {
+            return keyboard.handleKey(code);
         }
         return navigator.handleKey(code);
+    }
+
+    /**
+     * Opens the keyboard on the room code.
+     *
+     * Letters used to type straight into the row, which a controller could not do anything with:
+     * player one's d-pad speaks {@code W A S D}, so it filled the field with letters and never
+     * walked the menu -- see {@link KeyGridModel}.
+     */
+    private void edit() {
+        if (overlayHost == null || keyboard != null || model.state() != LobbyModel.State.CHOOSING) {
+            return;
+        }
+        keyboard = new OnScreenKeyboard(overlayHost, "ROOM CODE", LobbyModel.CODE_ALPHABET,
+                LobbyModel.CODE_LENGTH, model.typed(), entered -> {
+                    model.setTyped(entered);
+                    keyboard = null;
+                    refresh();
+                });
     }
 
     /** Rewrites every row from the model. Cheap enough to call on every frame, and it is. */
@@ -80,26 +108,31 @@ final class LobbyPanel extends VBox {
         switch (model.state()) {
             case CHOOSING -> {
                 roomRow.setRow("ROOM CODE", pad(model.typed()));
+                roomRow.setLocked(false);
                 actionRow.setText("Join");
                 actionRow.setLocked(!model.codeIsComplete());
             }
             case CONNECTING -> {
                 roomRow.setRow("ROOM CODE", pad(model.typed()));
+                roomRow.setLocked(true);
                 actionRow.setText("Connecting...");
                 actionRow.setLocked(true);
             }
             case WAITING -> {
                 roomRow.setRow("ROOM CODE", model.room());
+                roomRow.setLocked(true);
                 actionRow.setText(model.isHost() ? "Start" : "Waiting for the host");
                 actionRow.setLocked(!model.canStart());
             }
             case STARTING -> {
                 roomRow.setRow("ROOM CODE", model.room());
+                roomRow.setLocked(true);
                 actionRow.setText("Starting...");
                 actionRow.setLocked(true);
             }
             case FAILED -> {
                 roomRow.setRow("COULD NOT JOIN", model.failure());
+                roomRow.setLocked(true);
                 actionRow.setText("Try again");
                 actionRow.setLocked(false);
             }

@@ -34,7 +34,7 @@ public final class Account {
      * this package and not the other way round, and one thirty-two character constant is a cheaper
      * thing to keep in step than an inverted dependency.
      */
-    private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    public static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     /**
      * Twelve characters, which is sixty bits.

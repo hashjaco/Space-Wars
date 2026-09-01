@@ -5,8 +5,8 @@ import java.util.List;
 
 import javafx.geometry.Pos;
 import javafx.scene.input.KeyCode;
+import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
-import javafx.scene.paint.Color;
 import javafx.scene.text.Text;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
@@ -16,18 +16,33 @@ import com.hashimjacobs.spacecase.prefs.Rank;
 /**
  * Names the two seats, and shows what each pilot has earned so far.
  *
- * Letters type straight into the focused row rather than through an edit mode: there is nothing else
- * to do on this screen, and a mode would need its own way out.
+ * Choosing a seat opens {@link OnScreenKeyboard}. Letters used to type straight into the focused row
+ * instead, which read as the shorter way round until a controller was plugged in: player one's d-pad
+ * is {@code W A S D}, so it wrote four letters into the name and never moved the cursor. Nothing on
+ * this screen reads a letter any more -- see {@link KeyGridModel}.
  */
 final class NameEntryPanel extends VBox {
 
     private static final int SEATS = 2;
+
+    /**
+     * What a pilot name may contain: A-Z, the digits, and a space.
+     *
+     * No punctuation, because the leaderboard's server strips anything outside {@code [A-Z0-9 ]}
+     * while {@link Pilots#careerScore} keys on what was typed -- a hyphen would score under one name
+     * locally and appear on the board under another.
+     */
+    private static final String ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 ";
 
     private final Pilots pilots;
     private final List<MenuButton> rows = new ArrayList<>();
     private final List<StringBuilder> typed = new ArrayList<>();
     private final Text standing;
     private final MenuNavigator navigator;
+
+    /** The screen root the keyboard mounts into. Null until the router says which one. */
+    private StackPane overlayHost;
+    private OnScreenKeyboard keyboard;
 
     NameEntryPanel(Pilots pilots, Runnable onBack) {
         super(12);
@@ -36,13 +51,12 @@ final class NameEntryPanel extends VBox {
 
         List<MenuButton> items = new ArrayList<>();
         for (int seat = 1; seat <= SEATS; seat++) {
-            // An unnamed seat starts empty so the first keystroke replaces the default rather than
-            // appending to it; the default is still what the row shows and what gets used.
+            // An unnamed seat starts empty so the keyboard opens on a blank field rather than on the
+            // default; the default is still what the row shows and what gets used.
             String existing = pilots.isNamed(seat) ? pilots.name(seat) : "";
             typed.add(new StringBuilder(existing));
-            // No action: the row is a text field, and Enter only moves focus along.
-            MenuButton row = new MenuButton("", () -> {
-            });
+            int index = seat - 1;
+            MenuButton row = new MenuButton("", () -> edit(index));
             rows.add(row);
             items.add(row);
         }
@@ -61,46 +75,42 @@ final class NameEntryPanel extends VBox {
         refresh();
     }
 
+    /** Where the keyboard mounts: the screen root, which {@code SceneRouter} owns. */
+    void setOverlayHost(StackPane overlayHost) {
+        this.overlayHost = overlayHost;
+    }
+
     /**
-     * This screen's keyboard.
+     * This screen's keys.
      *
-     * Typing is offered the key before navigation, because {@link MenuNavigator} claims W and S to
-     * move between rows and both are letters a name may well contain.
+     * The keyboard gets them all while it is up, so a direction cannot fall through and scroll the
+     * menu behind the card.
      */
     boolean handleKey(KeyCode code) {
-        boolean handled = type(code) || navigator.handleKey(code);
+        if (keyboard != null) {
+            return keyboard.handleKey(code);
+        }
+        boolean handled = navigator.handleKey(code);
         if (handled) {
             refresh();
         }
         return handled;
     }
 
-    private boolean type(KeyCode code) {
-        int focused = navigator.focusedIndex();
-        if (focused >= SEATS) {
-            return false;
+    /** Opens the keyboard on one seat's name. */
+    private void edit(int seat) {
+        if (overlayHost == null || keyboard != null) {
+            return;
         }
-        StringBuilder name = typed.get(focused);
-
-        if (code == KeyCode.BACK_SPACE) {
-            if (name.length() > 0) {
-                name.deleteCharAt(name.length() - 1);
-            }
-            return true;
-        }
-
-        // KeyCode.getName() rather than the event's character: the gamepad layer synthesises key
-        // presses carrying no character at all, so reading one would break controller input. The
-        // single-character check drops the numpad, whose names read "Numpad 4".
-        String key = code.getName();
-        boolean typeable = (code.isLetterKey() || code.isDigitKey()) && key.length() == 1;
-        if (!typeable) {
-            return false;
-        }
-        if (name.length() < Pilots.MAX_NAME_LENGTH) {
-            name.append(key.toUpperCase());
-        }
-        return true;
+        keyboard = new OnScreenKeyboard(overlayHost, "PLAYER " + (seat + 1),
+                ALPHABET, Pilots.MAX_NAME_LENGTH, typed.get(seat).toString(), entered -> {
+                    // Trimmed here rather than only in Pilots.setName, so the rank shown under the
+                    // row is looked up on the same string that will be stored.
+                    typed.get(seat).setLength(0);
+                    typed.get(seat).append(entered.trim());
+                    keyboard = null;
+                    refresh();
+                });
     }
 
     private void refresh() {
@@ -112,17 +122,17 @@ final class NameEntryPanel extends VBox {
 
         int focused = navigator.focusedIndex();
         if (focused >= SEATS) {
-            standing.setText("Type to rename    Backspace to delete");
+            standing.setText("Choose a seat to rename it");
             return;
         }
         String name = typed.get(focused).toString();
         if (name.isEmpty()) {
-            standing.setText("Type a name to replace the default");
+            standing.setText("Enter to rename    replaces the default");
             return;
         }
         int career = pilots.careerScore(name);
         Rank rank = Rank.forCareerScore(career);
-        standing.setText(rank.label() + "    career " + career);
+        standing.setText(rank.label() + "    career " + career + "    Enter to rename");
     }
 
     /** Writes both names back on the way out, so a half-typed name is never saved mid-edit. */

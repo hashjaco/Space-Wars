@@ -75,7 +75,14 @@ npm test         # 31 checks against whatever is on :8787
 npm run deploy
 ```
 
-`npm test` also runs against production: point it at the deployed URL instead of localhost.
+`npm test` also runs against production, sockets and all:
+
+```sh
+RELAY_BASE=https://space-case-relay.hashimjacobs.workers.dev npm test
+```
+
+Every identifier it uses is fresh per run -- a room code from `/new`, a UUID per board row, a random
+sync code -- so running it against the live worker leaves nothing behind that anybody will meet.
 
 The Java side has its own integration test, which **skips** when nothing answers so CI stays green
 without wrangler:
