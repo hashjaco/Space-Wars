@@ -5,8 +5,8 @@ import com.hashimjacobs.spacecase.mode.Galaxy;
 /** Spawn pressure presets. Chances are per-thousand rolls per tick. */
 public enum Difficulty {
 
-    EASY("Easy", 7, 3, 100, 4, 0.85, 0.90, 0),
-    NORMAL("Normal", 11, 6, 66, 6, 1.0, 1.0, 0),
+    EASY("Easy", 7, 3, 130, 3, 0.85, 0.90, 0),
+    NORMAL("Normal", 11, 6, 84, 5, 1.0, 1.0, 0),
     HARD("Hard", 17, 10, 40, 9, 1.20, 1.15, 0),
 
     /**
@@ -19,8 +19,8 @@ public enum Difficulty {
      * arena itself the opponent.
      *
      * DIE is deliberately past what is fair: twice the flagship, near twice the hull on everything
-     * else, a quarter of NORMAL's gap between enemy shots, and more than three times as many ships
-     * allowed on the field. Nobody is expected to clear a galaxy on it.
+     * else, a fifth of NORMAL's gap between enemy shots, and four times as many ships allowed on
+     * the field. Nobody is expected to clear a galaxy on it.
      */
     SUFFER("I Want To Suffer", 26, 17, 26, 14, 1.75, 1.45, 12),
     DIE("I Want To Die", 38, 26, 16, 20, 2.50, 1.90, 25);
@@ -110,12 +110,12 @@ public enum Difficulty {
      * It used to be the ceiling on the whole population, back when the whole population was filler.
      * A level now fields the waves {@code mode.Waves} authors for it and this arrives on top, so it
      * has to be read as "how much noise over the fight" rather than "how big a fight may be" --
-     * otherwise EASY, whose ceiling is four, could not field a six-ship wave at all and every level
+     * otherwise EASY, whose ceiling is three, could not field a six-ship wave at all and every level
      * would quietly play differently from the way it was written.
      *
      * The authored wave ignores it outright. What that means in practice is that on EASY the wave
      * lands whole and the trickle is simply off until the wave thins, which is the right reading of
-     * "easy"; on DIE you get the wave and fourteen more on top.
+     * "easy"; on DIE you get the wave and twenty more on top.
      */
     public int maxEnemies() {
         return maxEnemies;

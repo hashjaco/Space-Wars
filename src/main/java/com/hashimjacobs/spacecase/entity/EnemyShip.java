@@ -57,6 +57,30 @@ public class EnemyShip extends Entity {
     private static final int ROCKET_WARMUP_TICKS = 240;
 
     /**
+     * How far apart two ships entering on the same tick start into their reload, and the window
+     * those offsets are spread over.
+     *
+     * A whole group used to go up on one tick sharing one phase, and nothing ever re-based it, so
+     * five scouts in a rank fired as one gun for the length of the level -- a line of bullets with
+     * no gap rather than a stream with gaps in it. Spreading the first shot is the whole fix: the
+     * same rank now fires as a ripple across the formation.
+     *
+     * The step is coprime with the spread, so consecutive arrivals get distinct phases instead of
+     * aliasing back onto one. Both are prime, which is the cheapest way to keep that true if either
+     * is ever retuned.
+     *
+     * ponytail: a fixed window rather than a share of the ship's real reload, which {@link #enter}
+     * cannot see -- the preset's gap lives in {@code engine.EnemyWeapons}. Sized against NORMAL's
+     * gap of 84, so on NORMAL and EASY no ship waits longer for its first shot than for its later
+     * ones. On HARD and below the gap is shorter than this window: the spread still works, but a
+     * first shot can be a reload late and two ships in a big group can land on the same beat once
+     * the phases fold. Both are cosmetic against the fault this fixes. To make it exact, pass the
+     * difficulty cooldown into enter() and take a share of that instead of a fixed window.
+     */
+    private static final int FIRE_STAGGER_STEP = 37;
+    private static final int FIRE_STAGGER_SPREAD = 59;
+
+    /**
      * Share of a multi-part flagship's health carried by its parts rather than its body.
      *
      * The tuning knob for the whole fight. Raise it and the heads outlast the torso; lower it and
@@ -138,7 +162,8 @@ public class EnemyShip extends Entity {
         // decisions, and tying them would make the hardest wave the fastest way to farm a score.
         this.scoreValue = kind.scoreValue();
         this.health = this.maxHealth;
-        // Stagger the first shot so a wave spawning together does not fire in unison.
+        // Separates the archetypes only. Ships of one archetype are spread against each other in
+        // enter(), which is the one place that knows how many have come in before this one.
         this.fireCooldown = kind.ordinal() * 7;
         // Same idea for the swerve, but keyed on where it came in rather than on what it is: a pair
         // of scouts sharing an archetype must not share a phase, or two ships trace one line.
@@ -262,7 +287,27 @@ public class EnemyShip extends Entity {
      * default behaving exactly as before.
      */
     public void enter(Orientation orientation) {
+        enter(orientation, 0);
+    }
+
+    /**
+     * As {@link #enter(Orientation)}, and spreads this ship's first shot against its neighbours'.
+     *
+     * The ordinal counts arrivals into the world, so ships launched together as a formation get
+     * consecutive ones and therefore distinct phases. It is a plain counter rather than a draw
+     * from the spawn generator on purpose: {@code docs/ROADMAP.md} rule 8 forbids adding a
+     * {@code random.next*()} call to a spawn path, and this needs no randomness to do its job.
+     *
+     * <strong>Added to the timer, never assigned over it.</strong> Two things have already put an
+     * offset there by the time {@code World.addEnemy} calls this: the archetype separation in the
+     * constructor, and a {@link BossHead}'s own {@code stagger}. Assigning would discard both.
+     * Neither would collapse into unison on its own -- consecutive arrivals get distinct phases
+     * either way -- so this is composition rather than a load-bearing guard, and it is the cheaper
+     * of the two to be right about.
+     */
+    public void enter(Orientation orientation, int arrivalOrdinal) {
         this.orientation = orientation;
+        this.fireCooldown += Math.floorMod(arrivalOrdinal * FIRE_STAGGER_STEP, FIRE_STAGGER_SPREAD);
         // Re-keyed off the position across the lane rather than off screen x plus y, now that the
         // lane is known. The two agree in a top-down level and disagree in a side-on one, which
         // meant the same authored ship jinked on a different beat depending on which way its level

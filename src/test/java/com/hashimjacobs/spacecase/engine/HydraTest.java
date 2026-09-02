@@ -14,6 +14,7 @@ import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.Rocket;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -29,7 +30,7 @@ class HydraTest {
     private static final Level LEVEL = Level.HOLLOW_WOMB;
 
     /** The NORMAL preset's ceiling on ordinary enemies, which is what a spawner gets headroom over. */
-    private static final int ENEMY_CAP = 6;
+    private static final int ENEMY_CAP = Difficulty.NORMAL.maxEnemies();
 
     private static World withHydra() {
         World world = new World(GameMode.SOLO);

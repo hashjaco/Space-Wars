@@ -30,11 +30,12 @@ final class EnemyWeapons {
      * The difficulty cap is enforced in {@link SpawnDirector}, which knows nothing about bosses
      * calling in help, so without a limit here a spawner fills the arena unopposed.
      *
-     * Relative rather than the flat twelve it used to be. That flat number was the NORMAL cap of
-     * six plus this, which is why the figure is six -- NORMAL is unchanged. It had to stop being
-     * flat once a preset could allow twenty ordinary enemies on the field: at a fixed twelve the
-     * SPAWNER phase would silently do nothing for the whole of a fight on the two hardest presets,
-     * so the flagship would stand there venting no escorts and firing no shots either.
+     * Relative rather than the flat twelve it used to be. That flat number was the NORMAL cap
+     * plus this, back when that cap was six, which is where the figure came from. It had to stop
+     * being flat once a preset could allow twenty ordinary enemies on the field: at a fixed
+     * twelve the SPAWNER phase would silently do nothing for the whole of a fight on the two
+     * hardest presets, so the flagship would stand there venting no escorts and firing no shots
+     * either.
      */
     private static final int MINION_HEADROOM = 6;
 

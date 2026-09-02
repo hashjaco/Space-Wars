@@ -38,6 +38,14 @@ public final class World {
     private final List<PowerUp> powerUps = new ArrayList<>();
     private final List<ActiveExplosion> explosions = new ArrayList<>();
 
+    /**
+     * Ships brought in so far, counting from zero, purely to spread their first shots apart.
+     *
+     * Never reset and never read for anything else, so it does not matter that it keeps climbing
+     * across a level; only the gaps between consecutive values do any work.
+     */
+    private int arrivals;
+
     /** Which way the current level runs. Re-stamped on every level change; see setOrientation. */
     private Orientation orientation = Orientation.TOP_DOWN;
 
@@ -469,9 +477,16 @@ public final class World {
         bullets.add(bullet);
     }
 
-    /** Points the arrival down this level's lane before it joins the fight. */
+    /**
+     * Brings a ship into the arena, pointed down the lane and off its neighbours' firing beat.
+     *
+     * Every enemy arrives through here -- authored waves, the difficulty trickle, and the escorts
+     * a spawner flagship calls in -- which is what makes it the one place that can hand out a
+     * spread. See {@link EnemyShip#enter(Orientation, int)} for why the counter is not a draw from
+     * the spawn generator.
+     */
     public void addEnemy(EnemyShip enemy) {
-        enemy.enter(orientation);
+        enemy.enter(orientation, arrivals++);
         enemies.add(enemy);
     }
 

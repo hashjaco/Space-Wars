@@ -178,6 +178,16 @@ public final class CollisionSystem {
     private static final double BEAM_BITE = 14;
 
     /**
+     * The share of the player's hull, centred, that enemy fire can actually hit.
+     *
+     * ponytail: one factor for the whole sprite, not a per-frame mask. Every player frame is the
+     * same 60x64 and the cockpit sits in the middle of all of them, so a mask would be five times
+     * the data to say what one number says. If the banked frames ever stop being symmetrical, that
+     * is the point to give the sprite its own box.
+     */
+    private static final double PLAYER_CORE = 0.55;
+
+    /**
      * Shortens this player's beam to the nearest thing standing in it.
      *
      * Scanned against the full-length box, so the reach is measured before it is applied. Asteroids
@@ -472,9 +482,22 @@ public final class CollisionSystem {
         }
     }
 
+    /**
+     * Incoming fire against the player, tested against the hull's core rather than its whole box.
+     *
+     * The sprite is 60x64 and most of that is wing. Against a 16x22 bullet the full box gave a
+     * kill footprint of 76x86 -- near an eighth of the arena's width for one shot -- so gaps that
+     * looked flyable were not, and a clipped wingtip read as an unfair hit. Shrinking the target
+     * is the standard answer for the genre and it is the only lever here that widens every gap at
+     * once, whatever fired the bullet.
+     *
+     * Fire only. Ramming and terrain keep the full box: contact already has its own forgiveness in
+     * {@link #resolveContact}, and a player who could fly a core through a hull would be passing
+     * through ships.
+     */
     private void hitPlayers(World world, Bullet bullet) {
         for (PlayerShip player : world.players()) {
-            if (player.isOut() || !bullet.intersects(player)) {
+            if (player.isOut() || !bullet.intersectsCore(player, PLAYER_CORE)) {
                 continue;
             }
             bullet.kill();
