@@ -53,6 +53,22 @@ public final class SpawnDirector {
     static final int WAVE_TIMEOUT_TICKS = 900;
 
     /**
+     * Quiet between one group being beaten and the next arriving.
+     *
+     * A wave is three groups and they used to run together: the clock reset the moment a group
+     * cleared and the next launched on that same tick, so a level was one continuous stream with
+     * no beat in it and nowhere to read what was coming. This is the breath -- long enough to
+     * register as a lull, short enough not to read as the level having ended.
+     *
+     * The trickle keeps arriving through it, so it is a lull rather than a vacuum. Zero at the
+     * start of a level, so the opening group still lands immediately.
+     *
+     * Package-private for the same reason WAVE_TIMEOUT_TICKS is: a test that has to wait one out
+     * should name it rather than repeat the literal.
+     */
+    static final int GROUP_REST_TICKS = 90;
+
+    /**
      * A brisk wave, for the debrief's reference clear time.
      *
      * Deliberately not WAVE_TIMEOUT_TICKS. Par is what a level ought to take, and since waves now
@@ -112,6 +128,9 @@ public final class SpawnDirector {
     private int groupInWave;
     /** Whether that group actually put ships up -- false on a level whose waves are not written. */
     private boolean waveOnField;
+
+    /** Ticks left of the breath between groups. See {@link #GROUP_REST_TICKS}. */
+    private int restTicks;
     private int ticksIntoLevel;
     private int bossWarningTicks;
     private boolean awaitingBossKill;
@@ -173,6 +192,13 @@ public final class SpawnDirector {
         if (awaitingBossKill) {
             return;
         }
+        // The quiet between one group and the next. Everything below is held, the wave clock
+        // included, so a group gets its whole camping budget once it actually arrives rather than
+        // spending part of it waiting to exist.
+        if (restTicks > 0) {
+            restTicks--;
+            return;
+        }
         // Gated on the rules rather than called from inside the enemy block, because battle mode
         // still counts waves for its end-of-round summary -- it just has nothing to field on one.
         if (rules.spawnEnemies()) {
@@ -189,6 +215,12 @@ public final class SpawnDirector {
         boolean cleared = waveOnField && waveShips.isEmpty();
         if (!cleared && ticksIntoWave < WAVE_TIMEOUT_TICKS) {
             return;
+        }
+        // Only when the group was actually beaten. A wave that ran out its timeout still has its
+        // ships on the field, so resting there would be a lull on top of a fight already in
+        // progress rather than a breath between two.
+        if (cleared) {
+            restTicks = GROUP_REST_TICKS;
         }
         ticksIntoWave = 0;
         waveOnField = false;

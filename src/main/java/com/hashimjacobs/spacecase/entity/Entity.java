@@ -51,6 +51,26 @@ public abstract class Entity {
     }
 
     /**
+     * As {@link #intersects}, but against a centred fraction of the other entity's box.
+     *
+     * For the case where a sprite is a poor description of what should be hittable: a winged hull
+     * is mostly outline, and a projectile that clips the wingtip reads as a miss to the player who
+     * just took the damage. This entity keeps its full box -- only the target shrinks -- because
+     * the thing being forgiven is the size of what is being aimed at, not the size of the shot.
+     *
+     * Through {@code width()} and {@code height()} for the reason {@link #intersects} is.
+     */
+    public boolean intersectsCore(Entity other, double fraction) {
+        double insetX = other.width() * (1 - fraction) / 2;
+        double insetY = other.height() * (1 - fraction) / 2;
+        boolean overlapping = x < other.x + other.width() - insetX
+                && x + width() > other.x + insetX
+                && y < other.y + other.height() - insetY
+                && y + height() > other.y + insetY;
+        return overlapping;
+    }
+
+    /**
      * Marks the entity for removal. Nothing is removed from any collection here -- the world sweeps
      * dead entities once per frame, which is what keeps collision handling from mutating the lists
      * it is iterating.

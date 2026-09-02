@@ -123,7 +123,10 @@ class SpawnDirectorTest {
      * Killing a group is what sends the next one, and killing the last of them ends the wave.
      *
      * Asserts it happens far inside the timeout, so a pass cannot be the clock quietly doing the
-     * work -- which is exactly how this feature would fail without anybody noticing.
+     * work -- which is exactly how this feature would fail without anybody noticing. The breath
+     * between groups is waited out explicitly rather than slept through, and it is an order of
+     * magnitude shorter than the timeout, so that guarantee still holds: a group that arrived
+     * because the clock ran out would need ten times as long as this loop gives it.
      *
      * Three clears rather than one, because a wave is three groups now. The mid-loop assertion is
      * the half worth having: without it, a build that launched all three groups at once, or that
@@ -134,6 +137,9 @@ class SpawnDirectorTest {
         World world = new World(GameMode.SOLO);
         SpawnDirector director = new SpawnDirector(
                 new Random(19), Difficulty.NORMAL, GameMode.SOLO.rules());
+
+        assertTrue(SpawnDirector.GROUP_REST_TICKS * 10 <= SpawnDirector.WAVE_TIMEOUT_TICKS,
+                "the rest has to stay a tenth of the timeout at most, or this test proves nothing");
 
         for (int group = 0; group < Waves.GROUPS_PER_WAVE; group++) {
             // One tick to put the group up, and one after the kills for the director to notice.
@@ -146,6 +152,10 @@ class SpawnDirectorTest {
             }
             world.sweep();
             director.update(world);
+            // The breath between groups. The next one cannot arrive until it is out.
+            for (int rest = 0; rest < SpawnDirector.GROUP_REST_TICKS; rest++) {
+                director.update(world);
+            }
         }
 
         assertEquals(2, director.waveInLevel(), "the next wave should already be running");
