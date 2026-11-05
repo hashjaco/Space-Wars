@@ -93,6 +93,10 @@ four ships fly the co-op campaign in deterministic lockstep: every machine runs 
 and only the sticks cross the wire, through a small WebSocket relay on Cloudflare Workers (see
 [`server/`](server/README.md)). Everyone checks in with a loadout before the host can start.
 
+If a pilot's connection drops, the match holds still for everyone and says so; that pilot's game
+rejoins by itself and is fed the input it missed. After thirty seconds the host's machine gives the
+seat up and the rest fly on with the missing ship holding neutral.
+
 ## Controls
 
 | | Move | Fire |

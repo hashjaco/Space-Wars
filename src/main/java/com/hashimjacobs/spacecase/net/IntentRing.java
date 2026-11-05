@@ -24,7 +24,9 @@ final class IntentRing {
      * dropped by any useful definition, and {@link Lockstep} times them out long before the ring
      * would wrap.
      */
-    private static final int SLOTS = 256;
+    /** Just over a minute at sixty ticks: enough to re-feed a peer that was gone for the reconnect window. */
+    private static final int SLOTS = 4096;
+    private int newest = -1;
 
     private final int[] tickAt = new int[SLOTS];
     private final Intent[] intents = new Intent[SLOTS];
@@ -38,6 +40,12 @@ final class IntentRing {
         int slot = slot(tick);
         tickAt[slot] = tick;
         intents[slot] = intent;
+        newest = Math.max(newest, tick);
+    }
+
+    /** The highest tick ever put, or -1 while empty. */
+    int newest() {
+        return newest;
     }
 
     /** That tick's intent, or null if it has not arrived or has already been overwritten. */
@@ -55,6 +63,7 @@ final class IntentRing {
     void clear() {
         Arrays.fill(tickAt, -1);
         Arrays.fill(intents, null);
+        newest = -1;
     }
 
     /** floorMod, not %, so a negative tick cannot index outside the array. */

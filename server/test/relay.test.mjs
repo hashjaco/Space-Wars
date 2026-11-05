@@ -6,8 +6,8 @@ const check = (name, ok, detail = "") => {
   console.log(`${ok ? "PASS" : "FAIL"}  ${name}${ok ? "" : "  <- " + detail}`);
   if (!ok) failures++;
 };
-const open = (room) => new Promise((res, rej) => {
-  const ws = new WebSocket(`${SOCKET}/room/${room}`);
+const open = (room, query = "") => new Promise((res, rej) => {
+  const ws = new WebSocket(`${SOCKET}/room/${room}${query}`);
   ws.binaryType = "arraybuffer";
   ws.inbox = []; ws.control = [];
   ws.onmessage = (e) => (typeof e.data === "string" ? ws.control.push(parseControl(e.data)) : ws.inbox.push(new Uint8Array(e.data)));
@@ -20,16 +20,22 @@ const parseControl = (line) => {
   const f = line.split(",");
   return f[0] === "welcome"
     ? { type: "welcome", slot: +f[1], room: f[2], peers: f.slice(3).map(Number) }
-    : { type: "roster", peers: f.slice(1).map(Number) };
+    : f[0] === "token"
+      ? { type: "token", token: f[1] }
+      : { type: "roster", peers: f.slice(1).map(Number) };
 };
 
-const room = (await (await fetch(`${BASE}/new`)).text()).trim();
+check("GET /new is refused", (await fetch(`${BASE}/new`)).status === 405);
+const room = (await (await fetch(`${BASE}/new`, { method: "POST" })).text()).trim();
 check("POST /new returns a 6-char room code", /^[A-HJ-NP-Z2-9]{6}$/.test(room), room);
+check("a code nobody was issued finds no room", (await fetch(`${BASE}/room/ZZZZZZ`)).status === 404);
 
 const a = await open(room); await settle();
 const b = await open(room); await settle();
 
 check("first peer is told slot 1", a.control[0]?.type === "welcome" && a.control[0].slot === 1, String(a.control[0]?.slot));
+const tokenA = a.control.find((c) => c.type === "token")?.token;
+check("a peer is handed a reconnect token", /^[0-9a-f]{24}$/.test(tokenA ?? ""), String(tokenA));
 check("second peer is told slot 2", b.control[0]?.type === "welcome" && b.control[0].slot === 2, String(b.control[0]?.slot));
 check("first peer sees the roster grow", a.control.some((c) => c.type === "roster" && c.peers.join() === "1,2"), JSON.stringify(a.control));
 
@@ -49,11 +55,23 @@ check("four peers fit", d.control[0]?.slot === 4, String(d.control[0]?.slot));
 const fifthOpened = await open(room).then(() => true, () => false);
 check("a fifth peer is refused", fifthOpened === false, "the fifth connection opened");
 
+const tokenB = b.control.find((c) => c.type === "token")?.token;
 b.close(); await settle();
 check("departure updates the roster", a.control.at(-1)?.type === "roster" && a.control.at(-1).peers.join() === "1,3,4", JSON.stringify(a.control.at(-1)));
 
-const e = await open(room); await settle();
-check("the freed slot is reused", e.control[0]?.slot === 2, String(e.control[0]?.slot));
+// The departed seat is held for its owner for a minute: with three present and one held, the room
+// is full to a stranger, even one guessing at the seat, while the owner walks back in.
+const strangerOpened = await open(room, "?slot=2&token=notthetoken").then(() => true, () => false);
+check("a stranger cannot take the held seat", strangerOpened === false, "the stranger got in");
+const back = await open(room, `?slot=2&token=${tokenB}`); await settle();
+check("the owner reclaims the held seat with the token", back.control[0]?.slot === 2, String(back.control[0]?.slot));
+check("reclaiming keeps the token", back.control.find((c) => c.type === "token")?.token === tokenB);
+check("the roster shows the owner back", a.control.at(-1)?.type === "roster" && a.control.at(-1).peers.join() === "1,2,3,4", JSON.stringify(a.control.at(-1)));
+back.close(); await settle();
+
+const eOpened = await open(room).then(() => true, () => false);
+check("a seat is held for its owner rather than reused at once", eOpened === false, "a newcomer took the held seat");
+const e = { close() {} };
 
 check("no upgrade header gets 426", (await fetch(`${BASE}/room/${room}`)).status === 426);
 

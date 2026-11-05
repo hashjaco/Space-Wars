@@ -23,8 +23,9 @@ Plain text in, plain text out, everywhere. The Java client has no JSON parser an
 
 | | |
 |---|---|
-| `POST /new` | a fresh six-character room code, as plain text |
-| `GET /room/{code}` with `Upgrade: websocket` | join; `409` when the room already holds four |
+| `POST /new` | a fresh six-character room code, as plain text; other methods get `405` |
+| `GET /room/{code}` with `Upgrade: websocket` | join; `409` when the room already holds four, `404` for a code `/new` never issued |
+| `GET /room/{code}?slot=N&token=T` | rejoin a held seat inside its sixty-second window |
 
 ### The board
 
@@ -63,8 +64,15 @@ JSON parser and does not need one:
 
 ```
 welcome,<your slot>,<room>,<slot>,<slot>...
+token,<reconnect token>
 roster,<slot>,<slot>...
 ```
+
+A departed peer's seat is held for sixty seconds. Joining again as `/room/{code}?slot=N&token=T`
+inside that window gives the same seat back, with the same token; the game uses it to rejoin a match
+that is paused waiting for it (`net.RelayClient.reconnect`, `net.Lockstep.resync`). While a seat is
+held it still counts toward the four, so a stranger cannot take it. Only codes handed out by
+`POST /new` open a room: any other six characters answer `404`.
 
 ## Working on it
 
