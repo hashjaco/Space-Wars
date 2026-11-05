@@ -34,6 +34,7 @@ java  -cp target/classes:/tmp/preview TerrainPreview /tmp/cave.png
 | `TerrainPreview` | A top-down cave at three moments, with a ship for scale | `<out.png>` |
 | `SideCave` | The same terrain side-on, so ceiling and floor | `<out.png>` |
 | `Codex` | Four concept plates for a sixth galaxy: hulls, places, fauna, one flagship | `<outDir>` |
+| `engine/JuiceSmoke` | One staged mid-fight frame with every feel effect on: lit hulls, sparks, hit-spark, shockwave, white-out, combo | `<out.png>` (needs JavaFX on the classpath, like `GarageSmoke`) |
 
 `BossSheet` is the one to reach for when adding flagships: put the new ones next to an existing
 galaxy's and see whether they read as different ships.

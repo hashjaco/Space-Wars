@@ -10,7 +10,11 @@ package com.hashimjacobs.spacecase.asset;
 public enum Explosion {
 
     SMALL("explosion-small", 25, 2),
-    LARGE("explosion-large", 49, 1);
+    LARGE("explosion-large", 49, 1),
+    /** A bullet landing on a hull: a bright ray burst, a third of a second. Sprixen, see ASSETS.md. */
+    HIT_SPARK("fx-hit-spark", 24, 1),
+    /** The ring a dying flagship pushes out, under the fireballs. Sprixen. */
+    BOSS_RING("fx-boss-shockwave", 47, 1);
 
     private final String directory;
     private final int frameCount;

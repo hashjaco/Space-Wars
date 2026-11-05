@@ -33,6 +33,11 @@ public final class ActiveExplosion {
         tick++;
     }
 
+    /** Which sequence this is: a blast, or a spark that is decoration rather than an event. */
+    public Explosion kind() {
+        return explosion;
+    }
+
     public boolean isFinished() {
         boolean finished = frameIndex() >= explosion.frameCount();
         return finished;

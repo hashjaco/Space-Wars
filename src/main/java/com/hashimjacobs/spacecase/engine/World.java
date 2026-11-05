@@ -37,6 +37,21 @@ public final class World {
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<PowerUp> powerUps = new ArrayList<>();
     private final List<ActiveExplosion> explosions = new ArrayList<>();
+    private final List<Particle> particles = new ArrayList<>();
+    /** Explosions booked for a later tick, as {tick, x, y, size, kind}: a flagship goes in stages. */
+    private final List<double[]> scheduled = new ArrayList<>();
+
+    /**
+     * Hit-stop. While positive, {@link #update()} advances the clock and the wreckage and nothing
+     * else, and {@code GameLoop} holds the directors and the collisions too. Set only by simulation
+     * events (a flagship falling, a phase breaking), so every lockstep peer freezes on the same
+     * tick for the same count; folded into the checksum for that reason.
+     */
+    private int freezeTicks;
+
+    private static final int FLASH_TICKS = 12;
+    private int flashStartTick = -FLASH_TICKS;
+    private static final int MAX_PARTICLES = 400;
 
     /**
      * Ships brought in so far, counting from zero, purely to spread their first shots apart.
@@ -195,6 +210,10 @@ public final class World {
     /** Moves everything and expires anything that has left the arena. Does not remove. */
     public void update() {
         tickScenery();
+        if (freezeTicks > 0) {
+            freezeTicks--;
+            return;
+        }
 
         for (PlayerShip player : players) {
             player.tickTimers();
@@ -244,6 +263,72 @@ public final class World {
         for (ActiveExplosion explosion : explosions) {
             explosion.tick();
         }
+        for (Particle particle : particles) {
+            particle.tick();
+        }
+        for (int i = scheduled.size() - 1; i >= 0; i--) {
+            double[] booking = scheduled.get(i);
+            if (booking[0] <= tick) {
+                scheduled.remove(i);
+                Explosion kind = Explosion.values()[(int) booking[4]];
+                explosions.add(new ActiveExplosion(kind, booking[1], booking[2], booking[3]));
+                shake(Math.min(SHAKE_MAX, booking[3] * 0.05));
+            }
+        }
+    }
+
+    /** Holds the simulation for a few ticks. The longer hold wins; a shorter one does not cut it short. */
+    public void freeze(int ticks) {
+        freezeTicks = Math.max(freezeTicks, ticks);
+    }
+
+    /** True while hit-stop is holding the world; the loop skips the directors and the collisions. */
+    public boolean frozen() {
+        return freezeTicks > 0;
+    }
+
+    /**
+     * Sprays cosmetic sparks. The spread is hashed from the tick and the point rather than drawn
+     * from the shared Random, so an emitter added anywhere never shifts a spawn roll.
+     */
+    public void emit(Particle.Kind kind, double x, double y, int count, double speed) {
+        long hash = tick * 0x9E3779B97F4A7C15L ^ Double.doubleToLongBits(x) ^ (Double.doubleToLongBits(y) << 1);
+        for (int i = 0; i < count && particles.size() < MAX_PARTICLES; i++) {
+            hash = hash * 6364136223846793005L + 1442695040888963407L;
+            double angle = ((hash >>> 11) & 0xFFFF) / 65536.0 * 2 * Math.PI;
+            hash = hash * 6364136223846793005L + 1442695040888963407L;
+            double magnitude = speed * (0.4 + 0.6 * (((hash >>> 11) & 0xFFFF) / 65536.0));
+            particles.add(new Particle(kind, x, y, Math.cos(angle) * magnitude, Math.sin(angle) * magnitude));
+        }
+    }
+
+    /** Books an explosion for {@code delay} ticks from now. */
+    public void scheduleExplosion(int delay, double centerX, double centerY, double size) {
+        scheduleExplosion(delay, centerX, centerY, size, Explosion.LARGE);
+    }
+
+    public void scheduleExplosion(int delay, double centerX, double centerY, double size, Explosion kind) {
+        scheduled.add(new double[] {tick + delay, centerX, centerY, size, kind.ordinal()});
+    }
+
+    /** An effect at a point, with no camera kick: sparks on a hull are not blasts. */
+    public void addEffect(Explosion kind, double centerX, double centerY, double size) {
+        explosions.add(new ActiveExplosion(kind, centerX, centerY, size));
+    }
+
+    /** A full-arena white-out, read by the renderer and gated there by reduced flash. */
+    public void flash() {
+        flashStartTick = tick;
+    }
+
+    /** How much of the white-out is left, 1 at the moment of the flash and 0 once it has faded. */
+    public double flashRemaining() {
+        int elapsed = tick - flashStartTick;
+        return elapsed >= FLASH_TICKS ? 0 : 1 - elapsed / (double) FLASH_TICKS;
+    }
+
+    public List<Particle> particles() {
+        return particles;
     }
 
     /**
@@ -408,6 +493,7 @@ public final class World {
         bullets.removeIf(bullet -> !bullet.isAlive());
         powerUps.removeIf(powerUp -> !powerUp.isAlive());
         explosions.removeIf(ActiveExplosion::isFinished);
+        particles.removeIf(Particle::isDead);
     }
 
     /**
@@ -451,6 +537,7 @@ public final class World {
      */
     public long checksum() {
         long hash = tick;
+        hash = hash * 31 + freezeTicks;
         hash = fold(hash, players);
         hash = fold(hash, enemies);
         hash = fold(hash, asteroids);

@@ -10,6 +10,7 @@ prints it. Usage:
     sprixen.py download <url> <out-file>     # authenticated GET
     sprixen.py wait <generation-id>...       # poll get_generation until every job is done, print results
     sprixen.py rest <METHOD> <path> ['<json>']  # plain REST call (no MCP session), e.g. rest GET /v1/generations/<id>
+    sprixen.py upload <path> <field> <file> ['<json-fields>']  # multipart POST with one file plus text fields
 
 The MCP session id is cached in ~/.cache/sprixen-session and reused, because the server rate-limits
 session creation; a rejected session is re-initialised once. 429s back off and retry.
@@ -99,6 +100,26 @@ def rest(method, path, body=None):
         sys.exit(f"HTTP {e.code}: {e.read().decode()[:400]}")
 
 
+def upload(path, field, file, fields=None):
+    """Multipart POST: the file under `field`, every entry of `fields` as a text part."""
+    import mimetypes, uuid as _uuid
+    boundary = "----sprixen" + _uuid.uuid4().hex
+    body = b""
+    for k, v in (fields or {}).items():
+        body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n").encode()
+    mime = mimetypes.guess_type(file)[0] or "application/octet-stream"
+    body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{field}\"; filename=\"{os.path.basename(file)}\"\r\n"
+             f"Content-Type: {mime}\r\n\r\n").encode() + open(file, "rb").read() + b"\r\n"
+    body += f"--{boundary}--\r\n".encode()
+    req = urllib.request.Request("https://api.sprixen.com" + path, data=body, method="POST",
+                                 headers={"Authorization": key(), "Content-Type": f"multipart/form-data; boundary={boundary}"})
+    try:
+        with urllib.request.urlopen(req, timeout=300) as r:
+            return r.read().decode()
+    except urllib.error.HTTPError as e:
+        sys.exit(f"HTTP {e.code}: {e.read().decode()[:400]}")
+
+
 def main(argv):
     cmd = argv[1] if len(argv) > 1 else "help"
     if cmd == "tools":
@@ -121,6 +142,8 @@ def main(argv):
         print(call("get_credits", {}))
     elif cmd == "call":
         print(call(argv[2], json.loads(argv[3]) if len(argv) > 3 else {}))
+    elif cmd == "upload":
+        print(upload(argv[2], argv[3], argv[4], json.loads(argv[5]) if len(argv) > 5 else None))
     elif cmd == "rest":
         print(rest(argv[2], argv[3], json.loads(argv[4]) if len(argv) > 4 else None))
     elif cmd == "download":

@@ -362,6 +362,11 @@ three) were worth it for the arrival.
 
 ## Phase 5 — Polish
 
+**Landed 2026-11-04:** the four items below shipped (garage icons via Sprixen, `Difficulty.enemyScale(Galaxy)`,
+galaxy labels, the luminance health ramp), followed by a feel pass: hit-stop (`World.freeze`), sparks
+(`World.emit`), hull hit flash, a staged flagship death, a kill combo, and Null's `LATTICE` special.
+Kept here as the record of why.
+
 - Per-upgrade garage icons: 14 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
   one `ASSETS.md` row (the directory name covers all twelve). **Never `drawString`** — see rule 1.
   `insignia()` shows how to draw a symbol without a font.

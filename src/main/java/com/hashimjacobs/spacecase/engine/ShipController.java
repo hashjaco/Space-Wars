@@ -241,6 +241,9 @@ public final class ShipController {
             fireSpread(world);
         }
         sounds.play(SoundFx.LASER);
+        world.emit(Particle.Kind.MUZZLE,
+                ship.centerX() + ship.facing().xDirection() * ship.width() / 2,
+                ship.centerY() + ship.facing().yDirection() * ship.height() / 2, 2, 1.5);
     }
 
     /**

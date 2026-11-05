@@ -338,6 +338,26 @@ public class EnemyShip extends Entity {
         if (hitBarTicks > 0) {
             hitBarTicks--;
         }
+        if (hitFlashTicks > 0) {
+            hitFlashTicks--;
+        }
+    }
+
+    /** Ticks the hull still reads white after a hit. Short: it is the hit, not the health. */
+    private static final int HIT_FLASH_TICKS = 4;
+    private int hitFlashTicks;
+
+    /** True for the few ticks after a hit lands; the renderer brightens the hull. */
+    public boolean hitFlashing() {
+        return hitFlashTicks > 0;
+    }
+
+    /** The share of its health at which a flagship that enrages does so. Its last phase by default. */
+    private double enrageBelow = ENRAGE_BELOW;
+
+    /** Endless runs enrage earlier each loop; set by {@code SpawnDirector} when the flagship spawns. */
+    public void setEnrageBelow(double fraction) {
+        enrageBelow = fraction;
     }
 
     /** Counts down the weapon timer and reports whether the ship may fire this tick. */
@@ -496,7 +516,7 @@ public class EnemyShip extends Entity {
      * dead rather than when one head is.
      */
     public boolean isEnraged() {
-        return isBoss() && boss.enrages() && remainingHealthFraction() <= ENRAGE_BELOW;
+        return isBoss() && boss.enrages() && remainingHealthFraction() <= enrageBelow;
     }
 
     /** The share of its health at which a flagship that enrages does so. Its last phase. */
@@ -550,6 +570,7 @@ public class EnemyShip extends Entity {
 
     /** Raises the floating bar without touching health, for a hit that armour ate. */
     protected void showHitBar() {
+        hitFlashTicks = HIT_FLASH_TICKS;
         hitBarTicks = HIT_BAR_TICKS;
     }
 

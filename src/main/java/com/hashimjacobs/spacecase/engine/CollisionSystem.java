@@ -10,6 +10,7 @@ import com.hashimjacobs.spacecase.mode.WorldTemplate;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Bullet;
+import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
@@ -294,9 +295,15 @@ public final class CollisionSystem {
                 bullet.kill();
             }
             shooter.recordHit();
+            BossPhase before = enemy.isBoss() ? enemy.phase() : null;
             enemy.takeDamage(bullet.damage());
+            world.addEffect(Explosion.HIT_SPARK, bullet.centerX(), bullet.centerY(), 28);
+            world.emit(Particle.Kind.SPARK, bullet.centerX(), bullet.centerY(), 2, 3);
             if (!enemy.isAlive()) {
                 awardKill(world, shooter, enemy);
+            } else if (before != null && enemy.phase() != before) {
+                // The rhythm the player has been reading just broke; a beat of stillness says so.
+                world.freeze(4);
             }
             if (bullet.pierces()) {
                 continue;
@@ -377,9 +384,26 @@ public final class CollisionSystem {
     }
 
     private void awardKill(World world, PlayerShip shooter, EnemyShip enemy) {
-        shooter.addScore(enemy.scoreValue());
+        shooter.addKillScore(enemy.scoreValue(), world.tick());
         shooter.recordEnemyKill();
         world.addExplosion(enemy, Explosion.LARGE);
+        world.emit(Particle.Kind.SPARK, enemy.centerX(), enemy.centerY(), 14, 6);
+        if (enemy.isBoss() && !enemy.isBossPart()) {
+            // A flagship does not pop; it comes apart. Six more blasts walk across the hull over a
+            // second, the arena whites out, and the world holds still for the first eight ticks.
+            world.freeze(8);
+            world.flash();
+            world.emit(Particle.Kind.EMBER, enemy.centerX(), enemy.centerY(), 40, 4);
+            double size = Math.max(enemy.width(), enemy.height());
+            world.scheduleExplosion(8, enemy.centerX(), enemy.centerY(), size * 3, Explosion.BOSS_RING);
+            for (int i = 0; i < 6; i++) {
+                double fx = enemy.x() + enemy.width() * ((i * 7) % 5 + 0.5) / 5.0;
+                double fy = enemy.y() + enemy.height() * ((i * 3) % 4 + 0.5) / 4.0;
+                world.scheduleExplosion(8 + i * 10, fx, fy, size * 0.8);
+            }
+        } else if (enemy.kind() == EnemyShip.EnemyKind.CRUISER) {
+            world.freeze(2);
+        }
         // The long sample, which asteroids deliberately do not get: they die several a second.
         sounds.play(SoundFx.SHIP_EXPLOSION);
         dropLoot(world, enemy);

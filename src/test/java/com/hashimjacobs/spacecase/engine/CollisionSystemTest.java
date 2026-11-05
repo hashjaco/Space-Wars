@@ -4,6 +4,8 @@ import java.util.Random;
 
 import org.junit.jupiter.api.Test;
 
+import com.hashimjacobs.spacecase.asset.Explosion;
+
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -253,7 +255,7 @@ class CollisionSystemTest {
                 "a ship across the arena is not in a 120px radius");
         // Two kills each explode through awardKill as any kill does, and the blast adds exactly one
         // more. Four would mean the blast was spawning one per victim.
-        assertEquals(3, world.explosions().size(), "the blast must add one explosion, not one each");
+        assertEquals(3, blasts(world), "the blast must add one explosion, not one each");
     }
 
     /** Nothing burns when the trigger is up, however long the pickup has been held. */
@@ -274,5 +276,10 @@ class CollisionSystemTest {
     private static int healthOf(EnemyShip ship) {
         int max = ship.kind().health();
         return (int) Math.round(ship.remainingHealthFraction() * max);
+    }
+
+    /** Blasts only: a hit spark is drawn through the same list but is not an explosion. */
+    private static long blasts(World world) {
+        return world.explosions().stream().filter(e -> e.kind() != Explosion.HIT_SPARK).count();
     }
 }

@@ -28,3 +28,5 @@ docs/press/trailer/*.mp4
 docs/press/trailer/clips/
 tools/sprixen/.project-id
 tools/sprixen/out/
+tools/sprixen/.vfx-ids.json
+tools/sprixen/.gen*

@@ -363,14 +363,20 @@ class LockstepTest {
          */
         void stepFight() {
             int tick = world.tick();
+            boolean frozen = world.frozen();
             for (ShipController controller : controllers) {
                 int number = controller.ship().playerNumber();
-                controller.apply(lockstep.intentFor(number, tick), world, SoundPlayer.SILENT);
+                Intent intent = lockstep.intentFor(number, tick);
+                if (!frozen) {
+                    controller.apply(intent, world, SoundPlayer.SILENT);
+                }
             }
             world.update();
-            driveEnemies();
-            director.update(world);
-            collisions.resolve(world);
+            if (!frozen) {
+                driveEnemies();
+                director.update(world);
+                collisions.resolve(world);
+            }
             world.sweep();
         }
 
