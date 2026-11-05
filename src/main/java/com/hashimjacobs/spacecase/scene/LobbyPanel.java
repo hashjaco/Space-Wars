@@ -163,7 +163,7 @@ final class LobbyPanel extends VBox {
         onAct.run();
     }
 
-    /** Underscores for what has not been typed, so the field reads as four slots rather than one. */
+    /** Underscores for what has not been typed, so the field reads as six slots rather than one. */
     private static String pad(String typed) {
         StringBuilder shown = new StringBuilder(typed);
         while (shown.length() < LobbyModel.CODE_LENGTH) {

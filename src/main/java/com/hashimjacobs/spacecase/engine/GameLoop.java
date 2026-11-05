@@ -39,8 +39,8 @@ import com.hashimjacobs.spacecase.prefs.Standing;
  * Removal is deliberately a separate step that runs after collision handling, never during it.
  *
  * Clearing a level does not drop straight into the next one. The loop runs a short {@link Phase}
- * sequence instead -- fly off the top, read the debrief, then warp -- which is what turns ten levels
- * into ten places rather than one endless wave stream.
+ * sequence instead -- fly off the top, read the debrief, then warp -- which is what turns fifty levels
+ * into fifty places rather than one endless wave stream.
  */
 public final class GameLoop {
 

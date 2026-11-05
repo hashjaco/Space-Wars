@@ -12,7 +12,7 @@ still has to live with them.
 |---|---|
 | Levels | **50 of 50** |
 | Galaxies | `VERDANCE` (1–10), `ASHFALL` (11–20), `CRYONIS` (21–30), `TEMPEST` (31–40), `NULL` (41–50) |
-| Tests | 453 executed, all headless |
+| Tests | 589 executed, all headless |
 | `src/main/resources` | 71 MB |
 | Per galaxy, measured | ~150 PNGs, ~6 MB, ~5.9 s of generator time |
 
@@ -362,7 +362,7 @@ three) were worth it for the arrival.
 
 ## Phase 5 — Polish
 
-- Per-upgrade garage icons: 12 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
+- Per-upgrade garage icons: 14 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
   one `ASSETS.md` row (the directory name covers all twelve). **Never `drawString`** — see rule 1.
   `insignia()` shows how to draw a symbol without a font.
 - `Difficulty.enemyScale(galaxy)`, health only — but only if galaxy 5 actually plays flat.
