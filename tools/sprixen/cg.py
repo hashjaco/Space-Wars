@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""The CG flagship pipeline: Sprixen 2D still (route A) + premium idle loop, imported as game frames.
+
+    python3 tools/sprixen/cg.py still <slug>...        2 variants each, 4 credits a boss
+    python3 tools/sprixen/cg.py stills-sheet <slug>... download the variants, write out/cg/<slug>/stills.png
+    python3 tools/sprixen/cg.py pick <slug> <0|1>      choose the variant to animate
+    python3 tools/sprixen/cg.py loop <slug>...         premium custom idle loop on the pick, 8 credits
+    python3 tools/sprixen/cg.py import <slug>...       loop -> sprites/boss-<slug>-cg/1..12.png (384 px)
+    python3 tools/sprixen/cg.py status
+
+Slugs come from tools/sprixen/manifest/bosses.json (bosses and parts alike). Ids live in
+tools/sprixen/.cg-state.json, which is gitignored; the frames it imports are what gets committed.
+The standard animation path garbles painterly sprites in this project, so loops are always premium.
+"""
+import io, json, os, subprocess, sys, urllib.request
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(HERE))
+STATE = os.path.join(HERE, ".cg-state.json")
+OUT = os.path.join(HERE, "out", "cg")
+PID = open(os.path.join(HERE, ".cg-project-id")).read().strip()
+MAN = json.load(open(os.path.join(HERE, "manifest", "bosses.json")))
+ROWS = {r["slug"]: r for r in MAN["bosses"] + MAN["parts"]}
+FRAMES, SIZE = 12, 384
+
+SUFFIX = (" Viewed from directly above for a vertical shoot-'em-up, nose pointing straight down toward the player, "
+          "bilaterally symmetrical, filling the frame, pre-rendered 3D CGI look with smooth shading, specular highlights "
+          "and deep shadow, transparent background, no text, no base, no ground.")
+LOOP = ("Seamless idle loop of this thing holding station, seen from above: its glowing parts pulse brighter and dimmer, "
+        "its mouth, mandibles or eyes slowly move, loose flesh and feelers sway, its engines flare. "
+        "The body does not move, turn or change size; the last frame flows back into the first.")
+
+def key():
+    return json.load(open(os.path.expanduser("~/.claude.json")))["projects"]["/Users/hashim/Projects"]["mcpServers"]["sprixen"]["headers"]["Authorization"]
+
+def rest(method, path, body=None):
+    args = [sys.executable, os.path.join(HERE, "sprixen.py"), "rest", method, path] + ([json.dumps(body)] if body else [])
+    out = subprocess.run(args, capture_output=True, text=True)
+    if out.returncode:
+        raise SystemExit(f"{method} {path}: {out.stdout[:300]} {out.stderr[:200]}")
+    return json.loads(out.stdout)
+
+def get(url):
+    req = urllib.request.Request(url if url.startswith("http") else "https://api.sprixen.com" + url, headers={"Authorization": key()})
+    return urllib.request.urlopen(req, timeout=600).read()
+
+def load():
+    return json.load(open(STATE)) if os.path.exists(STATE) else {}
+
+def save(state):
+    json.dump(state, open(STATE, "w"), indent=1)
+
+def prompt_for(row):
+    return row["prompt"] + ". Style: " + MAN["flavour"][row["galaxy"]] + "." + SUFFIX
+
+def cmd_still(slugs):
+    state = load()
+    for slug in slugs:
+        row = ROWS[slug]
+        r = rest("POST", "/v1/generations", {"prompt": prompt_for(row), "projectId": PID, "resolution": "512x512",
+                                              "pixelPerfect": "off", "variantCount": 2, "noBase": True, "type": "sprite"})
+        state.setdefault(slug, {})["still"] = r["id"]
+        print(slug, "still", r["id"], r.get("status"))
+    save(state)
+
+def cmd_stills_sheet(slugs):
+    state = load()
+    for slug in slugs:
+        gen = rest("GET", f"/v1/generations/{state[slug]['still']}")
+        if gen.get("status") != "completed":
+            print(slug, gen.get("status"), gen.get("error")); continue
+        d = os.path.join(OUT, slug); os.makedirs(d, exist_ok=True)
+        ids, ims = [], []
+        for i, s in enumerate(gen["sprites"]):
+            im = Image.open(io.BytesIO(get(s["imageUrl"]))).convert("RGBA"); im.save(f"{d}/A-{i}.png"); ids.append(s["id"]); ims.append(im)
+        state[slug]["sprites"] = ids
+        sheet = Image.new("RGB", (512 * len(ims), 512), (20, 24, 40))
+        for i, im in enumerate(ims):
+            sheet.paste(im, (512 * i, 0), im)
+        sheet.save(f"{d}/stills.png"); print(slug, len(ims), "variants ->", f"{d}/stills.png")
+    save(state)
+
+def cmd_pick(slug, idx):
+    state = load(); state[slug]["pick"] = int(idx); save(state); print(slug, "pick", idx)
+
+def cmd_loop(slugs):
+    state = load()
+    for slug in slugs:
+        sid = state[slug]["sprites"][state[slug].get("pick", 0)]
+        r = rest("POST", f"/v1/sprites/{sid}/animations", {"type": "custom", "frameCount": FRAMES, "fps": 10, "quality": "premium",
+                                                           "resolution": "512x512", "customDescription": LOOP})
+        state[slug]["loop"] = r["id"]; print(slug, "loop", r["id"], r.get("status"), r.get("error"))
+    save(state)
+
+def turned(im):
+    # The generator's quarterTurnLeft: the side-on levels fly right-to-left, so a nose-down hull turns to point left.
+    return im.rotate(-90, expand=True)
+
+def cmd_import(slugs):
+    state = load()
+    for slug in slugs:
+        row = ROWS[slug]
+        anim = rest("GET", f"/v1/animations/{state[slug]['loop']}")
+        if anim.get("status") != "completed":
+            print(slug, anim.get("status"), anim.get("error")); continue
+        frames = sorted(anim["framesJson"], key=lambda f: f["index"])
+        n = len(frames); picks = [frames[round(i * n / FRAMES)] for i in range(FRAMES)]
+        dest = os.path.join(ROOT, "src/main/resources/sprites", f"boss-{slug}-cg"); os.makedirs(dest, exist_ok=True)
+        for i, f in enumerate(picks, start=1):
+            im = Image.open(io.BytesIO(get(f["url"]))).convert("RGBA")
+            if row.get("side"):
+                im = turned(im)
+            im.thumbnail((SIZE, SIZE), Image.LANCZOS)
+            im.save(f"{dest}/{i}.png", optimize=True)
+        size = sum(os.path.getsize(f"{dest}/{i}.png") for i in range(1, FRAMES + 1)) // 1024
+        state[slug]["imported"] = True; print(slug, "->", dest, f"{size} KB")
+    save(state)
+
+def cmd_status():
+    state = load()
+    for slug, s in state.items():
+        line = [slug]
+        if "still" in s:
+            g = rest("GET", f"/v1/generations/{s['still']}"); line.append("still:" + str(g.get("status")))
+        if "loop" in s:
+            a = rest("GET", f"/v1/animations/{s['loop']}"); line.append("loop:" + str(a.get("status")))
+        if s.get("imported"):
+            line.append("imported")
+        print("  ".join(line))
+
+if __name__ == "__main__":
+    cmd, args = (sys.argv[1] if len(sys.argv) > 1 else "status"), sys.argv[2:]
+    {"still": lambda: cmd_still(args), "stills-sheet": lambda: cmd_stills_sheet(args), "pick": lambda: cmd_pick(*args),
+     "loop": lambda: cmd_loop(args), "import": lambda: cmd_import(args), "status": cmd_status}[cmd]()
