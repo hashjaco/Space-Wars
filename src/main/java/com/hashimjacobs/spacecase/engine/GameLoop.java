@@ -659,7 +659,8 @@ public final class GameLoop {
         // while the pilots shop, so the warp afterwards is almost always instant.
         Level next = director.level().next();
         // Head art too, or a multi-part flagship stutters through a synchronous decode on arrival.
-        Assets.preload(next.layers(), next.boss().art(), next.boss().headArt());
+        Assets.preload(next.skyLayers(), next.enemyArts(), next.boss().art(), next.boss().headArt(),
+                next.boss().armArt());
     }
 
     /**

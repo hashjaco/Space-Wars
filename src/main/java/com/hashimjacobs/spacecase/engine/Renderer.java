@@ -19,6 +19,9 @@ import javafx.scene.text.TextAlignment;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.BossArt;
+import com.hashimjacobs.spacecase.asset.KitArt;
+import com.hashimjacobs.spacecase.asset.EnemyArt;
+import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.BossHead;
@@ -133,7 +136,8 @@ public final class Renderer {
             int tick = world.tick();
             gc.translate(throwDistance * Math.sin(tick * 2.7), throwDistance * Math.cos(tick * 3.9));
         }
-        drawScrollingBackground(director.level(), world.tick());
+        Level level = director.level();
+        drawScrollingBackground(level, world.tick());
         // After the sky and before everything solid, so rock sits behind the fight but in front of
         // the parallax. Inside the shake, so it is thrown with the arena rather than against it.
         drawTerrain(world);
@@ -144,14 +148,18 @@ public final class Renderer {
         for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
         }
+        for (World.Wreck wreck : world.wrecks()) {
+            Image frame = Assets.bossFrames(wreck.art(), BossArt.State.DEATH).get(wreck.frameAt(world.tick()));
+            drawFitted(frame, wreck.x(), wreck.y(), wreck.width(), wreck.height());
+        }
         for (EnemyShip enemy : world.enemies()) {
             if (enemy.isBoss()) {
                 drawBoss(enemy, world.tick());
             } else {
-                drawSprite(enemy);
+                drawHostile(enemy, level, world.tick());
             }
             if (enemy.hitFlashing() && !settings.reducedFlash()) {
-                drawHitFlash(enemy, world.tick());
+                drawHitFlash(enemy, level, world.tick());
             }
             drawHitBar(enemy);
         }
@@ -315,7 +323,7 @@ public final class Renderer {
         double backX = facing.vx(facing.arenaDepth(), 0);
         double backY = facing.vy(facing.arenaDepth(), 0);
 
-        List<Sprite> layers = level.layers();
+        List<Sprite> layers = level.skyLayers();
         for (int layer = 0; layer < layers.size(); layer++) {
             Image image = Assets.image(layers.get(layer));
             double scrolled = tick * GameConfig.BACKGROUND_SCROLL_SPEED * LAYER_SPEEDS[layer];
@@ -338,18 +346,37 @@ public final class Renderer {
      * lit from inside rather than tinted. A flagship flashes its body art only; the neck and the
      * worm segments are drawn live and are not the thing that was hit.
      */
-    private void drawHitFlash(EnemyShip enemy, int tick) {
+    private void drawHitFlash(EnemyShip enemy, Level level, int tick) {
         gc.save();
         gc.setGlobalBlendMode(BlendMode.ADD);
         gc.setGlobalAlpha(0.65);
         if (enemy.isBoss()) {
-            BossArt art = enemy.bossArt();
-            Image frame = Assets.bossFrames(art).get(art.frameIndexAt(tick));
-            drawFitted(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
+            drawFitted(bossFrame(enemy, tick), enemy.x(), enemy.y(), enemy.width(), enemy.height());
         } else {
-            drawSprite(enemy);
+            drawHostile(enemy, level, tick);
         }
         gc.restore();
+    }
+
+    /**
+     * A regular hostile: its galaxy's CG loop fitted into its box, offset by its own phase so a
+     * wave does not animate in lockstep, or the level's static sprite while that loop has not landed.
+     */
+    private void drawHostile(EnemyShip enemy, Level level, int tick) {
+        EnemyArt art = level.enemyArt(enemy.kind());
+        if (art == null) {
+            drawSprite(enemy);
+            return;
+        }
+        Image frame = Assets.enemyFrames(art).get(art.frameIndexAt(tick + enemy.weavePhase()));
+        drawFitted(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
+    }
+
+    /** The flagship's frame for this tick in the loop its hull fraction calls for. */
+    private static Image bossFrame(EnemyShip boss, int tick) {
+        BossArt art = boss.bossArt();
+        BossArt.State state = art.stateFor(boss.hullFraction());
+        return Assets.bossFrames(art, state).get(art.frameIndexAt(state, tick));
     }
 
     /** Sparks and embers as small discs that shrink and fade with their remaining life. */
@@ -390,10 +417,7 @@ public final class Renderer {
         } else if (boss instanceof BurrowingWorm worm) {
             drawWormBody(worm);
         }
-        BossArt art = boss.bossArt();
-        List<Image> frames = Assets.bossFrames(art);
-        Image frame = frames.get(art.frameIndexAt(tick));
-        drawFitted(frame, boss.x(), boss.y(), boss.width(), boss.height());
+        drawFitted(bossFrame(boss, tick), boss.x(), boss.y(), boss.width(), boss.height());
     }
 
     /**
@@ -580,11 +604,23 @@ public final class Renderer {
         // hash of the tick so it never settles into a rhythm. Held off under reduced flash.
         boolean shorting = player.inDistress() && !settings.reducedFlash()
                 && ((tick * 0x9E3779B97F4A7C15L) >>> 60) < 3;
-        drawSprite(shorting ? player.scorchedSprite() : player.sprite(), player, hullDegrees);
+        ChassisArt hull = player.loadout().chassisArt();
+        int pose = player.lean().ordinal();
+        boolean sideOn = player.facing().horizontal();
+        if (hull == null) {
+            drawSprite(shorting ? player.scorchedSprite() : player.sprite(), player, hullDegrees);
+        } else {
+            boolean hit = shorting || player.justHit();
+            Image frame = Assets.chassisFrames(hull, pose, hit, sideOn).get(hull.frameIndexAt(tick));
+            drawImage(frame, player, hullDegrees);
+        }
+        // Drawn at the hull's own size and rotation so the part tracks the pose and, in battle
+        // mode, turns with a player two who is facing the other way.
+        KitArt part = player.loadout().kit().art();
         Sprite kit = player.kitOverlay();
-        if (kit != null) {
-            // Drawn at the hull's own size and rotation so the decal tracks the pose and, in
-            // battle mode, turns with a player two who is facing the other way.
+        if (part != null) {
+            drawImage(Assets.kitFrames(part, pose, sideOn).get(part.frameIndexAt(tick)), player, hullDegrees);
+        } else if (kit != null) {
             drawSprite(kit, player, hullDegrees);
         }
         if (faded) {
@@ -656,7 +692,11 @@ public final class Renderer {
      * see {@code Bullet.headingDegrees()}.
      */
     private void drawSprite(Sprite sprite, Entity entity, double degrees) {
-        Image image = Assets.image(sprite);
+        drawImage(Assets.image(sprite), entity, degrees);
+    }
+
+    /** An image over an entity's box, turned about its centre by {@code degrees}. */
+    private void drawImage(Image image, Entity entity, double degrees) {
         if (degrees == 0) {
             gc.drawImage(image, entity.x(), entity.y(), entity.width(), entity.height());
             return;

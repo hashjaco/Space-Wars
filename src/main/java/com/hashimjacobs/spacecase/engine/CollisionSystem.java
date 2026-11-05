@@ -393,6 +393,7 @@ public final class CollisionSystem {
             // second, the arena whites out, and the world holds still for the first eight ticks.
             world.freeze(8);
             world.flash();
+            world.addWreck(enemy);
             world.emit(Particle.Kind.EMBER, enemy.centerX(), enemy.centerY(), 40, 4);
             double size = Math.max(enemy.width(), enemy.height());
             world.scheduleExplosion(8, enemy.centerX(), enemy.centerY(), size * 3, Explosion.BOSS_RING);

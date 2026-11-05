@@ -1,7 +1,10 @@
 package com.hashimjacobs.spacecase.mode;
 
+import java.util.ArrayList;
+import java.util.Map;
 import java.util.List;
 
+import com.hashimjacobs.spacecase.asset.EnemyArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
@@ -470,6 +473,45 @@ public enum Level {
     public List<Sprite> layers() {
         return layers;
     }
+
+    /**
+     * The CG loop for an enemy archetype on this level, or null while that galaxy's design has not
+     * landed, in which case {@link #enemySprite} is drawn as before. One design per galaxy and
+     * archetype, with a pre-turned twin for the levels flown side-on.
+     */
+    public EnemyArt enemyArt(EnemyShip.EnemyKind kind) {
+        String name = galaxy().name() + "_" + kind.name()
+                + (orientation() == Orientation.TOP_DOWN ? "" : "_SIDE");
+        return EnemyArt.named(name);
+    }
+
+    /** The CG loops this level will draw, for preloading: at most three. */
+    public List<EnemyArt> enemyArts() {
+        List<EnemyArt> arts = new ArrayList<>(3);
+        for (EnemyShip.EnemyKind kind : EnemyShip.EnemyKind.values()) {
+            EnemyArt art = enemyArt(kind);
+            if (art != null) {
+                arts.add(art);
+            }
+        }
+        return arts;
+    }
+
+    /**
+     * The galaxy's CG sky, or this level's own generated layers where the level is special: a
+     * cave, a side-on run (its layers tile along the other axis) or the galaxy's finale. Rows are
+     * added to {@link #SKIES} as the art lands; a galaxy without one draws its generated layers.
+     */
+    public List<Sprite> skyLayers() {
+        boolean special = template() != WorldTemplate.OPEN_FIELD
+                || orientation() != Orientation.TOP_DOWN
+                || indexInGalaxy() == Galaxy.LEVELS_PER_GALAXY;
+        List<Sprite> sky = special ? null : SKIES.get(galaxy());
+        return sky != null ? sky : layers;
+    }
+
+    /** Galaxy-wide CG skies, far, mid, near. Empty until the art lands. */
+    private static final Map<Galaxy, List<Sprite>> SKIES = Map.of();
 
     /** This level's art for an enemy archetype. The archetype itself carries health, speed and score. */
     public Sprite enemySprite(EnemyShip.EnemyKind kind) {

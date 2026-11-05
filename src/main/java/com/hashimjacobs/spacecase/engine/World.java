@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.Explosion;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
@@ -360,6 +361,34 @@ public final class World {
     }
 
     /**
+     * A dead flagship's last moments: its death loop played over the box it died in, while the
+     * scheduled blasts walk across it. Scenery like a particle, outside the checksum, swept when
+     * the loop has run. Only arts that carry a DEATH loop leave one.
+     */
+    public record Wreck(BossArt art, double x, double y, double width, double height, int startTick) {
+        public int frameAt(int tick) {
+            return art.deathFrameAt(tick - startTick);
+        }
+
+        boolean spent(int tick) {
+            return tick - startTick >= art.deathTicks();
+        }
+    }
+
+    private final List<Wreck> wrecks = new ArrayList<>();
+
+    public void addWreck(EnemyShip flagship) {
+        BossArt art = flagship.bossArt();
+        if (art.has(BossArt.State.DEATH)) {
+            wrecks.add(new Wreck(art, flagship.x(), flagship.y(), flagship.width(), flagship.height(), tick));
+        }
+    }
+
+    public List<Wreck> wrecks() {
+        return wrecks;
+    }
+
+    /**
      * Ends the fight: destroys everything hostile still on the field and clears every shot in the air,
      * so the victory lap flies through empty sky.
      */
@@ -522,6 +551,7 @@ public final class World {
         powerUps.removeIf(powerUp -> !powerUp.isAlive());
         explosions.removeIf(ActiveExplosion::isFinished);
         particles.removeIf(Particle::isDead);
+        wrecks.removeIf(wreck -> wreck.spent(tick));
     }
 
     /**

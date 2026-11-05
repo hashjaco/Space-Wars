@@ -5,6 +5,7 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 
+import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
 /**
@@ -309,6 +310,11 @@ public final class Loadout {
      */
     public Sprite chassisPose(int leanIndex, boolean hit, boolean sideOn) {
         return chassis.pose(livery, leanIndex, hit, sideOn);
+    }
+
+    /** The CG loops for this airframe in this paint, or null while they have not landed. */
+    public ChassisArt chassisArt() {
+        return ChassisArt.named(chassis.name() + "_" + livery.name());
     }
 
     public boolean owns(Livery candidate) {

@@ -5,6 +5,9 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
@@ -26,7 +29,17 @@ public final class Assets {
 
     private static final Map<Sprite, Image> IMAGES = new EnumMap<>(Sprite.class);
     private static final Map<Explosion, List<Image>> EXPLOSION_FRAMES = new EnumMap<>(Explosion.class);
-    private static final Map<BossArt, List<Image>> BOSS_FRAMES = new EnumMap<>(BossArt.class);
+    /** One list per state an art has; states it lacks are never asked for. */
+    private static final Map<BossArt, Map<BossArt.State, List<Image>>> BOSS_FRAMES = new EnumMap<>(BossArt.class);
+    private static final Map<EnemyArt, List<Image>> ENEMY_FRAMES = new EnumMap<>(EnemyArt.class);
+    private static final Map<PoseKey, List<Image>> CHASSIS_FRAMES = new HashMap<>();
+    private static final Map<KitPoseKey, List<Image>> KIT_FRAMES = new HashMap<>();
+
+    private record PoseKey(ChassisArt art, int pose, boolean hit, boolean side) {
+    }
+
+    private record KitPoseKey(KitArt art, int pose, boolean side) {
+    }
 
     /** Images the last {@link #preload} started, still decoding on a JavaFX loader thread. */
     private static final List<Image> WARMING = new ArrayList<>();
@@ -85,10 +98,45 @@ public final class Assets {
     }
 
     public static List<Image> bossFrames(BossArt art) {
+        return bossFrames(art, BossArt.State.IDLE);
+    }
+
+    /** The frames of one of an art's loops. Ask only for a state the art {@link BossArt#has}. */
+    public static List<Image> bossFrames(BossArt art, BossArt.State state) {
         requireLoaded(art);
-        List<Image> frames = BOSS_FRAMES.computeIfAbsent(art, missing ->
-                decodeFrames(missing.frameCount(), missing::framePath,
-                        missing.width(), missing.height()));
+        Map<BossArt.State, List<Image>> states = BOSS_FRAMES.computeIfAbsent(art,
+                missing -> new EnumMap<>(BossArt.State.class));
+        List<Image> frames = states.computeIfAbsent(state, missing ->
+                decodeFrames(art.frameCount(missing), index -> art.framePath(missing, index),
+                        art.width(), art.height()));
+        return frames;
+    }
+
+    /** A regular hostile's loop at its natural size; the box scales per wave, so it is applied at draw time. */
+    public static List<Image> enemyFrames(EnemyArt art) {
+        requireLoaded(art);
+        List<Image> frames = ENEMY_FRAMES.computeIfAbsent(art,
+                missing -> decodeFrames(missing.frameCount(), missing::framePath, 0, 0));
+        return frames;
+    }
+
+    /** A player hull's loop for one pose, decoded to the stock hull's box (transposed for the side cut). */
+    public static List<Image> chassisFrames(ChassisArt art, int pose, boolean hit, boolean sideOn) {
+        requireLoaded(art);
+        double w = sideOn ? Sprite.P1_STRAIGHT.height() : Sprite.P1_STRAIGHT.width();
+        double h = sideOn ? Sprite.P1_STRAIGHT.width() : Sprite.P1_STRAIGHT.height();
+        List<Image> frames = CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, pose, hit, sideOn),
+                key -> decodeFrames(art.frameCount(), index -> art.framePath(pose, hit, sideOn, index), w, h));
+        return frames;
+    }
+
+    /** A kit part's loop for one pose, decoded like the hull it sits on. */
+    public static List<Image> kitFrames(KitArt art, int pose, boolean sideOn) {
+        requireLoaded(art);
+        double w = sideOn ? Sprite.P1_STRAIGHT.height() : Sprite.P1_STRAIGHT.width();
+        double h = sideOn ? Sprite.P1_STRAIGHT.width() : Sprite.P1_STRAIGHT.height();
+        List<Image> frames = KIT_FRAMES.computeIfAbsent(new KitPoseKey(art, pose, sideOn),
+                key -> decodeFrames(art.frameCount(), index -> art.framePath(pose, sideOn, index), w, h));
         return frames;
     }
 
@@ -99,29 +147,53 @@ public final class Assets {
      * while this runs and poll {@link #warmedUp}. Takes the pieces rather than a level because the
      * asset package cannot depend on {@code mode}, which depends on it.
      */
-    public static void preload(List<Sprite> layers, BossArt... arts) {
+    public static void preload(List<Sprite> layers, List<EnemyArt> hostiles, BossArt... arts) {
         WARMING.clear();
+        // Only the level ahead stays decoded: a flagship's loops at 512 px run to tens of megabytes,
+        // and fifty of them would not fit. Called from the debrief, when the last one is dead and
+        // swept, so nothing on screen is dropped.
+        Set<BossArt> keep = new HashSet<>();
+        for (BossArt art : arts) {
+            if (art != null) {
+                keep.add(art);
+            }
+        }
+        BOSS_FRAMES.keySet().retainAll(keep);
+        ENEMY_FRAMES.keySet().retainAll(new HashSet<>(hostiles));
         for (Sprite layer : layers) {
             Image image = IMAGES.computeIfAbsent(layer, Assets::decodeInBackground);
             WARMING.add(image);
         }
-        // Varargs because a multi-part flagship has more than one set of frames, and its heads
-        // are on screen from the same tick the torso is.
-        for (BossArt art : arts) {
-            if (art == null) {
-                continue;
-            }
+        for (EnemyArt art : hostiles) {
             requireLoaded(art);
-            List<Image> frames = BOSS_FRAMES.computeIfAbsent(art, missing -> {
+            List<Image> frames = ENEMY_FRAMES.computeIfAbsent(art, missing -> {
                 List<Image> decoding = new ArrayList<>(missing.frameCount());
                 for (int index = 1; index <= missing.frameCount(); index++) {
-                    Image frame = decodeInBackground(missing.framePath(index),
-                            missing.width(), missing.height());
-                    decoding.add(frame);
+                    decoding.add(decodeInBackground(missing.framePath(index), 0, 0));
                 }
                 return Collections.unmodifiableList(decoding);
             });
             WARMING.addAll(frames);
+        }
+        // Varargs because a multi-part flagship has more than one set of frames, and its heads
+        // are on screen from the same tick the torso is.
+        for (BossArt art : keep) {
+            requireLoaded(art);
+            Map<BossArt.State, List<Image>> states = BOSS_FRAMES.computeIfAbsent(art,
+                    missing -> new EnumMap<>(BossArt.State.class));
+            for (BossArt.State state : BossArt.State.values()) {
+                if (!art.has(state)) {
+                    continue;
+                }
+                List<Image> frames = states.computeIfAbsent(state, missing -> {
+                    List<Image> decoding = new ArrayList<>(art.frameCount(missing));
+                    for (int index = 1; index <= art.frameCount(missing); index++) {
+                        decoding.add(decodeInBackground(art.framePath(missing, index), art.width(), art.height()));
+                    }
+                    return Collections.unmodifiableList(decoding);
+                });
+                WARMING.addAll(frames);
+            }
         }
     }
 

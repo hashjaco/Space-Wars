@@ -206,23 +206,87 @@ public enum BossArt {
     SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148),
     BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 248, 165);
 
+    /**
+     * The loops a flagship can carry. IDLE is the loop every art has; the others live in a
+     * sub-directory of the same name and are optional: an art that lacks one falls back to IDLE.
+     * HURT and RAGE switch at the same hull fractions as {@code Boss.phaseFor}, so the hull
+     * changes on the tick the phase does. DEATH is a one-shot played by {@code World.Wreck}.
+     */
+    public enum State {
+        IDLE, HURT, RAGE, DEATH;
+
+        /** The sub-directory, or none for the idle loop which sits at the top. */
+        String directory() {
+            return this == IDLE ? "" : name().toLowerCase() + "/";
+        }
+    }
+
     private final String directory;
     private final int frameCount;
     private final int ticksPerFrame;
     private final double width;
     private final double height;
+    /** Frames per {@link State}, in ordinal order; zero means the state is absent. */
+    private final int[] frameCounts;
 
     BossArt(String directory, int frameCount, int ticksPerFrame, double width, double height) {
+        this(directory, frameCount, 0, 0, 0, ticksPerFrame, width, height);
+    }
+
+    /** An art with damage loops. The box is the hitbox: copy it from the row this replaces. */
+    BossArt(String directory, int idle, int hurt, int rage, int death, int ticksPerFrame,
+            double width, double height) {
         this.directory = directory;
-        this.frameCount = frameCount;
+        this.frameCount = idle;
+        this.frameCounts = new int[] {idle, hurt, rage, death};
         this.ticksPerFrame = ticksPerFrame;
         this.width = width;
         this.height = height;
     }
 
     public String framePath(int oneBasedIndex) {
-        String path = "/sprites/" + directory + "/" + oneBasedIndex + ".png";
+        return framePath(State.IDLE, oneBasedIndex);
+    }
+
+    public String framePath(State state, int oneBasedIndex) {
+        String path = "/sprites/" + directory + "/" + state.directory() + oneBasedIndex + ".png";
         return path;
+    }
+
+    public boolean has(State state) {
+        return frameCounts[state.ordinal()] > 0;
+    }
+
+    public int frameCount(State state) {
+        return frameCounts[state.ordinal()];
+    }
+
+    /** The loop to show at this much hull: hurt under two thirds, rage under a third, when present. */
+    public State stateFor(double hullFraction) {
+        if (hullFraction <= 1.0 / 3 && has(State.RAGE)) {
+            return State.RAGE;
+        }
+        if (hullFraction <= 2.0 / 3 && has(State.HURT)) {
+            return State.HURT;
+        }
+        return State.IDLE;
+    }
+
+    /** Frame of a looping state at the given tick. */
+    public int frameIndexAt(State state, int tick) {
+        int index = (tick / ticksPerFrame) % frameCount(state);
+        return index;
+    }
+
+    /** Frame of the death one-shot this many ticks after it began; holds on the last frame. */
+    public int deathFrameAt(int ticksSince) {
+        int index = Math.min(frameCount(State.DEATH) - 1, Math.max(0, ticksSince) / ticksPerFrame);
+        return index;
+    }
+
+    /** Ticks the death one-shot runs for before the wreck is swept. */
+    public int deathTicks() {
+        return frameCount(State.DEATH) * ticksPerFrame;
     }
 
     /** Frame to show at the given world tick. The sequence loops seamlessly. */

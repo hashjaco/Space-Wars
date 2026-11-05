@@ -525,6 +525,14 @@ public class EnemyShip extends Entity {
     /** How much harder an enraged flagship strafes. Enough to close a gap, not enough to be unfair. */
     private static final double ENRAGE_TRACK_SCALE = 1.55;
 
+    /**
+     * A per-ship offset, already deterministic (it is stamped from the arrival position), that the
+     * renderer adds to the tick so a wave's loops do not all sit on the same frame.
+     */
+    public int weavePhase() {
+        return weavePhase;
+    }
+
     /** The frames this ship animates through: a part wears its own art, not the flagship's. */
     public BossArt bossArt() {
         return isBossPart() ? boss.headArt() : boss.art();
