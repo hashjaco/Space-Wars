@@ -483,6 +483,19 @@ public final class Renderer {
             gc.setEffect(GLOW);
         }
         drawFitted(frame, x, y, boss.width(), boss.height());
+        // A slow loop (the rendered ones hold each frame for a fraction of a second) cross-fades
+        // into its next frame, so the motion flows instead of stepping.
+        BossArt art = boss.bossArt();
+        BossArt.State state = art.stateFor(boss.hullFraction());
+        if (art.ticksPerFrame() >= 8 && art.frameCount(state) > 1) {
+            double blend = (tick % art.ticksPerFrame()) / (double) art.ticksPerFrame();
+            List<Image> frames = Assets.bossFrames(art, state);
+            Image next = frames.get((art.frameIndexAt(state, tick) + 1) % frames.size());
+            double alpha = gc.getGlobalAlpha();
+            gc.setGlobalAlpha(alpha * blend);
+            drawFitted(next, x, y, boss.width(), boss.height());
+            gc.setGlobalAlpha(alpha);
+        }
         gc.setEffect(null);
     }
 
