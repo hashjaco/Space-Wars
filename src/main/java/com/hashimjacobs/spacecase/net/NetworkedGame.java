@@ -1,5 +1,6 @@
 package com.hashimjacobs.spacecase.net;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
@@ -34,6 +35,7 @@ public final class NetworkedGame implements AutoCloseable {
         this.level = level;
         this.opening = opening;
         this.localSeat = localSeat;
+        this.host = relay.welcome().isHost();
     }
 
     /**
@@ -63,11 +65,73 @@ public final class NetworkedGame implements AutoCloseable {
      * whole of {@link RelayClient}'s threading contract. Putting it on a timer or a callback would
      * hand {@link Lockstep} to two threads at once.
      */
+    private final boolean host;
+    private volatile boolean reconnecting;
+    private volatile int reconnectAttempts;
+    private volatile String lastFailure;
+
     public IntPredicate stepGate() {
         return tick -> {
             relay.drainTo(lockstep::receive);
-            return lockstep.canStep(tick);
+            if (!relay.isConnected()) {
+                reconnectInBackground();
+            }
+            boolean ok = lockstep.canStep(tick);
+            // Only the host decides a peer is gone, and only once the window has run out; every
+            // machine then applies the same DROP from the same tick.
+            if (!ok && host && lockstep.pastReconnectWindow()) {
+                List<Integer> present = relay.peers();
+                for (int player : lockstep.waitingFor()) {
+                    if (!present.contains(player) && !lockstep.isDropped(player)) {
+                        lockstep.drop(player);
+                    }
+                }
+            }
+            return ok;
         };
+    }
+
+    /**
+     * What the HUD says about the link, or null while the match is moving: reconnecting, or
+     * waiting for named pilots with the seconds left in the window.
+     */
+    public String status() {
+        if (!relay.isConnected()) {
+            return "RECONNECTING" + ".".repeat(1 + reconnectAttempts % 3)
+                    + (lastFailure == null ? "" : "  " + lastFailure);
+        }
+        List<Integer> waiting = lockstep.waitingFor();
+        if (waiting.isEmpty()) {
+            return null;
+        }
+        int secondsLeft = Math.max(0, (Lockstep.RECONNECT_WINDOW_CALLS - lockstep.stalledCalls()) / 60);
+        StringBuilder names = new StringBuilder();
+        for (int player : waiting) {
+            names.append(names.isEmpty() ? "" : ", ").append("PILOT ").append(player);
+        }
+        return "WAITING FOR " + names + (lockstep.isDropped(waiting.get(0)) ? "" : "  " + secondsLeft + "s");
+    }
+
+    /** One attempt at a time, off the FX thread, with a short backoff between tries. */
+    private void reconnectInBackground() {
+        if (reconnecting) {
+            return;
+        }
+        reconnecting = true;
+        Thread.ofVirtual().start(() -> {
+            try {
+                Thread.sleep(Math.min(8000L, 1000L << Math.min(3, reconnectAttempts)));
+                relay.reconnect();
+                lastFailure = null;
+                reconnectAttempts = 0;
+                lockstep.resync();
+            } catch (IOException | InterruptedException refused) {
+                reconnectAttempts++;
+                lastFailure = refused.getMessage();
+            } finally {
+                reconnecting = false;
+            }
+        });
     }
 
     public IntentSource intents() {

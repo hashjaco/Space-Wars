@@ -367,6 +367,12 @@ galaxy labels, the luminance health ramp), followed by a feel pass: hit-stop (`W
 (`World.emit`), hull hit flash, a staged flagship death, a kill combo, and Null's `LATTICE` special.
 Kept here as the record of why.
 
+**Also landed 2026-11-04:** Sprixen hulls for the three chassis, an AI-drawn blast, a theme per
+galaxy; online play now pauses on a dropped peer, re-feeds a returning one and lets the host drop
+after thirty seconds (relay seats carry tokens); every run is recorded (`net.Replay`) and the
+leaderboard verifies scores by replay (`engine.Replayer`, `tools/verify`, `verify.yml`); the
+simulation's trig went through `StrictMath`, so the two CI determinism lines should now agree.
+
 - Per-upgrade garage icons: 14 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
   one `ASSETS.md` row (the directory name covers all twelve). **Never `drawString`** — see rule 1.
   `insignia()` shows how to draw a symbol without a font.

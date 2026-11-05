@@ -144,9 +144,11 @@ final class LobbyPanel extends VBox {
         List<Integer> peers = model.peers();
         for (int i = 0; i < seatRows.length; i++) {
             int seat = i + 1;
+            // "ready" means the loadout arrived, which is what the host actually waits on; a seat
+            // that is present but silent says so.
             String who = !peers.contains(seat) ? "empty"
                     : seat == model.localSlot() ? "you"
-                    : "ready";
+                    : model.hasLoadout(seat) ? "ready" : "joining";
             seatRows[i].setRow("PLAYER " + seat, who);
             // Locked either way -- a seat is something to look at, not something to press. The
             // difference is only that an occupied one is worth reading.

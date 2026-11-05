@@ -163,6 +163,11 @@ public final class LobbyModel {
         loadouts.put(slot, code == null ? "" : code);
     }
 
+    /** True once the peer in that seat has announced a loadout; until then the seat is only present. */
+    public boolean hasLoadout(int slot) {
+        return loadouts.containsKey(slot);
+    }
+
     /**
      * Every pilot's loadout in player-number order, for the host to put in the opening terms.
      *

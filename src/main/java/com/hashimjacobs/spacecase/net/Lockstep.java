@@ -255,7 +255,12 @@ public final class Lockstep implements IntentSource {
 
     /** Feed every packet the transport delivers straight in here. */
     public void receive(byte[] bytes) {
-        Packet packet = Packet.decode(bytes);
+        Packet packet;
+        try {
+            packet = Packet.decode(bytes);
+        } catch (IllegalArgumentException malformed) {
+            return; // one bad frame from a peer is not a reason to crash the game thread
+        }
         switch (packet.kind()) {
             case INTENT -> {
                 IntentRing ring = rings.get(packet.playerNumber());

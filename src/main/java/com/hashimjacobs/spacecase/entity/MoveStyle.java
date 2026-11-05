@@ -33,7 +33,7 @@ public enum MoveStyle {
     HUNT {
         @Override
         double acrossStep(double toTarget, double trackSpeed, double weave, int clock) {
-            return Math.signum(toTarget) * trackSpeed + Math.sin(phase(clock)) * weave;
+            return Math.signum(toTarget) * trackSpeed + StrictMath.sin(phase(clock)) * weave;
         }
 
         @Override
@@ -73,7 +73,7 @@ public enum MoveStyle {
     WEAVE {
         @Override
         double acrossStep(double toTarget, double trackSpeed, double weave, int clock) {
-            return Math.sin(phase(clock)) * Math.max(weave, HARD_WEAVE);
+            return StrictMath.sin(phase(clock)) * Math.max(weave, HARD_WEAVE);
         }
 
         @Override
@@ -137,7 +137,7 @@ public enum MoveStyle {
     DRIFT {
         @Override
         double acrossStep(double toTarget, double trackSpeed, double weave, int clock) {
-            return Math.cos(phase(clock) * DRIFT_RATE) * trackSpeed;
+            return StrictMath.cos(phase(clock) * DRIFT_RATE) * trackSpeed;
         }
 
         @Override

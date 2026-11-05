@@ -208,6 +208,11 @@ public final class Renderer {
      * still fits in a 60Hz budget, red once it does not -- the point is to be readable at a glance
      * mid-fight, not to be precise.
      */
+    /** A held match says why, over the arena: the pilots it waits for, or that this machine is rejoining. */
+    public void drawNetBanner(String line) {
+        hud.drawNetBanner(line);
+    }
+
     public void drawFrameMeter(double worstMs, int steps) {
         gc.setFont(PILOT_NAME_FONT);
         gc.setTextAlign(TextAlignment.LEFT);

@@ -143,7 +143,7 @@ public enum BossPhase {
         if (this != VORTEX) {
             return spreadRadians;
         }
-        double breathe = 0.5 + 0.5 * Math.cos(2 * Math.PI * tick / VORTEX_CYCLE_TICKS);
+        double breathe = 0.5 + 0.5 * StrictMath.cos(2 * Math.PI * tick / VORTEX_CYCLE_TICKS);
         return spreadRadians * (VORTEX_TIGHTEST + (1 - VORTEX_TIGHTEST) * breathe);
     }
 

@@ -253,6 +253,15 @@ final class Hud {
     }
 
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
+    void drawNetBanner(String line) {
+        gc.setFill(Tokens.veil(0.6));
+        gc.fillRoundRect(GameConfig.WIDTH * 0.2, GameConfig.HEIGHT * 0.44, GameConfig.WIDTH * 0.6, 44, 10, 10);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setFont(valueFont);
+        gc.setFill(Tokens.HEALTH_MID);
+        gc.fillText(line, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.44 + 29);
+    }
+
     private void drawFlagshipWarning(int tick) {
         if (!settings.reducedFlash() && (tick / 14) % 2 == 0) {
             return;

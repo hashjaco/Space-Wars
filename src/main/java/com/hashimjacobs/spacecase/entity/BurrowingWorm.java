@@ -172,7 +172,7 @@ public final class BurrowingWorm extends EnemyShip {
 
     private double driftAcross(double at) {
         double breadth = orientation().arenaBreadth();
-        return breadth * 0.5 + Math.sin(at / DRIFT_TICKS) * breadth * 0.30
+        return breadth * 0.5 + StrictMath.sin(at / DRIFT_TICKS) * breadth * 0.30
                 - orientation().acrossExtent(width(), height()) / 2;
     }
 

@@ -4,7 +4,11 @@ export interface Env {
   ROOM: DurableObjectNamespace<Room>;
   BOARD: DurableObjectNamespace<Board>;
   VAULT: DurableObjectNamespace<Vault>;
+  /** Bearer token the replay verifier (a scheduled GitHub Action) presents; unset means no verification. */
+  VERIFY_SECRET?: string;
 }
+/** A recorded run, gzipped. A twenty-minute run is well under this. */
+const MAX_REPLAY_BYTES = 1024 * 1024;
 
 /** Two to four, matching the ship slots the game can field. */
 const MAX_PEERS = 4;
@@ -312,6 +316,15 @@ export class Board extends DurableObject<Env> {
     // The board is only ever read one way: best first, within a mode.
     this.ctx.storage.sql.exec(
       `CREATE INDEX IF NOT EXISTS scores_by_rank ON scores (mode, score DESC)`);
+    // Added after the table shipped, so ALTER rather than a wider CREATE; each one fails harmlessly
+    // once it has run. verified: 0 waiting, 1 the replay reproduced the score, -1 it did not.
+    for (const column of ["verified INTEGER NOT NULL DEFAULT 0", "replay BLOB", "replay_score INTEGER"]) {
+      try {
+        this.ctx.storage.sql.exec(`ALTER TABLE scores ADD COLUMN ${column}`);
+      } catch {
+        // already there
+      }
+    }
   }
 
   /**
@@ -321,22 +334,61 @@ export class Board extends DurableObject<Env> {
    * good one they already posted, which is the same bargain `prefs.HighScores` makes locally.
    */
   submit(player: string, mode: string, name: string, score: number): number {
+    // A new best is unverified until its own recording arrives and is replayed; the old recording
+    // backed the old score and is dropped with it.
     this.ctx.storage.sql.exec(
-      `INSERT INTO scores (player, mode, name, score) VALUES (?, ?, ?, ?)
+      `INSERT INTO scores (player, mode, name, score, verified, replay, replay_score) VALUES (?, ?, ?, ?, 0, NULL, NULL)
          ON CONFLICT (player, mode) DO UPDATE
-         SET name = excluded.name, score = max(scores.score, excluded.score)`,
+         SET name = excluded.name,
+             verified = CASE WHEN excluded.score > scores.score THEN 0 ELSE scores.verified END,
+             replay = CASE WHEN excluded.score > scores.score THEN NULL ELSE scores.replay END,
+             replay_score = CASE WHEN excluded.score > scores.score THEN NULL ELSE scores.replay_score END,
+             score = max(scores.score, excluded.score)`,
       player, mode, name, score);
     const [ahead] = [...this.ctx.storage.sql.exec<{ ahead: number }>(
       `SELECT COUNT(*) AS ahead FROM scores WHERE mode = ? AND score > ?`, mode, score)];
     return (ahead?.ahead ?? 0) + 1;
   }
 
-  /** The top of one mode's table as `name,score` lines -- the same comma idiom as everything else. */
+  /** The top of one mode's table as `name,score,verified` lines -- the same comma idiom as everything else. */
   top(mode: string): string {
-    const rows = [...this.ctx.storage.sql.exec<{ name: string; score: number }>(
-      `SELECT name, score FROM scores WHERE mode = ? ORDER BY score DESC, name ASC LIMIT ?`,
+    const rows = [...this.ctx.storage.sql.exec<{ name: string; score: number; verified: number }>(
+      `SELECT name, score, verified FROM scores WHERE mode = ? ORDER BY score DESC, name ASC LIMIT ?`,
       mode, TOP_ROWS)];
-    return rows.map((row) => `${row.name},${row.score}`).join("\n");
+    return rows.map((row) => `${row.name},${row.score},${row.verified}`).join("\n");
+  }
+
+  /** Attaches a recording to the row it backs. Refused unless the score is the row's current best. */
+  attach(player: string, mode: string, score: number, replay: ArrayBuffer): boolean {
+    const [row] = [...this.ctx.storage.sql.exec<{ score: number }>(
+      `SELECT score FROM scores WHERE player = ? AND mode = ?`, player, mode)];
+    if (!row || row.score !== score) {
+      return false;
+    }
+    this.ctx.storage.sql.exec(
+      `UPDATE scores SET replay = ?, replay_score = ?, verified = 0 WHERE player = ? AND mode = ?`,
+      replay, score, player, mode);
+    return true;
+  }
+
+  /** Rows waiting for the verifier, as `player,mode,score` lines. */
+  pending(): string {
+    const rows = [...this.ctx.storage.sql.exec<{ player: string; mode: string; score: number }>(
+      `SELECT player, mode, score FROM scores WHERE replay IS NOT NULL AND verified = 0 LIMIT 20`)];
+    return rows.map((row) => `${row.player},${row.mode},${row.score}`).join("\n");
+  }
+
+  replay(player: string, mode: string): ArrayBuffer | null {
+    const [row] = [...this.ctx.storage.sql.exec<{ replay: ArrayBuffer | null }>(
+      `SELECT replay FROM scores WHERE player = ? AND mode = ?`, player, mode)];
+    return row?.replay ?? null;
+  }
+
+  /** The verifier's verdict. The recording has done its work either way and is dropped. */
+  verdict(player: string, mode: string, ok: boolean): void {
+    this.ctx.storage.sql.exec(
+      `UPDATE scores SET verified = ?, replay = NULL WHERE player = ? AND mode = ? AND replay IS NOT NULL`,
+      ok ? 1 : -1, player, mode);
   }
 }
 
@@ -413,6 +465,50 @@ export default {
       // 404 rather than an empty body, so "nothing has ever been uploaded" is distinguishable from
       // "an upload happened and was empty" without the client having to guess.
       return held === undefined ? new Response("no profile", { status: 404 }) : text(held);
+    }
+
+    // ---- Recordings and the verifier --------------------------------------------------------
+    //
+    // A run's recording rides in after its score. Verification happens off this Worker, where the
+    // real Java simulation can run: a scheduled job presents VERIFY_SECRET, takes what is pending,
+    // replays it and posts a verdict. Until then the row is on the board but unmarked.
+
+    const replayMatch = url.pathname.match(/^\/replay\/([a-f0-9-]{8,40})\/([A-Z]{1,16})$/);
+    if (replayMatch && request.method === "PUT") {
+      const score = Number(url.searchParams.get("score"));
+      const body = await request.arrayBuffer();
+      if (!Number.isInteger(score) || body.byteLength === 0 || body.byteLength > MAX_REPLAY_BYTES) {
+        return new Response("bad recording", { status: 400 });
+      }
+      const ok = await env.BOARD.getByName("global").attach(replayMatch[1], replayMatch[2], score, body);
+      return ok ? text("attached") : new Response("not the row's best", { status: 409 });
+    }
+    const verifier = env.VERIFY_SECRET && request.headers.get("Authorization") === `Bearer ${env.VERIFY_SECRET}`;
+    if (url.pathname === "/replays/pending" || replayMatch || url.pathname.startsWith("/verify/")) {
+      if (!env.VERIFY_SECRET) {
+        return new Response("no verifier configured", { status: 503 });
+      }
+      if (!verifier) {
+        return new Response("verifier only", { status: 401 });
+      }
+      if (url.pathname === "/replays/pending") {
+        return text(await env.BOARD.getByName("global").pending());
+      }
+      if (replayMatch) {
+        const blob = await env.BOARD.getByName("global").replay(replayMatch[1], replayMatch[2]);
+        return blob ? new Response(blob, { headers: { "Content-Type": "application/octet-stream" } })
+          : new Response("no recording", { status: 404 });
+      }
+      const verdictMatch = url.pathname.match(/^\/verify\/([a-f0-9-]{8,40})\/([A-Z]{1,16})$/);
+      if (verdictMatch && request.method === "POST") {
+        const verdict = (await request.text()).trim();
+        if (verdict !== "ok" && verdict !== "bad") {
+          return new Response("ok or bad", { status: 400 });
+        }
+        await env.BOARD.getByName("global").verdict(verdictMatch[1], verdictMatch[2], verdict === "ok");
+        return text(verdict);
+      }
+      return new Response("not found", { status: 404 });
     }
 
     // ---- Rooms -----------------------------------------------------------------------------

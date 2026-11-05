@@ -36,7 +36,11 @@ import com.hashimjacobs.spacecase.mode.GameMode;
 public final class Cloud {
 
     /** One row of the board. */
-    public record Entry(String name, int score) {
+    /** {@code verified} is 1 once the relay has replayed the run and agreed, 0 while it waits, -1 if it disagreed. */
+    public record Entry(String name, int score, int verified) {
+        public Entry(String name, int score) {
+            this(name, score, 0);
+        }
     }
 
     /**
@@ -56,10 +60,23 @@ public final class Cloud {
      *         screen, and the run has already been recorded locally by {@code prefs.HighScores}
      */
     public static int submit(URI base, String player, GameMode mode, String name, int score) {
+        return submit(base, player, mode, name, score, null);
+    }
+
+    /**
+     * Posts a score, then the recording that backs it, so the relay can replay the run and mark the
+     * row verified. A row without a recording stays unverified; it is still on the board.
+     */
+    public static int submit(URI base, String player, GameMode mode, String name, int score, byte[] replay) {
         String body = player + "," + mode.name() + "," + name + "," + score;
         try {
             HttpResponse<String> response = send(HttpRequest.newBuilder(base.resolve("/score"))
                     .POST(HttpRequest.BodyPublishers.ofString(body)));
+            if (response.statusCode() == 200 && replay != null) {
+                send(HttpRequest.newBuilder(base.resolve("/replay/" + player + "/" + mode.name() + "?score=" + score))
+                        .header("Content-Type", "application/octet-stream")
+                        .PUT(HttpRequest.BodyPublishers.ofByteArray(replay)));
+            }
             return response.statusCode() == 200 ? Integer.parseInt(response.body().trim()) : 0;
         } catch (IOException | NumberFormatException unreachable) {
             return 0;
@@ -127,11 +144,12 @@ public final class Cloud {
         List<Entry> board = new ArrayList<>();
         for (String line : body.split("\n")) {
             String[] fields = line.trim().split(",");
-            if (fields.length != 2) {
+            if (fields.length < 2 || fields.length > 3) {
                 continue;
             }
             try {
-                board.add(new Entry(fields[0], Integer.parseInt(fields[1].trim())));
+                int verified = fields.length == 3 ? Integer.parseInt(fields[2].trim()) : 0;
+                board.add(new Entry(fields[0], Integer.parseInt(fields[1].trim()), verified));
             } catch (NumberFormatException notARow) {
                 // One unreadable row costs that row, not the board. Same bargain the relay's
                 // control frames make with a line an older build does not recognise.

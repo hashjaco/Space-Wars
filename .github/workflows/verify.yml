@@ -1,0 +1,28 @@
+# Replays the recordings behind leaderboard scores and marks them verified or rejected.
+#
+# The relay cannot run the game's Java simulation, so it holds each recording until this job, which
+# can, fetches it. Needs two secrets: VERIFY_SECRET, matching the Wrangler secret of the same name
+# on the relay (`wrangler secret put VERIFY_SECRET` in server/), and nothing else.
+name: Verify leaderboard replays
+
+on:
+  schedule:
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '26'
+          cache: maven
+      - name: Compile the game
+        run: mvn -B -q --no-transfer-progress -DskipTests compile dependency:build-classpath -Dmdep.outputFile=target/cp.txt
+      - name: Replay what is pending
+        env:
+          VERIFY_SECRET: ${{ secrets.VERIFY_SECRET }}
+        run: java -cp target/classes:$(cat target/cp.txt) tools/verify/ReplayVerifier.java

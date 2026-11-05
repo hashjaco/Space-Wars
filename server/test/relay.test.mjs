@@ -98,12 +98,12 @@ check("a worse score is ranked behind both",
   (await (await post(`${players[2]},${MODE},PIP,100`)).text()) === "3");
 
 const rows = (await board(MODE)).split("\n");
-check("the board comes back best first", rows[0] === "NOVA,9000", JSON.stringify(rows));
+check("the board comes back best first", rows[0] === "NOVA,9000,0", JSON.stringify(rows));
 check("one row per player, not per run", rows.length === 3, JSON.stringify(rows));
 
 await post(`${players[1]},${MODE},NOVA,10`);
 check("a bad run does not cost a good one",
-  (await board(MODE)).split("\n")[0] === "NOVA,9000", await board(MODE));
+  (await board(MODE)).split("\n")[0] === "NOVA,9000,0", await board(MODE));
 
 check("a mode keeps its own table", (await board(EMPTY_MODE)) === "");
 check("an absurd score is refused",
@@ -114,7 +114,7 @@ check("a sync code cannot be posted as a player id",
 
 await post(`${players[4]},${MODE},AC,ME,42`);
 check("a name carrying the separator is refused rather than splitting a row",
-  (await board(MODE)).split("\n").every((line) => line.split(",").length === 2), await board(MODE));
+  (await board(MODE)).split("\n").every((line) => line.split(",").length === 3), await board(MODE));
 
 // ---- Profiles --------------------------------------------------------------------------------
 
@@ -138,4 +138,33 @@ check("an oversized profile is refused", (await vault("x".repeat(70000))).status
 check("the profile survived the refused upload", (await held()) === replacement);
 
 console.log(failures ? `\n${failures} FAILED` : "\nall relay checks passed");
+process.exit(failures ? 1 : 0);
+
+// ---- Recordings ------------------------------------------------------------------------------
+//
+// Runs against `wrangler dev` with VERIFY_SECRET=dev-secret in server/.dev.vars.
+
+const VERIFY = { Authorization: "Bearer dev-secret" };
+const runner = pick(16, "abcdef0123456789");
+const REPLAY_MODE = pick(10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+await fetch(`${BASE}/score`, { method: "POST", body: `${runner},${REPLAY_MODE},REC,5000` });
+const bytes = new Uint8Array([31, 139, 8, 0, 1, 2, 3, 4]);
+check("a recording for a score that is not the row's best is refused",
+  (await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}?score=4000`, { method: "PUT", body: bytes })).status === 409);
+check("a recording for the row's best is attached",
+  (await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}?score=5000`, { method: "PUT", body: bytes })).status === 200);
+check("the board marks the row unverified", (await (await fetch(`${BASE}/top/${REPLAY_MODE}`)).text()).trim() === "REC,5000,0");
+check("the verifier's routes need the secret", (await fetch(`${BASE}/replays/pending`)).status === 401);
+const pending = (await (await fetch(`${BASE}/replays/pending`, { headers: VERIFY })).text()).split("\n");
+check("the recording is pending for the verifier", pending.includes(`${runner},${REPLAY_MODE},5000`), JSON.stringify(pending));
+const fetched = new Uint8Array(await (await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}`, { headers: VERIFY })).arrayBuffer());
+check("the verifier gets the bytes back verbatim", fetched.join() === bytes.join(), fetched.join());
+check("a verdict is recorded", (await fetch(`${BASE}/verify/${runner}/${REPLAY_MODE}`, { method: "POST", headers: VERIFY, body: "ok" })).status === 200);
+check("the board now shows the tick", (await (await fetch(`${BASE}/top/${REPLAY_MODE}`)).text()).trim() === "REC,5000,1");
+check("a verified row is no longer pending",
+  !(await (await fetch(`${BASE}/replays/pending`, { headers: VERIFY })).text()).includes(runner));
+await fetch(`${BASE}/score`, { method: "POST", body: `${runner},${REPLAY_MODE},REC,6000` });
+check("a new best drops the old verdict", (await (await fetch(`${BASE}/top/${REPLAY_MODE}`)).text()).trim() === "REC,6000,0");
+
+console.log(failures ? `${failures} FAILED` : "all relay checks passed");
 process.exit(failures ? 1 : 0);

@@ -42,6 +42,7 @@ import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.net.Cloud;
 import com.hashimjacobs.spacecase.net.RelayClient;
+import com.hashimjacobs.spacecase.net.Replay;
 import com.hashimjacobs.spacecase.net.Packet;
 import com.hashimjacobs.spacecase.net.NetworkedGame;
 import com.hashimjacobs.spacecase.net.LobbyModel;
@@ -388,8 +389,11 @@ public final class SceneRouter {
             // A dash is a place nobody holds yet, which only reads that way next to places someone
             // does. On a board with nothing on it at all, nine of them read as a broken screen, so
             // the first row says so plainly and the rest say nothing.
+            // A tick for a run the relay replayed and agreed with; nothing for one it has not yet;
+            // a cross for one it could not reproduce.
+            String mark = entry == null ? "" : entry.verified() > 0 ? "  \u2713" : entry.verified() < 0 ? "  \u2717" : "";
             String value = entry != null
-                    ? entry.name() + "   " + String.format("%,d", entry.score())
+                    ? entry.name() + "   " + String.format("%,d", entry.score()) + mark
                     : board.isEmpty() ? "" : "-";
             entries[at].setRow(String.valueOf(at + 1), value);
         }
@@ -561,7 +565,12 @@ public final class SceneRouter {
     }
 
     private void acceptInLobby(LobbyModel model, byte[] bytes) {
-        Packet packet = Packet.decode(bytes);
+        Packet packet;
+        try {
+            packet = Packet.decode(bytes);
+        } catch (IllegalArgumentException malformed) {
+            return;
+        }
         switch (packet.kind()) {
             case READY -> model.loadout(packet.playerNumber(), packet.text());
             case START -> LevelStart.decode(packet.text()).ifPresent(opening -> {
@@ -690,8 +699,12 @@ public final class SceneRouter {
         stopActiveGame();
         sounds.playMusic(mode.musicFor(resume != null ? resume.level() : Level.values()[0]));
 
+        // One seed per run, written into the recording, so the leaderboard can replay the run.
+        long seed = random.nextLong();
         GameScreen screen = new GameScreen(mode, settings, sounds, pilots, highScores, saves,
-                random, resume, this::showStartMenu, this::showGameOver, this::padStatus);
+                new Random(seed), resume, this::showStartMenu, this::showGameOver, this::padStatus);
+        screen.loop().setRecorder(new Replay.Recorder(new Replay.Header(seed, mode, settings.difficulty(),
+                false, resume != null, mode.rules().playerCount())));
         screen.setSticks(gamepad == null ? null : gamepad::latestForPlayer);
         activeGame = screen;
         show(screen.root(), null);
@@ -733,6 +746,9 @@ public final class SceneRouter {
         loop.setLevelHandshake(net.handshake());
         loop.setTickObserver(net.tickObserver());
 
+        loop.setNetStatus(net::status);
+        loop.setRecorder(new Replay.Recorder(new Replay.Header(opening.seed(), GameMode.COOP,
+                opening.difficulty(), false, false, seats.size())));
         networked = net;
         activeGame = screen;
         show(screen.root(), null);
@@ -762,8 +778,11 @@ public final class SceneRouter {
     private void startEndless(GameMode mode) {
         stopActiveGame();
         sounds.playMusic(mode.musicFor(Level.values()[0]));
+        long seed = random.nextLong();
         GameScreen screen = new GameScreen(mode, settings, sounds, pilots, highScores, saves,
-                random, null, this::showStartMenu, this::showGameOver, this::padStatus, true);
+                new Random(seed), null, this::showStartMenu, this::showGameOver, this::padStatus, true);
+        screen.loop().setRecorder(new Replay.Recorder(new Replay.Header(seed, mode, settings.difficulty(),
+                true, false, mode.rules().playerCount())));
         screen.setSticks(gamepad == null ? null : gamepad::latestForPlayer);
         activeGame = screen;
         show(screen.root(), null);
@@ -849,7 +868,8 @@ public final class SceneRouter {
         String player = account.id();
         GameMode mode = result.mode();
         URI base = RelayClient.defaultBase();
-        CompletableFuture.runAsync(() -> Cloud.submit(base, player, mode, name, score));
+        byte[] replay = result.replay();
+        CompletableFuture.runAsync(() -> Cloud.submit(base, player, mode, name, score, replay));
     }
 
     public void exit() {

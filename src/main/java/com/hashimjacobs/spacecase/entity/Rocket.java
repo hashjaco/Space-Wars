@@ -57,7 +57,7 @@ public final class Rocket extends Bullet {
                   PlayerShip owner, Entity target, int damage, double turnRate, int fuseTicks) {
         super(art, x, y, velocityX, velocityY, owner, damage);
         this.target = target;
-        this.speed = Math.hypot(velocityX, velocityY);
+        this.speed = StrictMath.hypot(velocityX, velocityY);
         this.turnRate = turnRate;
         this.fuse = fuseTicks;
     }
@@ -86,13 +86,13 @@ public final class Rocket extends Bullet {
                 || (target instanceof PlayerShip player && player.isOut())) {
             return;
         }
-        double desired = Math.atan2(target.centerY() - centerY(), target.centerX() - centerX());
-        double current = Math.atan2(velocityY(), velocityX());
+        double desired = StrictMath.atan2(target.centerY() - centerY(), target.centerX() - centerX());
+        double current = StrictMath.atan2(velocityY(), velocityX());
         // Wrapping the difference through sin/cos takes the shortest way round, so a rocket at
         // -179 degrees turns three degrees to reach 178 rather than the long way through zero.
-        double delta = Math.atan2(Math.sin(desired - current), Math.cos(desired - current));
+        double delta = StrictMath.atan2(StrictMath.sin(desired - current), StrictMath.cos(desired - current));
         double clamped = Math.max(-turnRate, Math.min(turnRate, delta));
         double heading = current + clamped;
-        setVelocity(Math.cos(heading) * speed, Math.sin(heading) * speed);
+        setVelocity(StrictMath.cos(heading) * speed, StrictMath.sin(heading) * speed);
     }
 }

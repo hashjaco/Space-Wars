@@ -120,6 +120,6 @@ public class Bullet extends Entity {
      * conventions in play here.
      */
     public double headingDegrees() {
-        return Math.toDegrees(Math.atan2(velocityX(), -velocityY()));
+        return Math.toDegrees(StrictMath.atan2(velocityX(), -velocityY()));
     }
 }
