@@ -23,7 +23,7 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
 public enum Boss {
 
     /** Level 1. The shape of the original fight, at the health every flagship was raised to. */
-    SENTINEL("Sentinel", BossArt.SENTINEL, 900, 500,
+    SENTINEL("Sentinel", BossArt.SENTINEL_SX, 900, 500,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
     /** Level 2. Broods escorts while it is healthy, then fights for itself. */
@@ -81,7 +81,7 @@ public enum Boss {
     //
     // Phase orders are picked so no two flagships in the galaxy open the same way.
 
-    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN, 3090, 1950,
+    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN_SX, 3090, 1950,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
     ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT, 3180, 2000,
@@ -129,7 +129,7 @@ public enum Boss {
     // Phase orders are picked so no two flagships in the galaxy open the same way, as Ashfall's
     // are -- and so the two side-on legs, 21 and 29, do not share an opener either.
 
-    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER, 4290, 2600,
+    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER_SX, 4290, 2600,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
     FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER, 4380, 2650,
@@ -177,7 +177,7 @@ public enum Boss {
     // Two set pieces rather than one, so eight warships and animals rather than nine. Both reuse a
     // class that already exists -- PilotedMech and BurrowingWorm -- and neither needed a new one.
 
-    SQUALL_WARDEN("Squall Warden", BossArt.SQUALL_WARDEN, 5640, 3250,
+    SQUALL_WARDEN("Squall Warden", BossArt.SQUALL_WARDEN_SX, 5640, 3250,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
     THUNDER_BROOD("Thunder Brood", BossArt.THUNDER_BROOD, 5730, 3300,

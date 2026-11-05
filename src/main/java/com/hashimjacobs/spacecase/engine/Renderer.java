@@ -345,7 +345,7 @@ public final class Renderer {
         if (enemy.isBoss()) {
             BossArt art = enemy.bossArt();
             Image frame = Assets.bossFrames(art).get(art.frameIndexAt(tick));
-            gc.drawImage(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
+            drawFitted(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
         } else {
             drawSprite(enemy);
         }
@@ -382,7 +382,17 @@ public final class Renderer {
         BossArt art = boss.bossArt();
         List<Image> frames = Assets.bossFrames(art);
         Image frame = frames.get(art.frameIndexAt(tick));
-        gc.drawImage(frame, boss.x(), boss.y(), boss.width(), boss.height());
+        drawFitted(frame, boss.x(), boss.y(), boss.width(), boss.height());
+    }
+
+    /**
+     * A frame inside a box, as large as it fits, centred: the generated flagships were drawn to
+     * their boxes exactly, the Sprixen ones were not, and the box is the hitbox either way.
+     */
+    private void drawFitted(Image frame, double x, double y, double width, double height) {
+        double scale = Math.min(width / frame.getWidth(), height / frame.getHeight());
+        double w = frame.getWidth() * scale, h = frame.getHeight() * scale;
+        gc.drawImage(frame, x + (width - w) / 2, y + (height - h) / 2, w, h);
     }
 
     /**

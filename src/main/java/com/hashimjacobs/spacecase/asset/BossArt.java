@@ -195,7 +195,15 @@ public enum BossArt {
      * Drawn a little larger than the box it defends, as FROZEN_EMPRESS_HEAD is: a target the exact
      * size of its own art reads as unfairly small when it is swinging on a neck.
      */
-    AEON_EYE("boss-aeon-eye", 8, 4, 104, 104);
+    AEON_EYE("boss-aeon-eye", 8, 4, 104, 104),
+
+    // Showcase flagships drawn by Sprixen to the project's style lock, one per galaxy opener: the
+    // same on-screen boxes as the generated originals above, so nothing about the fight moves.
+    // The renderer fits a frame inside its box rather than stretching it, which these need.
+    SENTINEL_SX("boss-sentinel-sx", 4, 12, 210, 162),
+    CINDER_WARDEN_SX("boss-cinder-warden-sx", 8, 6, 264, 135),
+    SHARD_CUTTER_SX("boss-shard-cutter-sx", 8, 6, 207, 173),
+    SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148);
 
     private final String directory;
     private final int frameCount;
