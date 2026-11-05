@@ -726,7 +726,7 @@ public final class GameLoop {
         }
         snapshotLevelStart();
         snapshotSave();
-        sounds.playMusic(world.mode().music());
+        sounds.playMusic(world.mode().musicFor(director.level()));
         bossMusicPlaying = false;
         phase = Phase.FIGHTING;
         phaseTicks = 0;
@@ -833,7 +833,7 @@ public final class GameLoop {
         // The flagship picks its own cue, so the two monsters get their own music instead of the
         // track every warship shares. World.boss() answers with a surviving part when the torso is
         // already gone, which is why this can dereference it -- see there.
-        MusicCue track = bossOnScreen ? world.boss().boss().music() : world.mode().music();
+        MusicCue track = bossOnScreen ? world.boss().boss().music() : world.mode().musicFor(director.level());
         sounds.playMusic(track);
     }
 

@@ -37,10 +37,10 @@ public enum Chassis {
      * The health factor is what makes this a decision rather than a free upgrade: eighty points is
      * three enemy shots fewer than the stock frame, and the speed does not help against a ram.
      */
-    INTERCEPTOR("Interceptor", 900, "INTERCEPTOR", 0.80, 1.20, 1.00),
+    INTERCEPTOR("Interceptor", 900, "INTERCEPTOR_SX", 0.80, 1.20, 1.00),
 
     /** Broad and slow, and the only frame that can stand still in a lane and survive it. */
-    GUNSHIP("Gunship", 900, "GUNSHIP", 1.20, 0.85, 1.00),
+    GUNSHIP("Gunship", 900, "GUNSHIP_SX", 1.20, 0.85, 1.00),
 
     /**
      * Two booms and a spine. Fires faster than anything else and is made of paper.
@@ -49,7 +49,7 @@ public enum Chassis {
      * {@code entity.PlayerShip.startFireCooldown}. Without that the last two levels of the fire-rate
      * track would both land on the flat floor and the second of them would buy nothing.
      */
-    TWIN_BOOM("Twin-Boom", 1100, "TWIN_BOOM", 0.85, 1.00, 0.80);
+    TWIN_BOOM("Twin-Boom", 1100, "TWIN_BOOM_SX", 0.85, 1.00, 0.80);
 
     /**
      * The name fragments {@link #table} builds its {@code Sprite} constants from.

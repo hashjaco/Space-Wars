@@ -11,6 +11,13 @@ public enum Explosion {
 
     SMALL("explosion-small", 25, 2),
     LARGE("explosion-large", 49, 1),
+    /**
+     * The blast every ship and rock now plays: one AI-drawn sequence (Sprixen), ten frames with
+     * blended in-betweens, scaled by the thing that died. SMALL and LARGE above stay on disk as the
+     * author's originals; {@code World} maps them here.
+     */
+    SMALL_SX("fx-explosion", 10, 3),
+    LARGE_SX("fx-explosion", 10, 4),
     /** A bullet landing on a hull: a bright ray burst, a third of a second. Sprixen, see ASSETS.md. */
     HIT_SPARK("fx-hit-spark", 24, 1),
     /** The ring a dying flagship pushes out, under the fireballs. Sprixen. */

@@ -341,6 +341,7 @@ public enum Boss {
         return switch (this) {
             case HYDRA -> MusicCue.HYDRA_BOSS;
             case DUNE_LEVIATHAN -> MusicCue.LEVIATHAN_BOSS;
+            case AEON -> MusicCue.AEON_BOSS;
             default -> MusicCue.BOSS;
         };
     }

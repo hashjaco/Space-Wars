@@ -270,7 +270,7 @@ public final class World {
             double[] booking = scheduled.get(i);
             if (booking[0] <= tick) {
                 scheduled.remove(i);
-                Explosion kind = Explosion.values()[(int) booking[4]];
+                Explosion kind = sequenceFor(Explosion.values()[(int) booking[4]]);
                 explosions.add(new ActiveExplosion(kind, booking[1], booking[2], booking[3]));
                 shake(Math.min(SHAKE_MAX, booking[3] * 0.05));
             }
@@ -601,14 +601,23 @@ public final class World {
      * call per shell and never one per victim: this kicks the camera, and a nova into a group would
      * otherwise shake it once for every ship in the radius.
      */
+    /** The sequence actually played for a requested size: the Sprixen blast stands in for both originals. */
+    private static Explosion sequenceFor(Explosion requested) {
+        return switch (requested) {
+            case SMALL -> Explosion.SMALL_SX;
+            case LARGE -> Explosion.LARGE_SX;
+            default -> requested;
+        };
+    }
+
     public void addBlast(double centerX, double centerY, double radius) {
-        explosions.add(new ActiveExplosion(Explosion.LARGE, centerX, centerY, radius * 2));
+        explosions.add(new ActiveExplosion(sequenceFor(Explosion.LARGE), centerX, centerY, radius * 2));
         shake(Math.min(SHAKE_MAX, radius * 0.09));
     }
 
     public void addExplosion(Entity source, Explosion size) {
         double extent = Math.max(source.width(), source.height()) * 1.6;
-        ActiveExplosion explosion = new ActiveExplosion(size, source.centerX(), source.centerY(), extent);
+        ActiveExplosion explosion = new ActiveExplosion(sequenceFor(size), source.centerX(), source.centerY(), extent);
         explosions.add(explosion);
         // Scaled off the thing that blew up rather than special-cased per caller: a flagship is an
         // order of magnitude bigger than a scout, so "how big was it" already separates a boss
