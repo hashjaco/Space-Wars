@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.garage;
 
 import java.util.List;
 
+import com.hashimjacobs.spacecase.asset.KitArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
 /**
@@ -51,6 +52,11 @@ public enum Kit {
         }
         Sprite decal = overlays.get(leanIndex);
         return sideOn ? decal.sideOn() : decal;
+    }
+
+    /** The CG part for this kit, or null while it has not landed (stock has none either way). */
+    public KitArt art() {
+        return overlays == null ? null : KitArt.named(name());
     }
 
     public String label() {

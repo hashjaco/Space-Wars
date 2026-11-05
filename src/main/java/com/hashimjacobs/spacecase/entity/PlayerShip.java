@@ -378,6 +378,10 @@ public final class PlayerShip extends Entity {
         return baseDamage + bonus;
     }
 
+    public Lean lean() {
+        return lean;
+    }
+
     /** The body-kit decal for the current pose, or null when flying stock. */
     public Sprite kitOverlay() {
         Sprite decal = loadout.kit().overlay(lean.ordinal(), facing.horizontal());
