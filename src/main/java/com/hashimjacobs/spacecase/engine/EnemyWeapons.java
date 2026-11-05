@@ -347,6 +347,10 @@ final class EnemyWeapons {
             // readable gap in it.
             return world.tick() * 0.045;
         }
+        if (phase == BossPhase.LATTICE) {
+            // A fast swing, so the eight spokes cross their last positions and the gaps travel.
+            return Math.sin(world.tick() / 30.0) * 0.8;
+        }
         if (phase.sweeps()) {
             // A slow oscillation driven by the world clock, so the fan tracks back and forth.
             double sweep = Math.sin(world.tick() / 42.0);

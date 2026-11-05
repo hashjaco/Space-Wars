@@ -150,6 +150,9 @@ public final class Renderer {
             } else {
                 drawSprite(enemy);
             }
+            if (enemy.hitFlashing() && !settings.reducedFlash()) {
+                drawHitFlash(enemy, world.tick());
+            }
             drawHitBar(enemy);
         }
         for (Bullet bullet : world.bullets()) {
@@ -167,8 +170,15 @@ public final class Renderer {
             Image frame = explosion.currentFrame();
             gc.drawImage(frame, explosion.drawX(), explosion.drawY(), explosion.size(), explosion.size());
         }
+        drawParticles(world);
         gc.restore();
 
+        // Screen space: a flagship's last moment whites the whole arena out, HUD excepted.
+        double flash = settings.reducedFlash() ? 0 : world.flashRemaining();
+        if (flash > 0) {
+            gc.setFill(Color.color(1, 1, 1, flash * 0.75));
+            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        }
         drawVignette();
         hud.draw(world, director);
     }
@@ -318,6 +328,45 @@ public final class Renderer {
      * sequence rather than from {@code entity.sprite()}. Driving the frame off the world tick rather
      * than off a counter on the ship keeps every boss on screen in step and needs no per-entity state.
      */
+    /**
+     * The hull again, additively and translucent, for the few ticks after a hit: the frame reads as
+     * lit from inside rather than tinted. A flagship flashes its body art only; the neck and the
+     * worm segments are drawn live and are not the thing that was hit.
+     */
+    private void drawHitFlash(EnemyShip enemy, int tick) {
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.ADD);
+        gc.setGlobalAlpha(0.65);
+        if (enemy.isBoss()) {
+            BossArt art = enemy.bossArt();
+            Image frame = Assets.bossFrames(art).get(art.frameIndexAt(tick));
+            gc.drawImage(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
+        } else {
+            drawSprite(enemy);
+        }
+        gc.restore();
+    }
+
+    /** Sparks and embers as small discs that shrink and fade with their remaining life. */
+    private void drawParticles(World world) {
+        for (Particle particle : world.particles()) {
+            double life = particle.remaining();
+            Color color = switch (particle.kind()) {
+                case SPARK -> SPARK;
+                case MUZZLE -> Color.WHITE;
+                case EMBER -> EMBER;
+            };
+            gc.setGlobalAlpha(life);
+            gc.setFill(color);
+            double radius = (particle.kind() == Particle.Kind.MUZZLE ? 5 : 2.5) * (0.4 + 0.6 * life);
+            gc.fillOval(particle.x() - radius, particle.y() - radius, radius * 2, radius * 2);
+        }
+        gc.setGlobalAlpha(1);
+    }
+
+    private static final Color SPARK = Color.web("#ffb347");
+    private static final Color EMBER = Color.web("#ff6b3d");
+
     private void drawBoss(EnemyShip boss, int tick) {
         if (boss instanceof BossHead head) {
             // Under the head, so the neck disappears behind the skull rather than crossing it.

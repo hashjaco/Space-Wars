@@ -510,6 +510,36 @@ public final class PlayerShip extends Entity {
         return score;
     }
 
+    /** Ticks between kills that keep a combo alive: a second and a half. */
+    public static final int COMBO_WINDOW_TICKS = 90;
+    private static final double COMBO_STEP = 0.1;
+    private static final double COMBO_CAP = 1.5;
+    private int combo;
+    private int comboTick = -COMBO_WINDOW_TICKS;
+
+    /**
+     * Credits a kill, with a multiplier that climbs a tenth per kill inside the window and caps at
+     * one and a half. Kill score only: the debrief bonuses are untouched, so the credits economy
+     * moves by at most half on a perfect run rather than by the whole multiplier.
+     */
+    public void addKillScore(int base, int tick) {
+        combo = tick - comboTick <= COMBO_WINDOW_TICKS ? combo + 1 : 1;
+        comboTick = tick;
+        addScore((int) Math.round(base * comboMultiplier()));
+    }
+
+    public int combo() {
+        return combo;
+    }
+
+    public int comboTick() {
+        return comboTick;
+    }
+
+    public double comboMultiplier() {
+        return Math.min(COMBO_CAP, 1 + COMBO_STEP * Math.max(0, combo - 1));
+    }
+
     public void addScore(int amount) {
         score += amount;
     }

@@ -67,7 +67,13 @@ public enum BossPhase {
     CROSSFIRE(4, 30, Math.PI / 2, 2.2),
 
     /** A tight wall driven straight down the lane, with no spread to slip between. */
-    BARRAGE(7, 24, 0.09, 1.6);
+    BARRAGE(7, 24, 0.09, 1.6),
+
+    /**
+     * Eight shots a quarter turn apart, the whole ring swinging back and forth: two fans crossing
+     * each other, with gaps that move. Null's special away from its finale.
+     */
+    LATTICE(8, 28, Math.PI / 4, 1.3);
 
     private final int shots;
     private final int cooldownTicks;
@@ -98,7 +104,7 @@ public enum BossPhase {
 
     /** True when this pattern is one of the specials, which is what breaks the primary's rhythm. */
     public boolean isSpecial() {
-        return this == LANCE || this == SCATTER || this == CROSSFIRE || this == BARRAGE;
+        return this == LANCE || this == SCATTER || this == CROSSFIRE || this == BARRAGE || this == LATTICE;
     }
 
     public int shots() {

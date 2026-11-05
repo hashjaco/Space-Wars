@@ -120,13 +120,18 @@ class DeterminismTest {
         long rolling = 0;
         for (int tick = 0; tick < TICKS; tick++) {
             script(input, tick);
+            boolean frozen = world.frozen();
             for (ShipController controller : controllers) {
-                controller.apply(input, world, SoundPlayer.SILENT, StickTuning.none());
+                if (!frozen) {
+                    controller.apply(input, world, SoundPlayer.SILENT, StickTuning.none());
+                }
             }
             world.update();
-            driveEnemies(world, director);
-            director.update(world);
-            collisions.resolve(world);
+            if (!frozen) {
+                driveEnemies(world, director);
+                director.update(world);
+                collisions.resolve(world);
+            }
             world.sweep();
             rolling = rolling * 31 + world.checksum();
         }

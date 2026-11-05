@@ -378,6 +378,8 @@ public final class SpawnDirector {
             case AEON -> new VoidEntity(flagship, x, y, scale);
             default -> new EnemyShip(flagship, x, y, scale);
         };
+        // Endless loops enrage earlier each time round: the last third, then nearly the last half.
+        boss.setEnrageBelow(Math.min(0.66, 0.33 + 0.1 * loopsCompleted));
         // Body first, so World.boss() and the HUD find the torso rather than a head.
         world.addEnemy(boss);
         for (EnemyShip part : boss.parts()) {

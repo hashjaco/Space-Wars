@@ -385,7 +385,7 @@ public enum Boss {
             case 1 -> finale ? BossPhase.CROSSFIRE : BossPhase.BARRAGE;
             case 2 -> finale ? BossPhase.BARRAGE : BossPhase.SCATTER;
             case 3 -> finale ? BossPhase.LANCE : BossPhase.CROSSFIRE;
-            default -> finale ? BossPhase.SCATTER : BossPhase.LANCE;
+            default -> finale ? BossPhase.SCATTER : BossPhase.LATTICE;
         };
     }
 

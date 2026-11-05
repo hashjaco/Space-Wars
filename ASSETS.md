@@ -64,6 +64,8 @@ Three origins appear below:
 | `pickup-scythe.png`, `pickup-flak.png`, `pickup-nova.png` | Generated | As above |
 | `pickup-sx-tri-shot.png`, `pickup-sx-mega-laser.png`, `pickup-sx-rocket.png`, `pickup-sx-speed.png`, `pickup-sx-shield.png`, `pickup-sx-health.png`, `pickup-sx-extra-life.png`, `pickup-sx-scythe.png`, `pickup-sx-flak.png`, `pickup-sx-nova.png` | Sprixen | Pickup icons, the ones `asset.Sprite` draws |
 | `garage/*.png` | Sprixen | Fourteen upgrade icons for the garage rows, one per `garage.Upgrade`, 24×24 |
+| `fx-hit-spark/{1..24}.png` | Sprixen | A bullet landing: a one-shot ray burst, 24 frames at 64 px, from Sprixen's `hit-spark` effect family |
+| `fx-boss-shockwave/{1..47}.png` | Sprixen | The ring a flagship pushes out as it dies, 47 frames at 256 px, from the `shockwave` effect preset |
 | `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
 | `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
 | `level-9/{far,mid,near}.png` | Generated | Dust Reach. The one level flown side-on, so its sky tiles horizontally rather than vertically — do not reuse these on a top-down level or the wrap shows a seam |

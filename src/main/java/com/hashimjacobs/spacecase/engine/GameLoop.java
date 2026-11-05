@@ -522,18 +522,25 @@ public final class GameLoop {
         // Read before the world moves. tickScenery advances the clock inside update(), so by the
         // bottom of this method world.tick() names the *next* tick, not the one that just ran.
         int tick = world.tick();
+        // Hit-stop: intents are still sampled (lockstep needs one per tick) but not applied, and
+        // nothing moves, spawns or collides. World.update counts the freeze down.
+        boolean frozen = world.frozen();
         for (ShipController controller : controllers) {
             int number = controller.ship().playerNumber();
             Intent intent = intents == null
                     ? controller.sample(input, tuningFor(number))
                     : intents.intentFor(number, tick);
-            controller.apply(intent, world, sounds);
+            if (!frozen) {
+                controller.apply(intent, world, sounds);
+            }
         }
 
         world.update();
-        driveEnemies();
-        director.update(world);
-        collisions.resolve(world);
+        if (!frozen) {
+            driveEnemies();
+            director.update(world);
+            collisions.resolve(world);
+        }
         world.sweep();
 
         // After sweep, so the fingerprint is of a settled world, and before the cosmetic calls

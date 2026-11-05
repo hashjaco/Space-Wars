@@ -94,6 +94,11 @@ final class Hud {
         gc.setFont(valueFont);
         gc.setFill(Color.WHITE);
         gc.fillText(String.valueOf(player.score()), x, y + 20);
+        if (player.combo() > 1 && tick - player.comboTick() <= PlayerShip.COMBO_WINDOW_TICKS) {
+            gc.setFont(labelFont);
+            gc.setFill(Tokens.HEALTH_MID);
+            gc.fillText(String.format("x%.1f", player.comboMultiplier()), x + 124, y + 20);
+        }
 
         double barY = y + 50;
         drawHealthBar(player, x, barY, tick);
