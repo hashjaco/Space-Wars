@@ -16,6 +16,12 @@ Three origins appear below:
   sheet itself is original work and is a generator input rather than a bundled asset.
 - **Third party** — not ours, redistributed under its own licence, which is reproduced in the file
   itself. Exactly one file, listed under "Controller mappings".
+- **Sprixen** — generated for this game with the [Sprixen](https://sprixen.com) asset service and
+  placed by [`tools/sprixen/import.py`](tools/sprixen/import.py). Sprixen's terms grant the account
+  holder ownership of its output with a perpetual, royalty-free commercial licence, no attribution
+  required and no resale as standalone asset packs; the files here ship only as part of this game.
+  Not reproducible from code, so they live under names the generator never writes and the
+  reproducibility check does not see them.
 
 ## Sprites
 
@@ -52,10 +58,12 @@ Three origins appear below:
 | `level-6/{far,mid,near}.png` | Generated | Void Rift; deep violet and sparse |
 | `level-7/{far,mid,near}.png` | Generated | Star Core; red and orange embers |
 | `level-8/{far,mid,near}.png` | Generated | Escape Vector; the world falling away astern |
-| `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons |
-| `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | Pickup icons |
-| `pickup-rocket.png` | Generated | Pickup icon |
-| `pickup-scythe.png`, `pickup-flak.png`, `pickup-nova.png` | Generated | Pickup icons for the three weapons added with the chassis |
+| `pickup-speed.png`, `pickup-health.png`, `pickup-shield.png` | Generated | Pickup icons, superseded by the `pickup-sx-*` set below; kept because the generator still writes them |
+| `pickup-tri-shot.png`, `pickup-mega-laser.png`, `pickup-extra-life.png` | Generated | As above |
+| `pickup-rocket.png` | Generated | As above |
+| `pickup-scythe.png`, `pickup-flak.png`, `pickup-nova.png` | Generated | As above |
+| `pickup-sx-tri-shot.png`, `pickup-sx-mega-laser.png`, `pickup-sx-rocket.png`, `pickup-sx-speed.png`, `pickup-sx-shield.png`, `pickup-sx-health.png`, `pickup-sx-extra-life.png`, `pickup-sx-scythe.png`, `pickup-sx-flak.png`, `pickup-sx-nova.png` | Sprixen | Pickup icons, the ones `asset.Sprite` draws |
+| `garage/*.png` | Sprixen | Fourteen upgrade icons for the garage rows, one per `garage.Upgrade`, 24×24 |
 | `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
 | `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
 | `level-9/{far,mid,near}.png` | Generated | Dust Reach. The one level flown side-on, so its sky tiles horizontally rather than vertically — do not reuse these on a top-down level or the wrap shows a seam |

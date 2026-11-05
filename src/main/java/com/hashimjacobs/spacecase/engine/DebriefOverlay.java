@@ -66,7 +66,8 @@ final class DebriefOverlay {
         gc.fillText("LEVEL " + level.number() + " CLEARED", GameConfig.WIDTH / 2, 74);
         gc.setFont(headingFont);
         gc.setFill(MUTED);
-        gc.fillText(level.label().toUpperCase(), GameConfig.WIDTH / 2, 112);
+        gc.fillText(level.galaxy().label().toUpperCase() + "   \u00b7   " + level.label().toUpperCase(),
+                GameConfig.WIDTH / 2, 112);
 
         // One column per pilot, centred as a group so a solo run does not sit off to one side.
         double totalWidth = debriefs.size() * PANEL_WIDTH + (debriefs.size() - 1) * 24;

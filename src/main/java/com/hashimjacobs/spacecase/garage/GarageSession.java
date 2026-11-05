@@ -54,11 +54,11 @@ public final class GarageSession {
      * readout shown only on the focused row.
      */
     public record Row(String label, String value, int cost, boolean affordable, boolean maxed,
-                      int level, int maxLevel, String detail) {
+                      int level, int maxLevel, String detail, Upgrade upgrade) {
 
-        /** The shape the cosmetic and launch rows use: a value, no ladder. */
+        /** The shape the cosmetic and launch rows use: a value, no ladder, no icon. */
         Row(String label, String value, int cost, boolean affordable, boolean maxed) {
-            this(label, value, cost, affordable, maxed, 0, 0, "");
+            this(label, value, cost, affordable, maxed, 0, 0, "", null);
         }
     }
 
@@ -352,7 +352,7 @@ public final class GarageSession {
                             + upgrade.effectAt(level + 1, bay.loadout.chassis());
             rows.add(new Row(upgrade.label(), upgrade.description(), cost,
                     !maxed && cost <= bay.credits, maxed,
-                    level, upgrade.maxLevel(), detail));
+                    level, upgrade.maxLevel(), detail, upgrade));
         }
 
         // The browsed item, not the worn one: an unowned paint job has to show its price to be

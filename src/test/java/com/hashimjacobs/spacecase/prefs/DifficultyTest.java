@@ -64,6 +64,20 @@ class DifficultyTest {
     }
 
     @Test
+    void ordinaryHostilesOpenAtTheAuthoredScaleAndClimbPerGalaxy() {
+        for (Difficulty preset : Difficulty.values()) {
+            assertEquals(preset.enemyScale(), preset.enemyScale(Galaxy.VERDANCE), 1e-9,
+                    preset + " should open the campaign at its authored scale");
+            double previous = 0;
+            for (Galaxy galaxy : Galaxy.values()) {
+                double scale = preset.enemyScale(galaxy);
+                assertTrue(scale > previous, galaxy + " should be harder than the galaxy before it");
+                previous = scale;
+            }
+        }
+    }
+
+    @Test
     void flagshipsGetTougherAcrossAWholeGalaxy() {
         double opener = Difficulty.NORMAL.bossScale(1, 1);
         double finale = Difficulty.NORMAL.bossScale(Galaxy.LEVELS_PER_GALAXY, 1);

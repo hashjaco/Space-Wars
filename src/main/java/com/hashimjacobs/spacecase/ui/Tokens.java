@@ -99,6 +99,27 @@ public final class Tokens {
     /** Health between a quarter and a half. */
     public static final Color WARN = Color.GOLD;
 
+    /** Health between a quarter and a half, on the bars: brighter than the brand green. */
+    public static final Color HEALTH_MID = Color.web("#ffd166");
+    /** Health under a quarter, on the bars: much darker than either, so the ramp reads by luminance. */
+    public static final Color HEALTH_LOW = Color.web("#b3122b");
+
+    /**
+     * The fill for a health bar at a given fraction.
+     *
+     * The old green, gold, red ramp was a hue ramp, and green against red is the pair a deutan eye
+     * cannot separate. These three stops differ in luminance as much as in hue, and under a quarter
+     * the bars also hatch (see {@code Hud.stripes}), which no colour vision can miss.
+     */
+    public static Color healthColor(double fraction) {
+        return fraction > 0.5 ? BRAND : fraction > 0.25 ? HEALTH_MID : HEALTH_LOW;
+    }
+
+    /** Relative luminance, the sRGB weighting; what the health ramp is tuned by. */
+    public static double luminance(Color c) {
+        return 0.2126 * c.getRed() + 0.7152 * c.getGreen() + 0.0722 * c.getBlue();
+    }
+
     /** Black at a given opacity, for dimming the world behind an overlay. */
     public static Color veil(double opacity) {
         return Color.color(0, 0, 0, opacity);
