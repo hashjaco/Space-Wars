@@ -854,6 +854,9 @@ public final class GameLoop {
         // already gone, which is why this can dereference it -- see there.
         MusicCue track = bossOnScreen ? world.boss().boss().music() : world.mode().musicFor(director.level());
         sounds.playMusic(track);
+        if (bossOnScreen) {
+            sounds.play(SoundFx.BOSS_ROAR);
+        }
     }
 
     /**

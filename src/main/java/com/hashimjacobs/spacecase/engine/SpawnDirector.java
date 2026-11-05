@@ -552,6 +552,11 @@ public final class SpawnDirector {
     }
 
     /** Whether the incoming-flagship banner should still be up. */
+    /** How much of the arrival is still to run: 1 the tick the flagship spawns, 0 once it is over. */
+    public double bossWarningFraction() {
+        return bossWarningTicks / (double) BOSS_WARNING_TICKS;
+    }
+
     public boolean bossWarning() {
         boolean warning = bossWarningTicks > 0;
         return warning;

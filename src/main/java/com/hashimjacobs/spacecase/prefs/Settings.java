@@ -15,6 +15,8 @@ public final class Settings {
     private static final String KEY_DEADZONE = "gamepadDeadzone";
     private static final String KEY_ANALOG = "gamepadAnalog";
     private static final String KEY_REDUCED_FLASH = "reducedFlash";
+    private static final String KEY_CINEMATIC = "glowEffects";
+    private static final String KEY_FILM_GRAIN = "filmGrain";
     /** Player one keeps the original keys, so a store written before per-player binding loads. */
     private static final String[] KEY_FIRE_BUTTON = {"gamepadFireButton", "gamepadFireButton2"};
     private static final String[] KEY_PAUSE_BUTTON = {"gamepadPauseButton", "gamepadPauseButton2"};
@@ -41,6 +43,8 @@ public final class Settings {
     private double gamepadDeadzone;
     private boolean gamepadAnalog;
     private boolean reducedFlash;
+    private boolean cinematic;
+    private boolean filmGrain;
     private final PadButton[] gamepadFireButton = new PadButton[PLAYERS];
     private final PadButton[] gamepadPauseButton = new PadButton[PLAYERS];
     private final double[] gamepadSensitivity = new double[PLAYERS];
@@ -69,6 +73,8 @@ public final class Settings {
         settings.gamepadDeadzone = clampDeadzone(store.getDouble(KEY_DEADZONE, 0.30));
         settings.gamepadAnalog = store.getBoolean(KEY_ANALOG, true);
         settings.reducedFlash = store.getBoolean(KEY_REDUCED_FLASH, false);
+        settings.cinematic = store.getBoolean(KEY_CINEMATIC, true);
+        settings.filmGrain = store.getBoolean(KEY_FILM_GRAIN, false);
         for (int slot = 0; slot < PLAYERS; slot++) {
             settings.gamepadFireButton[slot] =
                     readPadButton(store, KEY_FIRE_BUTTON[slot], PadButton.A);
@@ -129,6 +135,8 @@ public final class Settings {
         store.putDouble(KEY_DEADZONE, gamepadDeadzone);
         store.putBoolean(KEY_ANALOG, gamepadAnalog);
         store.putBoolean(KEY_REDUCED_FLASH, reducedFlash);
+        store.putBoolean(KEY_CINEMATIC, cinematic);
+        store.putBoolean(KEY_FILM_GRAIN, filmGrain);
         for (int slot = 0; slot < PLAYERS; slot++) {
             store.put(KEY_FIRE_BUTTON[slot], gamepadFireButton[slot].name());
             store.put(KEY_PAUSE_BUTTON[slot], gamepadPauseButton[slot].name());
@@ -234,6 +242,28 @@ public final class Settings {
 
     public void setReducedFlash(boolean reduced) {
         this.reducedFlash = reduced;
+    }
+
+    /**
+     * Cinematic lighting: glow on the flagship and the hulls, cast shadows, the darkened arena and
+     * the letterboxed arrival while a flagship is on the field. On by default. Off is the flat look,
+     * for slower machines or players who want every pixel plain.
+     */
+    public boolean cinematic() {
+        return cinematic;
+    }
+
+    public void setCinematic(boolean on) {
+        this.cinematic = on;
+    }
+
+    /** A faint moving film grain over the arena. Off by default: taste, not information. */
+    public boolean filmGrain() {
+        return filmGrain;
+    }
+
+    public void setFilmGrain(boolean on) {
+        this.filmGrain = on;
     }
 
     /**

@@ -61,7 +61,9 @@ public enum SoundFx {
     BOSS_ROCKET("mega-boss-cannon.wav", 0.5),
 
     GAME_OVER("game-over.wav", 0.8),
-    LEVEL_CLEAR("level-clear.wav", 0.8);
+    LEVEL_CLEAR("level-clear.wav", 0.8),
+    /** A flagship arriving. Generated: a sliding detuned bellow with a growl and a crackle. */
+    BOSS_ROAR("boss-roar.wav", 0.7);
 
     private final String fileName;
     private final double baseVolume;

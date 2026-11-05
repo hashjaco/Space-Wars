@@ -34,6 +34,8 @@ final class SettingsPanel extends VBox {
     private final MenuButton controllerRow;
     private final MenuButton analogRow;
     private final MenuButton reducedFlashRow;
+    private final MenuButton cinematicRow;
+    private final MenuButton grainRow;
     private final MenuButton controlsRow;
     private final MenuButton[] fireButtonRow = new MenuButton[PLAYERS];
     private final MenuButton[] pauseButtonRow = new MenuButton[PLAYERS];
@@ -68,6 +70,8 @@ final class SettingsPanel extends VBox {
         controllerRow = new MenuButton("", this::toggleController);
         analogRow = new MenuButton("", this::toggleAnalog);
         reducedFlashRow = new MenuButton("", this::toggleReducedFlash);
+        cinematicRow = new MenuButton("", this::toggleCinematic);
+        grainRow = new MenuButton("", this::toggleGrain);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
             controlsRow.setRow("Keyboard", ">");
@@ -90,7 +94,8 @@ final class SettingsPanel extends VBox {
         refreshLabels();
 
         List<MenuButton> panelRows = new ArrayList<>(List.of(
-                musicRow, sfxRow, difficultyRow, reducedFlashRow, controllerRow, analogRow,
+                musicRow, sfxRow, difficultyRow, reducedFlashRow, cinematicRow, grainRow,
+                controllerRow, analogRow,
                 fireButtonRow[0], pauseButtonRow[0], sensitivityRow[0],
                 fireButtonRow[1], pauseButtonRow[1], sensitivityRow[1],
                 deadzoneRow, padStatusRow));
@@ -158,6 +163,16 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void toggleCinematic() {
+        settings.setCinematic(!settings.cinematic());
+        refreshLabels();
+    }
+
+    private void toggleGrain() {
+        settings.setFilmGrain(!settings.filmGrain());
+        refreshLabels();
+    }
+
     private void cycleFireButton(int player) {
         PadButton next = settings.gamepadFireButton(player).next();
         settings.setGamepadFireButton(player, next);
@@ -209,6 +224,8 @@ final class SettingsPanel extends VBox {
         sfxRow.setRow("Sound FX", percent(settings.sfxVolume()));
         difficultyRow.setRow("Difficulty", settings.difficulty().label());
         reducedFlashRow.setRow("Flashing", settings.reducedFlash() ? "Reduced" : "Full");
+        cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
+        grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");
         analogRow.setRow("Stick mode", settings.gamepadAnalog() ? "Analog" : "Digital");
         for (int slot = 0; slot < PLAYERS; slot++) {

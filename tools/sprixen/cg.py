@@ -61,8 +61,8 @@ def cmd_still(slugs):
         r = rest("POST", "/v1/generations", {"prompt": prompt_for(row), "projectId": PID, "resolution": "512x512",
                                               "pixelPerfect": "off", "variantCount": 2, "noBase": True, "type": "sprite"})
         state.setdefault(slug, {})["still"] = r["id"]
+        save(state)  # per job: Sprixen caps active generations, and a refusal must not lose the rest
         print(slug, "still", r["id"], r.get("status"))
-    save(state)
 
 def cmd_stills_sheet(slugs):
     state = load()
@@ -90,8 +90,7 @@ def cmd_loop(slugs):
         sid = state[slug]["sprites"][state[slug].get("pick", 0)]
         r = rest("POST", f"/v1/sprites/{sid}/animations", {"type": "custom", "frameCount": FRAMES, "fps": 10, "quality": "premium",
                                                            "resolution": "512x512", "customDescription": LOOP})
-        state[slug]["loop"] = r["id"]; print(slug, "loop", r["id"], r.get("status"), r.get("error"))
-    save(state)
+        state[slug]["loop"] = r["id"]; save(state); print(slug, "loop", r["id"], r.get("status"), r.get("error"))
 
 def turned(im):
     # The generator's quarterTurnLeft: the side-on levels fly right-to-left, so a nose-down hull turns to point left.

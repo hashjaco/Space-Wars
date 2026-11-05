@@ -47,6 +47,19 @@ class PreferencesRoundTripTest {
     }
 
     @Test
+    void lightingAndGrainSurviveAReloadWithTheirDefaults() {
+        Settings fresh = Settings.load(scratch);
+        assertTrue(fresh.cinematic(), "cinematic lighting is on by default");
+        assertFalse(fresh.filmGrain(), "film grain is off by default");
+        fresh.setCinematic(false);
+        fresh.setFilmGrain(true);
+        fresh.save();
+        Settings reloaded = Settings.load(scratch);
+        assertFalse(reloaded.cinematic());
+        assertTrue(reloaded.filmGrain());
+    }
+
+    @Test
     void volumesAreClampedToZeroThroughOne() {
         Settings settings = Settings.load(scratch);
         settings.setMusicVolume(4.2);

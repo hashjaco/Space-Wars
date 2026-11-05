@@ -5,6 +5,11 @@ import java.util.List;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.effect.BlendMode;
+import javafx.scene.effect.ColorAdjust;
+import javafx.scene.effect.Glow;
+import javafx.scene.image.PixelWriter;
+import javafx.scene.image.WritableImage;
+import javafx.scene.paint.ImagePattern;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.paint.CycleMethod;
@@ -118,6 +123,29 @@ public final class Renderer {
     private final DebriefOverlay debriefOverlay;
     private final GarageOverlay garageOverlay;
 
+    /** Built once: per-draw effects on a handful of images, never a whole-canvas pass. */
+    private static final Glow GLOW = new Glow(0.35);
+    /** Brightness all the way down: the image's own silhouette, in black, for a cast shadow. */
+    private static final ColorAdjust SILHOUETTE = new ColorAdjust(0, 0, -1, 0);
+    private static final Paint ENGINE_HALO = halo(Color.web("#5bbce0"));
+    private static final Color MOOD = Color.rgb(70, 80, 120);
+    private final WritableImage grain = grain(128);
+
+    /** Seeded noise for the film grain; built here rather than shipped, so there is nothing to reproduce. */
+    private static WritableImage grain(int size) {
+        WritableImage image = new WritableImage(size, size);
+        PixelWriter pixels = image.getPixelWriter();
+        long seed = 0x5DEECE66DL;
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                seed = seed * 6364136223846793005L + 1442695040888963407L;
+                int v = (int) ((seed >>> 40) & 0xFF);
+                pixels.setArgb(x, y, (0xFF << 24) | (v << 16) | (v << 8) | v);
+            }
+        }
+        return image;
+    }
+
     public Renderer(GraphicsContext gc, Settings settings) {
         this.gc = gc;
         this.settings = settings;
@@ -138,6 +166,16 @@ public final class Renderer {
         }
         Level level = director.level();
         drawScrollingBackground(level, world.tick());
+        double mood = bossMood(world, director);
+        if (mood > 0) {
+            // A flagship darkens the sky and cools it: the fight reads as something going wrong.
+            gc.save();
+            gc.setGlobalBlendMode(BlendMode.MULTIPLY);
+            gc.setGlobalAlpha(0.55 * mood);
+            gc.setFill(MOOD);
+            gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN, GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
+            gc.restore();
+        }
         // After the sky and before everything solid, so rock sits behind the fight but in front of
         // the parallax. Inside the shake, so it is thrown with the arena rather than against it.
         drawTerrain(world);
@@ -188,6 +226,24 @@ public final class Renderer {
             gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
         }
         drawVignette();
+        if (mood > 0 && !settings.reducedFlash()) {
+            gc.setGlobalAlpha(mood);
+            gc.setFill(VIGNETTE);
+            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.setGlobalAlpha(1);
+        }
+        if (settings.filmGrain()) {
+            int tick = world.tick();
+            gc.save();
+            gc.setGlobalBlendMode(BlendMode.OVERLAY);
+            gc.setGlobalAlpha(0.08);
+            gc.setFill(new ImagePattern(grain, (tick * 37) % 128, (tick * 53) % 128, 128, 128, false));
+            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.restore();
+        }
+        if (settings.cinematic() && director.bossWarning() && world.bossPresent()) {
+            drawArrival(world.boss(), director);
+        }
         hud.draw(world, director);
     }
 
@@ -417,7 +473,72 @@ public final class Renderer {
         } else if (boss instanceof BurrowingWorm worm) {
             drawWormBody(worm);
         }
-        drawFitted(bossFrame(boss, tick), boss.x(), boss.y(), boss.width(), boss.height());
+        Image frame = bossFrame(boss, tick);
+        // The body breathes on its mounts; parts keep their true anchors so necks and arms meet them.
+        boolean body = !boss.isBossPart() && !settings.reducedFlash();
+        double x = boss.x() + (body ? 3 * Math.sin(tick * 0.045) : 0);
+        double y = boss.y() + (body ? 2 * Math.sin(tick * 0.03 + 1.3) : 0);
+        if (settings.cinematic()) {
+            castShadow(frame, x, y, boss.width(), boss.height(), 14);
+            gc.setEffect(GLOW);
+        }
+        drawFitted(frame, x, y, boss.width(), boss.height());
+        gc.setEffect(null);
+    }
+
+    /** The image's silhouette dropped down-right onto the sky, as if lit from above-left. */
+    private void castShadow(Image frame, double x, double y, double width, double height, double drop) {
+        gc.save();
+        gc.setEffect(SILHOUETTE);
+        gc.setGlobalAlpha(0.45);
+        drawFitted(frame, x + drop * 0.6, y + drop, width, height);
+        gc.restore();
+    }
+
+    /** 0 with no flagship, rising to 1 over its arrival, so the arena darkens as it comes in. */
+    private double bossMood(World world, SpawnDirector director) {
+        if (!settings.cinematic() || !world.bossPresent()) {
+            return 0;
+        }
+        return 1 - director.bossWarningFraction();
+    }
+
+    /**
+     * The flagship's arrival: letterbox bars close in, its name slides across in the galaxy's
+     * colour, and both clear before the fight opens. Under reduced flash the bars hold and the
+     * card does not move.
+     */
+    private void drawArrival(EnemyShip boss, SpawnDirector director) {
+        double left = director.bossWarningFraction();       // 1 -> 0 across the arrival
+        double done = 1 - left;
+        double in = Math.min(1, done / 0.12);
+        double out = Math.min(1, left / 0.18);
+        double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
+        double bar = 72 * bars;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+
+        String name = boss.boss().label().toUpperCase();
+        Color accent = Color.web(director.level().galaxy().accent());
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * -GameConfig.WIDTH * 0.4;
+        double cx = GameConfig.WIDTH / 2 + slide;
+        double cy = GameConfig.HEIGHT * 0.44;
+        gc.setGlobalAlpha(Math.min(in, out));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 54));
+        gc.setFill(Color.rgb(0, 0, 0, 0.6));
+        gc.fillText(name, cx + 3, cy + 4);
+        gc.setFill(Color.WHITE);
+        gc.fillText(name, cx, cy);
+        gc.setFill(accent);
+        gc.fillRect(cx - 180, cy + 38, 360, 3);
+        gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.NORMAL, 18));
+        gc.setFill(accent);
+        gc.fillText(director.level().galaxy().label().toUpperCase() + " FLAGSHIP", cx, cy - 46);
+        gc.setGlobalAlpha(1);
+        gc.setTextBaseline(VPos.BASELINE);
     }
 
     /**
@@ -607,13 +728,30 @@ public final class Renderer {
         ChassisArt hull = player.loadout().chassisArt();
         int pose = player.lean().ordinal();
         boolean sideOn = player.facing().horizontal();
-        if (hull == null) {
-            drawSprite(shorting ? player.scorchedSprite() : player.sprite(), player, hullDegrees);
-        } else {
-            boolean hit = shorting || player.justHit();
-            Image frame = Assets.chassisFrames(hull, pose, hit, sideOn).get(hull.frameIndexAt(tick));
+        Image frame = hull == null
+                ? Assets.image(shorting ? player.scorchedSprite() : player.sprite())
+                : Assets.chassisFrames(hull, pose, shorting || player.justHit(), sideOn).get(hull.frameIndexAt(tick));
+        if (settings.cinematic()) {
+            // Engine wash under the hull, then the hull's shadow on the sky, then the hull lit.
+            double wash = player.width() * 0.9;
+            double ex = player.centerX() - wash / 2 + (sideOn ? player.width() * 0.35 : 0);
+            double ey = player.y() + player.height() * (sideOn ? 0.1 : 0.62);
+            gc.save();
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
+            gc.setGlobalAlpha(0.5 + 0.15 * Math.sin(tick * 0.6));
+            gc.setFill(ENGINE_HALO);
+            gc.fillOval(ex, ey, wash, wash * 0.7);
+            gc.restore();
+            gc.save();
+            gc.setEffect(SILHOUETTE);
+            gc.setGlobalAlpha(gc.getGlobalAlpha() * 0.28);
+            gc.translate(12, 20);
             drawImage(frame, player, hullDegrees);
+            gc.restore();
+            gc.setEffect(GLOW);
         }
+        drawImage(frame, player, hullDegrees);
+        gc.setEffect(null);
         // Drawn at the hull's own size and rotation so the part tracks the pose and, in battle
         // mode, turns with a player two who is facing the other way.
         KitArt part = player.loadout().kit().art();
