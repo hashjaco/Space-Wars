@@ -19,7 +19,7 @@ def log(*a):
 deadline = time.time() + 18 * 3600
 while time.time() < deadline:
     state = cg.load()
-    picked = [s for s, v in state.items() if "pick" in v]
+    picked = [s for s, v in state.items() if "pick" in v and "sprites" in v]  # variants downloaded
     for slug in picked:
         v = state[slug]
         if "loop" not in v:
@@ -28,6 +28,7 @@ while time.time() < deadline:
             except SystemExit as refused:
                 log("loop deferred", slug, str(refused)[:120]); break
         elif not v.get("imported"):
+            time.sleep(3)  # Sprixen allows 60 requests a minute across everything on this key
             try:
                 a = cg.rest("GET", f"/v1/animations/{v['loop']}")
             except SystemExit as e:
@@ -39,5 +40,5 @@ while time.time() < deadline:
     state = cg.load()
     if picked and all(state[s].get("imported") for s in picked) and not any("pick" not in v and "sprites" in v for v in state.values()):
         log("all picked slugs imported"); break
-    time.sleep(90)
+    time.sleep(180)
 log("driver exit")

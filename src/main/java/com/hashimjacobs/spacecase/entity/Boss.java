@@ -23,19 +23,19 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
 public enum Boss {
 
     /** Level 1. The shape of the original fight, at the health every flagship was raised to. */
-    SENTINEL("Sentinel", BossArt.SENTINEL_SX, 900, 500,
+    SENTINEL("Sentinel", BossArt.SENTINEL_CG, 900, 500,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
     /** Level 2. Broods escorts while it is healthy, then fights for itself. */
-    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH, 1080, 620,
+    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH_CG, 1080, 620,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 3. Opens with a curtain and never gives a straight line to sit in. */
-    BLOOM_COLOSSUS("Bloom Colossus", BossArt.BLOOM_COLOSSUS, 1260, 740,
+    BLOOM_COLOSSUS("Bloom Colossus", BossArt.BLOOM_COLOSSUS_CG, 1260, 740,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
 
     /** Level 4. Hides behind escorts while it is healthy and fights for itself once they are gone. */
-    SCRAP_HIVE("Scrap Hive", BossArt.SCRAP_HIVE, 1440, 860,
+    SCRAP_HIVE("Scrap Hive", BossArt.SCRAP_HIVE_CG, 1440, 860,
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.AIMED_BURST),
 
     /** Level 5. Sweeps, then curtains, then picks you out: no safe column at any health. */

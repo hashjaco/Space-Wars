@@ -204,7 +204,11 @@ public enum BossArt {
     CINDER_WARDEN_SX("boss-cinder-warden-sx", 8, 6, 264, 135),
     SHARD_CUTTER_SX("boss-shard-cutter-sx", 8, 6, 207, 173),
     SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148),
-    BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 248, 165);
+    BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 248, 165),
+    SENTINEL_CG("boss-sentinel-cg", 24, 24, 210, 162),
+    HIVE_MATRIARCH_CG("boss-hive-matriarch-cg", 24, 24, 226, 159),
+    BLOOM_COLOSSUS_CG("boss-bloom-colossus-cg", 24, 24, 220, 187),
+    SCRAP_HIVE_CG("boss-scrap-hive-cg", 24, 24, 226, 168);
 
     /**
      * The loops a flagship can carry. IDLE is the loop every art has; the others live in a

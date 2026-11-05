@@ -37,11 +37,16 @@ def key():
     return json.load(open(os.path.expanduser("~/.claude.json")))["projects"]["/Users/hashim/Projects"]["mcpServers"]["sprixen"]["headers"]["Authorization"]
 
 def rest(method, path, body=None):
+    import time
     args = [sys.executable, os.path.join(HERE, "sprixen.py"), "rest", method, path] + ([json.dumps(body)] if body else [])
-    out = subprocess.run(args, capture_output=True, text=True)
-    if out.returncode:
-        raise SystemExit(f"{method} {path}: {out.stdout[:300]} {out.stderr[:200]}")
-    return json.loads(out.stdout)
+    for attempt in range(6):
+        out = subprocess.run(args, capture_output=True, text=True)
+        if out.returncode == 0:
+            return json.loads(out.stdout)
+        if "429" in out.stdout:  # 60 requests a minute across the key: wait it out
+            time.sleep(10 * (attempt + 1)); continue
+        break
+    raise SystemExit(f"{method} {path}: {out.stdout[:300]} {out.stderr[:200]}")
 
 def get(url):
     req = urllib.request.Request(url if url.startswith("http") else "https://api.sprixen.com" + url, headers={"Authorization": key()})
@@ -134,15 +139,20 @@ def cmd_import(slugs):
     save(state)
 
 def cmd_status():
+    """One request for the queue; a still counts as done once its variants are downloaded."""
     state = load()
+    jobs = {j["id"]: j for j in rest("GET", "/v1/jobs").get("data", [])}
     for slug, s in state.items():
         line = [slug]
         if "still" in s:
-            g = rest("GET", f"/v1/generations/{s['still']}"); line.append("still:" + str(g.get("status")))
+            j = jobs.get(s["still"])
+            line.append("still:" + ("downloaded" if "sprites" in s else j["status"] if j else "completed"))
+        if "pick" in s:
+            line.append(f"pick:{s['pick']}")
         if "loop" in s:
-            a = rest("GET", f"/v1/animations/{s['loop']}"); line.append("loop:" + str(a.get("status")))
-        if s.get("imported"):
-            line.append("imported")
+            j = jobs.get(s["loop"])
+            line.append("loop:" + ("imported" if s.get("imported") else
+                                   f"{j['status']} {j.get('phase') or ''} {j.get('progressCompleted') or 0}/{j.get('progressTotal') or '?'}" if j else "done?"))
         print("  ".join(line))
 
 if __name__ == "__main__":
