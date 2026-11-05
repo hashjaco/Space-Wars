@@ -92,6 +92,7 @@ public final class GenerateAssets {
         lowHealthAlarm();
 
         playersSprixen();
+        bossRoar();
 
         System.out.println("done");
     }
@@ -4767,5 +4768,39 @@ public final class GenerateAssets {
             }
         }
         return shaded;
+    }
+
+    /**
+     * A flagship's arrival: a low bellow that swells and cracks. Appended after every other output
+     * (ROADMAP rule 2), with its own seeded Random so it cannot shift anything drawn before it.
+     *
+     * Three detuned saw-ish voices sliding down a fifth, a growl from a slow vibrato on the pitch,
+     * filtered noise for breath, and a crackle of clicks in the tail.
+     */
+    private static void bossRoar() throws IOException {
+        double duration = 2.2;
+        double[] mix = new double[(int) (duration * SAMPLE_RATE)];
+        Random random = new Random(613);
+        double[] phases = new double[3];
+        double[] detune = {1.0, 1.013, 0.987};
+        double noise = 0;
+        for (int i = 0; i < mix.length; i++) {
+            double t = i / (double) SAMPLE_RATE;
+            double progress = t / duration;
+            double attack = Math.min(1, t / 0.35);
+            double release = Math.min(1, (duration - t) / 0.6);
+            double envelope = attack * release;
+            double pitch = 82 * StrictMath.pow(0.67, progress) * (1 + 0.06 * StrictMath.sin(2 * Math.PI * 7.5 * t));
+            double voice = 0;
+            for (int v = 0; v < 3; v++) {
+                phases[v] += pitch * detune[v] / SAMPLE_RATE;
+                double ph = phases[v] - StrictMath.floor(phases[v]);
+                voice += (2 * ph - 1) * 0.6 + StrictMath.sin(2 * Math.PI * phases[v] * 0.5) * 0.4;
+            }
+            noise = noise * 0.97 + (random.nextDouble() * 2 - 1) * 0.03;
+            double crackle = progress > 0.55 && random.nextDouble() < 0.0025 ? (random.nextDouble() * 2 - 1) : 0;
+            mix[i] = envelope * (voice * 0.28 + noise * 1.6) + crackle * release * 0.5;
+        }
+        writeWav(mix, SOUNDS.resolve("boss-roar.wav"));
     }
 }

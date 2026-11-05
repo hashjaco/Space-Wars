@@ -302,8 +302,10 @@ public final class CollisionSystem {
             if (!enemy.isAlive()) {
                 awardKill(world, shooter, enemy);
             } else if (before != null && enemy.phase() != before) {
-                // The rhythm the player has been reading just broke; a beat of stillness says so.
+                // The rhythm the player has been reading just broke; a beat of stillness says so,
+                // and the arena lurches as the hull gives way into its next state.
                 world.freeze(4);
+                world.shake(6);
             }
             if (bullet.pierces()) {
                 continue;
