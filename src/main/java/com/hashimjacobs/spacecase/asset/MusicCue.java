@@ -23,32 +23,24 @@ public enum MusicCue {
      * only one thing. Tempest and Null are later and stranger, and get their own track alone.
      * Resolved by {@link #forGalaxy(Galaxy)}; {@code GameMode.musicFor(Level)} is what callers use.
      */
-    VERDANCE(MusicTrack.VERDANCE_SX, MusicTrack.PIXEL_WOMP_RUN),
-    ASHFALL(MusicTrack.ASHFALL_SX, MusicTrack.BASSLINE_RIOT),
-    CRYONIS(MusicTrack.CRYONIS_SX, MusicTrack.STARLIGHT_CIRCUIT),
-    TEMPEST(MusicTrack.TEMPEST_SX),
-    NULL(MusicTrack.NULL_SX),
+    VERDANCE(MusicTrack.PIXEL_WOMP_RUN),
+    ASHFALL(MusicTrack.BASSLINE_RIOT),
+    CRYONIS(MusicTrack.STARLIGHT_CIRCUIT),
+    TEMPEST(MusicTrack.GRIME_QUEST),
+    NULL(MusicTrack.DEATH_PUNK),
 
     /** Battle mode. */
-    BATTLE(MusicTrack.GRIME_QUEST, MusicTrack.BASSLINE_RIOT_VARIANT),
+    BATTLE(MusicTrack.BASSLINE_RIOT_VARIANT),
 
     /** Swapped in while a boss is on screen, and back out when it dies. */
     BOSS(MusicTrack.GRIME_QUEST_REMIX),
 
-    /**
-     * The two monsters, each with a cue to itself.
-     *
-     * Their own cues rather than two more tracks on {@link #BOSS}, because a cue picks at random
-     * and death metal over the Sentinel would be the wrong fight entirely.
-     */
-    HYDRA_BOSS(MusicTrack.DEATH_METAL),
-    LEVIATHAN_BOSS(MusicTrack.DEATH_PUNK),
 
     /** The between-levels garage, between the debrief and the warp. */
     GARAGE(MusicTrack.GARAGE_MUSIC),
 
     /** Aeon, at the end of everything, with a theme to itself like the two monsters. */
-    AEON_BOSS(MusicTrack.AEON_SX);
+    AEON_BOSS(MusicTrack.DEATH_METAL);
 
     /** The gameplay cue for a galaxy: the five constants above, in galaxy order. */
     public static MusicCue forGalaxy(Galaxy galaxy) {

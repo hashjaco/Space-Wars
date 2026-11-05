@@ -7,6 +7,7 @@ import java.util.Set;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
+import com.hashimjacobs.spacecase.engine.World;
 import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 
@@ -388,6 +389,16 @@ public final class PlayerShip extends Entity {
         this.lean = lean;
         Sprite next = loadout.chassisPose(lean.ordinal(), hitFlashTicks > 0, facing.horizontal());
         setSprite(next);
+    }
+
+    /** True under a quarter hull: the ship arcs, smokes and flickers its scorched frames. */
+    public boolean inDistress() {
+        return health > 0 && health <= maxHealth() * World.DISTRESS_FRACTION;
+    }
+
+    /** The scorched twin of the current pose, for the flicker a failing hull shows. */
+    public Sprite scorchedSprite() {
+        return loadout.chassisPose(lean.ordinal(), true, facing.horizontal());
     }
 
     /** Refreshes the sprite after a hit flash starts or ends, without changing the lean. */

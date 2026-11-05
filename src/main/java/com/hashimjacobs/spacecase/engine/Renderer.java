@@ -360,16 +360,27 @@ public final class Renderer {
                 case SPARK -> SPARK;
                 case MUZZLE -> Color.WHITE;
                 case EMBER -> EMBER;
+                case ARC -> ARC;
+                case SMOKE -> SMOKE;
             };
-            gc.setGlobalAlpha(life);
+            gc.setGlobalAlpha(particle.kind() == Particle.Kind.SMOKE ? life * 0.5 : life);
+            gc.setGlobalBlendMode(particle.kind() == Particle.Kind.ARC ? BlendMode.SCREEN : BlendMode.SRC_OVER);
             gc.setFill(color);
-            double radius = (particle.kind() == Particle.Kind.MUZZLE ? 5 : 2.5) * (0.4 + 0.6 * life);
+            double radius = switch (particle.kind()) {
+                case MUZZLE -> 5 * (0.4 + 0.6 * life);
+                case ARC -> 2.5 + 2.5 * life;
+                case SMOKE -> 4 + 10 * (1 - life); // grows as it fades
+                default -> 2.5 * (0.4 + 0.6 * life);
+            };
             gc.fillOval(particle.x() - radius, particle.y() - radius, radius * 2, radius * 2);
         }
         gc.setGlobalAlpha(1);
+        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
     }
 
     private static final Color SPARK = Color.web("#ffb347");
+    private static final Color ARC = Color.web("#bfe8ff");
+    private static final Color SMOKE = Color.web("#55575e");
     private static final Color EMBER = Color.web("#ff6b3d");
 
     private void drawBoss(EnemyShip boss, int tick) {
@@ -565,7 +576,11 @@ public final class Renderer {
             gc.setGlobalAlpha(0.45);
         }
         double hullDegrees = hullDegrees(player.facing());
-        drawSprite(player.sprite(), player, hullDegrees);
+        // A failing hull shorts out: the scorched frame cuts in for a tick or two at a time, on a
+        // hash of the tick so it never settles into a rhythm. Held off under reduced flash.
+        boolean shorting = player.inDistress() && !settings.reducedFlash()
+                && ((tick * 0x9E3779B97F4A7C15L) >>> 60) < 3;
+        drawSprite(shorting ? player.scorchedSprite() : player.sprite(), player, hullDegrees);
         Sprite kit = player.kitOverlay();
         if (kit != null) {
             // Drawn at the hull's own size and rotation so the decal tracks the pose and, in

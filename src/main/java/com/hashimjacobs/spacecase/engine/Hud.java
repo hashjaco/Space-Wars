@@ -166,6 +166,12 @@ final class Hud {
         double pulse = settings.reducedFlash() ? 0.35 : 0.35 + 0.35 * Math.sin(tick * 0.22);
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
+        // A halo spilling past the bar's edge: with the alarm sound gone, this is the warning.
+        for (int ring = 3; ring >= 1; ring--) {
+            gc.setGlobalAlpha(pulse * 0.22);
+            gc.setFill(DANGER);
+            gc.fillRoundRect(x - ring * 3, y - ring * 3, PANEL_WIDTH + ring * 6, BAR_HEIGHT + ring * 6, 7 + ring * 3, 7 + ring * 3);
+        }
         gc.setGlobalAlpha(pulse);
         gc.setFill(DANGER);
         gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);

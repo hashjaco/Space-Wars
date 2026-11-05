@@ -13,7 +13,11 @@ public final class Particle {
         /** Muzzle glow at the player's gun: white, very short. */
         MUZZLE(4),
         /** Drifting cinders after a flagship goes: slower, longer. */
-        EMBER(40);
+        EMBER(40),
+        /** Electrical arcing off a hull that is nearly gone: bright, short, jittery. */
+        ARC(10),
+        /** Smoke off the same hull: slow, dim, growing. */
+        SMOKE(48);
 
         final int life;
 
