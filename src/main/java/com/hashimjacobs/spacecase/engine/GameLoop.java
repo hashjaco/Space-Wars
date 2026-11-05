@@ -67,8 +67,6 @@ public final class GameLoop {
      * ponytail: the same quarter-health threshold is spelled as a fraction in {@link Hud}. Two
      * literals in two files beats a shared constant nobody else would ever read.
      */
-    private static final int LOW_HEALTH = 25;
-    private static final int LOW_HEALTH_ALARM_TICKS = 90;
 
     private final World world;
     private final SpawnDirector director;
@@ -588,7 +586,6 @@ public final class GameLoop {
             tickObserver.afterTick(tick, world.checksum());
         }
 
-        warnLowHealth();
         updateBossMusic();
         if (director.levelCleared()) {
             beginVictoryLap();
@@ -843,25 +840,6 @@ public final class GameLoop {
         }
     }
 
-    /**
-     * Beeps while anyone is nearly dead.
-     *
-     * Retriggered on an interval rather than looped: a looping clip would need a stop call, and
-     * with it a decision about every way a fight can end. This carries no state at all, sounds once
-     * for the pair rather than once each, and goes quiet by itself the moment health comes back or
-     * the loop leaves the fight.
-     */
-    private void warnLowHealth() {
-        if (world.tick() % LOW_HEALTH_ALARM_TICKS != 0) {
-            return;
-        }
-        for (PlayerShip player : world.players()) {
-            if (!player.isOut() && player.health() <= LOW_HEALTH) {
-                sounds.play(SoundFx.LOW_HEALTH);
-                return;
-            }
-        }
-    }
 
     /** Swaps to the boss track while a boss is on screen, and back to the mode's track after. */
     private void updateBossMusic() {

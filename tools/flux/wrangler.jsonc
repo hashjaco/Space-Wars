@@ -1,0 +1,8 @@
+{
+  // Local-only Worker that fronts Workers AI image models for the CG art pipeline. Never deployed:
+  // `npx wrangler dev --port 8791` and GET /gen?prompt=...&seed=1&w=1024&h=1024[&model=klein|schnell|dev]
+  "name": "space-case-art-local",
+  "main": "index.ts",
+  "compatibility_date": "2026-08-01",
+  "ai": { "binding": "AI" }
+}

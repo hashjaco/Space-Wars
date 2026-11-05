@@ -31,3 +31,12 @@ tools/sprixen/out/
 tools/sprixen/.vfx-ids.json
 tools/sprixen/.gen*
 server/.dev.vars
+# Sprixen job ids and the CG pipeline's state; the art they produce is what gets committed.
+tools/sprixen/.music-ids.json
+tools/sprixen/.boss-sprites.json
+tools/sprixen/.boss-anims.json
+tools/sprixen/.cg-*
+# Local-only Flux worker (never deployed).
+tools/flux/.wrangler/
+tools/flux/node_modules/
+tools/flux/worker-configuration.d.ts

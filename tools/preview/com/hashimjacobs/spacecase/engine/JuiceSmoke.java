@@ -41,6 +41,7 @@ public final class JuiceSmoke {
                 world.enterLevel(level);
                 PlayerShip pilot = world.players().get(0);
                 pilot.setPosition(460, 640);
+                pilot.takeDamage(80); // under a quarter hull: arcs, smoke and the shorting frames
 
                 EnemyShip cruiser = new EnemyShip(EnemyShip.EnemyKind.CRUISER,
                         level.enemySprite(EnemyShip.EnemyKind.CRUISER), 300, 260);

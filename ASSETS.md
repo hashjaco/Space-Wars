@@ -102,17 +102,15 @@ rather than a remaster.
 | File | Origin | Cue |
 |---|---|---|
 | `arcade-womps.mp3` | Hashim Jacobs (Suno) | `MENU` |
-| `verdance-sx.mp3`, `ashfall-sx.mp3`, `cryonis-sx.mp3`, `tempest-sx.mp3`, `null-sx.mp3` | Sprixen | One per galaxy, thirty-second instrumental loops generated to a prompt and transcoded to MP3; each galaxy cue pairs its track with one of the originals above |
-| `aeon-sx.mp3` | Sprixen | `AEON_BOSS`, the last flagship's own theme |
-| `pixel-womp-run.mp3` | Hashim Jacobs (Suno) | `GAMEPLAY` |
-| `bassline-riot-remastered.mp3` | Hashim Jacobs (Suno) | `GAMEPLAY` |
-| `starlight-circuit.mp3` | Hashim Jacobs (Suno) | `GAMEPLAY` |
-| `grime-quest.mp3` | Hashim Jacobs (Suno) | `BATTLE` |
+| `pixel-womp-run.mp3` | Hashim Jacobs (Suno) | `VERDANCE` |
+| `bassline-riot-remastered.mp3` | Hashim Jacobs (Suno) | `ASHFALL` |
+| `starlight-circuit.mp3` | Hashim Jacobs (Suno) | `CRYONIS` |
+| `grime-quest.mp3` | Hashim Jacobs (Suno) | `TEMPEST` |
 | `bassline-riot-remastered-variant.mp3` | Hashim Jacobs (Suno) | `BATTLE` |
 | `grime-quest-remix.mp3` | Hashim Jacobs (Suno) | `BOSS` |
 | `garage-music.mp3` | Hashim Jacobs (Suno) | `GARAGE` |
-| `death-metal.mp3` | Hashim Jacobs | `HYDRA_BOSS`. Transcoded at 128 kbps from a 166 s stereo wav |
-| `death-punk.mp3` | Hashim Jacobs | `LEVIATHAN_BOSS`. Transcoded at 128 kbps from an 81 s stereo wav |
+| `death-metal.mp3` | Hashim Jacobs | `AEON_BOSS`, the finale. Transcoded at 128 kbps from a 166 s stereo wav |
+| `death-punk.mp3` | Hashim Jacobs | `NULL`, the last galaxy. Transcoded at 128 kbps from an 81 s stereo wav |
 
 ## Sound effects
 
@@ -124,7 +122,7 @@ rather than a remaster.
 | `machine-gun-burst.wav` | Hashim Jacobs | `BOSS_GUN`, the flagship's phase pattern. Decoded to 48 kHz mono PCM from the authored MP3, which is in git history: sound effects play through `javax.sound.sampled`, which is in the JDK and cannot read MP3. Same 1.632 s, same audio |
 | `mega-boss-cannon.wav` | Hashim Jacobs | `BOSS_ROCKET`, the flagship's rocket salvo |
 | `collision.wav` | Generated | Short thud |
-| `low-health.wav` | Generated | Two-note square warble, retriggered while a player is nearly dead |
+| `low-health.wav` | Generated | Two-note square warble. No longer played: a nearly dead ship shows it (arcing, smoke, a red-lit bar) instead of saying it. The file stays because the generator writes it |
 | `game-over.wav` | Generated | Descending four-note arpeggio |
 | `level-clear.wav` | Generated | Ascending arpeggio over a held top note |
 | `laser.wav` | Generated | Downward pitch sweep. The default weapon before `punchy-laser.wav`; still produced by the generator and kept as the licence-clean fallback |

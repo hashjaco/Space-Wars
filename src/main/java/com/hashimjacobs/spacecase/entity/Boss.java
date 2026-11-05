@@ -338,12 +338,7 @@ public enum Boss {
      * {@code entity} and close a package cycle.
      */
     public MusicCue music() {
-        return switch (this) {
-            case HYDRA -> MusicCue.HYDRA_BOSS;
-            case DUNE_LEVIATHAN -> MusicCue.LEVIATHAN_BOSS;
-            case AEON -> MusicCue.AEON_BOSS;
-            default -> MusicCue.BOSS;
-        };
+        return this == AEON ? MusicCue.AEON_BOSS : MusicCue.BOSS;
     }
 
     /**

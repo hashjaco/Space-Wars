@@ -266,6 +266,7 @@ public final class World {
         for (Particle particle : particles) {
             particle.tick();
         }
+        distressPlayers();
         for (int i = scheduled.size() - 1; i >= 0; i--) {
             double[] booking = scheduled.get(i);
             if (booking[0] <= tick) {
@@ -273,6 +274,33 @@ public final class World {
                 Explosion kind = sequenceFor(Explosion.values()[(int) booking[4]]);
                 explosions.add(new ActiveExplosion(kind, booking[1], booking[2], booking[3]));
                 shake(Math.min(SHAKE_MAX, booking[3] * 0.05));
+            }
+        }
+    }
+
+    /** Below this much hull a ship arcs and smokes. The same quarter the HUD bar goes red at. */
+    public static final double DISTRESS_FRACTION = 0.25;
+
+    /**
+     * A nearly dead ship shows it: arcs crawl over the hull every few ticks and smoke trails off
+     * the engines. Cosmetic, hash-seeded through {@link #emit}, outside the checksum like every
+     * particle. This replaced the low-health alarm sound, which was the one thing in the game
+     * players asked to switch off.
+     */
+    private void distressPlayers() {
+        for (PlayerShip player : players) {
+            if (player.isOut() || !player.inDistress()) {
+                continue;
+            }
+            int phase = player.playerNumber() * 7;
+            if ((tick + phase) % 3 == 0) {
+                long h = (tick + phase) * 0x9E3779B97F4A7C15L;
+                double ax = player.x() + ((h >>> 20) & 0xFF) / 255.0 * player.width();
+                double ay = player.y() + ((h >>> 36) & 0xFF) / 255.0 * player.height();
+                emit(Particle.Kind.ARC, ax, ay, 3, 2.6);
+            }
+            if ((tick + phase) % 6 == 0) {
+                emit(Particle.Kind.SMOKE, player.centerX(), player.y() + player.height() * 0.85, 1, 0.5);
             }
         }
     }
