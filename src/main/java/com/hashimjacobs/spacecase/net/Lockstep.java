@@ -1,5 +1,6 @@
 package com.hashimjacobs.spacecase.net;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,10 +54,18 @@ public final class Lockstep implements IntentSource {
      *
      * The dropped ship then stops and drifts. In co-op it runs out of lives and the round ends
      * through {@code checkRoundOver}; in battle, last-player-standing ends it almost at once.
-     * ponytail: no vote to continue, and no reconnect. Reconnecting means shipping a whole world to
+     * Reconnect: a missing peer pauses the match (canStep), a returning one asks for a re-feed
+ * (resync), and after RECONNECT_WINDOW_CALLS the host may drop them (drop). Formerly: ponytail:
+ * no vote to continue, and no reconnect. Reconnecting means shipping a whole world to
      * the returning peer, which is the state-transfer system this design exists to avoid.
      */
-    private static final int DROPOUT_CALLS = 180;
+    /**
+     * Render-rate calls a match waits for a missing peer before the host may drop them: about
+     * thirty seconds. Until then everyone holds still; see {@link #canStep}.
+     */
+    public static final int RECONNECT_WINDOW_CALLS = 1800;
+    /** After a DROP, how long peers wait for forwarded copies of the dropped player's last intents. */
+    private static final int DROP_GRACE_CALLS = 120;
 
     /** How often each peer publishes its world fingerprint. */
     private static final int CHECKSUM_EVERY_TICKS = 60;
@@ -84,6 +93,13 @@ public final class Lockstep implements IntentSource {
 
     private int lastSent = -1;
     private int stalledCalls;
+    private int stuckTick = -1;
+    private int steppedThrough = -1;
+    private List<Integer> waitingFor = List.of();
+    private final Map<Integer, Integer> droppedFrom = new LinkedHashMap<>();
+    private int dropCalls;
+    private LevelStart lastStart;
+    private int lastStartTick = -1;
 
     /**
      * Who has announced they are done with their own between-levels business, and what they are
@@ -126,21 +142,107 @@ public final class Lockstep implements IntentSource {
         if (divergence != null) {
             return false;
         }
-        if (haveEveryIntentFor(tick)) {
+        // A dropped player's silence becomes neutral input, but only after a grace in which the
+        // other peers forward whatever real intents of theirs they still hold (see DROP).
+        if (!droppedFrom.isEmpty()) {
+            dropCalls++;
+        }
+        List<Integer> missing = new ArrayList<>();
+        for (Map.Entry<Integer, IntentRing> entry : rings.entrySet()) {
+            if (entry.getValue().get(tick) != null) {
+                continue;
+            }
+            Integer from = droppedFrom.get(entry.getKey());
+            if (from != null && tick >= from && dropCalls >= DROP_GRACE_CALLS) {
+                entry.getValue().put(tick, Intent.NEUTRAL);
+                continue;
+            }
+            missing.add(entry.getKey());
+        }
+        if (missing.isEmpty()) {
             stalledCalls = 0;
+            waitingFor = List.of();
+            steppedThrough = tick;
             return true;
         }
-        if (++stalledCalls < DROPOUT_CALLS) {
-            return false;
+        // Somebody's input has not arrived. Everyone holds still: a peer who dropped can come back
+        // inside the window and be re-fed, and nothing is invented that the others would not also
+        // invent. Flying the absentee neutral, as this once did, let peers disagree about which
+        // tick the silence began on.
+        stalledCalls++;
+        stuckTick = tick;
+        waitingFor = List.copyOf(missing);
+        return false;
+    }
+
+    /** Players whose input the current tick is waiting on, or empty while the match is moving. */
+    public List<Integer> waitingFor() {
+        return waitingFor;
+    }
+
+    /** Render-rate calls the match has been held for the same tick. */
+    public int stalledCalls() {
+        return stalledCalls;
+    }
+
+    public boolean pastReconnectWindow() {
+        return stalledCalls >= RECONNECT_WINDOW_CALLS;
+    }
+
+    public boolean isDropped(int playerNumber) {
+        return droppedFrom.containsKey(playerNumber);
+    }
+
+    /** The first tick this machine lacks input for: where a re-feed has to start. */
+    private int firstMissingTick() {
+        return waitingFor.isEmpty() ? steppedThrough + 1 : stuckTick;
+    }
+
+    /**
+     * After reconnecting: asks every peer for their input from the tick we are stuck on, and for
+     * the level start we may have missed. Their replies carry their own stuck ticks, which is
+     * what tells us how far back to resend ours.
+     */
+    public void resync() {
+        send.accept(Packet.resync(localPlayer, firstMissingTick(), false).encode());
+    }
+
+    /**
+     * The host's decision that a peer is not coming back. Everyone, host included, forwards what
+     * they hold of that player's input from the tick on, then fills the rest with neutral after a
+     * grace, so every machine flies the same ghost.
+     */
+    public void drop(int playerNumber) {
+        int from = firstMissingTick();
+        send.accept(Packet.drop(localPlayer, playerNumber, from).encode());
+        acceptDrop(playerNumber, from);
+    }
+
+    private void acceptDrop(int playerNumber, int from) {
+        IntentRing ring = rings.get(playerNumber);
+        if (ring == null || playerNumber == localPlayer) {
+            return;
         }
-        // Whoever is missing has gone. Fly them neutral so the round can reach its own ending
-        // rather than hanging; this is the one place an intent is invented rather than received.
-        for (Map.Entry<Integer, IntentRing> entry : rings.entrySet()) {
-            if (entry.getValue().get(tick) == null) {
-                entry.getValue().put(tick, Intent.NEUTRAL);
+        for (int tick = from; tick <= ring.newest(); tick++) {
+            Intent held = ring.get(tick);
+            if (held != null) {
+                send.accept(Packet.intent(playerNumber, tick, held).encode());
             }
         }
-        return true;
+        if (!droppedFrom.containsKey(playerNumber)) {
+            droppedFrom.put(playerNumber, from);
+            dropCalls = 0;
+        }
+    }
+
+    private void resendFrom(int fromTick) {
+        IntentRing mine = rings.get(localPlayer);
+        for (int tick = Math.max(0, fromTick); tick <= lastSent; tick++) {
+            Intent held = mine.get(tick);
+            if (held != null) {
+                send.accept(Packet.intent(localPlayer, tick, held).encode());
+            }
+        }
     }
 
     @Override
@@ -159,10 +261,23 @@ public final class Lockstep implements IntentSource {
                 IntentRing ring = rings.get(packet.playerNumber());
                 // A packet for somebody not in this match is a stray from another room, not a
                 // reason to stop playing.
-                if (ring != null && packet.playerNumber() != localPlayer) {
+                // One for a tick already simulated is late, and overwriting what ran would be a
+                // divergence by another name.
+                if (ring != null && packet.playerNumber() != localPlayer
+                        && packet.tick() > steppedThrough) {
                     ring.put(packet.tick(), packet.intent());
                 }
             }
+            case RESYNC -> {
+                resendFrom(packet.tick());
+                if (packet.flag() == 0) {
+                    if (lastStart != null) {
+                        send.accept(Packet.start(localPlayer, lastStart).encode());
+                    }
+                    send.accept(Packet.resync(localPlayer, firstMissingTick(), true).encode());
+                }
+            }
+            case DROP -> acceptDrop(packet.flag(), packet.tick());
             case CHECKSUM -> {
                 theirChecksums.put(packet.playerNumber(), packet);
                 // Compared here as well as on publish because either machine can reach a tick
@@ -176,7 +291,9 @@ public final class Lockstep implements IntentSource {
                     readyLoadouts.put(packet.playerNumber(), packet.text());
                 }
             }
+            // A START re-sent to a returning peer reaches everyone; one already taken is ignored.
             case START -> LevelStart.decode(packet.text())
+                    .filter(start -> start.resumeTick() > lastStartTick)
                     .ifPresent(start -> pendingStart = start);
         }
     }
@@ -282,6 +399,7 @@ public final class Lockstep implements IntentSource {
      */
     public void start(LevelStart start) {
         pendingStart = start;
+        lastStart = start;
         send.accept(Packet.start(localPlayer, start).encode());
     }
 
@@ -300,13 +418,17 @@ public final class Lockstep implements IntentSource {
         }
         LevelStart start = pendingStart;
         pendingStart = null;
+        lastStart = start;
+        lastStartTick = start.resumeTick();
         readyLoadouts.clear();
         readyLevel = -1;
         for (IntentRing ring : rings.values()) {
             ring.clear();
         }
         lastSent = start.resumeTick() - 1;
+        steppedThrough = start.resumeTick() - 1;
         stalledCalls = 0;
+        waitingFor = List.of();
         return Optional.of(start);
     }
 

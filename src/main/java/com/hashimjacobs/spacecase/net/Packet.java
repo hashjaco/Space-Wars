@@ -39,7 +39,11 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
          */
         READY,
         /** The host's terms for the next fight: seed, tick, difficulty, loadouts. */
-        START
+        START,
+        /** "Send me everything you have from this tick": the body byte is 1 for a reply, 0 for a request. */
+        RESYNC,
+        /** The host gives up on a peer: the body byte names the player, the tick is where neutral starts. */
+        DROP
     }
 
     /** Kind, player, tick. Every packet begins with these; only the body differs. */
@@ -69,6 +73,19 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
         return new Packet(Kind.START, playerNumber, start.resumeTick(), null, 0, start.encode());
     }
 
+    public static Packet resync(int playerNumber, int fromTick, boolean reply) {
+        return new Packet(Kind.RESYNC, playerNumber, fromTick, null, reply ? 1 : 0, null);
+    }
+
+    public static Packet drop(int playerNumber, int dropped, int fromTick) {
+        return new Packet(Kind.DROP, playerNumber, fromTick, null, dropped, null);
+    }
+
+    /** For RESYNC: whether this is a reply. For DROP: the dropped player. Both ride in {@code checksum}. */
+    public int flag() {
+        return (int) checksum;
+    }
+
     public byte[] encode() {
         byte[] body = switch (kind) {
             case INTENT -> {
@@ -81,6 +98,7 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
             case CHECKSUM -> ByteBuffer.allocate(CHECKSUM_BODY).putLong(checksum).array();
             case READY -> text.getBytes(StandardCharsets.UTF_8);
             case START -> text.getBytes(StandardCharsets.UTF_8);
+            case RESYNC, DROP -> new byte[] {(byte) checksum};
         };
 
         ByteBuffer packet = ByteBuffer.allocate(HEADER + body.length);
@@ -127,6 +145,10 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
                     new String(bytes, HEADER, body, StandardCharsets.UTF_8));
             case START -> new Packet(kind, playerNumber, tick, null, 0,
                     new String(bytes, HEADER, body, StandardCharsets.UTF_8));
+            case RESYNC, DROP -> {
+                require(kind, body, 1);
+                yield new Packet(kind, playerNumber, tick, null, buffer.get(), null);
+            }
         };
     }
 

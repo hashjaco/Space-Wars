@@ -72,18 +72,58 @@ public final class RelayClient implements AutoCloseable {
     }
 
     private final HttpClient http;
-    private final WebSocket socket;
+    private final URI base;
+    private volatile WebSocket socket;
     private final Welcome welcome;
     private final Queue<byte[]> inbox;
     private final Roster roster;
+    private final Link link;
 
-    private RelayClient(HttpClient http, WebSocket socket, Welcome welcome, Queue<byte[]> inbox,
-                        Roster roster) {
+    private RelayClient(HttpClient http, URI base, WebSocket socket, Welcome welcome,
+                        Queue<byte[]> inbox, Roster roster, Link link) {
         this.http = http;
+        this.base = base;
         this.socket = socket;
         this.welcome = welcome;
         this.inbox = inbox;
         this.roster = roster;
+        this.link = link;
+    }
+
+    /** True while the socket is up. False from the moment it closes until {@link #reconnect()} succeeds. */
+    public boolean isConnected() {
+        return link.up;
+    }
+
+    /** The token the relay issued for this seat, which is what lets a dropped socket come back as it. */
+    public String token() {
+        return link.token;
+    }
+
+    /**
+     * Opens a fresh socket to the same room and seat. Synchronous; call it off the FX thread. The
+     * relay honours the token inside its reclaim window, and the seat it answers with has to be
+     * ours -- a different one means the window closed and this match has moved on without us.
+     */
+    public void reconnect() throws IOException, InterruptedException {
+        CompletableFuture<Welcome> welcomed = new CompletableFuture<>();
+        Frames frames = new Frames(inbox, roster, welcomed, link);
+        URI uri = URI.create(socketUri(base, welcome.room()) + "?slot=" + welcome.slot()
+                + "&token=" + link.token);
+        WebSocket fresh;
+        try {
+            fresh = http.newWebSocketBuilder().connectTimeout(JOIN_TIMEOUT)
+                    .buildAsync(uri, frames).get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            Welcome again = welcomed.get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            if (again.slot() != welcome.slot()) {
+                fresh.abort();
+                throw new IOException("the room gave our seat away");
+            }
+        } catch (ExecutionException | TimeoutException e) {
+            throw new IOException("could not rejoin room " + welcome.room() + ": " + rootCause(e), e);
+        }
+        socket = fresh;
+        link.up = true;
     }
 
     /** Asks the relay for an unused room code. The host does this, then reads it out. */
@@ -111,6 +151,7 @@ public final class RelayClient implements AutoCloseable {
     public static RelayClient join(URI base, String room) throws IOException, InterruptedException {
         Queue<byte[]> inbox = new ConcurrentLinkedQueue<>();
         Roster roster = new Roster();
+        Link link = new Link();
         CompletableFuture<Welcome> welcomed = new CompletableFuture<>();
 
         HttpClient http = HttpClient.newHttpClient();
@@ -118,7 +159,7 @@ public final class RelayClient implements AutoCloseable {
         try {
             socket = http.newWebSocketBuilder()
                     .connectTimeout(JOIN_TIMEOUT)
-                    .buildAsync(socketUri(base, room), new Frames(inbox, roster, welcomed))
+                    .buildAsync(URI.create(socketUri(base, room)), new Frames(inbox, roster, welcomed, link))
                     .get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } catch (ExecutionException e) {
             // The relay refuses a fifth peer before the upgrade, so a full room arrives here as a
@@ -129,8 +170,9 @@ public final class RelayClient implements AutoCloseable {
         }
 
         try {
-            return new RelayClient(http, socket, welcomed.get(JOIN_TIMEOUT.toSeconds(),
-                    TimeUnit.SECONDS), inbox, roster);
+            Welcome welcome = welcomed.get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
+            link.up = true;
+            return new RelayClient(http, base, socket, welcome, inbox, roster, link);
         } catch (ExecutionException | TimeoutException e) {
             socket.abort();
             throw new IOException("joined room " + room + " but it never said which slot", e);
@@ -149,7 +191,14 @@ public final class RelayClient implements AutoCloseable {
 
     /** Wire this to {@code Lockstep}'s byte sink. Non-blocking. */
     public void send(byte[] packet) {
-        socket.sendBinary(ByteBuffer.wrap(packet), true);
+        if (!link.up) {
+            return; // the re-feed after reconnect covers what was not sent
+        }
+        try {
+            socket.sendBinary(ByteBuffer.wrap(packet), true);
+        } catch (IllegalStateException closed) {
+            link.up = false;
+        }
     }
 
     /**
@@ -179,9 +228,15 @@ public final class RelayClient implements AutoCloseable {
         http.shutdownNow();
     }
 
-    private static URI socketUri(URI base, String room) {
+    private static String socketUri(URI base, String room) {
         String scheme = "https".equalsIgnoreCase(base.getScheme()) ? "wss" : "ws";
-        return URI.create(scheme + "://" + base.getAuthority() + "/room/" + room);
+        return scheme + "://" + base.getAuthority() + "/room/" + room;
+    }
+
+    /** What survives a socket: whether one is up right now, and the token that reopens the seat. */
+    private static final class Link {
+        volatile boolean up;
+        volatile String token = "";
     }
 
     private static String rootCause(Throwable thrown) {
@@ -225,10 +280,13 @@ public final class RelayClient implements AutoCloseable {
         private final List<ByteBuffer> binaryParts = new ArrayList<>();
         private final StringBuilder textParts = new StringBuilder();
 
-        Frames(Queue<byte[]> inbox, Roster roster, CompletableFuture<Welcome> welcomed) {
+        private final Link link;
+
+        Frames(Queue<byte[]> inbox, Roster roster, CompletableFuture<Welcome> welcomed, Link link) {
             this.inbox = inbox;
             this.roster = roster;
             this.welcomed = welcomed;
+            this.link = link;
         }
 
         @Override
@@ -263,11 +321,13 @@ public final class RelayClient implements AutoCloseable {
 
         @Override
         public void onError(WebSocket socket, Throwable error) {
+            link.up = false;
             welcomed.completeExceptionally(error);
         }
 
         @Override
         public CompletionStage<?> onClose(WebSocket socket, int status, String reason) {
+            link.up = false;
             welcomed.completeExceptionally(
                     new IOException("the relay closed the connection: " + status + " " + reason));
             return null;
@@ -290,6 +350,7 @@ public final class RelayClient implements AutoCloseable {
                             Integer.parseInt(fields[1]), fields[2], peers));
                 }
                 case "roster" -> roster.set(slots(fields, 1));
+                case "token" -> link.token = fields.length > 1 ? fields[1] : "";
                 default -> {
                 }
             }

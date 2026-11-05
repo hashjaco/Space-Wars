@@ -61,12 +61,17 @@ const TOP_ROWS = 10;
  */
 type Control =
   | { type: "welcome"; slot: number; peers: number[]; room: string }
+  | { type: "token"; token: string }
   | { type: "roster"; peers: number[] };
+
+/** How long a departed peer's slot is held for them, so a dropped socket can come back as itself. */
+const RECLAIM_MS = 60_000;
 
 /**
  * Control frames go out as comma-separated fields, not JSON.
  *
  *   welcome,<your slot>,<room>,<slot>,<slot>...
+ *   token,<reconnect token>
  *   roster,<slot>,<slot>...
  *
  * The game is a Java client with no JSON library in it, and this is already the encoding it uses
@@ -74,14 +79,24 @@ type Control =
  * for four fields that will never grow past a handful.
  */
 function encode(control: Control): string {
-  return control.type === "welcome"
-    ? ["welcome", control.slot, control.room, ...control.peers].join(",")
-    : ["roster", ...control.peers].join(",");
+  switch (control.type) {
+    case "welcome": return ["welcome", control.slot, control.room, ...control.peers].join(",");
+    case "token": return ["token", control.token].join(",");
+    case "roster": return ["roster", ...control.peers].join(",");
+  }
 }
 
 interface Session {
   /** The player number this connection flies, one to MAX_PEERS. Stable for the connection's life. */
   slot: number;
+  /** Proof of the slot: a peer that drops and comes back with it inside RECLAIM_MS gets the slot again. */
+  token: string;
+}
+
+/** A slot held for a departed peer, keyed by slot in storage under "reserved". */
+interface Reservation {
+  token: string;
+  until: number;
 }
 
 /**
@@ -116,29 +131,72 @@ export class Room extends DurableObject<Env> {
   }
 
   override async fetch(request: Request): Promise<Response> {
-    const room = new URL(request.url).pathname.split("/").pop() ?? "";
-
-    if (this.sessions.size >= MAX_PEERS) {
-      // Refused before the upgrade, so a full room is an ordinary HTTP failure the client can read
-      // rather than a socket that opens and immediately closes for reasons it has to guess at.
-      return new Response("full", { status: 409 });
+    const url = new URL(request.url);
+    const parts = url.pathname.split("/");
+    // POST /new marks the code issued through this object, so only codes the relay handed out
+    // open a room: a guessed six characters finds nothing, not an empty room to wait in.
+    if (parts.at(-1) === "issue") {
+      await this.ctx.storage.put("issued", true);
+      return new Response("issued");
     }
+    if (!(await this.ctx.storage.get<boolean>("issued"))) {
+      return new Response("no such room", { status: 404 });
+    }
+    if (parts.at(-1) === "probe") {
+      return new Response("ok");
+    }
+    const room = parts.pop() ?? "";
+    const reserved = await this.reservations();
 
-    const slot = this.lowestFreeSlot();
+    // A returning peer: the slot and token it was given, inside the window, is its seat.
+    const wantedSlot = Number(url.searchParams.get("slot"));
+    const offered = url.searchParams.get("token");
+    const held = reserved.get(wantedSlot);
+    let slot: number;
+    let token: string;
+    if (held && offered && held.token === offered) {
+      slot = wantedSlot;
+      token = held.token;
+      reserved.delete(slot);
+    } else {
+      if (this.sessions.size + reserved.size >= MAX_PEERS) {
+        // Refused before the upgrade, so a full room is an ordinary HTTP failure the client can
+        // read rather than a socket that opens and immediately closes for reasons it has to guess at.
+        return new Response("full", { status: 409 });
+      }
+      slot = this.lowestFreeSlot(reserved);
+      token = newToken();
+    }
+    await this.ctx.storage.put("reserved", Object.fromEntries(reserved));
+
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
 
     // acceptWebSocket rather than server.accept(): this one lets the room hibernate between
     // matches, which is most of a room's life.
     this.ctx.acceptWebSocket(server);
-    const session: Session = { slot };
+    const session: Session = { slot, token };
     server.serializeAttachment(session);
     this.sessions.set(server, session);
 
     this.send(server, { type: "welcome", slot, peers: this.slots(), room });
+    this.send(server, { type: "token", token });
     this.broadcastControl({ type: "roster", peers: this.slots() }, server);
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /** Slots held for departed peers, with expired holds dropped. */
+  private async reservations(): Promise<Map<number, Reservation>> {
+    const stored = (await this.ctx.storage.get<Record<string, Reservation>>("reserved")) ?? {};
+    const now = Date.now();
+    const live = new Map<number, Reservation>();
+    for (const [slot, hold] of Object.entries(stored)) {
+      if (hold.until > now) {
+        live.set(Number(slot), hold);
+      }
+    }
+    return live;
   }
 
   /**
@@ -165,27 +223,34 @@ export class Room extends DurableObject<Env> {
   }
 
   override async webSocketClose(ws: WebSocket): Promise<void> {
-    this.forget(ws);
+    await this.forget(ws);
   }
 
   override async webSocketError(ws: WebSocket): Promise<void> {
-    this.forget(ws);
+    await this.forget(ws);
   }
 
-  private forget(ws: WebSocket): void {
-    if (this.sessions.delete(ws)) {
-      // The peers work out what a departure means for the match themselves; all they are told is
-      // that it happened.
-      this.broadcastControl({ type: "roster", peers: this.slots() });
+  private async forget(ws: WebSocket): Promise<void> {
+    const session = this.sessions.get(ws);
+    if (!this.sessions.delete(ws) || !session) {
+      return;
     }
+    // Held for the window, so the match the others are now pausing can take this peer back as
+    // the same player rather than as a newcomer in a freed seat.
+    const reserved = await this.reservations();
+    reserved.set(session.slot, { token: session.token, until: Date.now() + RECLAIM_MS });
+    await this.ctx.storage.put("reserved", Object.fromEntries(reserved));
+    // The peers work out what a departure means for the match themselves; all they are told is
+    // that it happened.
+    this.broadcastControl({ type: "roster", peers: this.slots() });
   }
 
   /**
    * The lowest slot nobody holds, so a player who drops out of a three-player game frees their
    * number for whoever joins next rather than pushing the room past four.
    */
-  private lowestFreeSlot(): number {
-    const taken = new Set(this.slots());
+  private lowestFreeSlot(reserved: Map<number, Reservation>): number {
+    const taken = new Set([...this.slots(), ...reserved.keys()]);
     for (let slot = 1; slot <= MAX_PEERS; slot++) {
       if (!taken.has(slot)) {
         return slot;
@@ -213,6 +278,11 @@ export class Room extends DurableObject<Env> {
       this.sessions.delete(ws);
     }
   }
+}
+
+function newToken(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12));
+  return [...bytes].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 /**
@@ -350,9 +420,15 @@ export default {
     // Handing out codes here rather than letting clients pick keeps two groups off the same six
     // characters, and keeps a guessable code from being the way into somebody else's game.
     if (url.pathname === "/new") {
+      if (request.method !== "POST") {
+        return new Response("POST", { status: 405, headers: { Allow: "POST" } });
+      }
       // Plain text, for the same reason the control frames are: the client has no JSON parser and
-      // this response is one word.
-      return new Response(newRoomCode(), { headers: { "Content-Type": "text/plain" } });
+      // this response is one word. Marked issued on its room first, so the code works the moment
+      // it is read out.
+      const code = newRoomCode();
+      await env.ROOM.getByName(code).fetch(new Request(`${url.origin}/room/${code}/issue`, { method: "POST" }));
+      return new Response(code, { headers: { "Content-Type": "text/plain" } });
     }
 
     const match = url.pathname.match(/^\/room\/([A-Z0-9]{1,16})$/);
@@ -363,12 +439,15 @@ export default {
         + "PUT or GET /save/{sync code}\n",
         { status: 404 });
     }
+    // The room answers 404 for a code that was never issued, before the upgrade is considered.
+    const room = env.ROOM.getByName(match[1]);
     if (request.headers.get("Upgrade") !== "websocket") {
-      return new Response("expected Upgrade: websocket", { status: 426 });
+      const probe = await room.fetch(new Request(`${url.origin}/room/${match[1]}/probe`));
+      return probe.status === 404 ? probe : new Response("expected Upgrade: websocket", { status: 426 });
     }
 
     // getByName, so the same code always reaches the same room from anywhere in the world.
-    return env.ROOM.getByName(match[1]).fetch(request);
+    return room.fetch(request);
   },
 };
 

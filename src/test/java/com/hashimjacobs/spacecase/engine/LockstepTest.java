@@ -203,6 +203,132 @@ class LockstepTest {
     }
 
     /** Two peers wired to each other's inboxes. */
+    /**
+     * The old rule flew an absent peer neutral after three seconds, which let two machines disagree
+     * about the tick the silence began on. Now nobody moves until the input arrives.
+     */
+    @Test
+    void aMissingPeerHoldsTheWholeMatch() {
+        Match match = new Match();
+        for (int tick = 0; tick < 100; tick++) {
+            match.advanceOneTick(tick);
+        }
+        // The socket to peer two dies: peer one runs out the three ticks of input delay it already
+        // holds, then has to wait.
+        int stuck = 100 + Lockstep.INPUT_DELAY_TICKS;
+        for (int call = 0; call < 400; call++) {
+            match.two.outbox.clear();
+            while (match.one.lockstep.canStep(match.one.world.tick())) {
+                match.one.stepFight();
+            }
+            Match.drain(match.one.outbox, match.two);
+        }
+        assertEquals(stuck, match.one.world.tick(), "nothing ran past the input in hand");
+        assertEquals(List.of(2), match.one.lockstep.waitingFor());
+        assertTrue(match.one.lockstep.stalledCalls() >= 400);
+        assertFalse(match.one.lockstep.pastReconnectWindow(), "the window is thirty seconds, not seven");
+    }
+
+    @Test
+    void aReturningPeerIsReFedAndTheMatchAgreesAgain() {
+        Match match = new Match();
+        for (int tick = 0; tick < 100; tick++) {
+            match.advanceOneTick(tick);
+        }
+        // Outage: peer two hears peer one, peer one hears nothing. Two runs on until it needs
+        // input one has not produced; one is stuck at tick 100.
+        for (int call = 0; call < 60; call++) {
+            match.one.lockstep.canStep(match.one.world.tick());
+            Match.drain(match.one.outbox, match.two);
+            match.two.outbox.clear();
+            while (match.two.lockstep.canStep(match.two.world.tick())) {
+                match.two.stepFight();
+            }
+        }
+        assertEquals(100, match.one.world.tick());
+        assertTrue(match.two.world.tick() > 100, "peer two ran on with the input it had");
+
+        // Reconnect: two asks to be re-fed from where it is stuck; one answers with its own gap.
+        match.two.lockstep.resync();
+        match.deliver();
+        match.deliver();
+        for (int i = 0; i < 2000; i++) {
+            boolean moved = false;
+            if (match.one.world.tick() < 400 && match.one.lockstep.canStep(match.one.world.tick())) {
+                match.one.stepFight();
+                moved = true;
+            }
+            if (match.two.world.tick() < 400 && match.two.lockstep.canStep(match.two.world.tick())) {
+                match.two.stepFight();
+                moved = true;
+            }
+            match.deliver();
+            if (!moved && match.one.world.tick() == 400 && match.two.world.tick() == 400) {
+                break;
+            }
+        }
+        assertEquals(400, match.one.world.tick(), "peer one caught up");
+        assertEquals(400, match.two.world.tick(), "peer two carried on");
+        assertEquals(match.one.world.checksum(), match.two.world.checksum(),
+                "after the re-feed both machines simulated the same fight");
+        assertNull(match.one.lockstep.divergence());
+    }
+
+    @Test
+    void theHostCanDropAPeerAndThenFliesThemNeutral() {
+        Match match = new Match();
+        for (int tick = 0; tick < 50; tick++) {
+            match.advanceOneTick(tick);
+        }
+        for (int call = 0; call < 30; call++) {
+            match.two.outbox.clear();
+            while (match.one.lockstep.canStep(match.one.world.tick())) {
+                match.one.stepFight();
+            }
+        }
+        int stuck = match.one.world.tick();
+        assertEquals(50 + Lockstep.INPUT_DELAY_TICKS, stuck);
+        match.one.lockstep.drop(2);
+        assertTrue(match.one.lockstep.isDropped(2));
+        boolean dropped = Packet.decode(match.one.outbox.peekLast()).kind() == Packet.Kind.DROP
+                || match.one.outbox.stream().anyMatch(b -> Packet.decode(b).kind() == Packet.Kind.DROP);
+        assertTrue(dropped, "the decision goes out on the wire");
+        int held = 0;
+        while (!match.one.lockstep.canStep(stuck)) {
+            held++;
+            assertTrue(held < 1000, "the grace for forwarded input must end");
+        }
+        assertTrue(held > 0, "a grace passes first, so forwarded input can still land");
+        match.one.stepFight();
+        assertEquals(stuck + 1, match.one.world.tick());
+        assertEquals(Intent.NEUTRAL, match.one.lockstep.intentFor(2, stuck));
+    }
+
+    @Test
+    void aLevelStartHeardTwiceIsTakenOnce() {
+        Match match = new Match();
+        for (int tick = 0; tick < 20; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.crossBarrier(Level.values()[1]);
+        byte[] again = Packet.start(1, new LevelStart(SEED + 1, 21, Difficulty.NORMAL,
+                SaveSlot.forReplay(GameMode.COOP, Level.values()[1]), match.one.lockstep.readyLoadouts())).encode();
+        match.two.lockstep.receive(again);
+        assertTrue(match.two.lockstep.takeStart().isEmpty(), "the start already taken is not taken twice");
+    }
+
+    @Test
+    void theNewPacketKindsRoundTrip() {
+        Packet resync = Packet.decode(Packet.resync(3, 1234, true).encode());
+        assertEquals(Packet.Kind.RESYNC, resync.kind());
+        assertEquals(1234, resync.tick());
+        assertEquals(1, resync.flag());
+        Packet drop = Packet.decode(Packet.drop(1, 4, 77).encode());
+        assertEquals(Packet.Kind.DROP, drop.kind());
+        assertEquals(4, drop.flag());
+        assertEquals(77, drop.tick());
+    }
+
     private static final class Match {
 
         private final Peer one = new Peer(1);
