@@ -156,7 +156,7 @@ public final class ShipController {
         }
         double x = pad.leftStickX();
         double y = pad.leftStickY();
-        double magnitude = Math.hypot(x, y);
+        double magnitude = StrictMath.hypot(x, y);
         if (magnitude <= deadzone) {
             return null;
         }
@@ -167,7 +167,7 @@ public final class ShipController {
         }
 
         double travel = (magnitude - deadzone) / (1 - deadzone);
-        double scaled = Math.pow(travel, 1 / tuning.sensitivity());
+        double scaled = StrictMath.pow(travel, 1 / tuning.sensitivity());
         // Back onto the stick's own direction: x and y still carry the raw magnitude, so divide it
         // out before applying the one we actually want.
         double factor = scaled / magnitude;

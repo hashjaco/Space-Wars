@@ -298,7 +298,7 @@ public final class World {
             double angle = ((hash >>> 11) & 0xFFFF) / 65536.0 * 2 * Math.PI;
             hash = hash * 6364136223846793005L + 1442695040888963407L;
             double magnitude = speed * (0.4 + 0.6 * (((hash >>> 11) & 0xFFFF) / 65536.0));
-            particles.add(new Particle(kind, x, y, Math.cos(angle) * magnitude, Math.sin(angle) * magnitude));
+            particles.add(new Particle(kind, x, y, StrictMath.cos(angle) * magnitude, StrictMath.sin(angle) * magnitude));
         }
     }
 
@@ -445,7 +445,7 @@ public final class World {
             double reach = level * GameConfig.UPGRADE_COLLECTOR_RANGE;
             double dx = player.centerX() - powerUp.centerX();
             double dy = player.centerY() - powerUp.centerY();
-            double distance = Math.hypot(dx, dy);
+            double distance = StrictMath.hypot(dx, dy);
             if (distance <= reach && distance < bestDistance) {
                 best = player;
                 bestDistance = distance;

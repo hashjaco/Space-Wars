@@ -109,13 +109,13 @@ public final class VoidEntity extends EnemyShip {
 
     /** How far along the arena the body's leading edge is at a given age. */
     private double alongAt(double at) {
-        return ALONG_CENTRE + Math.sin(angleAt(at)) * ALONG_RADIUS
+        return ALONG_CENTRE + StrictMath.sin(angleAt(at)) * ALONG_RADIUS
                 - orientation().alongExtent(width(), height()) / 2;
     }
 
     /** How far across the lane the body's near edge is at a given age. */
     private double acrossAt(double at) {
-        return orientation().arenaBreadth() * 0.5 + Math.cos(angleAt(at)) * ACROSS_RADIUS
+        return orientation().arenaBreadth() * 0.5 + StrictMath.cos(angleAt(at)) * ACROSS_RADIUS
                 - orientation().acrossExtent(width(), height()) / 2;
     }
 

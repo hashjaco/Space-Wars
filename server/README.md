@@ -26,6 +26,8 @@ Plain text in, plain text out, everywhere. The Java client has no JSON parser an
 | `POST /new` | a fresh six-character room code, as plain text; other methods get `405` |
 | `GET /room/{code}` with `Upgrade: websocket` | join; `409` when the room already holds four, `404` for a code `/new` never issued |
 | `GET /room/{code}?slot=N&token=T` | rejoin a held seat inside its sixty-second window |
+| `PUT /replay/{player}/{mode}?score=N` | attach a run's recording (gzip, under 1 MB) to the row it backs; `409` unless `N` is that row's best |
+| `GET /replays/pending`, `GET /replay/{player}/{mode}`, `POST /verify/{player}/{mode}` | the verifier's routes, `Authorization: Bearer $VERIFY_SECRET`; `503` until that secret is set |
 
 ### The board
 
@@ -37,11 +39,15 @@ Plain text in, plain text out, everywhere. The Java client has no JSON parser an
 `player` is the account's **public id**, never its sync code. One row per player per mode, and it
 only ever moves up: a bad run does not cost somebody the good one they already posted.
 
-**The board is client-reported and unverifiable by construction.** Every score in this game is
-computed on the machine that flew the run, so a determined player can post any number they like. No
-login would change that — an authenticated liar is still a liar; closing it for real means the
-server simulating the game, which is the host-authoritative design the netcode deliberately is not.
-The `MAX_SCORE` ceiling only stops a bored one parking `Number.MAX_SAFE_INTEGER` at the top forever.
+**Scores are client-reported, then verified by replay.** Every score is computed on the machine
+that flew the run, so the relay cannot know a number is honest when it arrives. What it can hold is
+the run's recording: the seed, each level's terms and every tick's input, posted right after the
+score. A scheduled job ([`.github/workflows/verify.yml`](../.github/workflows/verify.yml)) fetches
+what is pending, replays it through the game's own simulation (`engine.Replayer`, the same tick order
+the fight ran), and posts a verdict; the board shows a tick beside a score it reproduced and a cross
+beside one it could not. A row without a recording stays unmarked. Runs resumed from a checkpoint
+cannot be replayed from their seed and stay unmarked too. The `MAX_SCORE` ceiling remains as the
+last line against nonsense.
 
 ### Profiles
 

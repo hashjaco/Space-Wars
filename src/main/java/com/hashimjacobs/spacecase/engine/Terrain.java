@@ -127,7 +127,7 @@ public final class Terrain {
         double[] phase = new double[harmonics];
         double total = 0;
         for (int k = 0; k < harmonics; k++) {
-            weight[k] = 1.0 / Math.pow(k + 1, 0.8);
+            weight[k] = 1.0 / StrictMath.pow(k + 1, 0.8);
             total += weight[k];
             phase[k] = shape.nextDouble() * 2 * Math.PI;
         }
@@ -145,7 +145,7 @@ public final class Terrain {
         for (int i = 0; i < nodes; i++) {
             double wobble = 0;
             for (int k = 0; k < harmonics; k++) {
-                wobble += weight[k] * Math.sin(2 * Math.PI * (k + 1) * i / (double) nodes + phase[k]);
+                wobble += weight[k] * StrictMath.sin(2 * Math.PI * (k + 1) * i / (double) nodes + phase[k]);
             }
             double ridged = Math.tanh(RIDGE_GAIN * wobble) / Math.tanh(RIDGE_GAIN);
             table[i] = squeeze * (1 + template.roughness() * ridged);

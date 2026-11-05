@@ -26,14 +26,15 @@ public record RoundResult(
         int wavesSurvived,
         Level level,
         int loop,
-        boolean galaxyCleared) {
+        boolean galaxyCleared,
+        byte[] replay) {
 
     public static RoundResult of(World world, SpawnDirector director, boolean galaxyCleared) {
         List<PlayerShip> players = world.players();
         int winner = resolveWinner(world, players);
         List<Integer> scores = players.stream().map(PlayerShip::score).toList();
         RoundResult result = new RoundResult(world.mode(), winner, scores,
-                director.wavesSurvived(), director.level(), director.loop(), galaxyCleared);
+                director.wavesSurvived(), director.level(), director.loop(), galaxyCleared, null);
         return result;
     }
 
@@ -55,6 +56,11 @@ public record RoundResult(
     }
 
     /** Highest score across the players, which is what a co-op or solo run is judged on. */
+    /** The same result with the run's recording attached, for the leaderboard to verify. */
+    public RoundResult withReplay(byte[] packed) {
+        return new RoundResult(mode, winningPlayerNumber, scores, wavesSurvived, level, loop, galaxyCleared, packed);
+    }
+
     public int bestScore() {
         int best = scores.stream().mapToInt(Integer::intValue).max().orElse(0);
         return best;

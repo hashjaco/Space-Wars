@@ -267,8 +267,8 @@ final class EnemyWeapons {
         for (int i = 0; i < shots; i++) {
             double angle = first + i * ENEMY_SPREAD_RADIANS;
             addBullet(world, enemy,
-                    Math.cos(angle) * GameConfig.ENEMY_BULLET_SPEED,
-                    Math.sin(angle) * GameConfig.ENEMY_BULLET_SPEED,
+                    StrictMath.cos(angle) * GameConfig.ENEMY_BULLET_SPEED,
+                    StrictMath.sin(angle) * GameConfig.ENEMY_BULLET_SPEED,
                     GameConfig.ENEMY_BULLET_DAMAGE, Sprite.ENEMY_BULLET);
         }
     }
@@ -318,7 +318,7 @@ final class EnemyWeapons {
         for (int i = 0; i < shots; i++) {
             double angle = centreAngle + firstOffset + i * spread;
             // Zero points down-arena, whichever way that is; the pattern turns with the level.
-            addBullet(world, boss, Math.cos(angle) * speed, Math.sin(angle) * speed, damage,
+            addBullet(world, boss, StrictMath.cos(angle) * speed, StrictMath.sin(angle) * speed, damage,
                     round.art());
         }
     }
@@ -335,7 +335,7 @@ final class EnemyWeapons {
             // generalised here, not just the coordinate: "below me" becomes "ahead of me".
             double along = Math.max(1, facing.along(dx, dy));
             double across = facing.across(dx, dy);
-            return Math.atan2(across, along);
+            return StrictMath.atan2(across, along);
         }
         if (phase == BossPhase.SPIRAL) {
             // Unbounded rotation rather than an oscillation, so the stream paints a continuous arc.
@@ -349,11 +349,11 @@ final class EnemyWeapons {
         }
         if (phase == BossPhase.LATTICE) {
             // A fast swing, so the eight spokes cross their last positions and the gaps travel.
-            return Math.sin(world.tick() / 30.0) * 0.8;
+            return StrictMath.sin(world.tick() / 30.0) * 0.8;
         }
         if (phase.sweeps()) {
             // A slow oscillation driven by the world clock, so the fan tracks back and forth.
-            double sweep = Math.sin(world.tick() / 42.0);
+            double sweep = StrictMath.sin(world.tick() / 42.0);
             return sweep * 0.6;
         }
         return 0;

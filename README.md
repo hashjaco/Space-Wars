@@ -84,7 +84,9 @@ the start menu once the campaign has been cleared.
 **Universe Map** shows the five galaxies and the ten places in each; clearing a place unlocks the
 next, and the map remembers how far you got. **Continue** picks up the last checkpoint, **Load Game**
 holds three save slots, and **Cloud Save** carries a profile to another machine with a twelve-character
-code. **Leaderboard** posts a run's score per mode.
+code. **Leaderboard** posts a run's score per mode, along with a recording of the run; a scheduled job
+replays recordings through the game's own simulation and marks a score with a tick once it has
+reproduced it (see [`server/`](server/README.md)).
 
 ### Online
 

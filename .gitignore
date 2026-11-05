@@ -30,3 +30,4 @@ tools/sprixen/.project-id
 tools/sprixen/out/
 tools/sprixen/.vfx-ids.json
 tools/sprixen/.gen*
+server/.dev.vars

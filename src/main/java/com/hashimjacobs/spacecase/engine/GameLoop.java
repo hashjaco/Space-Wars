@@ -30,6 +30,8 @@ import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Rank;
 import com.hashimjacobs.spacecase.prefs.SaveGames;
 import com.hashimjacobs.spacecase.prefs.SaveSlot;
+import com.hashimjacobs.spacecase.net.Replay;
+import com.hashimjacobs.spacecase.net.LevelStart;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
 
@@ -162,6 +164,32 @@ public final class GameLoop {
     private static final long METER_WINDOW_NANOS = 1_000_000_000L;
 
     private boolean showFrameMeter;
+    /** A line about the network link, or null; drawn over the arena while a match waits. */
+    private java.util.function.Supplier<String> netStatus = () -> null;
+
+    public void setNetStatus(java.util.function.Supplier<String> status) {
+        this.netStatus = status == null ? () -> null : status;
+    }
+    /** Records the run for the leaderboard to verify; null for a run nobody will post. */
+    private Replay.Recorder recorder;
+
+    /** Starts recording. The current level's terms go down at once; later levels as they begin. */
+    public void setRecorder(Replay.Recorder recorder) {
+        this.recorder = recorder;
+        recordLevelStart();
+    }
+
+    private void recordLevelStart() {
+        if (recorder == null) {
+            return;
+        }
+        List<String> loadouts = new java.util.ArrayList<>();
+        for (PlayerShip player : world.players()) {
+            loadouts.add(player.loadout().encode());
+        }
+        recorder.level(new LevelStart(recorder.header().seed(), world.tick(), difficulty,
+                SaveSlot.forReplay(world.mode(), director.level()), loadouts));
+    }
     private boolean meterKeyWasDown;
     private long lastFrameNanos;
     private long meterWindowStart;
@@ -440,6 +468,10 @@ public final class GameLoop {
             }
         }
         trackFrame(frameNanos, steps);
+        String link = netStatus.get();
+        if (link != null) {
+            renderer.drawNetBanner(link);
+        }
         if (showFrameMeter) {
             renderer.drawFrameMeter(shownMs, shownSteps);
         }
@@ -525,14 +557,21 @@ public final class GameLoop {
         // Hit-stop: intents are still sampled (lockstep needs one per tick) but not applied, and
         // nothing moves, spawns or collides. World.update counts the freeze down.
         boolean frozen = world.frozen();
+        List<Intent> recorded = recorder == null ? null : new java.util.ArrayList<>(controllers.size());
         for (ShipController controller : controllers) {
             int number = controller.ship().playerNumber();
             Intent intent = intents == null
                     ? controller.sample(input, tuningFor(number))
                     : intents.intentFor(number, tick);
+            if (recorded != null) {
+                recorded.add(intent);
+            }
             if (!frozen) {
                 controller.apply(intent, world, sounds);
             }
+        }
+        if (recorded != null) {
+            recorder.tick(recorded);
         }
 
         world.update();
@@ -726,6 +765,7 @@ public final class GameLoop {
         }
         snapshotLevelStart();
         snapshotSave();
+        recordLevelStart();
         sounds.playMusic(world.mode().musicFor(director.level()));
         bossMusicPlaying = false;
         phase = Phase.FIGHTING;
@@ -843,23 +883,9 @@ public final class GameLoop {
      * ConcurrentModificationException. Bounding the loop up front also means escorts are not driven
      * on the tick they arrive.
      */
+    /** Shared with {@link Replayer}, so a replay drives the enemies the way the fight did. */
     private void driveEnemies() {
-        int difficultyCooldown = difficulty.enemyFireCooldown();
-        int enemyCap = difficulty.maxEnemies(world.players().size());
-        List<EnemyShip> enemies = world.enemies();
-        for (int i = 0, count = enemies.size(); i < count; i++) {
-            EnemyShip enemy = enemies.get(i);
-            PlayerShip target = world.nearestPlayer(enemy);
-            if (target == null) {
-                continue;
-            }
-            enemy.trackAcross(target);
-            if (!enemy.hasEntered()) {
-                continue;
-            }
-            EnemyWeapons.driveWeapons(world, enemy, target, director.level(), difficultyCooldown,
-                    enemyCap, sounds);
-        }
+        Replayer.driveEnemies(world, director, difficulty, sounds);
     }
 
     private void checkRoundOver() {
@@ -885,6 +911,9 @@ public final class GameLoop {
         finished = true;
         stop();
         RoundResult result = RoundResult.of(world, director, galaxyCleared);
+        if (recorder != null) {
+            result = result.withReplay(recorder.finish());
+        }
         onRoundOver.accept(result);
     }
 

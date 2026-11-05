@@ -150,12 +150,12 @@ public final class BossHead extends EnemyShip {
 
     private double headX() {
         Orientation facing = body.orientation();
-        return neckRootX() + facing.vx(Math.cos(angle()) * reach(), Math.sin(angle()) * reach());
+        return neckRootX() + facing.vx(StrictMath.cos(angle()) * reach(), StrictMath.sin(angle()) * reach());
     }
 
     private double headY() {
         Orientation facing = body.orientation();
-        return neckRootY() + facing.vy(Math.cos(angle()) * reach(), Math.sin(angle()) * reach());
+        return neckRootY() + facing.vy(StrictMath.cos(angle()) * reach(), StrictMath.sin(angle()) * reach());
     }
 
     /**
@@ -181,7 +181,7 @@ public final class BossHead extends EnemyShip {
     /** Where this neck is pointing, measured from straight down-arena. */
     public double angle() {
         double sector = SECTOR_SPAN * (spread() - 0.5);
-        return sector + Math.sin(phaseAngle()) * SWING;
+        return sector + StrictMath.sin(phaseAngle()) * SWING;
     }
 
     /**
@@ -196,7 +196,7 @@ public final class BossHead extends EnemyShip {
      * Different lengths mean they can share an angle without sharing a position.
      */
     private double reach() {
-        double swing = (REACH_MAX - REACH_MIN) * (0.5 + 0.5 * Math.cos(phaseAngle() * 2));
+        double swing = (REACH_MAX - REACH_MIN) * (0.5 + 0.5 * StrictMath.cos(phaseAngle() * 2));
         return REACH_MIN + index * NECK_LENGTH_STEP + swing;
     }
 }
