@@ -8,6 +8,9 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.entity.Boss;
+import com.hashimjacobs.spacecase.mode.Galaxy;
+import com.hashimjacobs.spacecase.mode.Level;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -62,16 +65,29 @@ class MusicCueTest {
         Random random = new Random(3);
         Set<MusicTrack> picked = new HashSet<>();
         for (int i = 0; i < 100; i++) {
-            picked.add(MusicCue.GAMEPLAY.pick(random));
+            picked.add(MusicCue.VERDANCE.pick(random));
         }
-        assertEquals(MusicCue.GAMEPLAY.tracks().size(), picked.size(),
+        assertEquals(MusicCue.VERDANCE.tracks().size(), picked.size(),
                 "a cue with several tracks should reach all of them across many rounds");
     }
 
     @Test
     void battleSoundsDifferentFromTheOtherModes() {
-        assertEquals(MusicCue.GAMEPLAY, GameMode.SOLO.music());
-        assertEquals(MusicCue.GAMEPLAY, GameMode.COOP.music());
-        assertNotEquals(GameMode.SOLO.music(), GameMode.BATTLE.music());
+        Level opener = Level.values()[0];
+        assertEquals(MusicCue.VERDANCE, GameMode.SOLO.musicFor(opener));
+        assertEquals(MusicCue.VERDANCE, GameMode.COOP.musicFor(opener));
+        assertNotEquals(GameMode.SOLO.musicFor(opener), GameMode.BATTLE.musicFor(opener));
+    }
+
+    @Test
+    void everyGalaxySoundsLikeItself() {
+        java.util.Set<MusicCue> cues = EnumSet.noneOf(MusicCue.class);
+        for (Galaxy galaxy : Galaxy.values()) {
+            MusicCue cue = MusicCue.forGalaxy(galaxy);
+            assertTrue(cues.add(cue), galaxy + " should not share a cue with another galaxy");
+            Level first = Level.values()[galaxy.ordinal() * Galaxy.LEVELS_PER_GALAXY];
+            assertEquals(cue, GameMode.SOLO.musicFor(first));
+        }
+        assertEquals(MusicCue.AEON_BOSS, Boss.AEON.music());
     }
 }

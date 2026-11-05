@@ -91,6 +91,8 @@ public final class GenerateAssets {
         levelClearSting();
         lowHealthAlarm();
 
+        playersSprixen();
+
         System.out.println("done");
     }
 
@@ -4676,5 +4678,94 @@ public final class GenerateAssets {
     }
 
     private GenerateAssets() {
+    }
+
+    // ---- Sprixen hulls --------------------------------------------------------------------------
+    //
+    // Appended after everything above so no existing output moves (docs/ROADMAP.md rule 2). The three
+    // bought chassis get a hull each, drawn by Sprixen to the project's style lock from player one's
+    // own ship, and committed as generator inputs the way tools/art/spritesheet.png is. Only the
+    // straight pose is drawn; the four bank poses are derived here, deterministically, so every
+    // chassis banks the same way and the sheet needs one image per ship rather than five.
+
+    private static final String[] SPRIXEN_CHASSIS = {"interceptor", "gunship", "twin-boom"};
+
+    private static void playersSprixen() throws IOException {
+        for (String chassis : SPRIXEN_CHASSIS) {
+            BufferedImage source = ImageIO.read(ART.resolve("sprixen").resolve(chassis + ".png").toFile());
+            BufferedImage straight = centredOnFrame(source);
+            for (int pose = 0; pose < POSES.length; pose++) {
+                BufferedImage shape = bankPose(straight, pose - 2);
+                for (Coat coat : Coat.values()) {
+                    writeHull(recolour(shape, coat.hue, coat.saturationScale),
+                            "player/" + chassis + "-sx-" + coat.name().toLowerCase() + "-" + POSES[pose]);
+                }
+            }
+        }
+    }
+
+    /** The source's opaque pixels, centred on the common player canvas. */
+    private static BufferedImage centredOnFrame(BufferedImage source) {
+        int minX = source.getWidth(), minY = source.getHeight(), maxX = -1, maxY = -1;
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                if ((source.getRGB(x, y) >>> 24) != 0) {
+                    minX = Math.min(minX, x); maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y); maxY = Math.max(maxY, y);
+                }
+            }
+        }
+        int w = maxX - minX + 1, h = maxY - minY + 1;
+        if (w > PLAYER_FRAME_WIDTH || h > PLAYER_FRAME_HEIGHT) {
+            throw new IllegalStateException("Sprixen hull " + w + "x" + h + " does not fit the padded frame");
+        }
+        BufferedImage frame = blank(PLAYER_FRAME_WIDTH, PLAYER_FRAME_HEIGHT);
+        int offsetX = (PLAYER_FRAME_WIDTH - w) / 2, offsetY = (PLAYER_FRAME_HEIGHT - h) / 2;
+        for (int y = 0; y < h; y++) {
+            for (int x = 0; x < w; x++) {
+                int argb = source.getRGB(minX + x, minY + y);
+                if ((argb >>> 24) != 0) {
+                    frame.setRGB(offsetX + x, offsetY + y, argb);
+                }
+            }
+        }
+        return frame;
+    }
+
+    /**
+     * A bank pose from the straight hull: {@code lean} runs -2 (hard right) to +2 (hard left).
+     *
+     * A roll seen from above is a horizontal squash, so the hull narrows by a sixth per step, and the
+     * wing dipping away from the light darkens toward its tip. Integer arithmetic throughout, the
+     * same bytes on every JVM.
+     */
+    private static BufferedImage bankPose(BufferedImage straight, int lean) {
+        if (lean == 0) {
+            return straight;
+        }
+        double squash = 1 - 0.18 * Math.abs(lean);
+        BufferedImage narrowed = rescaled(straight, squash, 1.0);
+        BufferedImage shaded = blank(narrowed.getWidth(), narrowed.getHeight());
+        int cx = narrowed.getWidth() / 2;
+        for (int y = 0; y < narrowed.getHeight(); y++) {
+            for (int x = 0; x < narrowed.getWidth(); x++) {
+                int argb = narrowed.getRGB(x, y);
+                int alpha = argb >>> 24;
+                if (alpha == 0) {
+                    continue;
+                }
+                // Distance toward the dipping wing's tip, 0 at the centre line, cx at the edge.
+                int toward = lean > 0 ? cx - x : x - cx;
+                int permille = 1000;
+                if (toward > 0) {
+                    permille = 1000 - 220 * Math.abs(lean) * toward / cx;
+                }
+                int r = ((argb >> 16) & 0xff) * permille / 1000;
+                int g = ((argb >> 8) & 0xff) * permille / 1000;
+                int b = (argb & 0xff) * permille / 1000;
+                shaded.setRGB(x, y, (alpha << 24) | (r << 16) | (g << 8) | b);
+            }
+        }
+        return shaded;
     }
 }

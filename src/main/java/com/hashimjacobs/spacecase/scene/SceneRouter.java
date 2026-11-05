@@ -688,7 +688,7 @@ public final class SceneRouter {
     /** @param resume a checkpoint or level-select replay to start from, or null for level one */
     public void startGame(GameMode mode, SaveSlot resume) {
         stopActiveGame();
-        sounds.playMusic(mode.music());
+        sounds.playMusic(mode.musicFor(resume != null ? resume.level() : Level.values()[0]));
 
         GameScreen screen = new GameScreen(mode, settings, sounds, pilots, highScores, saves,
                 random, resume, this::showStartMenu, this::showGameOver, this::padStatus);
@@ -714,7 +714,7 @@ public final class SceneRouter {
 
         stopActiveGame();
         closeLobby();
-        sounds.playMusic(GameMode.COOP.music());
+        sounds.playMusic(GameMode.COOP.musicFor(opening.slot().level()));
 
         GameScreen screen = new GameScreen(GameMode.COOP, settings, sounds, pilots, highScores,
                 saves, new Random(opening.seed()), opening.slot(), this::showStartMenu,
@@ -761,7 +761,7 @@ public final class SceneRouter {
      */
     private void startEndless(GameMode mode) {
         stopActiveGame();
-        sounds.playMusic(mode.music());
+        sounds.playMusic(mode.musicFor(Level.values()[0]));
         GameScreen screen = new GameScreen(mode, settings, sounds, pilots, highScores, saves,
                 random, null, this::showStartMenu, this::showGameOver, this::padStatus, true);
         screen.setSticks(gamepad == null ? null : gamepad::latestForPlayer);

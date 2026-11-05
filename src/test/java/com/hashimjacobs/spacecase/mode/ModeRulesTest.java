@@ -72,6 +72,6 @@ class ModeRulesTest {
 
     @Test
     void battleModeUsesItsOwnMusic() {
-        assertNotEquals(GameMode.SOLO.music(), GameMode.BATTLE.music());
+        assertNotEquals(GameMode.SOLO.musicFor(Level.values()[0]), GameMode.BATTLE.musicFor(Level.values()[0]));
     }
 }

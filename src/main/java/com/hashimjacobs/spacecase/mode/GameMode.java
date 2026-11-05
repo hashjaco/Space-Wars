@@ -5,10 +5,10 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
 /** The three ways to play. Mode differences are carried by {@link ModeRules}, not by branching. */
 public enum GameMode {
 
-    SOLO("Single Player", MusicCue.GAMEPLAY,
+    SOLO("Single Player", null,
             new ModeRules(1, true, true, true, false, false)),
 
-    COOP("Co-op", MusicCue.GAMEPLAY,
+    COOP("Co-op", null,
             new ModeRules(2, true, true, true, false, false)),
 
     BATTLE("Battle", MusicCue.BATTLE,
@@ -28,8 +28,12 @@ public enum GameMode {
         return label;
     }
 
-    public MusicCue music() {
-        return music;
+    /**
+     * What plays while this mode is fought on a level: Battle has its own cue, and the campaign
+     * modes take the level's galaxy's.
+     */
+    public MusicCue musicFor(Level level) {
+        return music != null ? music : MusicCue.forGalaxy(level.galaxy());
     }
 
     public ModeRules rules() {
