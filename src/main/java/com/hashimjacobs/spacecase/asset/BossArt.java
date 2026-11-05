@@ -203,7 +203,8 @@ public enum BossArt {
     SENTINEL_SX("boss-sentinel-sx", 4, 12, 210, 162),
     CINDER_WARDEN_SX("boss-cinder-warden-sx", 8, 6, 264, 135),
     SHARD_CUTTER_SX("boss-shard-cutter-sx", 8, 6, 207, 173),
-    SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148);
+    SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148),
+    BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 248, 165);
 
     private final String directory;
     private final int frameCount;

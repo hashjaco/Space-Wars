@@ -242,7 +242,7 @@ public enum Boss {
     // warships from three hull families and three creatures, and the finale is the only row here
     // that needed a class written for it.
 
-    BONEPICKER("The Bonepicker", BossArt.BONEPICKER, 7170, 3900,
+    BONEPICKER("The Bonepicker", BossArt.BONEPICKER_SX, 7170, 3900,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
     HULK_CHOIR("Hulk Choir", BossArt.HULK_CHOIR, 7290, 3950,
