@@ -3,8 +3,8 @@
 Throwaway programs that draw something and write a PNG, so it can be looked at instead of reasoned
 about. None of them is a test, none runs in CI, and none writes into `src/`.
 
-They exist because the test suite cannot see a picture. Between them these found, in work the 420
-passing tests were entirely happy with:
+They exist because the test suite cannot see a picture. Between them these found, in work the whole
+passing suite was entirely happy with:
 
 - a cave whose lane was 72% open with no protrusions at all
 - a wall face that moved sideways faster than the ship could fly, from a cusp in `|x|^(1/3)`

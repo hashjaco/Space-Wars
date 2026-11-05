@@ -38,11 +38,11 @@ final class GarageOverlay {
     private static final double PANEL_TOP = 96;
 
     /**
-     * Sized to the eleven rows it shows, plus the ship above them.
+     * Sized to the rows it shows, plus the ship above them.
      *
-     * Was 500, holding about eight rows, which the catalogue outgrew: eleven upgrades plus paint,
-     * kit and launch is fourteen. Rather than shrink the rows, the panel got taller and the
-     * turntable got smaller. Sized to what it actually holds -- the stand, fourteen rows, the
+     * Was 500, holding about eight rows, which the catalogue outgrew: fourteen upgrades plus
+     * chassis, paint, kit and launch is eighteen. Rather than shrink the rows, the panel got taller
+     * and the turntable got smaller. Sized to what it actually holds -- the stand, the rows, the
      * focused row's readout, and the two lines at the foot -- because a panel with a hand's width of
      * nothing at the bottom reads as unfinished rather than as spacious.
      */

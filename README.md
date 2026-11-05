@@ -5,8 +5,9 @@
 [![Java 26](https://img.shields.io/badge/Java-26-blue.svg)](https://adoptium.net)
 [![JavaFX 26](https://img.shields.io/badge/JavaFX-26-orange.svg)](https://openjfx.io)
 
-A 2D space shooter: fly, dodge asteroids, shoot up enemy ships, fight bosses — or turn on each other
-in Battle mode. Two players share one keyboard.
+A 2D space shooter: fly, dodge asteroids, shoot up enemy ships, fight fifty flagships across five
+galaxies — or turn on each other in Battle mode. Two players share one keyboard, or two to four fly
+together online.
 
 Originally written as *Space Wars* to get comfortable before building a game engine from scratch.
 
@@ -70,12 +71,27 @@ operating system.
 
 | Mode | Players | Enemies | Friendly fire | Ends when |
 |---|---|---|---|---|
-| Single Player | 1 | yes | no | you run out of lives |
-| Co-op | 2 | yes | no | both players are out |
+| Single Player | 1 | yes | no | you run out of lives, or the galaxy's last flagship falls |
+| Co-op | 2 | yes | no | both players are out, or the galaxy is cleared |
 | Battle | 2 | none | **yes** | one player is left |
+| Endless Run | 1 | yes | no | you run out of lives — the fifty levels loop with rising spawn pressure |
+| Online co-op | 2–4 | yes | no | as Co-op, over a relay |
 
 In Battle, player two starts at the top of the arena facing down, both players' shots hurt each
-other, and asteroids and power-ups keep arriving as shared hazards and prizes.
+other, and asteroids and power-ups keep arriving as shared hazards and prizes. Endless Run appears on
+the start menu once the campaign has been cleared.
+
+**Universe Map** shows the five galaxies and the ten places in each; clearing a place unlocks the
+next, and the map remembers how far you got. **Continue** picks up the last checkpoint, **Load Game**
+holds three save slots, and **Cloud Save** carries a profile to another machine with a twelve-character
+code. **Leaderboard** posts a run's score per mode.
+
+### Online
+
+**Multiplayer → Host Online** hands you a six-character room code; **Join Online** takes one. Two to
+four ships fly the co-op campaign in deterministic lockstep: every machine runs the same simulation
+and only the sticks cross the wire, through a small WebSocket relay on Cloudflare Workers (see
+[`server/`](server/README.md)). Everyone checks in with a loadout before the host can start.
 
 ## Controls
 
@@ -128,24 +144,25 @@ SDL_GAMECONTROLLERCONFIG_FILE=/path/to/gamecontrollerdb.txt ./mvnw javafx:run
 
 ## Power-ups
 
-Dropped by defeated enemies: tri-shot, mega laser, shield, health refill, speed boost, extra life.
-The timed ones show a countdown in the HUD.
+Dropped by defeated enemies, and none of them expire — dying is what clears them. Tri-shot, mega
+laser, rockets, speed boost, shield, health refill and extra life come off the common table; the
+scythe, flak and nova are rarer, each dropped by one hull class. The HUD lists what you are carrying.
 
 ## Levels
 
-Eight places, flown in order: **Orbital Approach** → **Verdant Airspace** → **Canopy Descent** →
-**Rust Canyon** → **Undercity** → **Void Rift** → **Star Core** → **Escape Vector**. Each has its own
-parallax sky, its own flagship, and its own faction of defenders — the two levels inside the planet's
-air and jungle field organic hulls rather than the mechanical navy of open space.
-
-Past the eighth the run loops back to the first with higher spawn pressure, so death is still the only
-way it ends.
+Fifty places in five galaxies, ten each: **Verdance**, **Ashfall**, **Cryonis**, **Tempest** and
+**Null**. Every place has its own parallax sky, its own three hull families of defenders, and its own
+flagship; six of them are flown side-on. A run through a galaxy ends when its tenth flagship falls,
+and the Universe Map opens the next. Only Endless Run keeps going past the end, looping the fifty
+with higher spawn pressure each time round.
 
 ## Enemies
 
-Scouts, fighters and cruisers arrive in waves that get tougher. A level's last wave brings its
-flagship, which changes attack pattern as you wear it down — a wide spread, then a fan that sweeps
-across the arena, then fast bursts aimed straight at you.
+Scouts, fighters and cruisers arrive in authored waves that get tougher. After a level's last wave its
+flagship descends, changing attack pattern as you wear it down — spreads, sweeping fans, aimed bursts,
+rings, spirals, spawned escorts, vortices — and firing its galaxy's special every fourth volley:
+lance, scatter, crossfire or barrage. The set pieces are a multi-headed hydra, burrowing worms,
+piloted mechs you take apart limb by limb, and Aeon at the end of Null.
 
 <p align="center">
   <img src="docs/screenshots/boss.png" alt="Boss fight, with every power-up" width="620">
@@ -158,6 +175,10 @@ the top of the screen, then a debrief reports what the level cost you — kills,
 lives lost, clear time — and pays the bonuses it earned: a flagship bounty, marksman, untouched,
 unbroken, and swift for beating the level's reference time. Press any button and the game warps, which
 is also when the next level's art is decoded in the background.
+
+Between the debrief and the warp is the **garage**: bonuses become credits, and credits buy fourteen
+upgrades across firepower, hull, handling and salvage, plus a chassis, a kit and a paint job that
+travel with the pilot.
 
 ## Pilots and rank
 
@@ -175,16 +196,22 @@ src/main/java/com/hashimjacobs/spacecase/
   Main.java  Launcher.java  GameConfig.java
   scene/   SceneRouter and every screen (start, multiplayer, settings, help,
            pause overlay, game over) plus the menu widgets and navigator
-  mode/    GameMode + ModeRules — what differs between the three modes, as data;
-           Level — the ten places; Debrief — what clearing one pays
-  engine/  GameLoop, FixedTimestep, World, CollisionSystem, Renderer, Hud,
-           InputState, Gamepad, GamepadMapping, PadState, QuadTree,
-           SpawnDirector, ShipController, EnemyWeapons, DebriefOverlay
-  entity/  Entity, PlayerShip, EnemyShip, Asteroid, Bullet, PowerUp,
-           Facing, BossPhase
-  asset/   Assets + the Sprite / SoundFx / MusicTrack / Explosion enums, SoundBank
-  prefs/   Settings, HighScores, Pilots, Rank and Standing, persisted via java.util.prefs
-tools/     GenerateAssets.java — regenerates the art and audio
+  mode/    GameMode + ModeRules — what differs between the modes, as data;
+           Galaxy and Level — the fifty places; Waves — the authored waves;
+           Debrief — what clearing a level pays
+  engine/  GameLoop, FixedTimestep, World, CollisionSystem, SpawnDirector,
+           EnemyWeapons, Renderer, Hud, Terrain, ShipController, InputState,
+           Gamepad, GamepadMapping, PadState, DebriefOverlay, GarageOverlay
+  entity/  Entity, PlayerShip, EnemyShip, Boss and BossPhase, the multi-part
+           bosses (BossHead, BurrowingWorm, PilotedMech, VoidEntity),
+           Asteroid, Bullet, Rocket, PowerUp, WaveShip
+  garage/  Chassis, Kit, Livery, Upgrade, Loadout, GarageSession
+  net/     Lockstep, RelayClient, Packet, LobbyModel, Cloud — online play
+  asset/   Assets + the Sprite / BossArt / SoundFx / MusicTrack / Explosion enums, SoundBank
+  prefs/   Settings, HighScores, SaveGames, Pilots, Rank and Standing, via java.util.prefs
+  ui/      Tokens — the design tokens every screen draws from
+server/    The Cloudflare Worker relay: rooms, leaderboard, cloud save
+tools/     GenerateAssets.java — regenerates the art and audio; preview/ draws things to look at
 src/test/java/...   JUnit 5
 ```
 
@@ -199,16 +226,18 @@ spelled out in [CONTRIBUTING.md](CONTRIBUTING.md); the short version:
 
 ## Soundtrack
 
-Six original instrumental tracks. Which one plays is chosen by *cue* rather than fixed per screen —
-gameplay and battle each rotate between two tracks, so replaying a mode does not always sound the
-same, and a boss arriving swaps the music until it dies.
+Ten original instrumental tracks. Which one plays is chosen by *cue* rather than fixed per screen —
+gameplay rotates between three tracks and battle between two, so replaying a mode does not always
+sound the same, and a boss arriving swaps the music until it dies.
 
 | Cue | When |
 |---|---|
 | `MENU` | Start screen, submenus, game over |
 | `GAMEPLAY` | Single player and co-op |
 | `BATTLE` | Battle mode |
-| `BOSS` | While a boss is on screen |
+| `BOSS` | While a flagship is on screen |
+| `HYDRA_BOSS`, `LEVIATHAN_BOSS` | The two monsters, each with a cue to itself |
+| `GARAGE` | Between the debrief and the warp |
 
 Re-pointing a cue at different tracks is a one-line edit in `asset/MusicCue.java`.
 
