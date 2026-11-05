@@ -1,71 +1,379 @@
 {
-  "_comment": "One row per Boss constant. prompt = the body; cg.py adds the galaxy flavour and the shared framing. slug = sprites/boss-<slug>-cg. parts = separate sprites (heads, eyes, cockpits, arms) that get their own row below.",
-  "flavour": {
-    "VERDANCE": "chitinous hive horror: glossy green-black insect plates, translucent egg sacs, compound eyes, mandibles, dripping resin, sick yellow glands",
-    "ASHFALL": "molten flesh fused to scorched iron: lava-light cracks between plates, red veins and sinew over black armour, slag teeth, ember vents, charred bone",
-    "CRYONIS": "frozen corpse-hulk: blue-white dead flesh under rime and ice, frost-bitten bone, cracked frozen eyes, icicle fangs, pale cold glow from inside",
-    "TEMPEST": "storm-wracked bone and sinew: wind-flayed muscle over a skeletal frame, lightning crawling along exposed ribs and tendons, slate-blue skin, electric white eyes",
-    "NULL": "cosmic horror: void-black flesh, clusters of lidless eyes, tentacles and feelers, violet inner light, geometry that looks wrong"
+ "_comment": "One row per Boss constant. prompt = the body; cg.py adds the galaxy flavour and the shared framing. slug = sprites/boss-<slug>-cg. parts = separate sprites (heads, eyes, cockpits, arms) that get their own row below.",
+ "flavour": {
+  "VERDANCE": "chitinous hive horror: glossy green-black insect plates, translucent egg sacs, compound eyes, mandibles, dripping resin, sick yellow glands",
+  "ASHFALL": "molten flesh fused to scorched iron: lava-light cracks between plates, red veins and sinew over black armour, slag teeth, ember vents, charred bone",
+  "CRYONIS": "frozen corpse-hulk: blue-white dead flesh under rime and ice, frost-bitten bone, cracked frozen eyes, icicle fangs, pale cold glow from inside",
+  "TEMPEST": "storm-wracked bone and sinew: wind-flayed muscle over a skeletal frame, lightning crawling along exposed ribs and tendons, slate-blue skin, electric white eyes",
+  "NULL": "cosmic horror: void-black flesh, clusters of lidless eyes, tentacles and feelers, violet inner light, geometry that looks wrong"
+ },
+ "bosses": [
+  {
+   "boss": "SENTINEL",
+   "slug": "sentinel",
+   "galaxy": "VERDANCE",
+   "prompt": "the Sentinel, a hive picket flagship: a broad delta carapace with two wing pods that are swollen egg clusters, a single huge red compound eye at the core, three engine glands at the top"
   },
-  "bosses": [
-    {"boss": "SENTINEL", "slug": "sentinel", "galaxy": "VERDANCE", "prompt": "the Sentinel, a hive picket flagship: a broad delta carapace with two wing pods that are swollen egg clusters, a single huge red compound eye at the core, three engine glands at the top"},
-    {"boss": "HIVE_MATRIARCH", "slug": "hive-matriarch", "galaxy": "VERDANCE", "prompt": "the Hive Matriarch, a brood-mother: a bloated abdomen of translucent egg sacs with larvae visible inside, a crowned head with many eyes at the prow, ovipositor tubes along the flanks"},
-    {"boss": "BLOOM_COLOSSUS", "slug": "bloom-colossus", "galaxy": "VERDANCE", "prompt": "the Bloom Colossus, a flagship grown from a carnivorous flower: fleshy petals that open to show a toothed throat, pollen-dusted stamens that are gun barrels, thorned vines over chitin"},
-    {"boss": "SCRAP_HIVE", "slug": "scrap-hive", "galaxy": "VERDANCE", "prompt": "the Scrap Hive, a nest built from wrecked ships: hull plates and gun barrels glued together with resin and chitin, drones crawling in the gaps, a glowing yellow brood core"},
-    {"boss": "FOUNDRY_WARDEN", "slug": "foundry-warden", "galaxy": "VERDANCE", "prompt": "the Foundry Warden, a beetle-like armoured flagship: a thick domed shell with vents, mandible cannons at the prow, six folded legs along the hull, molten resin leaking from seams"},
-    {"boss": "VOID_WEAVER", "slug": "void-weaver", "galaxy": "VERDANCE", "prompt": "the Void Weaver, a spider-ship: eight jointed legs spread wide, spinnerets at the stern trailing web, a cluster of eight eyes at the prow, a silk-wrapped cocoon core"},
-    {"boss": "CORE_TYRANT", "slug": "core-tyrant", "galaxy": "VERDANCE", "prompt": "the Core Tyrant, a hornet-queen flagship: a striped armoured thorax, a huge stinger at the prow, wing cases spread, a pulsing yellow venom core, many eyes"},
-    {"boss": "EXODUS_DREADNOUGHT", "slug": "exodus-dreadnought", "galaxy": "VERDANCE", "prompt": "the Exodus Dreadnought, a colony-ship-sized centipede: a long segmented chitin hull with legs along both flanks, a mandibled head at the prow, egg sacs between segments"},
-    {"boss": "DUNE_LEVIATHAN", "slug": "dune-leviathan", "galaxy": "VERDANCE", "side": true, "prompt": "the Dune Leviathan, a sandworm maw: a huge circular mouth ringed with rows of teeth, segmented chitin body, sand-caked plates, glowing throat"},
-    {"boss": "HYDRA", "slug": "hydra", "galaxy": "VERDANCE", "parts": ["HYDRA_HEAD"], "prompt": "the Hydra, hive-queen flagship: a bloated glossy green-black thorax of overlapping plates, translucent pulsing egg sacs along the flanks, three wet empty neck sockets along the bottom edge where its heads attach, mandibles, dozens of amber compound eyes, dripping resin, swollen engine glands at the top"},
-    {"boss": "CINDER_WARDEN", "slug": "cinder-warden", "galaxy": "ASHFALL", "prompt": "the Cinder Warden, a broad brutal warship whose scorched iron armour has grown molten flesh: a screaming lava-mouth at the prow with slag teeth, charred bone ribs along the wings, four blast-furnace engines at the top"},
-    {"boss": "ASH_REVENANT", "slug": "ash-revenant", "galaxy": "ASHFALL", "prompt": "the Ash Revenant, a burnt-out hulk that will not die: a skeletal frame of black iron with embers for eyes, flesh regrowing over it in red strands, ash pouring from its vents"},
-    {"boss": "SLAG_BARON", "slug": "slag-baron", "galaxy": "ASHFALL", "prompt": "the Slag Baron, a tall heavy flagship: an iron crown of smokestacks at the top, a furnace face at the prow with a grated mouth glowing orange, slag dripping and hardening down the hull"},
-    {"boss": "VENT_CRAWLER", "slug": "vent-crawler", "galaxy": "ASHFALL", "prompt": "the Vent Crawler, a wide low flagship like a magma crab: a flat shell cracked with lava, two huge pincers at the prow, vent stacks spewing sparks, molten flesh in the joints"},
-    {"boss": "FORGE_OVERSEER", "slug": "forge-overseer", "galaxy": "ASHFALL", "prompt": "the Forge Overseer, a factory flagship: hammer-arms and chain-driven claws, a glaring red furnace eye at the prow, rivets and plates over bleeding muscle, chimney engines"},
-    {"boss": "PYRE_SOVEREIGN", "slug": "pyre-sovereign", "galaxy": "ASHFALL", "prompt": "the Pyre Sovereign, a regal flagship on fire: a crown of flames at the top, a burning skull-face at the prow, wings of charred bone and fire, lava veins through black armour"},
-    {"boss": "SUNWARD_LANCE", "slug": "sunward-lance", "galaxy": "ASHFALL", "side": true, "prompt": "the Sunward Lance, a long narrow flagship like a spear: a single white-hot blade prow, flesh and iron wound tightly along its length, engines blazing at the stern"},
-    {"boss": "CORONA_HERALD", "slug": "corona-herald", "galaxy": "ASHFALL", "prompt": "the Corona Herald, a very wide flagship with a halo: a ring of solar flares around a blackened core, many small mouths along the leading edge, flesh glowing from within like a coal"},
-    {"boss": "EMBER_TITAN", "slug": "ember-titan", "galaxy": "ASHFALL", "prompt": "the Ember Titan, a colossal armoured flagship: layered black plates like a volcano's slope, a caldera at the core glowing orange, lava rivers down its wings, bone spurs"},
-    {"boss": "VAUNT", "slug": "forge-rig", "galaxy": "ASHFALL", "parts": ["FORGE_RIG_COCKPIT", "FORGE_RIG_ARM"], "prompt": "the Forge-Rig, a piloted mech flagship body: a wide industrial frame of scorched iron grown over with muscle, a central mount for a cockpit, shoulder mounts for two arms, furnace engines"},
-    {"boss": "SHARD_CUTTER", "slug": "shard-cutter", "galaxy": "CRYONIS", "side": true, "prompt": "the Shard Cutter, a long blade-like frozen flagship: a frozen corpse stretched along an ice-crystal frame, blade wings of ice, a cold blue glow from a dead heart"},
-    {"boss": "FROST_HARRIER", "slug": "frost-harrier", "galaxy": "CRYONIS", "prompt": "the Frost Harrier, a tall fast flagship like a frozen bird of prey: swept wings of frost-bitten bone and dead feathered flesh, a beaked skull prow with icicle fangs, pale glow"},
-    {"boss": "GLACIER_BREAKER", "slug": "glacier-breaker", "galaxy": "CRYONIS", "prompt": "the Glacier Breaker, a wide heavy icebreaker flagship: a ram prow of blue ice, frozen corpses packed into the hull like cargo, cracked frozen eyes along the wings"},
-    {"boss": "ICE_WRAITH", "slug": "ice-wraith", "galaxy": "CRYONIS", "prompt": "the Ice Wraith, a ghostly frozen flagship: a translucent icy hull with a dead crew visible inside, trailing frost, a screaming frozen face at the prow, pale blue inner light"},
-    {"boss": "CRYO_MARSHAL", "slug": "cryo-marshal", "galaxy": "CRYONIS", "prompt": "the Cryo Marshal, a flagship in frozen armour: plated blue-white ice over dead flesh, an officer's skull in a frost-rimed helmet at the prow, cannons of ice, cold breath venting"},
-    {"boss": "TRENCH_HORROR", "slug": "trench-horror", "galaxy": "CRYONIS", "prompt": "the Trench Horror, a wide deep-sea frozen anglerfish flagship: a huge toothed maw at the prow, a dangling lure of pale light, frozen dead flesh, many small cold eyes"},
-    {"boss": "GEYSER_MAW", "slug": "geyser-maw", "galaxy": "CRYONIS", "prompt": "the Geyser Maw, a tall flagship like a frozen throat: a vertical gaping mouth of ice fangs venting steam, blue frozen flesh around it, frost-cracked bone struts"},
-    {"boss": "HAIL_BASTION", "slug": "hail-bastion", "galaxy": "CRYONIS", "prompt": "the Hail Bastion, a very wide fortress flagship of ice: battlements of frozen bone, dead faces frozen into the walls, cannon ports rimmed with frost, a cold core light"},
-    {"boss": "SHATTER_PROW", "slug": "shatter-prow", "galaxy": "CRYONIS", "side": true, "prompt": "the Shatter Prow, a long flagship whose prow is a jagged fractured ice crystal, a frozen body impaled along it, cracked blue glow leaking from the fractures"},
-    {"boss": "FROZEN_EMPRESS", "slug": "frozen-empress", "galaxy": "CRYONIS", "parts": ["FROZEN_EMPRESS_HEAD"], "prompt": "the Frozen Empress, a corpse-queen torso: a huge frozen royal body in a cracked ice gown, four empty frozen neck sockets along the bottom edge where her heads attach, a crown of icicles at the top, pale cold light from inside"},
-    {"boss": "SQUALL_WARDEN", "slug": "squall-warden", "galaxy": "TEMPEST", "prompt": "the Squall Warden, a storm flagship: a skeletal frame with swept wings of flayed muscle, lightning crawling along the exposed ribs and wing tendons, electric white eyes at the prow"},
-    {"boss": "THUNDER_BROOD", "slug": "thunder-brood", "galaxy": "TEMPEST", "prompt": "the Thunder Brood, a wide flagship carrying young: a ribcage hull with many small lightning-lit eggs inside, sinew wings, a mother's skull at the prow with arcing eyes"},
-    {"boss": "EYEWALL_LANCE", "slug": "eyewall-lance", "galaxy": "TEMPEST", "prompt": "the Eyewall Lance, a tall narrow flagship: a single enormous lightning-white eye at the prow in a socket of bone, a spear-like body of sinew and vertebrae, storm clouds boiling off it"},
-    {"boss": "RING_REAVER", "slug": "ring-reaver", "galaxy": "TEMPEST", "prompt": "the Ring Reaver, a very wide flagship like a ring of bone: a circular skeletal frame with muscle stretched across it, lightning jumping around the ring, a skull at the bottom"},
-    {"boss": "STATIC_CRAWLER", "slug": "static-crawler", "galaxy": "TEMPEST", "prompt": "the Static Crawler, a wide flagship like a bone spider: eight legs of vertebrae, a charged body crackling with static, muscle stretched between the legs, white arcing eyes"},
-    {"boss": "MAGNETAR_MAW", "slug": "magnetar-maw", "galaxy": "TEMPEST", "prompt": "the Magnetar Maw, a flagship that is a gaping jaw: a huge open mouth of bone with lightning jumping between the teeth, flayed muscle cheeks, a storm core in the throat"},
-    {"boss": "DOWNDRAFT_PROW", "slug": "downdraft-prow", "galaxy": "TEMPEST", "prompt": "the Downdraft Prow, a tall flagship like a diving bird skeleton: a hooked skull prow, long bone wings swept back with lightning along the leading edges, sinew engines"},
-    {"boss": "VAUNT_IN_THE_STORM_RIG", "slug": "storm-rig", "galaxy": "TEMPEST", "parts": ["STORM_RIG_COCKPIT", "STORM_RIG_ARM"], "prompt": "the Storm-Rig, a piloted mech flagship body: a huge skeletal industrial frame bound with muscle and lightning conduits, a central mount for a cockpit, shoulder mounts for two arms"},
-    {"boss": "ARC_LANCE", "slug": "arc-lance", "galaxy": "TEMPEST", "side": true, "prompt": "the Arc Lance, a long narrow flagship like a lightning bolt made of bone: a forked spear prow crackling with arcs, sinew wound along a spine of vertebrae, electric engines"},
-    {"boss": "STORM_SERPENT", "slug": "storm-serpent", "galaxy": "TEMPEST", "prompt": "the Storm Serpent, a huge serpent's head and open maw rising toward the viewer: a bone skull with lightning in its eye sockets, flayed muscle, fangs crackling with arcs"},
-    {"boss": "BONEPICKER", "slug": "bonepicker", "galaxy": "NULL", "prompt": "the Bonepicker, a scavenger flagship: a carcass of ribs fused with void-black flesh, clusters of lidless eyes between the ribs, feelers hanging from the prow, violet light inside"},
-    {"boss": "HULK_CHOIR", "slug": "hulk-choir", "galaxy": "NULL", "prompt": "the Hulk Choir, a tall flagship made of fused dead crews: dozens of screaming faces and open mouths in void-black flesh, eyes everywhere, tentacles knotting the bodies together, violet glow"},
-    {"boss": "SHROUDMAW", "slug": "shroudmaw", "galaxy": "NULL", "prompt": "the Shroudmaw, a very wide flagship like a hooded mouth: a drape of void-black flesh over a vast toothed maw, eyes in the folds, feelers trailing from the edges"},
-    {"boss": "LENSBREAKER", "slug": "lensbreaker", "galaxy": "NULL", "prompt": "the Lensbreaker, a tall flagship built around one giant eye: a vast violet iris at the core, a ring of smaller eyes around it, tentacles for wings, geometry folding wrongly at the edges"},
-    {"boss": "TIDEWRACK", "slug": "tidewrack", "galaxy": "NULL", "side": true, "prompt": "the Tidewrack, a long flagship like a drowned wreck: a broken hull wrapped in black tentacles, eyes opening in the wreckage, violet light in the breaches"},
-    {"boss": "SHELLBORN", "slug": "shellborn", "galaxy": "NULL", "prompt": "the Shellborn, a flagship hatching from a spiral shell: a nautilus-like black shell cracking open, a mass of eyes and tentacles emerging at the prow, violet glow inside"},
-    {"boss": "FRAME_DRAG", "slug": "frame-drag", "galaxy": "NULL", "prompt": "the Frame-Drag, a very wide flagship bending space: a dark body whose edges smear and repeat, eyes in impossible places, tentacles that fade into the void, a violet singularity core"},
-    {"boss": "PHOTON_HALO", "slug": "photon-halo", "galaxy": "NULL", "prompt": "the Photon Halo, a very wide flagship like a ring of light around darkness: a violet-white halo with eyes along it, a black central body of tentacles, light bending around it"},
-    {"boss": "GULLET", "slug": "gullet", "galaxy": "NULL", "prompt": "the Gullet, a tall flagship that is a throat: a vertical fleshy black tube lined with rings of teeth leading into violet darkness, eyes along the rim, feelers reaching outward"},
-    {"boss": "AEON", "slug": "aeon", "galaxy": "NULL", "parts": ["AEON_EYE"], "prompt": "Aeon, the Hollow Star: a huge round void entity, a black sphere of writhing tentacles and folded flesh with a hollow violet-white core, four empty sockets around its rim where its orbiting eyes attach, radial symmetry"}
-  ],
-  "parts": [
-    {"boss": "HYDRA_HEAD", "slug": "hydra-head", "galaxy": "VERDANCE", "prompt": "one Hydra head on its own, no neck: a chitinous insect skull with mandibles open, compound eyes, dripping resin, round composition"},
-    {"boss": "FROZEN_EMPRESS_HEAD", "slug": "frozen-empress-head", "galaxy": "CRYONIS", "prompt": "one Frozen Empress head on its own, no neck: a frozen royal skull in a cracked ice veil, icicle teeth, frozen eyes glowing pale, round composition"},
-    {"boss": "AEON_EYE", "slug": "aeon-eye", "galaxy": "NULL", "prompt": "one orbiting eye of Aeon on its own: a huge lidless eyeball with a violet iris, void-black veins and small tentacles trailing from it, round composition"},
-    {"boss": "FORGE_RIG_COCKPIT", "slug": "forge-rig-cockpit", "galaxy": "ASHFALL", "prompt": "a mech cockpit pod on its own: an armoured iron capsule with a glowing furnace window, a pilot's silhouette inside, flesh fused to the frame, round composition"},
-    {"boss": "FORGE_RIG_ARM", "slug": "forge-rig-arm", "galaxy": "ASHFALL", "prompt": "a mech arm on its own, seen from above: a hammer-fisted iron limb with muscle strands and lava veins, square composition"},
-    {"boss": "STORM_RIG_COCKPIT", "slug": "storm-rig-cockpit", "galaxy": "TEMPEST", "prompt": "a mech cockpit pod on its own: a bone-caged capsule crackling with lightning, a pilot's silhouette inside, round composition"},
-    {"boss": "STORM_RIG_ARM", "slug": "storm-rig-arm", "galaxy": "TEMPEST", "prompt": "a mech arm on its own, seen from above: a clawed limb of vertebrae and sinew with lightning along it, square composition"}
-  ]
+  {
+   "boss": "HIVE_MATRIARCH",
+   "slug": "hive-matriarch",
+   "galaxy": "VERDANCE",
+   "prompt": "the Hive Matriarch, a brood-mother: a bloated abdomen of translucent egg sacs with larvae visible inside, a crowned head with many eyes at the prow, ovipositor tubes along the flanks"
+  },
+  {
+   "boss": "BLOOM_COLOSSUS",
+   "slug": "bloom-colossus",
+   "galaxy": "VERDANCE",
+   "prompt": "the Bloom Colossus, a flagship grown from a carnivorous flower: fleshy petals that open to show a toothed throat, pollen-dusted stamens that are gun barrels, thorned vines over chitin"
+  },
+  {
+   "boss": "SCRAP_HIVE",
+   "slug": "scrap-hive",
+   "galaxy": "VERDANCE",
+   "prompt": "the Scrap Hive, a nest built from wrecked ships: hull plates and gun barrels glued together with resin and chitin, drones crawling in the gaps, a glowing yellow brood core"
+  },
+  {
+   "boss": "FOUNDRY_WARDEN",
+   "slug": "foundry-warden",
+   "galaxy": "VERDANCE",
+   "prompt": "the Foundry Warden, a beetle-like armoured flagship: a thick domed shell with vents, mandible cannons at the prow, six folded legs along the hull, molten resin leaking from seams"
+  },
+  {
+   "boss": "VOID_WEAVER",
+   "slug": "void-weaver",
+   "galaxy": "VERDANCE",
+   "prompt": "the Void Weaver, a spider-ship: eight jointed legs spread wide, spinnerets at the stern trailing web, a cluster of eight eyes at the prow, a silk-wrapped cocoon core"
+  },
+  {
+   "boss": "CORE_TYRANT",
+   "slug": "core-tyrant",
+   "galaxy": "VERDANCE",
+   "prompt": "the Core Tyrant, a hornet-queen flagship: a striped armoured thorax, a huge stinger at the prow, wing cases spread, a pulsing yellow venom core, many eyes"
+  },
+  {
+   "boss": "EXODUS_DREADNOUGHT",
+   "slug": "exodus-dreadnought",
+   "galaxy": "VERDANCE",
+   "prompt": "the Exodus Dreadnought, a colony ark: a broad crescent-shaped chitin carapace spread wide like a manta, several giant centipedes coiled across its back, egg sacs between their segments, a mandibled head at the centre of the leading edge, legs fringing both wingtips"
+  },
+  {
+   "boss": "DUNE_LEVIATHAN",
+   "slug": "dune-leviathan",
+   "galaxy": "VERDANCE",
+   "side": true,
+   "prompt": "the Dune Leviathan, a sandworm maw: a huge circular mouth ringed with rows of teeth, segmented chitin body, sand-caked plates, glowing throat"
+  },
+  {
+   "boss": "HYDRA",
+   "slug": "hydra",
+   "galaxy": "VERDANCE",
+   "parts": [
+    "HYDRA_HEAD"
+   ],
+   "prompt": "the Hydra, hive-queen flagship: a bloated glossy green-black thorax of overlapping plates, translucent pulsing egg sacs along the flanks, three wet empty neck sockets along the bottom edge where its heads attach, mandibles, dozens of amber compound eyes, dripping resin, swollen engine glands at the top"
+  },
+  {
+   "boss": "CINDER_WARDEN",
+   "slug": "cinder-warden",
+   "galaxy": "ASHFALL",
+   "prompt": "the Cinder Warden, a broad brutal warship whose scorched iron armour has grown molten flesh: a screaming lava-mouth at the prow with slag teeth, charred bone ribs along the wings, four blast-furnace engines at the top"
+  },
+  {
+   "boss": "ASH_REVENANT",
+   "slug": "ash-revenant",
+   "galaxy": "ASHFALL",
+   "prompt": "the Ash Revenant, a burnt-out hulk that will not die: a skeletal frame of black iron with embers for eyes, flesh regrowing over it in red strands, ash pouring from its vents"
+  },
+  {
+   "boss": "SLAG_BARON",
+   "slug": "slag-baron",
+   "galaxy": "ASHFALL",
+   "prompt": "the Slag Baron, a tall heavy flagship: an iron crown of smokestacks at the top, a furnace face at the prow with a grated mouth glowing orange, slag dripping and hardening down the hull"
+  },
+  {
+   "boss": "VENT_CRAWLER",
+   "slug": "vent-crawler",
+   "galaxy": "ASHFALL",
+   "prompt": "the Vent Crawler, a wide low flagship like a magma crab: a flat shell cracked with lava, two huge pincers at the prow, vent stacks spewing sparks, molten flesh in the joints"
+  },
+  {
+   "boss": "FORGE_OVERSEER",
+   "slug": "forge-overseer",
+   "galaxy": "ASHFALL",
+   "prompt": "the Forge Overseer, a factory flagship: hammer-arms and chain-driven claws, a glaring red furnace eye at the prow, rivets and plates over bleeding muscle, chimney engines"
+  },
+  {
+   "boss": "PYRE_SOVEREIGN",
+   "slug": "pyre-sovereign",
+   "galaxy": "ASHFALL",
+   "prompt": "the Pyre Sovereign, a regal flagship on fire: a crown of flames at the top, a burning skull-face at the prow, wings of charred bone and fire, lava veins through black armour"
+  },
+  {
+   "boss": "SUNWARD_LANCE",
+   "slug": "sunward-lance",
+   "galaxy": "ASHFALL",
+   "side": true,
+   "prompt": "the Sunward Lance, a long narrow flagship like a spear: a single white-hot blade prow, flesh and iron wound tightly along its length, engines blazing at the stern"
+  },
+  {
+   "boss": "CORONA_HERALD",
+   "slug": "corona-herald",
+   "galaxy": "ASHFALL",
+   "prompt": "the Corona Herald, a very wide flagship with a halo: a ring of solar flares around a blackened core, many small mouths along the leading edge, flesh glowing from within like a coal"
+  },
+  {
+   "boss": "EMBER_TITAN",
+   "slug": "ember-titan",
+   "galaxy": "ASHFALL",
+   "prompt": "the Ember Titan, a colossal armoured flagship: layered black plates like a volcano's slope, a caldera at the core glowing orange, lava rivers down its wings, bone spurs"
+  },
+  {
+   "boss": "VAUNT",
+   "slug": "forge-rig",
+   "galaxy": "ASHFALL",
+   "parts": [
+    "FORGE_RIG_COCKPIT",
+    "FORGE_RIG_ARM"
+   ],
+   "prompt": "the Forge-Rig, a piloted mech flagship body: a wide industrial frame of scorched iron grown over with muscle, a central mount for a cockpit, shoulder mounts for two arms, furnace engines"
+  },
+  {
+   "boss": "SHARD_CUTTER",
+   "slug": "shard-cutter",
+   "galaxy": "CRYONIS",
+   "side": true,
+   "prompt": "the Shard Cutter, a long blade-like frozen flagship: a frozen corpse stretched along an ice-crystal frame, blade wings of ice, a cold blue glow from a dead heart"
+  },
+  {
+   "boss": "FROST_HARRIER",
+   "slug": "frost-harrier",
+   "galaxy": "CRYONIS",
+   "prompt": "the Frost Harrier, a tall fast flagship like a frozen bird of prey: swept wings of frost-bitten bone and dead feathered flesh, a beaked skull prow with icicle fangs, pale glow"
+  },
+  {
+   "boss": "GLACIER_BREAKER",
+   "slug": "glacier-breaker",
+   "galaxy": "CRYONIS",
+   "prompt": "the Glacier Breaker, a wide heavy icebreaker flagship: a ram prow of blue ice, frozen corpses packed into the hull like cargo, cracked frozen eyes along the wings"
+  },
+  {
+   "boss": "ICE_WRAITH",
+   "slug": "ice-wraith",
+   "galaxy": "CRYONIS",
+   "prompt": "the Ice Wraith, a ghostly frozen flagship: a translucent icy hull with a dead crew visible inside, trailing frost, a screaming frozen face at the prow, pale blue inner light"
+  },
+  {
+   "boss": "CRYO_MARSHAL",
+   "slug": "cryo-marshal",
+   "galaxy": "CRYONIS",
+   "prompt": "the Cryo Marshal, a flagship in frozen armour: plated blue-white ice over dead flesh, an officer's skull in a frost-rimed helmet at the prow, cannons of ice, cold breath venting"
+  },
+  {
+   "boss": "TRENCH_HORROR",
+   "slug": "trench-horror",
+   "galaxy": "CRYONIS",
+   "prompt": "the Trench Horror, a wide deep-sea frozen anglerfish flagship: a huge toothed maw at the prow, a dangling lure of pale light, frozen dead flesh, many small cold eyes"
+  },
+  {
+   "boss": "GEYSER_MAW",
+   "slug": "geyser-maw",
+   "galaxy": "CRYONIS",
+   "prompt": "the Geyser Maw, a tall flagship like a frozen throat: a vertical gaping mouth of ice fangs venting steam, blue frozen flesh around it, frost-cracked bone struts"
+  },
+  {
+   "boss": "HAIL_BASTION",
+   "slug": "hail-bastion",
+   "galaxy": "CRYONIS",
+   "prompt": "the Hail Bastion, a very wide fortress flagship of ice: battlements of frozen bone, dead faces frozen into the walls, cannon ports rimmed with frost, a cold core light"
+  },
+  {
+   "boss": "SHATTER_PROW",
+   "slug": "shatter-prow",
+   "galaxy": "CRYONIS",
+   "side": true,
+   "prompt": "the Shatter Prow, a long flagship whose prow is a jagged fractured ice crystal, a frozen body impaled along it, cracked blue glow leaking from the fractures"
+  },
+  {
+   "boss": "FROZEN_EMPRESS",
+   "slug": "frozen-empress",
+   "galaxy": "CRYONIS",
+   "parts": [
+    "FROZEN_EMPRESS_HEAD"
+   ],
+   "prompt": "the Frozen Empress, a corpse-queen torso: a huge frozen royal body in a cracked ice gown, four empty frozen neck sockets along the bottom edge where her heads attach, a crown of icicles at the top, pale cold light from inside"
+  },
+  {
+   "boss": "SQUALL_WARDEN",
+   "slug": "squall-warden",
+   "galaxy": "TEMPEST",
+   "prompt": "the Squall Warden, a storm flagship: a skeletal frame with swept wings of flayed muscle, lightning crawling along the exposed ribs and wing tendons, electric white eyes at the prow"
+  },
+  {
+   "boss": "THUNDER_BROOD",
+   "slug": "thunder-brood",
+   "galaxy": "TEMPEST",
+   "prompt": "the Thunder Brood, a wide flagship carrying young: a ribcage hull with many small lightning-lit eggs inside, sinew wings, a mother's skull at the prow with arcing eyes"
+  },
+  {
+   "boss": "EYEWALL_LANCE",
+   "slug": "eyewall-lance",
+   "galaxy": "TEMPEST",
+   "prompt": "the Eyewall Lance, a tall narrow flagship: a single enormous lightning-white eye at the prow in a socket of bone, a spear-like body of sinew and vertebrae, storm clouds boiling off it"
+  },
+  {
+   "boss": "RING_REAVER",
+   "slug": "ring-reaver",
+   "galaxy": "TEMPEST",
+   "prompt": "the Ring Reaver, a very wide flagship like a ring of bone: a circular skeletal frame with muscle stretched across it, lightning jumping around the ring, a skull at the bottom"
+  },
+  {
+   "boss": "STATIC_CRAWLER",
+   "slug": "static-crawler",
+   "galaxy": "TEMPEST",
+   "prompt": "the Static Crawler, a wide flagship like a bone spider: eight legs of vertebrae, a charged body crackling with static, muscle stretched between the legs, white arcing eyes"
+  },
+  {
+   "boss": "MAGNETAR_MAW",
+   "slug": "magnetar-maw",
+   "galaxy": "TEMPEST",
+   "prompt": "the Magnetar Maw, a flagship that is a gaping jaw: a huge open mouth of bone with lightning jumping between the teeth, flayed muscle cheeks, a storm core in the throat"
+  },
+  {
+   "boss": "DOWNDRAFT_PROW",
+   "slug": "downdraft-prow",
+   "galaxy": "TEMPEST",
+   "prompt": "the Downdraft Prow, a tall flagship like a diving bird skeleton: a hooked skull prow, long bone wings swept back with lightning along the leading edges, sinew engines"
+  },
+  {
+   "boss": "VAUNT_IN_THE_STORM_RIG",
+   "slug": "storm-rig",
+   "galaxy": "TEMPEST",
+   "parts": [
+    "STORM_RIG_COCKPIT",
+    "STORM_RIG_ARM"
+   ],
+   "prompt": "the Storm-Rig, a piloted mech flagship body: a huge skeletal industrial frame bound with muscle and lightning conduits, a central mount for a cockpit, shoulder mounts for two arms"
+  },
+  {
+   "boss": "ARC_LANCE",
+   "slug": "arc-lance",
+   "galaxy": "TEMPEST",
+   "side": true,
+   "prompt": "the Arc Lance, a long narrow flagship like a lightning bolt made of bone: a forked spear prow crackling with arcs, sinew wound along a spine of vertebrae, electric engines"
+  },
+  {
+   "boss": "STORM_SERPENT",
+   "slug": "storm-serpent",
+   "galaxy": "TEMPEST",
+   "prompt": "the Storm Serpent, a huge serpent's head and open maw rising toward the viewer: a bone skull with lightning in its eye sockets, flayed muscle, fangs crackling with arcs"
+  },
+  {
+   "boss": "BONEPICKER",
+   "slug": "bonepicker",
+   "galaxy": "NULL",
+   "prompt": "the Bonepicker, a scavenger flagship: a carcass of ribs fused with void-black flesh, clusters of lidless eyes between the ribs, feelers hanging from the prow, violet light inside"
+  },
+  {
+   "boss": "HULK_CHOIR",
+   "slug": "hulk-choir",
+   "galaxy": "NULL",
+   "prompt": "the Hulk Choir, a tall flagship made of fused dead crews: dozens of screaming faces and open mouths in void-black flesh, eyes everywhere, tentacles knotting the bodies together, violet glow"
+  },
+  {
+   "boss": "SHROUDMAW",
+   "slug": "shroudmaw",
+   "galaxy": "NULL",
+   "prompt": "the Shroudmaw, a very wide flagship like a hooded mouth: a drape of void-black flesh over a vast toothed maw, eyes in the folds, feelers trailing from the edges"
+  },
+  {
+   "boss": "LENSBREAKER",
+   "slug": "lensbreaker",
+   "galaxy": "NULL",
+   "prompt": "the Lensbreaker, a tall flagship built around one giant eye: a vast violet iris at the core, a ring of smaller eyes around it, tentacles for wings, geometry folding wrongly at the edges"
+  },
+  {
+   "boss": "TIDEWRACK",
+   "slug": "tidewrack",
+   "galaxy": "NULL",
+   "side": true,
+   "prompt": "the Tidewrack, a long flagship like a drowned wreck: a broken hull wrapped in black tentacles, eyes opening in the wreckage, violet light in the breaches"
+  },
+  {
+   "boss": "SHELLBORN",
+   "slug": "shellborn",
+   "galaxy": "NULL",
+   "prompt": "the Shellborn, a flagship hatching from a spiral shell: a nautilus-like black shell cracking open, a mass of eyes and tentacles emerging at the prow, violet glow inside"
+  },
+  {
+   "boss": "FRAME_DRAG",
+   "slug": "frame-drag",
+   "galaxy": "NULL",
+   "prompt": "the Frame-Drag, a very wide flagship bending space: a dark body whose edges smear and repeat, eyes in impossible places, tentacles that fade into the void, a violet singularity core"
+  },
+  {
+   "boss": "PHOTON_HALO",
+   "slug": "photon-halo",
+   "galaxy": "NULL",
+   "prompt": "the Photon Halo, a very wide flagship like a ring of light around darkness: a violet-white halo with eyes along it, a black central body of tentacles, light bending around it"
+  },
+  {
+   "boss": "GULLET",
+   "slug": "gullet",
+   "galaxy": "NULL",
+   "prompt": "the Gullet, a tall flagship that is a throat: a vertical fleshy black tube lined with rings of teeth leading into violet darkness, eyes along the rim, feelers reaching outward"
+  },
+  {
+   "boss": "AEON",
+   "slug": "aeon",
+   "galaxy": "NULL",
+   "parts": [
+    "AEON_EYE"
+   ],
+   "prompt": "Aeon, the Hollow Star: a huge round void entity, a black sphere of writhing tentacles and folded flesh with a hollow violet-white core, four empty sockets around its rim where its orbiting eyes attach, radial symmetry"
+  }
+ ],
+ "parts": [
+  {
+   "boss": "HYDRA_HEAD",
+   "slug": "hydra-head",
+   "galaxy": "VERDANCE",
+   "prompt": "one Hydra head on its own, no neck: a chitinous insect skull with mandibles open, compound eyes, dripping resin, round composition"
+  },
+  {
+   "boss": "FROZEN_EMPRESS_HEAD",
+   "slug": "frozen-empress-head",
+   "galaxy": "CRYONIS",
+   "prompt": "one Frozen Empress head on its own, no neck: a frozen royal skull in a cracked ice veil, icicle teeth, frozen eyes glowing pale, round composition"
+  },
+  {
+   "boss": "AEON_EYE",
+   "slug": "aeon-eye",
+   "galaxy": "NULL",
+   "prompt": "one orbiting eye of Aeon on its own: a huge lidless eyeball with a violet iris, void-black veins and small tentacles trailing from it, round composition"
+  },
+  {
+   "boss": "FORGE_RIG_COCKPIT",
+   "slug": "forge-rig-cockpit",
+   "galaxy": "ASHFALL",
+   "prompt": "a mech cockpit pod on its own: an armoured iron capsule with a glowing furnace window, a pilot's silhouette inside, flesh fused to the frame, round composition"
+  },
+  {
+   "boss": "FORGE_RIG_ARM",
+   "slug": "forge-rig-arm",
+   "galaxy": "ASHFALL",
+   "prompt": "a mech arm on its own, seen from above: a hammer-fisted iron limb with muscle strands and lava veins, square composition"
+  },
+  {
+   "boss": "STORM_RIG_COCKPIT",
+   "slug": "storm-rig-cockpit",
+   "galaxy": "TEMPEST",
+   "prompt": "a mech cockpit pod on its own: a bone-caged capsule crackling with lightning, a pilot's silhouette inside, round composition"
+  },
+  {
+   "boss": "STORM_RIG_ARM",
+   "slug": "storm-rig-arm",
+   "galaxy": "TEMPEST",
+   "prompt": "a mech arm on its own, seen from above: a clawed limb of vertebrae and sinew with lightning along it, square composition"
+  }
+ ]
 }

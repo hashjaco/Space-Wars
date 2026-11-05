@@ -5,7 +5,7 @@
     python3 tools/sprixen/cg.py stills-sheet <slug>... download the variants, write out/cg/<slug>/stills.png
     python3 tools/sprixen/cg.py pick <slug> <0|1>      choose the variant to animate
     python3 tools/sprixen/cg.py loop <slug>...         premium custom idle loop on the pick, 8 credits
-    python3 tools/sprixen/cg.py import <slug>...       loop -> sprites/boss-<slug>-cg/1..12.png (384 px)
+    python3 tools/sprixen/cg.py import <slug>...       loop -> sprites/boss-<slug>-cg/1..24.png (320 px, 256 colours)
     python3 tools/sprixen/cg.py status
 
 Slugs come from tools/sprixen/manifest/bosses.json (bosses and parts alike). Ids live in
@@ -22,7 +22,9 @@ OUT = os.path.join(HERE, "out", "cg")
 PID = open(os.path.join(HERE, ".cg-project-id")).read().strip()
 MAN = json.load(open(os.path.join(HERE, "manifest", "bosses.json")))
 ROWS = {r["slug"]: r for r in MAN["bosses"] + MAN["parts"]}
-FRAMES, SIZE = 12, 384
+# 24 frames spread over the ~9.5 s premium loop, played back at source speed with a cross-fade
+# between neighbours (Renderer), at 320 px (the largest flagship box) with a 256-colour palette.
+FRAMES, SIZE = 24, 320
 
 SUFFIX = (" Viewed from directly above for a vertical shoot-'em-up, nose pointing straight down toward the player, "
           "bilaterally symmetrical, filling the frame, pre-rendered 3D CGI look with smooth shading, specular highlights "
@@ -51,8 +53,23 @@ def load():
 def save(state):
     json.dump(state, open(STATE, "w"), indent=1)
 
+ART_FOR = {"VAUNT": "FORGE_RIG", "VAUNT_IN_THE_STORM_RIG": "STORM_RIG"}
+
+def box(row):
+    """The generated BossArt's on-screen box, which is the hitbox the new art must fill."""
+    import re
+    src = open(os.path.join(ROOT, "src/main/java/com/hashimjacobs/spacecase/asset/BossArt.java")).read()
+    m = re.search(r"^\s+" + ART_FOR.get(row["boss"], row["boss"]) + r'\("[^"]+", \d+, \d+, ([\d.]+), ([\d.]+)\)', src, re.M)
+    w, h = float(m.group(1)), float(m.group(2))
+    return (h, w) if row.get("side") else (w, h)  # side-on art is drawn nose-down, then turned
+
 def prompt_for(row):
-    return row["prompt"] + ". Style: " + MAN["flavour"][row["galaxy"]] + "." + SUFFIX
+    w, h = box(row)
+    r = w / h
+    shape = ("much wider than tall" if r > 1.4 else "wider than tall" if r > 1.12 else
+             "much taller than wide" if r < 0.72 else "taller than wide" if r < 0.9 else "about as wide as tall")
+    aspect = f" Overall silhouette {shape}, about {w:.0f} by {h:.0f}, so it fills a {w:.0f}x{h:.0f} box edge to edge."
+    return row["prompt"] + ". Style: " + MAN["flavour"][row["galaxy"]] + "." + aspect + SUFFIX
 
 def cmd_still(slugs):
     state = load()
@@ -88,7 +105,7 @@ def cmd_loop(slugs):
     state = load()
     for slug in slugs:
         sid = state[slug]["sprites"][state[slug].get("pick", 0)]
-        r = rest("POST", f"/v1/sprites/{sid}/animations", {"type": "custom", "frameCount": FRAMES, "fps": 10, "quality": "premium",
+        r = rest("POST", f"/v1/sprites/{sid}/animations", {"type": "custom", "frameCount": 12, "fps": 10, "quality": "premium",
                                                            "resolution": "512x512", "customDescription": LOOP})
         state[slug]["loop"] = r["id"]; save(state); print(slug, "loop", r["id"], r.get("status"), r.get("error"))
 
@@ -111,7 +128,7 @@ def cmd_import(slugs):
             if row.get("side"):
                 im = turned(im)
             im.thumbnail((SIZE, SIZE), Image.LANCZOS)
-            im.save(f"{dest}/{i}.png", optimize=True)
+            im.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(f"{dest}/{i}.png", optimize=True)
         size = sum(os.path.getsize(f"{dest}/{i}.png") for i in range(1, FRAMES + 1)) // 1024
         state[slug]["imported"] = True; print(slug, "->", dest, f"{size} KB")
     save(state)
