@@ -634,8 +634,11 @@ public final class Renderer {
         gc.setGlobalAlpha(alpha);
         gc.setFill(Tokens.TRACK);
         gc.fillRoundRect(x, y, width, 5, 3, 3);
-        gc.setFill(fraction > 0.5 ? Tokens.BRAND : fraction > 0.25 ? Tokens.WARN : Tokens.DANGER_LOW);
+        gc.setFill(Tokens.healthColor(fraction));
         gc.fillRoundRect(x, y, width * fraction, 5, 3, 3);
+        if (fraction <= 0.25) {
+            Hud.stripes(gc, x, y, width * fraction, 5);
+        }
         gc.setGlobalAlpha(1);
     }
 

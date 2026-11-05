@@ -81,4 +81,17 @@ class TokensTest {
         assertEquals(0, veil.getGreen(), tolerance);
         assertEquals(0, veil.getBlue(), tolerance);
     }
+
+    /**
+     * The health ramp has to read without colour: green against red is the pair a deutan eye folds
+     * together, so each stop keeps a clear luminance gap from the other two.
+     */
+    @Test
+    void theHealthRampReadsByLuminanceNotHue() {
+        Color high = Tokens.healthColor(1.0), mid = Tokens.healthColor(0.4), low = Tokens.healthColor(0.1);
+        assertTrue(Math.abs(Tokens.luminance(high) - Tokens.luminance(mid)) >= 0.1, "high vs mid");
+        assertTrue(Math.abs(Tokens.luminance(mid) - Tokens.luminance(low)) >= 0.1, "mid vs low");
+        assertTrue(Math.abs(Tokens.luminance(high) - Tokens.luminance(low)) >= 0.1, "high vs low");
+        assertEquals(Tokens.BRAND, high, "full health keeps the brand green");
+    }
 }

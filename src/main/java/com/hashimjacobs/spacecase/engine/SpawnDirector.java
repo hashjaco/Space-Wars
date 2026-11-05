@@ -270,7 +270,7 @@ public final class SpawnDirector {
             double depth = ordered.setback() - facing.alongExtent(w, h);
             EnemyShip ship = new EnemyShip(ordered.kind(), art,
                     facing.atX(depth, across, w, h), facing.atY(depth, across, w, h),
-                    difficulty.enemyScale(), ordered);
+                    difficulty.enemyScale(level.galaxy()), ordered);
             // No setVelocity: World.addEnemy stamps enter(orientation), which overwrites one, and
             // trackAcross would overwrite it again next tick. Authored motion rides in on the
             // ship's own MoveStyle and descentSpeed, which are what those two read.
@@ -329,7 +329,7 @@ public final class SpawnDirector {
         double depth = -facing.alongExtent(w, h);
         EnemyShip enemy = new EnemyShip(kind, art,
                 facing.atX(depth, across, w, h), facing.atY(depth, across, w, h),
-                difficulty.enemyScale());
+                difficulty.enemyScale(level.galaxy()));
         world.addEnemy(enemy);
     }
 

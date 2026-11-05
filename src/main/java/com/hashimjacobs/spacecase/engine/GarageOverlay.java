@@ -17,6 +17,7 @@ import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Loadout;
+import com.hashimjacobs.spacecase.garage.Upgrade;
 
 /**
  * The between-levels garage: a bay per pilot, each with their ship turning on a stand.
@@ -48,6 +49,8 @@ final class GarageOverlay {
      */
     private static final double PANEL_HEIGHT = 652;
     private static final double PANEL_GAP = 24;
+    /** Icon width plus the breath between it and the label. */
+    private static final double ICON_GAP = 32;
 
     private static final double ROW_PITCH = Tokens.ROW_GARAGE;
     private static final double ROWS_TOP_OFFSET = 170;
@@ -205,10 +208,18 @@ final class GarageOverlay {
             gc.fillRoundRect(left - 10, y - 4, right - left + 20, 22, 5, 5);
         }
 
+        // Upgrade rows carry an icon ahead of the label; the cosmetic rows keep the bare label, so
+        // the two kinds read differently before a word is read.
+        double textLeft = left;
+        if (row.upgrade() != null) {
+            Sprite icon = iconFor(row.upgrade());
+            gc.drawImage(Assets.image(icon), left, y - 15, icon.width(), icon.height());
+            textLeft = left + ICON_GAP;
+        }
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(focused || isLaunch ? valueFont : rowFont);
         gc.setFill(isLaunch ? BRAND : focused ? Color.WHITE : MUTED);
-        gc.fillText(row.label(), left, y);
+        gc.fillText(row.label(), textLeft, y);
 
         if (isLaunch) {
             return y + ROW_PITCH;
@@ -216,7 +227,7 @@ final class GarageOverlay {
 
         boolean ladder = row.maxLevel() > 0;
         if (ladder) {
-            drawMeter(left + 122, y - 8, row);
+            drawMeter(left + ICON_GAP + 122, y - 8, row);
         }
 
         gc.setTextAlign(TextAlignment.RIGHT);
@@ -288,5 +299,25 @@ final class GarageOverlay {
         double offset = height * first / total;
         gc.setFill(PANEL_EDGE);
         gc.fillRoundRect(x, y + offset, 4, thumb, 2, 2);
+    }
+
+    /** One icon per upgrade; the switch is exhaustive, so a new Upgrade without art fails to compile. */
+    static Sprite iconFor(Upgrade upgrade) {
+        return switch (upgrade) {
+            case FIREPOWER -> Sprite.GARAGE_FIREPOWER;
+            case FIRE_RATE -> Sprite.GARAGE_FIRE_RATE;
+            case SALVO -> Sprite.GARAGE_SALVO;
+            case FOCUS -> Sprite.GARAGE_FOCUS;
+            case HONE -> Sprite.GARAGE_HONE;
+            case CHOKE -> Sprite.GARAGE_CHOKE;
+            case YIELD -> Sprite.GARAGE_YIELD;
+            case HULL -> Sprite.GARAGE_HULL;
+            case SHIELDING -> Sprite.GARAGE_SHIELDING;
+            case CAPACITOR -> Sprite.GARAGE_CAPACITOR;
+            case REPAIR -> Sprite.GARAGE_REPAIR;
+            case SPEED -> Sprite.GARAGE_SPEED;
+            case EJECT -> Sprite.GARAGE_EJECT;
+            case COLLECTOR -> Sprite.GARAGE_COLLECTOR;
+        };
     }
 }

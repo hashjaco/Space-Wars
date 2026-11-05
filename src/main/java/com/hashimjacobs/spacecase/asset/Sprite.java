@@ -977,16 +977,16 @@ public enum Sprite {
     FLAK_PELLET("flak-pellet.png", 14, 14),
     NOVA_SHELL("nova-shell.png", 30, 38),
 
-    PICKUP_TRI_SHOT("pickup-tri-shot.png", 36, 36),
-    PICKUP_MEGA_LASER("pickup-mega-laser.png", 36, 36),
-    PICKUP_ROCKET("pickup-rocket.png", 36, 36),
-    PICKUP_SHIELD("pickup-shield.png", 36, 36),
-    PICKUP_HEALTH("pickup-health.png", 36, 36),
-    PICKUP_SPEED("pickup-speed.png", 36, 36),
-    PICKUP_EXTRA_LIFE("pickup-extra-life.png", 36, 36),
-    PICKUP_SCYTHE("pickup-scythe.png", 36, 36),
-    PICKUP_FLAK("pickup-flak.png", 36, 36),
-    PICKUP_NOVA("pickup-nova.png", 36, 36),
+    PICKUP_TRI_SHOT("pickup-sx-tri-shot.png", 36, 36),
+    PICKUP_MEGA_LASER("pickup-sx-mega-laser.png", 36, 36),
+    PICKUP_ROCKET("pickup-sx-rocket.png", 36, 36),
+    PICKUP_SHIELD("pickup-sx-shield.png", 36, 36),
+    PICKUP_HEALTH("pickup-sx-health.png", 36, 36),
+    PICKUP_SPEED("pickup-sx-speed.png", 36, 36),
+    PICKUP_EXTRA_LIFE("pickup-sx-extra-life.png", 36, 36),
+    PICKUP_SCYTHE("pickup-sx-scythe.png", 36, 36),
+    PICKUP_FLAK("pickup-sx-flak.png", 36, 36),
+    PICKUP_NOVA("pickup-sx-nova.png", 36, 36),
 
     SHIELD_AURA("pickup-shield.png", 84, 84),
 
@@ -1200,7 +1200,23 @@ public enum Sprite {
     L49_NEAR("level-49/near.png"),
     L50_FAR("level-50/far.png"),
     L50_MID("level-50/mid.png"),
-    L50_NEAR("level-50/near.png");
+    L50_NEAR("level-50/near.png"),
+
+    // Garage upgrade icons, one per Upgrade in enum order. Sprixen output placed by tools/sprixen.
+    GARAGE_FIREPOWER("garage/firepower.png", 24, 24),
+    GARAGE_FIRE_RATE("garage/fire_rate.png", 24, 24),
+    GARAGE_SALVO("garage/salvo.png", 24, 24),
+    GARAGE_FOCUS("garage/focus.png", 24, 24),
+    GARAGE_HONE("garage/hone.png", 24, 24),
+    GARAGE_CHOKE("garage/choke.png", 24, 24),
+    GARAGE_YIELD("garage/yield.png", 24, 24),
+    GARAGE_HULL("garage/hull.png", 24, 24),
+    GARAGE_SHIELDING("garage/shielding.png", 24, 24),
+    GARAGE_CAPACITOR("garage/capacitor.png", 24, 24),
+    GARAGE_REPAIR("garage/repair.png", 24, 24),
+    GARAGE_SPEED("garage/speed.png", 24, 24),
+    GARAGE_EJECT("garage/eject.png", 24, 24),
+    GARAGE_COLLECTOR("garage/collector.png", 24, 24);
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.

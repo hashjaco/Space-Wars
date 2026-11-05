@@ -156,6 +156,22 @@ public enum Difficulty {
     }
 
     /**
+     * {@link #enemyScale()} with the galaxy's own climb on top: eight percent of hull per galaxy.
+     *
+     * Before this, nothing raised the pressure between Verdance and Null on a first play.
+     * {@code SpawnDirector.escalated} only grows once per pass through the whole campaign, so the
+     * flagships' authored health was the only thing that got harder across fifty levels. Hull only:
+     * speed is capped in {@code EnemyShip} anyway, and score stays authored for the reason
+     * {@link #enemyScale()} gives.
+     */
+    public double enemyScale(Galaxy galaxy) {
+        return enemyScale * (1 + GALAXY_HULL_STEP * galaxy.ordinal());
+    }
+
+    /** Hull added per galaxy by {@link #enemyScale(Galaxy)}: Null's hostiles carry a third more. */
+    static final double GALAXY_HULL_STEP = 0.08;
+
+    /**
      * Percentage points added to the roll that picks the heavy archetype over the light one.
      *
      * Zero for the three original presets, so their wave composition is exactly what it was and the

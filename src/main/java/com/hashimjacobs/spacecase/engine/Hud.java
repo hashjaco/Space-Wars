@@ -135,9 +135,11 @@ final class Hud {
         gc.setFill(Tokens.TRACK);
         gc.fillRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
 
-        Color fill = fraction > 0.5 ? BRAND : fraction > 0.25 ? Color.GOLD : Tokens.DANGER_LOW;
-        gc.setFill(fill);
+        gc.setFill(Tokens.healthColor(fraction));
         gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
+        if (fraction <= 0.25) {
+            stripes(gc, x, y, PANEL_WIDTH * fraction, BAR_HEIGHT);
+        }
 
         if (fraction <= LOW_HEALTH_FRACTION && !player.isOut()) {
             drawLowHealthGlow(x, y, fraction, tick);
@@ -210,7 +212,8 @@ final class Hud {
     private void drawLevelAndWave(SpawnDirector director) {
         Level level = director.level();
         StringBuilder heading = new StringBuilder()
-                .append("LEVEL ").append(level.number())
+                .append(level.galaxy().label().toUpperCase())
+                .append("   LEVEL ").append(level.number())
                 .append("   ").append(level.label().toUpperCase())
                 .append("   WAVE ").append(director.waveInLevel())
                 .append('/').append(level.wavesBeforeBoss());
@@ -220,8 +223,28 @@ final class Hud {
 
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(labelFont);
-        gc.setFill(Tokens.LABEL);
+        gc.setFill(Color.web(level.galaxy().accent()));
         gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 14);
+    }
+
+    /**
+     * Diagonal hatching over a bar's fill, the colour-blind-safe half of the low-health signal.
+     * Static on purpose: it is a state, not an alarm, and the glow already pulses.
+     */
+    static void stripes(GraphicsContext gc, double x, double y, double width, double height) {
+        if (width <= 0) {
+            return;
+        }
+        gc.save();
+        gc.beginPath();
+        gc.rect(x, y, width, height);
+        gc.clip();
+        gc.setStroke(Tokens.veil(0.45));
+        gc.setLineWidth(2);
+        for (double sx = x - height; sx < x + width; sx += 6) {
+            gc.strokeLine(sx, y + height, sx + height, y);
+        }
+        gc.restore();
     }
 
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */

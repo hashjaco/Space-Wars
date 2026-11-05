@@ -26,3 +26,5 @@ docs/press/trailer/*.mp4
 
 # The per-clip captures the trailer is joined from. Gigabytes, and trailer.sh rebuilds them.
 docs/press/trailer/clips/
+tools/sprixen/.project-id
+tools/sprixen/out/
