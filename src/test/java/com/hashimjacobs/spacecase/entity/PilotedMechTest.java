@@ -25,12 +25,12 @@ class PilotedMechTest {
     }
 
     private static List<EnemyShip> arms(PilotedMech rig) {
-        return rig.parts().stream().filter(part -> part.bossArt() == BossArt.FORGE_RIG_ARM).toList();
+        return rig.parts().stream().filter(part -> part.bossArt() == BossArt.FORGE_RIG_ARM_CG).toList();
     }
 
     private static EnemyShip cockpit(PilotedMech rig) {
         return rig.parts().stream()
-                .filter(part -> part.bossArt() == BossArt.FORGE_RIG_COCKPIT)
+                .filter(part -> part.bossArt() == BossArt.FORGE_RIG_COCKPIT_CG)
                 .findFirst().orElseThrow();
     }
 
@@ -40,7 +40,7 @@ class PilotedMechTest {
 
         assertEquals(3, rig.parts().size());
         assertEquals(2, arms(rig).size(), "two arms, one each side");
-        assertSame(BossArt.FORGE_RIG_COCKPIT, cockpit(rig).bossArt());
+        assertSame(BossArt.FORGE_RIG_COCKPIT_CG, cockpit(rig).bossArt());
     }
 
     /**
@@ -54,9 +54,9 @@ class PilotedMechTest {
         PilotedMech rig = rig();
 
         for (EnemyShip arm : arms(rig)) {
-            assertSame(BossArt.FORGE_RIG_ARM, arm.bossArt());
+            assertSame(BossArt.FORGE_RIG_ARM_CG, arm.bossArt());
         }
-        assertSame(BossArt.FORGE_RIG, rig.bossArt(), "the body keeps the flagship's own frames");
+        assertSame(BossArt.FORGE_RIG_CG, rig.bossArt(), "the body keeps the flagship's own frames");
     }
 
     /** The body is sealed while anything is bolted to it, which every flagship already does. */
@@ -200,7 +200,7 @@ class PilotedMechTest {
     /** Each rig wears its own pods. This was a compile-time constant, so the second one could not. */
     @Test
     void eachRigWearsItsOwnArmPods() {
-        assertSame(BossArt.FORGE_RIG_ARM, Boss.VAUNT.armArt());
+        assertSame(BossArt.FORGE_RIG_ARM_CG, Boss.VAUNT.armArt());
         assertSame(BossArt.STORM_RIG_ARM, Boss.VAUNT_IN_THE_STORM_RIG.armArt());
 
         PilotedMech storm = new PilotedMech(Boss.VAUNT_IN_THE_STORM_RIG, 400, 90, 1);
@@ -208,7 +208,7 @@ class PilotedMechTest {
                         .anyMatch(part -> part.bossArt() == BossArt.STORM_RIG_ARM),
                 "the Storm-Rig is still wearing Ashfall's pods");
         assertFalse(storm.parts().stream()
-                        .anyMatch(part -> part.bossArt() == BossArt.FORGE_RIG_ARM),
+                        .anyMatch(part -> part.bossArt() == BossArt.FORGE_RIG_ARM_CG),
                 "the Storm-Rig is still wearing Ashfall's pods");
     }
 }
