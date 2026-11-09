@@ -46,6 +46,8 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
     private final Label detail;
     private final Label value;
     private final Runnable action;
+    private final HBox row;
+    private java.util.function.IntConsumer onAdjust;
     private boolean focused;
     private boolean locked;
 
@@ -77,7 +79,7 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
         // string padded apart with spaces, which in a proportional face lines nothing up -- the
         // column was visibly ragged, and only got away with it while the rows were centred.
         Region spacer = new Region();
-        HBox row = new HBox(Tokens.GAP, lines, spacer, value);
+        row = new HBox(Tokens.GAP, lines, spacer, value);
         row.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -125,6 +127,24 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
     public void setHighlighted(boolean highlighted) {
         this.focused = highlighted;
         paintForFocusState();
+    }
+
+    @Override
+    public boolean adjust(int direction) {
+        if (onAdjust == null || locked) {
+            return false;
+        }
+        onAdjust.accept(direction);
+        return true;
+    }
+
+    /** Puts a level bar before the value, and lets Left/Right step it. */
+    void setTrailing(LevelBar bar, java.util.function.IntConsumer onAdjust) {
+        this.onAdjust = onAdjust;
+        // A fixed column for the percent, so the bars line up and do not twitch as "9%" becomes "10%".
+        value.setMinWidth(48);
+        value.setAlignment(Pos.CENTER_RIGHT);
+        row.getChildren().add(row.getChildren().indexOf(value), bar);
     }
 
     @Override

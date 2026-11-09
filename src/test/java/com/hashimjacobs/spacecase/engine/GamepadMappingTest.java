@@ -167,6 +167,15 @@ class GamepadMappingTest {
         assertTrue(stillHeld.isEmpty(), "holding Start must not toggle pause every poll");
     }
 
+    /** The face buttons and right bumper hold each seat's on-foot keys: punch, kick, guard. */
+    @Test
+    void faceButtonsHoldTheOnFootKeys() {
+        assertEquals(List.of(KeyCode.J), pressedIn(poll(playerOne, stick(0, 0, PadButton.X))));
+        assertEquals(List.of(KeyCode.K), pressedIn(poll(new GamepadMapping(0), stick(0, 0, PadButton.Y))));
+        assertEquals(List.of(KeyCode.I), pressedIn(poll(new GamepadMapping(0), stick(0, 0, PadButton.RIGHT_BUMPER))));
+        assertEquals(List.of(KeyCode.SLASH), pressedIn(poll(new GamepadMapping(1), stick(0, 0, PadButton.X))));
+    }
+
     /**
      * B backs out of a menu, which is the convention every console has taught.
      *
@@ -176,7 +185,8 @@ class GamepadMappingTest {
     @Test
     void theBButtonIsTappedAndMeansCancel() {
         List<GamepadMapping.KeyChange> changes = poll(playerOne, stick(0, 0, PadButton.B));
-        assertEquals(List.of(GamepadMapping.MENU_CANCEL), pressedIn(changes));
+        // Plus the on-foot special key, held: B is special when the pilots are on foot.
+        assertEquals(List.of(KeyCode.L, GamepadMapping.MENU_CANCEL), pressedIn(changes));
         assertEquals(List.of(GamepadMapping.MENU_CANCEL), releasedIn(changes));
 
         List<GamepadMapping.KeyChange> stillHeld = poll(playerOne, stick(0, 0, PadButton.B));

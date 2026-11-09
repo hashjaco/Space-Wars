@@ -45,6 +45,8 @@ import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.onfoot.OnFootRenderer;
+import com.hashimjacobs.spacecase.onfoot.OnFootStage;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
 import com.hashimjacobs.spacecase.ui.Tokens;
@@ -137,6 +139,7 @@ public final class Renderer {
     private final Hud hud;
     private final DebriefOverlay debriefOverlay;
     private final GarageOverlay garageOverlay;
+    private final OnFootRenderer onFoot;
 
     /** Built once: per-draw effects on a handful of images, never a whole-canvas pass. */
     private static final Glow GLOW = new Glow(0.35);
@@ -166,6 +169,7 @@ public final class Renderer {
         this.hud = new Hud(gc, settings);
         this.debriefOverlay = new DebriefOverlay(gc);
         this.garageOverlay = new GarageOverlay(gc);
+        this.onFoot = new OnFootRenderer(gc, settings);
     }
 
     public void draw(World world, SpawnDirector director) {
@@ -275,6 +279,12 @@ public final class Renderer {
         gc.restore();
     }
 
+    /** The on-foot stage in place of the arena, finished with the same vignette and grain. */
+    public void drawOnFoot(OnFootStage stage) {
+        onFoot.draw(stage);
+        drawVignette();
+        drawGrain(stage.tick());
+    }
 
     private void drawVignette() {
         if (settings.reducedFlash()) {

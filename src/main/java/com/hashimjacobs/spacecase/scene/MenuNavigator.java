@@ -21,6 +21,11 @@ public final class MenuNavigator {
         void setHighlighted(boolean highlighted);
 
         void activate();
+
+        /** Nudges a slider row one step; returns false for rows with nothing to nudge. */
+        default boolean adjust(int direction) {
+            return false;
+        }
     }
 
     private final List<Item> items;
@@ -72,6 +77,12 @@ public final class MenuNavigator {
             case DOWN, S -> move(1);
             case ENTER, SPACE -> items.get(index).activate();
             case ESCAPE -> onBack.run();
+            case LEFT, A -> {
+                return items.get(index).adjust(-1);
+            }
+            case RIGHT, D -> {
+                return items.get(index).adjust(1);
+            }
             default -> {
                 return false;
             }

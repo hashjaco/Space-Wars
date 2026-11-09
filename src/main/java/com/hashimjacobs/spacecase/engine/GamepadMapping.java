@@ -7,6 +7,7 @@ import java.util.Set;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.prefs.ControlAction;
 import com.hashimjacobs.spacecase.prefs.PadButton;
 
 /**
@@ -61,6 +62,11 @@ public final class GamepadMapping {
     private final KeyCode right;
     private final KeyCode fire;
     private final KeyCode confirm;
+    /** On-foot keys: X, Y, B and the right bumper. Fixed for the trial stage, so not rebindable. */
+    private final KeyCode punch;
+    private final KeyCode kick;
+    private final KeyCode special;
+    private final KeyCode guard;
 
     private final Set<KeyCode> held = EnumSet.noneOf(KeyCode.class);
     private final Set<PadButton> previousButtons = EnumSet.noneOf(PadButton.class);
@@ -87,6 +93,11 @@ public final class GamepadMapping {
         right = playerOne ? KeyCode.D : KeyCode.RIGHT;
         fire = playerOne ? KeyCode.SHIFT : KeyCode.COMMA;
         confirm = playerOne ? KeyCode.SPACE : KeyCode.ENTER;
+        int player = slot + 1;
+        punch = ControlAction.PUNCH.defaultKey(player);
+        kick = ControlAction.KICK.defaultKey(player);
+        special = ControlAction.SPECIAL.defaultKey(player);
+        guard = ControlAction.GUARD.defaultKey(player);
     }
 
     /** Returns the changes to apply, in the order they must be applied. */
@@ -171,6 +182,20 @@ public final class GamepadMapping {
         }
         if (state.isPressed(fireButton)) {
             wanted.add(fire);
+        }
+        // Always sent, whatever screen is up: nothing in flight reads them, and the stage on foot
+        // reads nothing else. That is what saves the pad layer from knowing which one is running.
+        if (state.isPressed(PadButton.X)) {
+            wanted.add(punch);
+        }
+        if (state.isPressed(PadButton.Y)) {
+            wanted.add(kick);
+        }
+        if (state.isPressed(PadButton.B)) {
+            wanted.add(special);
+        }
+        if (state.isPressed(PadButton.RIGHT_BUMPER)) {
+            wanted.add(guard);
         }
         return wanted;
     }

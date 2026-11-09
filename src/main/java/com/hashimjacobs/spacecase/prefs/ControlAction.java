@@ -20,7 +20,12 @@ public enum ControlAction {
     DOWN("Down", KeyCode.S, KeyCode.DOWN),
     LEFT("Left", KeyCode.A, KeyCode.LEFT),
     RIGHT("Right", KeyCode.D, KeyCode.RIGHT),
-    FIRE("Fire", KeyCode.SHIFT, KeyCode.COMMA);
+    FIRE("Fire", KeyCode.SHIFT, KeyCode.COMMA),
+    // On foot only (the brawler stage after Undercity); jump there is Up or Fire.
+    PUNCH("Punch", KeyCode.J, KeyCode.SLASH),
+    KICK("Kick", KeyCode.K, KeyCode.QUOTE),
+    SPECIAL("Special", KeyCode.L, KeyCode.SEMICOLON),
+    GUARD("Guard", KeyCode.I, KeyCode.P);
 
     private final String label;
     private final KeyCode playerOneDefault;

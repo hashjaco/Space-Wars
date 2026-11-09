@@ -32,6 +32,9 @@ import com.hashimjacobs.spacecase.prefs.SaveGames;
 import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.net.Replay;
 import com.hashimjacobs.spacecase.net.LevelStart;
+import com.hashimjacobs.spacecase.onfoot.Buttons;
+import com.hashimjacobs.spacecase.onfoot.OnFootStage;
+import com.hashimjacobs.spacecase.onfoot.Physics;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
 
@@ -47,7 +50,7 @@ import com.hashimjacobs.spacecase.prefs.Standing;
 public final class GameLoop {
 
     /** Where the loop is between levels. Everything except FIGHTING is the celebration. */
-    private enum Phase { FIGHTING, VICTORY_LAP, DEBRIEF, GARAGE, WARP }
+    private enum Phase { FIGHTING, VICTORY_LAP, ON_FOOT, DEBRIEF, GARAGE, WARP }
 
     private static final int VICTORY_LAP_TICKS = 96;
     private static final double VICTORY_LAP_SPEED = 2.5;
@@ -155,13 +158,23 @@ public final class GameLoop {
     private boolean finished;
     private boolean bossMusicPlaying;
     private GarageSession garage;
+    private SaveSlot levelStartSave;
 
+    /** The on-foot stage after a level that has one, between the victory lap and the debrief. */
+    private OnFootStage onFoot;
+
+    /**
+     * Dev shortcut ({@code --onfoot} on the command line): open straight onto the on-foot stage and
+     * loop it, for tuning how it feels. Static because Main sets it before any loop exists.
+     */
+    public static boolean devOnFoot;
     /** Dev only ({@code --garage}): the run opens in the garage, for looking at the bays. */
     public static boolean devGarage;
-    private SaveSlot levelStartSave;
 
     /** Toggles the frame-time readout. Held-key edge, so one press flips it rather than sixty. */
     private static final KeyCode FRAME_METER_KEY = KeyCode.F3;
+    /** Mutes all audio for the session. Same held-key edge as the meter. */
+    private static final KeyCode MUTE_KEY = KeyCode.M;
     private static final long METER_WINDOW_NANOS = 1_000_000_000L;
 
     private boolean showFrameMeter;
@@ -192,6 +205,7 @@ public final class GameLoop {
                 SaveSlot.forReplay(world.mode(), director.level()), loadouts));
     }
     private boolean meterKeyWasDown;
+    private boolean muteKeyWasDown;
     private long lastFrameNanos;
     private long meterWindowStart;
     private double worstMs;
@@ -264,6 +278,9 @@ public final class GameLoop {
         restore(resume);
         snapshotLevelStart();
         snapshotSave();
+        if (devOnFoot && OnFootStage.missionAfter(director.level())) {
+            beginOnFoot();
+        }
         if (devGarage) {
             openGarage();
         }
@@ -463,7 +480,11 @@ public final class GameLoop {
             }
             step();
         }
-        renderer.draw(world, director);
+        if (phase == Phase.ON_FOOT) {
+            renderer.drawOnFoot(onFoot);
+        } else {
+            renderer.draw(world, director);
+        }
         switch (phase) {
             case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefArmed);
             case GARAGE -> renderer.drawGarage(garage, phaseTicks);
@@ -478,6 +499,9 @@ public final class GameLoop {
         }
         if (showFrameMeter) {
             renderer.drawFrameMeter(shownMs, shownSteps);
+        }
+        if (sounds.isMuted()) {
+            renderer.drawMuted();
         }
     }
 
@@ -512,6 +536,12 @@ public final class GameLoop {
             showFrameMeter = !showFrameMeter;
         }
         meterKeyWasDown = down;
+
+        boolean muteDown = input.isHeld(MUTE_KEY);
+        if (muteDown && !muteKeyWasDown) {
+            sounds.toggleMute();
+        }
+        muteKeyWasDown = muteDown;
     }
 
     /**
@@ -548,6 +578,7 @@ public final class GameLoop {
         switch (phase) {
             case FIGHTING -> stepFight();
             case VICTORY_LAP -> stepVictoryLap();
+            case ON_FOOT -> stepOnFoot();
             case DEBRIEF -> stepDebrief();
             case GARAGE -> stepGarage();
             case WARP -> stepWarp();
@@ -636,11 +667,67 @@ public final class GameLoop {
                     player.y() + player.facing().yDirection() * step);
         }
         if (phaseTicks >= VICTORY_LAP_TICKS) {
+            if (wantsOnFoot()) {
+                beginOnFoot();
+                return;
+            }
             phase = Phase.DEBRIEF;
             phaseTicks = 0;
             debriefArmed = false;
             input.clear();
         }
+    }
+
+    /**
+     * Whether this level's clear sends the pilots down on foot.
+     *
+     * Local co-op and solo only: the stage runs on this machine, outside lockstep, so an online
+     * run skips it rather than desync. Never in battle, which has no story to land in.
+     */
+    private boolean wantsOnFoot() {
+        return OnFootStage.missionAfter(director.level()) && handshake == null && intents == null
+                && world.mode() != GameMode.BATTLE;
+    }
+
+    private void beginOnFoot() {
+        phase = Phase.ON_FOOT;
+        phaseTicks = 0;
+        // Seeded from the tick, never from the shared Random: drawing from that would shift every
+        // spawn after this level and break the replays the leaderboard verifies.
+        onFoot = new OnFootStage(world.tick() * 0x9E3779B97F4A7C15L, controllers.size(), Physics.DEFAULT);
+        input.clear();
+    }
+
+    /** The stage steps; the world does not, so score, lives and the replay clock stand still. */
+    private void stepOnFoot() {
+        phaseTicks++;
+        boolean solo = controllers.size() == 1;
+        List<Buttons> pads = new ArrayList<>(controllers.size());
+        for (ShipController controller : controllers) {
+            pads.add(Buttons.read(input, settings, controller.ship().playerNumber(), solo));
+        }
+        onFoot.step(pads);
+        for (OnFootStage.Cue cue : onFoot.cues()) {
+            switch (cue) {
+                case HIT, BLOCK -> sounds.play(SoundFx.COLLISION);
+                case HEAVY, POUND, LAND -> sounds.play(SoundFx.EXPLOSION);
+                case BEAM -> sounds.play(SoundFx.LASER);
+                case ROAR -> sounds.play(SoundFx.BOSS_ROAR);
+                case KEY -> sounds.play(SoundFx.LEVEL_CLEAR);
+            }
+        }
+        if (!onFoot.done()) {
+            return;
+        }
+        if (devOnFoot) {
+            beginOnFoot();      // round again
+            return;
+        }
+        onFoot = null;
+        phase = Phase.DEBRIEF;
+        phaseTicks = 0;
+        debriefArmed = false;
+        input.clear();
     }
 
     /**
@@ -913,6 +1000,7 @@ public final class GameLoop {
 
     public void setPaused(boolean paused) {
         this.paused = paused;
+        sounds.setPaused(paused);
         if (paused) {
             renderer.drawPausedVeil();
             input.clear();
