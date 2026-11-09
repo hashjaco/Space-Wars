@@ -84,7 +84,7 @@ public final class Renderer {
     /** A soft wash behind a floating pickup, so it reads as an object with power in it. */
     private static final Paint PICKUP_HALO = halo(Color.web("#ffe9a8"));
 
-    /** Each creature round glows in its own colour, so a spike and a fang differ at the edge of vision. */
+    /** Each creature round glows in its own color, so a spike and a fang differ at the edge of vision. */
     private static final Map<Round, Paint> ROUND_HALOS = new EnumMap<>(Round.class);
 
     static {
@@ -182,6 +182,11 @@ public final class Renderer {
             int tick = world.tick();
             gc.translate(throwDistance * Math.sin(tick * 2.7), throwDistance * Math.cos(tick * 3.9));
         }
+        PlayerShip caster = specialCaster(world);
+        double windup = caster == null ? -1 : caster.specialWindup(world.tick());
+        if (windup >= 0 && settings.cinematic()) {
+            zoomOn(caster, specialZoom(windup));
+        }
         Level level = director.level();
         drawScrollingBackground(level, world.tick());
         double mood = bossMood(world, director);
@@ -235,6 +240,9 @@ public final class Renderer {
             gc.drawImage(frame, explosion.drawX(), explosion.drawY(), explosion.size(), explosion.size());
         }
         drawParticles(world);
+        if (windup >= 0) {
+            drawSpecialCharge(caster, windup, world.tick());
+        }
         gc.restore();
 
         // Screen space: a flagship's last moment whites the whole arena out, HUD excepted.
@@ -253,6 +261,9 @@ public final class Renderer {
         drawGrain(world.tick());
         if (settings.cinematic() && director.bossWarning() && world.bossPresent()) {
             drawArrival(world.boss(), director);
+        }
+        if (windup >= 0 && settings.cinematic()) {
+            drawSpecialCard(caster, windup);
         }
         hud.draw(world, director);
     }
@@ -575,6 +586,104 @@ public final class Renderer {
      * colour, and both clear before the fight opens. Under reduced flash the bars hold and the
      * card does not move.
      */
+    // ---- the special's cinematic ------------------------------------------------------------------
+    // All of it is drawn off the ship's windup, which is sim state frozen in place by World.freeze,
+    // so it is a picture of the hold rather than a timeline of its own: nothing here can desync.
+
+    /** How far the camera pushes in on a ship charging its special. */
+    private static final double SPECIAL_ZOOM = 2.2;
+
+    /** The ship holding its breath, if any. Two on one tick is a tie the lower seat wins. */
+    private static PlayerShip specialCaster(World world) {
+        for (PlayerShip player : world.players()) {
+            if (!player.isOut() && player.specialWindup(world.tick()) >= 0) {
+                return player;
+            }
+        }
+        return null;
+    }
+
+    /** In over the first third of the hold, held, and back out over the last quarter. */
+    static double specialZoom(double windup) {
+        double in = smooth(Math.min(1, windup / 0.35));
+        double out = smooth(Math.min(1, (1 - windup) / 0.25));
+        return 1 + (SPECIAL_ZOOM - 1) * Math.min(in, out);
+    }
+
+    private static double smooth(double t) {
+        return t * t * (3 - 2 * t);
+    }
+
+    /**
+     * Scales the arena about the ship and slides it toward the middle of the screen, clamped so the
+     * view never leaves the arena -- zooming in only, so there is never an edge to show.
+     */
+    private void zoomOn(PlayerShip ship, double zoom) {
+        if (zoom <= 1.0001) {
+            return;
+        }
+        double viewW = GameConfig.WIDTH / zoom;
+        double viewH = GameConfig.HEIGHT / zoom;
+        double left = Math.max(0, Math.min(GameConfig.WIDTH - viewW, ship.centerX() - viewW / 2));
+        double top = Math.max(0, Math.min(GameConfig.HEIGHT - viewH, ship.centerY() - viewH / 2));
+        gc.scale(zoom, zoom);
+        gc.translate(-left, -top);
+    }
+
+    /** Light pulled in to the nose: a swelling halo and motes spiralling inward. World space. */
+    private void drawSpecialCharge(PlayerShip ship, double windup, int tick) {
+        Color tint = Color.web(ship.loadout().chassis().specialColor());
+        double noseX = ship.centerX() + ship.facing().xDirection() * ship.width() / 2;
+        double noseY = ship.centerY() + ship.facing().yDirection() * ship.height() / 2;
+        double grow = Math.min(1, windup / 0.8);
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        double glow = 30 + 150 * grow;
+        gc.setFill(halo(tint));
+        gc.fillOval(noseX - glow / 2, noseY - glow / 2, glow, glow);
+        gc.setFill(halo(Color.WHITE));
+        double core = 10 + 40 * grow;
+        gc.fillOval(noseX - core / 2, noseY - core / 2, core, core);
+        gc.setFill(tint.brighter());
+        for (int i = 0; i < 18; i++) {
+            // Each mote runs a 22-tick loop inward from 150 px, staggered, on its own spoke.
+            double phase = ((tick + i * 7) % 22) / 22.0;
+            double angle = Math.toRadians(i * 20 + tick * 3);
+            double r = 150 * (1 - phase);
+            double size = 2 + 4 * phase;
+            gc.setGlobalAlpha(0.3 + 0.7 * phase);
+            gc.fillOval(noseX + Math.cos(angle) * r - size / 2, noseY + Math.sin(angle) * r - size / 2, size, size);
+        }
+        gc.restore();
+    }
+
+    /** Letterbox bars and the special's name, screen space, the boss arrival's grammar. */
+    private void drawSpecialCard(PlayerShip ship, double windup) {
+        double in = Math.min(1, windup / 0.15);
+        double out = Math.min(1, (1 - windup) / 0.15);
+        double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
+        double bar = 72 * bars;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+
+        Color accent = Color.web(ship.loadout().chassis().specialColor());
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, windup / 0.25)) * GameConfig.WIDTH * 0.4;
+        double cx = GameConfig.WIDTH / 2 + slide;
+        double cy = GameConfig.HEIGHT - 36;
+        gc.setGlobalAlpha(Math.min(in, out));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 40));
+        gc.setFill(accent);
+        gc.fillText(ship.loadout().chassis().specialLabel().toUpperCase() + "!", cx, cy);
+        gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.NORMAL, 16));
+        gc.setFill(Color.WHITE);
+        gc.fillText(ship.name().toUpperCase() + "  ·  CHARGING", cx, 58);
+        gc.setGlobalAlpha(1);
+        gc.setTextBaseline(VPos.BASELINE);
+    }
+
     private void drawArrival(EnemyShip boss, SpawnDirector director) {
         double left = director.bossWarningFraction();       // 1 -> 0 across the arrival
         double done = 1 - left;

@@ -142,7 +142,7 @@ public final class CollisionSystem {
             // specifically for it, so the two compound -- which is why both are short ladders.
             int perTick = GameConfig.BEAM_DAMAGE_PER_TICK
                     + player.loadout().level(Upgrade.FOCUS) * GameConfig.UPGRADE_BEAM_STEP;
-            int damage = player.damageFor(perTick);
+            int damage = player.damageFor(perTick) * (player.novaCannon() ? GameConfig.NOVA_CANNON_DAMAGE : 1);
 
             for (EnemyShip enemy : world.enemies()) {
                 if (!enemy.isAlive() || !overlaps(beam, enemy)) {
@@ -150,6 +150,7 @@ public final class CollisionSystem {
                 }
                 player.recordHit();
                 enemy.takeDamage(damage);
+                player.chargeSpecial(damage * GameConfig.SPECIAL_CHARGE_PER_DAMAGE);
                 if (!enemy.isAlive()) {
                     awardKill(world, player, enemy);
                 }
@@ -300,6 +301,7 @@ public final class CollisionSystem {
             shooter.recordHit();
             BossPhase before = enemy.isBoss() ? enemy.phase() : null;
             enemy.takeDamage(bullet.damage());
+            shooter.chargeSpecial(bullet.damage() * GameConfig.SPECIAL_CHARGE_PER_DAMAGE);
             // ponytail: the hydra is the one boss that bleeds. Boss.bleeds() when a second creature wants it.
             boolean bleeds = enemy.isBoss() && enemy.boss() == Boss.HYDRA;
             world.addEffect(bleeds ? Explosion.BLOOD_SPLAT : Explosion.HIT_SPARK,
@@ -365,6 +367,7 @@ public final class CollisionSystem {
                 continue;
             }
             enemy.takeDamage(damage);
+            shooter.chargeSpecial(damage * GameConfig.SPECIAL_CHARGE_PER_DAMAGE);
             if (!enemy.isAlive()) {
                 // Through awardKill so a blast kill scores, drops and explodes like any other. The
                 // extra kills move this class's random stream, which is why BossAndDropsTest reads

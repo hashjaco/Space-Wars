@@ -24,8 +24,28 @@ package com.hashimjacobs.spacecase.engine;
  *              faster than a cardinal
  * @param moveY same, down the screen; positive is downward, following the screen and the stick
  */
-public record Intent(double moveX, double moveY, boolean firing) {
+public record Intent(double moveX, double moveY, boolean firing, boolean special) {
+
+    /** Bit 0 of the wire byte; see {@link #buttons}. */
+    static final int FIRE_BIT = 1;
+    /** Bit 1: the ship special. Riding in the byte fire always had, so a packet stays 17 bytes. */
+    static final int SPECIAL_BIT = 2;
+
+    /** Most of the suite, and every caller from before the special, holds no special. */
+    public Intent(double moveX, double moveY, boolean firing) {
+        this(moveX, moveY, firing, false);
+    }
+
+    /** The buttons as the one byte the wire and the replay file carry. */
+    public byte buttons() {
+        return (byte) ((firing ? FIRE_BIT : 0) | (special ? SPECIAL_BIT : 0));
+    }
+
+    public static Intent of(double moveX, double moveY, byte buttons) {
+        return new Intent(moveX, moveY, (buttons & FIRE_BIT) != 0, (buttons & SPECIAL_BIT) != 0);
+    }
+
 
     /** A player who is not touching anything, and what a dropped peer's ship is given. */
-    public static final Intent NEUTRAL = new Intent(0, 0, false);
+    public static final Intent NEUTRAL = new Intent(0, 0, false, false);
 }

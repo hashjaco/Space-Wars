@@ -614,6 +614,8 @@ public final class World {
             hash = hash * 31 + player.health();
             hash = hash * 31 + player.lives();
             hash = hash * 31 + player.score();
+            hash = hash * 31 + player.specialCharge();
+            hash = hash * 31 + player.specialStartTick();
         }
         return hash;
     }

@@ -8,6 +8,7 @@ import java.util.Set;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.engine.World;
+import com.hashimjacobs.spacecase.garage.Chassis;
 import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 
@@ -53,6 +54,13 @@ public final class PlayerShip extends Entity {
     private int hitFlashTicks;
     private boolean firingBeam;
     private Lean lean = Lean.NONE;
+
+    /** The special meter, 0 to {@code SPECIAL_FULL}; kept through a death, as a score is. */
+    private int specialCharge;
+    /** The tick the special's held breath began, or -1 when none is pending. */
+    private int specialStartTick = -1;
+    /** Ticks left of a special that plays out over time (the Nova Cannon, the Twin Lances). */
+    private int specialActiveTicks;
 
     /**
      * What the pilot has bought. Stock until the garage or a saved pilot record replaces it, so
@@ -159,7 +167,64 @@ public final class PlayerShip extends Entity {
 
     /** True while the trigger is held with the mega laser fitted. Set every tick by the controller. */
     public boolean isFiringBeam() {
-        return firingBeam;
+        return firingBeam || novaCannon();
+    }
+
+    // ---- the special ----------------------------------------------------------------------------
+
+    public int specialCharge() {
+        return specialCharge;
+    }
+
+    public boolean specialReady() {
+        return specialCharge >= GameConfig.SPECIAL_FULL && specialStartTick < 0 && specialActiveTicks == 0;
+    }
+
+    /** Fills the meter. A special in progress does not feed its own next one. */
+    public void chargeSpecial(int amount) {
+        if (specialStartTick >= 0 || specialActiveTicks > 0) {
+            return;
+        }
+        specialCharge = Math.min(GameConfig.SPECIAL_FULL, specialCharge + amount);
+    }
+
+    /** Spends the meter and starts the held breath; the controller fires once it is over. */
+    public void beginSpecial(int tick) {
+        specialCharge = 0;
+        specialStartTick = tick;
+    }
+
+    public int specialStartTick() {
+        return specialStartTick;
+    }
+
+    /** How far through the held breath, 0 to 1, or -1 when there is none. For the renderer. */
+    public double specialWindup(int tick) {
+        if (specialStartTick < 0) {
+            return -1;
+        }
+        return Math.min(1, (tick - specialStartTick) / (double) GameConfig.SPECIAL_WINDUP_TICKS);
+    }
+
+    /** The breath is out: the shot is away, and anything that plays out over time runs this long. */
+    public void releaseSpecial(int activeTicks) {
+        specialStartTick = -1;
+        specialActiveTicks = activeTicks;
+    }
+
+    public int specialActiveTicks() {
+        return specialActiveTicks;
+    }
+
+    public void tickSpecial() {
+        if (specialActiveTicks > 0) {
+            specialActiveTicks--;
+        }
+    }
+
+    /** Stock's special is the laser at four times the width and five times the burn. */
+    public boolean novaCannon() {
+        return specialActiveTicks > 0 && loadout.chassis() == Chassis.STOCK;
     }
 
     public void setFiringBeam(boolean firingBeam) {
@@ -214,6 +279,8 @@ public final class PlayerShip extends Entity {
         activeEffects.clear();
         firingBeam = false;
         beamReach = UNSTOPPED;
+        specialStartTick = -1;
+        specialActiveTicks = 0;
     }
 
     /**
@@ -315,19 +382,20 @@ public final class PlayerShip extends Entity {
      * and at {@link #UNSTOPPED} the arithmetic below collapses to exactly the old wall-to-wall box.
      */
     public double[] beamBox() {
-        double half = GameConfig.BEAM_WIDTH / 2;
+        double width = GameConfig.BEAM_WIDTH * (novaCannon() ? GameConfig.NOVA_CANNON_WIDTH : 1);
+        double half = width / 2;
         double nose = facing.xDirection() != 0
                 ? centerX() + facing.xDirection() * width() / 2
                 : centerY() + facing.yDirection() * height() / 2;
         return switch (facing) {
             case UP -> new double[] {centerX() - half, Math.max(0, nose - beamReach),
-                    GameConfig.BEAM_WIDTH, Math.min(beamReach, Math.max(0, nose))};
-            case DOWN -> new double[] {centerX() - half, nose, GameConfig.BEAM_WIDTH,
+                    width, Math.min(beamReach, Math.max(0, nose))};
+            case DOWN -> new double[] {centerX() - half, nose, width,
                     Math.min(beamReach, Math.max(0, GameConfig.HEIGHT - nose))};
             case LEFT -> new double[] {Math.max(0, nose - beamReach), centerY() - half,
-                    Math.min(beamReach, Math.max(0, nose)), GameConfig.BEAM_WIDTH};
+                    Math.min(beamReach, Math.max(0, nose)), width};
             case RIGHT -> new double[] {nose, centerY() - half,
-                    Math.min(beamReach, Math.max(0, GameConfig.WIDTH - nose)), GameConfig.BEAM_WIDTH};
+                    Math.min(beamReach, Math.max(0, GameConfig.WIDTH - nose)), width};
         };
     }
 
