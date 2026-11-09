@@ -39,19 +39,19 @@ public enum Boss {
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.AIMED_BURST),
 
     /** Level 5. Sweeps, then curtains, then picks you out: no safe column at any health. */
-    FOUNDRY_WARDEN("Foundry Warden", BossArt.FOUNDRY_WARDEN, 1620, 980,
+    FOUNDRY_WARDEN("Foundry Warden", BossArt.FOUNDRY_WARDEN_CG, 1620, 980,
             BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.AIMED_BURST),
 
     /** Level 6. Never fires straight: an arc, then a sweep, then a curtain. */
-    VOID_WEAVER("Void Weaver", BossArt.VOID_WEAVER, 1800, 1100,
+    VOID_WEAVER("Void Weaver", BossArt.VOID_WEAVER_CG, 1800, 1100,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
     /** Level 7. Opens at its most dangerous and calls in help on the way down. */
-    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT, 2025, 1250,
+    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT_CG, 2025, 1250,
             BossPhase.RING, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 8. The last thing between the run and its next loop, and armed like it. */
-    EXODUS_DREADNOUGHT("Exodus Dreadnought", BossArt.EXODUS_DREADNOUGHT, 2250, 1500,
+    EXODUS_DREADNOUGHT("Exodus Dreadnought", BossArt.EXODUS_DREADNOUGHT_CG, 2250, 1500,
             BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.RING),
 
     /**
@@ -59,7 +59,7 @@ public enum Boss {
      *
      * The first boss in the run that is alive rather than built, and the first fought side-on.
      */
-    DUNE_LEVIATHAN("Dune Leviathan", BossArt.DUNE_LEVIATHAN, 2550, 1600,
+    DUNE_LEVIATHAN("Dune Leviathan", BossArt.DUNE_LEVIATHAN_CG, 2550, 1600,
             BossPhase.SPREAD, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
     /**
@@ -69,9 +69,9 @@ public enum Boss {
      * opens on SPAWNER deliberately -- the torso vents crawlers while the heads do the shooting,
      * so there is never a fourth gun in the mix.
      */
-    HYDRA("Hydra", BossArt.HYDRA, 3000, 1900,
+    HYDRA("Hydra", BossArt.HYDRA_CG, 3000, 1900,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.AIMED_BURST,
-            3, BossArt.HYDRA_HEAD),
+            3, BossArt.HYDRA_HEAD_CG),
 
     // ---- Galaxy 2: Ashfall ---------------------------------------------------------------
     // Health and score keep rising with the enum order, which BossTest holds them to, so the
@@ -81,31 +81,31 @@ public enum Boss {
     //
     // Phase orders are picked so no two flagships in the galaxy open the same way.
 
-    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN_SX, 3090, 1950,
+    CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN_CG, 3090, 1950,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
-    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT, 3180, 2000,
+    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT_CG, 3180, 2000,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
 
-    SLAG_BARON("Slag Baron", BossArt.SLAG_BARON, 3270, 2050,
+    SLAG_BARON("Slag Baron", BossArt.SLAG_BARON_CG, 3270, 2050,
             BossPhase.SWEEPING_FAN, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
-    VENT_CRAWLER("Vent Crawler", BossArt.VENT_CRAWLER, 3360, 2100,
+    VENT_CRAWLER("Vent Crawler", BossArt.VENT_CRAWLER_CG, 3360, 2100,
             BossPhase.SPIRAL, BossPhase.RING, BossPhase.SPREAD),
 
-    FORGE_OVERSEER("Forge Overseer", BossArt.FORGE_OVERSEER, 3450, 2150,
+    FORGE_OVERSEER("Forge Overseer", BossArt.FORGE_OVERSEER_CG, 3450, 2150,
             BossPhase.SPAWNER, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN, 3540, 2200,
+    PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN_CG, 3540, 2200,
             BossPhase.RING, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE, 3630, 2250,
+    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE_CG, 3630, 2250,
             BossPhase.AIMED_BURST, BossPhase.SWEEPING_FAN, BossPhase.SPIRAL),
 
-    CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD, 3720, 2300,
+    CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD_CG, 3720, 2300,
             BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.SPAWNER),
 
-    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN, 3810, 2350,
+    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN_CG, 3810, 2350,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.SPIRAL),
 
     /**
@@ -118,9 +118,9 @@ public enum Boss {
      *
      * A jump rather than a step at the health ladder, because a galaxy should end on one.
      */
-    VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG, 4200, 2550,
+    VAUNT("Vaunt, in the Forge-Rig", BossArt.FORGE_RIG_CG, 4200, 2550,
             BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST, BossPhase.RING,
-            2, BossArt.FORGE_RIG_COCKPIT),
+            2, BossArt.FORGE_RIG_COCKPIT_CG),
 
     // ---- Galaxy 3: Cryonis ---------------------------------------------------------------
     // The ladder continues rather than restarting: ninety a step inside the galaxy again, opening
@@ -129,31 +129,31 @@ public enum Boss {
     // Phase orders are picked so no two flagships in the galaxy open the same way, as Ashfall's
     // are -- and so the two side-on legs, 21 and 29, do not share an opener either.
 
-    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER_SX, 4290, 2600,
+    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER_CG, 4290, 2600,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER, 4380, 2650,
+    FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER_CG, 4380, 2650,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER, 4470, 2700,
+    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER_CG, 4470, 2700,
             BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.SPAWNER),
 
-    ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH, 4560, 2750,
+    ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH_CG, 4560, 2750,
             BossPhase.RING, BossPhase.AIMED_BURST, BossPhase.SPIRAL),
 
-    CRYO_MARSHAL("Cryo Marshal", BossArt.CRYO_MARSHAL, 4650, 2800,
+    CRYO_MARSHAL("Cryo Marshal", BossArt.CRYO_MARSHAL_CG, 4650, 2800,
             BossPhase.AIMED_BURST, BossPhase.SPAWNER, BossPhase.SWEEPING_FAN),
 
-    TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR, 4740, 2850,
+    TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR_CG, 4740, 2850,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
 
-    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW, 4830, 2900,
+    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW_CG, 4830, 2900,
             BossPhase.SPREAD, BossPhase.RING, BossPhase.SPAWNER),
 
-    HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION, 4920, 2950,
+    HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION_CG, 4920, 2950,
             BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW, 5010, 3000,
+    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW_CG, 5010, 3000,
             BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.RING),
 
     /**
@@ -167,9 +167,9 @@ public enum Boss {
      *
      * A jump rather than a step, because a galaxy should end on one.
      */
-    FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS, 5550, 3200,
+    FROZEN_EMPRESS("The Frozen Empress", BossArt.FROZEN_EMPRESS_CG, 5550, 3200,
             BossPhase.SPAWNER, BossPhase.SPREAD, BossPhase.RING,
-            4, BossArt.FROZEN_EMPRESS_HEAD),
+            4, BossArt.FROZEN_EMPRESS_HEAD_CG),
 
     // ---- Galaxy 4: Tempest ---------------------------------------------------------------
     // Ninety a step and fifty of score again, opening above the Frozen Empress, jump at the finale.
@@ -356,7 +356,7 @@ public enum Boss {
     public BossArt armArt() {
         return switch (this) {
             case VAUNT_IN_THE_STORM_RIG -> BossArt.STORM_RIG_ARM;
-            case VAUNT -> BossArt.FORGE_RIG_ARM;
+            case VAUNT -> BossArt.FORGE_RIG_ARM_CG;
             default -> null;
         };
     }
