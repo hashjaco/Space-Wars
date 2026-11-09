@@ -870,7 +870,7 @@ public final class GenerateAssets {
             // Level 1 keeps the original palette exactly, so the opening minutes stay tuned.
             new Faction("level-1", HULL_MID, HOSTILE, HOSTILE_GLOW, HullStyle.MECHANICAL),
             new Faction("level-2", new Color(0x2f5a33), new Color(0x7fae2a), new Color(0xffd24a),
-                    HullStyle.ORGANIC),
+                    HullStyle.ORGANIC, true),
             new Faction("level-3", new Color(0x2a4a44), new Color(0x4fae7a), new Color(0xc07aff),
                     HullStyle.ORGANIC),
             new Faction("level-4", new Color(0x4a3a2c), new Color(0xb0692a), new Color(0xffcb5a),
@@ -880,7 +880,7 @@ public final class GenerateAssets {
             new Faction("level-6", new Color(0x33294a), new Color(0x7a3fc9), new Color(0xd9a6ff),
                     HullStyle.MECHANICAL),
             new Faction("level-7", new Color(0x4a2c22), new Color(0xd6321a), new Color(0xffb04a),
-                    HullStyle.MECHANICAL),
+                    HullStyle.MECHANICAL, true),
             new Faction("level-8", new Color(0x34383f), new Color(0x8d94a0), new Color(0x9fd0ff),
                     HullStyle.MECHANICAL),
             // Level 9 runs sideways, so its hulls are cut pointing left. Organic, to sit with the
@@ -893,7 +893,7 @@ public final class GenerateAssets {
             // Mechanical almost throughout: this is a worked, industrial galaxy. Levels 13 and 19
             // are the exceptions, where whatever lives in the ash has started fighting back.
             new Faction("level-11", ASH_HULL, ASH_ACCENT, ASH_GLOW, HullStyle.MECHANICAL),
-            new Faction("level-12", new Color(0x3f2214), ASH_ACCENT, ASH_GLOW, HullStyle.MECHANICAL),
+            new Faction("level-12", new Color(0x3f2214), ASH_ACCENT, ASH_GLOW, HullStyle.MECHANICAL, true),
             new Faction("level-13", new Color(0x45301a), new Color(0xd87a24), ASH_GLOW,
                     HullStyle.ORGANIC),
             new Faction("level-14", new Color(0x33170d), new Color(0xf0731a), ASH_GLOW,
@@ -909,7 +909,7 @@ public final class GenerateAssets {
             new Faction("level-18", new Color(0x452414), new Color(0xff9420),
                     new Color(0xfff0c0), HullStyle.MECHANICAL),
             new Faction("level-19", new Color(0x3c2418), new Color(0xc85a1e), ASH_GLOW,
-                    HullStyle.ORGANIC),
+                    HullStyle.ORGANIC, true),
             new Faction("level-20", new Color(0x2a1108), new Color(0xff5a10), ASH_GLOW,
                     HullStyle.MECHANICAL),
             // ---- Galaxy 3: Cryonis (levels 21-30) ----------------------------------------
@@ -920,7 +920,7 @@ public final class GenerateAssets {
             new Faction("level-22", new Color(0x223a52), new Color(0x63d8ec), CRYO_GLOW,
                     HullStyle.MECHANICAL),
             new Faction("level-23", new Color(0x2a4258), new Color(0x7ae0f0), CRYO_GLOW,
-                    HullStyle.MECHANICAL),
+                    HullStyle.MECHANICAL, true),
             new Faction("level-24", new Color(0x14324a), new Color(0x3fc0dc), new Color(0xc8eeff),
                     HullStyle.ORGANIC),
             new Faction("level-25", new Color(0x1d2c3e), new Color(0x4fd0e8), CRYO_GLOW,
@@ -928,7 +928,7 @@ public final class GenerateAssets {
             new Faction("level-26", new Color(0x101d2c), new Color(0x2fa8c8), new Color(0xb0e4ff),
                     HullStyle.ORGANIC),
             new Faction("level-27", new Color(0x24485a), new Color(0x8ae8f4), CRYO_GLOW,
-                    HullStyle.ORGANIC),
+                    HullStyle.ORGANIC, true),
             new Faction("level-28", new Color(0x1f3648), new Color(0x5cd4ea), CRYO_GLOW,
                     HullStyle.MECHANICAL),
             // Shatter Drift: the galaxy's second side-on leg, and the only galaxy to have two.
@@ -946,13 +946,13 @@ public final class GenerateAssets {
             new Faction("level-33", new Color(0x2c3a5c), new Color(0x92b8ff), STORM_GLOW,
                     HullStyle.MECHANICAL),
             new Faction("level-34", new Color(0x2a3450), new Color(0x8ab0ff), STORM_GLOW,
-                    HullStyle.MECHANICAL),
+                    HullStyle.MECHANICAL, true),
             new Faction("level-35", new Color(0x202a44), new Color(0x6890e8), new Color(0xb8d0ff),
                     HullStyle.ORGANIC),
             new Faction("level-36", new Color(0x141c30), new Color(0x5f86e0), new Color(0xaac8ff),
                     HullStyle.ORGANIC),
             new Faction("level-37", new Color(0x1c2640), new Color(0x7aa4fb), STORM_GLOW,
-                    HullStyle.MECHANICAL),
+                    HullStyle.MECHANICAL, true),
             new Faction("level-38", new Color(0x2e3a58), new Color(0x9cc0ff), STORM_GLOW,
                     HullStyle.MECHANICAL),
             // Lightning Reach: the galaxy's one side-on leg, so its hulls are cut pointing left.
@@ -967,7 +967,7 @@ public final class GenerateAssets {
             // Shell, which is the one level with rock instead of sky around it.
             //
             // Organic on 42, 43 and 46, the three levels with something living in them.
-            new Faction("level-41", VOID_HULL, VOID_ACCENT, VOID_GLOW, HullStyle.MECHANICAL),
+            new Faction("level-41", VOID_HULL, VOID_ACCENT, VOID_GLOW, HullStyle.MECHANICAL, true),
             new Faction("level-42", new Color(0x241c3c), new Color(0x8a5ef0),
                     new Color(0xc4a8ff), HullStyle.ORGANIC),
             new Faction("level-43", new Color(0x1a1530), new Color(0x7d52e0),
@@ -984,7 +984,7 @@ public final class GenerateAssets {
             // Photon Ring: the brightest thing in the galaxy is the backdrop, so its navy is the
             // one that has to compete with it.
             new Faction("level-48", new Color(0x2e2652), new Color(0xc0a0ff),
-                    new Color(0xdcccff), HullStyle.MECHANICAL),
+                    new Color(0xdcccff), HullStyle.MECHANICAL, true),
             new Faction("level-49", new Color(0x100c1e), new Color(0x8257e8),
                     new Color(0xab86ff), HullStyle.MECHANICAL),
             new Faction("level-50", new Color(0x0d0a18), VOID_ACCENT,
@@ -1682,7 +1682,7 @@ public final class GenerateAssets {
                     STORM_KEEL, STORM_VANE_SLAT,
                     new double[][]{{0.32, 0.64, 0.048}, {0.21, 0.46, 0.036},
                             {0.25, 0.82, 0.030}},
-                    false, new Color(0x243050)),
+                    true, new Color(0x243050)),
 
             // The Mast again, flown square rather than tall: a fat spire, and nothing like either
             // the Warden's delta or the Reaver's plank.
@@ -1691,7 +1691,7 @@ public final class GenerateAssets {
                     STORM_MAST, STORM_VANE,
                     new double[][]{{0.33, 0.60, 0.048}, {0.22, 0.42, 0.036},
                             {0.26, 0.78, 0.032}},
-                    false, new Color(0x1f2942)),
+                    true, new Color(0x1f2942)),
 
             // Arc Lance guards the galaxy's side-on leg, and is turned once here rather than
             // rotated per frame, so its collision box keeps the shape of the picture. Drawn
@@ -1761,7 +1761,7 @@ public final class GenerateAssets {
                     VOID_FORK, VOID_LOBE,
                     new double[][]{{0.33, 0.64, 0.048}, {0.22, 0.46, 0.036},
                             {0.26, 0.82, 0.030}, {0.15, 0.72, 0.026}},
-                    false, new Color(0x413466)),
+                    true, new Color(0x413466)),
 
             // The Gullet: set in the throat, and the tall one that is not turned. The Shard on
             // ribs -- the darkest plate here, on the darkest level.

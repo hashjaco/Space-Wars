@@ -6,6 +6,11 @@ import javafx.stage.Stage;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.Sprite;
+import com.hashimjacobs.spacecase.engine.GameLoop;
+import com.hashimjacobs.spacecase.engine.SpawnDirector;
+import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Settings;
@@ -31,7 +36,18 @@ public final class Main extends Application {
         stage.setFullScreenExitHint("Press F11 to leave fullscreen");
 
         SceneRouter router = new SceneRouter(stage, settings, sounds, highScores, pilots);
-        router.showStartMenu();
+        // --level=N[,boss]: solo straight into level N, optionally with its flagship already coming.
+        // --garage: solo, opening in the garage. Both for looking at art without playing up to it.
+        String level = getParameters().getRaw().stream().filter(a -> a.startsWith("--level=")).findFirst().orElse(null);
+        boolean garage = getParameters().getRaw().contains("--garage");
+        if (level != null || garage) {
+            String[] spec = level == null ? new String[] {"1"} : level.substring("--level=".length()).split(",");
+            SpawnDirector.devBossNow = spec.length > 1 && spec[1].equals("boss");
+            GameLoop.devGarage = garage;
+            router.startGame(GameMode.SOLO, SaveSlot.forReplay(GameMode.SOLO, Level.values()[Integer.parseInt(spec[0]) - 1]));
+        } else {
+            router.showStartMenu();
+        }
 
         stage.setOnHidden(event -> {
             settings.save();

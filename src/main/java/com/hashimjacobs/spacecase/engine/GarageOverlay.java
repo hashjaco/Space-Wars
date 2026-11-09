@@ -17,11 +17,12 @@ import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.garage.GarageSession;
-import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 
 /**
- * The between-levels garage: a bay per pilot, each with their ship turning on a stand.
+ * The between-levels garage: a hangar deck, and a bay per pilot with their ship turning on a lift
+ * pad above the counter. Whatever the cursor is browsing -- a frame, a paint job, a kit -- is what
+ * turns on the pad, bought or not ({@link GarageSession#look}), so it can be seen before it is paid for.
  *
  * Canvas-drawn beside {@link Hud} and {@link DebriefOverlay} rather than built as JavaFX nodes, for
  * the same reason they are -- the router never swaps screens, so the world underneath stays alive
@@ -37,7 +38,11 @@ final class GarageOverlay {
     private static final Color PANEL_EDGE = Tokens.EDGE_STRONG;
 
     private static final double PANEL_WIDTH = 396;
-    private static final double PANEL_TOP = 96;
+    /** The counter starts under the lift pads; the ships turn above it, over the hangar deck. */
+    private static final double PANEL_TOP = 318;
+    /** Where each ship turns, and how big: the turntable frames are a three-quarter view. */
+    private static final double PAD_Y = 196;
+    private static final double SHOWCASE_SIZE = 210;
 
     /**
      * Sized to the rows it shows, plus the ship above them.
@@ -48,13 +53,13 @@ final class GarageOverlay {
      * focused row's readout, and the two lines at the foot -- because a panel with a hand's width of
      * nothing at the bottom reads as unfinished rather than as spacious.
      */
-    private static final double PANEL_HEIGHT = 652;
+    private static final double PANEL_HEIGHT = 508;
     private static final double PANEL_GAP = 24;
     /** Icon width plus the breath between it and the label. */
     private static final double ICON_GAP = 32;
 
     private static final double ROW_PITCH = Tokens.ROW_GARAGE;
-    private static final double ROWS_TOP_OFFSET = 170;
+    private static final double ROWS_TOP_OFFSET = 56;
 
     /** Where the focused row's before-and-after readout sits, and what it adds to that row. */
     private static final double DETAIL_OFFSET = 17;
@@ -65,11 +70,8 @@ final class GarageOverlay {
     private static final double SEGMENT_HEIGHT = 8;
     private static final double SEGMENT_GAP = 3;
 
-    /** The turntable: degrees per tick, about six seconds for a full revolution. */
+    /** The drawn fallback hulls still spin flat: degrees per tick, about six seconds a turn. */
     private static final double SPIN_DEGREES_PER_TICK = 1.0;
-
-    /** How much bigger than its in-flight size the ship is shown on the stand. */
-    private static final double SHOWCASE_SCALE = 1.5;
 
     private final GraphicsContext gc;
     private final Font titleFont = Font.font(Tokens.BODY, FontWeight.BOLD, 30);
@@ -89,7 +91,9 @@ final class GarageOverlay {
      *             would spin the ship twice as fast on a 120 Hz monitor
      */
     void draw(GarageSession session, int tick) {
-        gc.setFill(Tokens.veil(0.82));
+        // The hangar over the frozen level, lightly veiled so the counters and text sit forward of it.
+        gc.drawImage(Assets.image(Sprite.GARAGE_BAY), 0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.setFill(Tokens.veil(0.35));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
 
         gc.setTextBaseline(VPos.TOP);
@@ -99,7 +103,7 @@ final class GarageOverlay {
         gc.fillText("GARAGE", GameConfig.WIDTH / 2, 58);
         gc.setFont(rowFont);
         gc.setFill(MUTED);
-        gc.fillText("Up/down choose    left/right browse frame, paint and kits    fire to buy",
+        gc.fillText("Up/down choose    left/right try on a frame, paint or kit    fire to buy",
                 GameConfig.WIDTH / 2, GameConfig.HEIGHT - 26);
 
         int bays = session.bayCount();
@@ -112,8 +116,13 @@ final class GarageOverlay {
     }
 
     private void drawBay(GarageSession session, int bay, double x, int tick) {
+        drawShowcase(session.look(bay), x + PANEL_WIDTH / 2, PAD_Y, tick);
+
+        gc.save();
+        gc.setGlobalAlpha(0.92);
         gc.setFill(PANEL);
         gc.fillRoundRect(x, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, 12, 12);
+        gc.restore();
         gc.setStroke(PANEL_EDGE);
         gc.setLineWidth(1.5);
         gc.strokeRoundRect(x, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, 12, 12);
@@ -131,8 +140,6 @@ final class GarageOverlay {
         gc.setFill(BRAND);
         gc.fillText(session.credits(bay) + " CR", right, y);
 
-        drawShowcase(session.loadout(bay), x + PANEL_WIDTH / 2, PANEL_TOP + 92, tick);
-
         y = PANEL_TOP + ROWS_TOP_OFFSET;
         List<GarageSession.Row> rows = session.rows(bay);
         int cursor = session.cursor(bay);
@@ -141,6 +148,13 @@ final class GarageOverlay {
         int first = session.firstVisibleRow(bay);
         int visible = session.visibleRows(bay);
         for (int i = first; i < Math.min(rows.size(), first + visible); i++) {
+            if ((i == GarageSession.firstUpgradeRow() || i == GarageSession.launchRow()) && i > first) {
+                // The looks, the upgrades and the way out are three different kinds of row.
+                gc.setStroke(PANEL_EDGE);
+                gc.setLineWidth(1);
+                y += 12;
+                gc.strokeLine(left - 6, y - 24, right + 6, y - 24);
+            }
             y = drawRow(left, right, y, rows.get(i), i == cursor, i == GarageSession.launchRow());
         }
         if (session.scrolls(bay)) {
@@ -166,43 +180,54 @@ final class GarageOverlay {
     }
 
     /**
-     * The ship on its stand, turning.
-     *
-     * A flat rotation about the sprite's centre. The hull art is a top-down view, so spinning it
-     * this way genuinely shows every side of what there is to see -- the alternative, faking a
-     * turntable by squashing horizontally, has only five bank poses to work with and reads as a
-     * glitch rather than as a rotation.
-     * ponytail: swap in squash plus the bank frames if this ever needs to look three-dimensional.
+     * The ship on its lift pad, turning: a full revolution of the three-quarter turntable render,
+     * in the browsed paint, with the browsed kit bolted on. Not yet bought, it says so.
      */
-    private void drawShowcase(Loadout loadout, double centreX, double centreY, int tick) {
-        double w = Sprite.P1_STRAIGHT.width() * SHOWCASE_SCALE;
-        double h = Sprite.P1_STRAIGHT.height() * SHOWCASE_SCALE;
-
-        // A pool of light under the stand, so the ship is not floating in a black rectangle.
+    private void drawShowcase(GarageSession.Look look, double centreX, double centreY, int tick) {
+        double size = SHOWCASE_SIZE;
+        // The pad: a lit ring on the deck, and a cone of light from the gantry above it.
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setGlobalAlpha(0.22);
+        gc.setGlobalAlpha(0.10);
+        gc.setFill(Color.web("#ffd9a0"));
+        gc.fillPolygon(new double[] {centreX - 26, centreX + 26, centreX + size * 0.62, centreX - size * 0.62},
+                new double[] {centreY - size * 0.95, centreY - size * 0.95, centreY + size * 0.22, centreY + size * 0.22}, 4);
+        gc.setGlobalAlpha(0.30);
         gc.setFill(BRAND);
-        gc.fillOval(centreX - w * 0.62, centreY + h * 0.26, w * 1.24, h * 0.30);
+        gc.fillOval(centreX - size * 0.62, centreY + size * 0.12, size * 1.24, size * 0.22);
         gc.restore();
+        gc.setStroke(Color.web("#ffb347"));
+        gc.setLineWidth(2);
+        gc.setGlobalAlpha(0.8);
+        gc.strokeOval(centreX - size * 0.55, centreY + size * 0.14, size * 1.1, size * 0.18);
+        gc.setGlobalAlpha(1);
 
-        // Lean.NONE is index 2: the straight-ahead pose, which is the one worth showing off.
-        Sprite hull = loadout.chassisPose(2, false, false);
-        Sprite kit = loadout.kit().overlay(2, false);
-
-        gc.save();
-        gc.translate(centreX, centreY);
-        gc.rotate(tick * SPIN_DEGREES_PER_TICK);
-        ChassisArt art = loadout.chassisArt();
-        Image hullImage = art == null ? Assets.image(hull)
-                : Assets.chassisFrames(art, loadout.livery().hue(), loadout.livery().saturation(), 2, false, false)
-                        .get(art.frameIndexAt(tick));
-        gc.drawImage(hullImage, -w / 2, -h / 2, w, h);
-        if (kit != null && art == null) {
-            // Inside the same transform, so the decal turns with the hull it is bolted to.
-            gc.drawImage(Assets.image(kit), -w / 2, -h / 2, w, h);
+        ChassisArt art = ChassisArt.named(look.chassis().name());
+        if (art != null) {
+            Image frame = Assets.chassisFrames(art, look.kit().slug(), ChassisArt.View.TURN, look.livery().hue(),
+                    look.livery().saturation(), 2, false).get(ChassisArt.View.TURN.frameIndexAt(tick));
+            gc.drawImage(frame, centreX - size / 2, centreY - size / 2, size, size);
+        } else {
+            // The drawn hulls are flat art: they spin flat, decal and all.
+            Sprite hull = look.chassis().pose(look.livery(), 2, false, false);
+            Sprite kit = look.kit().overlay(2, false);
+            double w = hull.width() * 2, h = hull.height() * 2;
+            gc.save();
+            gc.translate(centreX, centreY);
+            gc.rotate(tick * SPIN_DEGREES_PER_TICK);
+            gc.drawImage(Assets.image(hull), -w / 2, -h / 2, w, h);
+            if (kit != null) {
+                gc.drawImage(Assets.image(kit), -w / 2, -h / 2, w, h);
+            }
+            gc.restore();
         }
-        gc.restore();
+
+        if (!look.owned()) {
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setFont(promptFont);
+            gc.setFill(Tokens.DANGER_SOFT);
+            gc.fillText("PREVIEW", centreX, centreY + size * 0.46);
+        }
     }
 
     private double drawRow(double left, double right, double y, GarageSession.Row row,

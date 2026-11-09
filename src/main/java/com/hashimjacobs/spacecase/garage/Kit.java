@@ -2,7 +2,6 @@ package com.hashimjacobs.spacecase.garage;
 
 import java.util.List;
 
-import com.hashimjacobs.spacecase.asset.KitArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
 /**
@@ -13,7 +12,9 @@ import com.hashimjacobs.spacecase.asset.Sprite;
  * paint choice into a balance decision and stops anybody picking the one they like. The upgrades in
  * {@link Upgrade} are where stats are bought.
  *
- * Overlays rather than whole hulls, so one set of five frames serves all six liveries.
+ * On a CG hull a kit is not an overlay but a hull of its own: each chassis was modelled with each
+ * kit bolted on ({@code tools/tripo/models.py}), so fins and plates sit on the airframe they were
+ * built for, in every view. The overlays here are the drawn decals for the generated fallback hulls.
  */
 public enum Kit {
 
@@ -54,9 +55,9 @@ public enum Kit {
         return sideOn ? decal.sideOn() : decal;
     }
 
-    /** The CG part for this kit, or null while it has not landed (stock has none either way). */
-    public KitArt art() {
-        return overlays == null ? null : KitArt.named(name());
+    /** The suffix of this kit's hull directories ({@code hull-cg/<chassis>-<slug>}), or null for stock. */
+    public String slug() {
+        return overlays == null ? null : name().toLowerCase();
     }
 
     public String label() {

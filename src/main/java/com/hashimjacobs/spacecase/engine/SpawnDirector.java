@@ -281,7 +281,7 @@ public final class SpawnDirector {
     }
 
     private void maybeSpawnAsteroid(World world) {
-        if (!rolls(escalated(difficulty.asteroidChance()))) {
+        if (!rolls((int) Math.round(escalated(difficulty.asteroidChance()) * level.asteroidDensity()))) {
             return;
         }
         Orientation facing = level.orientation();
@@ -352,8 +352,11 @@ public final class SpawnDirector {
         return EnemyShip.EnemyKind.SCOUT;
     }
 
+    /** Dev only ({@code --level=N,boss}): the flagship arrives without the waves ahead of it. */
+    public static boolean devBossNow;
+
     private void maybeSpawnBoss(World world) {
-        if (awaitingBossKill || wavesIntoLevel < level.wavesBeforeBoss()) {
+        if (awaitingBossKill || (wavesIntoLevel < level.wavesBeforeBoss() && !devBossNow)) {
             return;
         }
         awaitingBossKill = true;

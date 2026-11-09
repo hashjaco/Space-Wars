@@ -3,12 +3,14 @@ package com.hashimjacobs.spacecase.asset;
 import java.awt.Color;
 
 /**
- * Everything a CG hull is flown in, from the one straight, green loop on disk: the paint, the bank,
- * the hit flash and the side-on turn. The generator bakes these for the drawn hulls
- * ({@code tools/GenerateAssets.java} recolour, bankPose, hitFlash, quarterTurnLeft); a loop would
- * need 960 baked frames a chassis, so here they are derived once on decode instead. Same rules,
- * with one change: only the green paint is rotated, so the gold canopy and blue engines keep their
- * colour on every livery.
+ * Everything a CG hull is flown in, from its green loops on disk: the paint, the bank and the hit
+ * flash. The generator bakes these for the drawn hulls ({@code tools/GenerateAssets.java} recolour,
+ * bankPose, hitFlash); a loop would need hundreds of baked frames a chassis, so here they are
+ * derived once on decode instead. Same rules, with one change: only the green paint is rotated, so
+ * the gold canopy and dark engines keep their colour on every livery.
+ *
+ * Seen from above, a bank is a horizontal squash about the spine. Seen in profile ({@code side}),
+ * the same lean is the nose pitching up or down, so it is a small rotation instead.
  *
  * Plain ARGB arrays, no JavaFX, so the rules are testable without a toolkit.
  */
@@ -17,15 +19,21 @@ public final class HullPaint {
     /** The hue the hulls are generated in (militia green), and how far either side of it counts as paint. */
     static final float GREEN = 0.33f, BAND = 0.11f;
     private static final int HOSTILE_GLOW = 0xff6b5a;
+    /** Degrees the profile pitches per step of lean: climbing and diving read without hiding the hull. */
+    static final double PITCH_PER_LEAN = 7;
 
     private HullPaint() {
     }
 
-    /** A hull frame, painted, banked to {@code pose} (0 hard left .. 4 hard right), flashed and turned. */
+    /**
+     * A hull frame, painted, leaned to {@code pose} (0 hard left .. 4 hard right) and flashed.
+     *
+     * @param side the frame is the profile, nose right: the lean pitches it rather than banking it
+     */
     public static int[] derive(int[] argb, int width, int height, float hue, float saturation,
                                int pose, boolean hit, boolean side) {
         int[] out = new int[argb.length];
-        int lean = pose - 2;
+        int lean = side ? 0 : pose - 2;
         double squash = 1 - 0.18 * Math.abs(lean);
         int cx = width / 2;
         float[] hsb = new float[3];
@@ -60,15 +68,28 @@ public final class HullPaint {
                 out[y * width + x] = (alpha << 24) | (r << 16) | (g << 8) | b;
             }
         }
-        return side ? quarterTurn(out, width, height) : out;
+        return side && pose != 2 ? pitch(out, width, height, (pose - 2) * PITCH_PER_LEAN) : out;
     }
 
-    /** Nose-up to nose-right, the generator's quarterTurnLeft: the result is height wide, width tall. */
-    static int[] quarterTurn(int[] argb, int width, int height) {
+    /**
+     * Turns a profile frame about its centre, nearest-neighbour, on the same canvas.
+     *
+     * Positive is clockwise on screen, which for a nose-right hull dips the nose. Lean left is
+     * toward the top of a side-on arena (the across axis runs up the screen), so it climbs.
+     */
+    static int[] pitch(int[] argb, int width, int height, double degrees) {
         int[] out = new int[argb.length];
+        double r = Math.toRadians(degrees), cos = Math.cos(r), sin = Math.sin(r);
+        double cx = width / 2.0, cy = height / 2.0;
         for (int y = 0; y < height; y++) {
             for (int x = 0; x < width; x++) {
-                out[x * height + (height - 1 - y)] = argb[y * width + x];
+                // Inverse map: where in the source does this destination pixel come from.
+                double dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+                int sx = (int) Math.floor(cx + dx * cos + dy * sin);
+                int sy = (int) Math.floor(cy - dx * sin + dy * cos);
+                if (sx >= 0 && sx < width && sy >= 0 && sy < height) {
+                    out[y * width + x] = argb[sy * width + sx];
+                }
             }
         }
         return out;

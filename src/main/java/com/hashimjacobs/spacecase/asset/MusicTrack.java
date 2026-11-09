@@ -20,7 +20,7 @@ public enum MusicTrack {
     GARAGE_MUSIC("garage-music.mp3"),
     DEATH_METAL("death-metal.mp3"),
     DEATH_PUNK("death-punk.mp3");
-    // One per galaxy and one for the last flagship, generated with Sprixen (see ASSETS.md).
+    // The two heavy tracks play for every flagship (MusicCue.BOSS); see ASSETS.md for origins.
 
 
     private final String fileName;

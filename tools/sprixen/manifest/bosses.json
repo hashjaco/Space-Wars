@@ -16,7 +16,7 @@
   },
   {
    "boss": "HIVE_MATRIARCH",
-   "slug": "hive-matriarch",
+   "slug": "hive-matriarch", "side": true,
    "galaxy": "VERDANCE",
    "prompt": "the Hive Matriarch, a brood-mother: a bloated abdomen of translucent egg sacs with larvae visible inside, a crowned head with many eyes at the prow, ovipositor tubes along the flanks"
   },
@@ -46,7 +46,7 @@
   },
   {
    "boss": "CORE_TYRANT",
-   "slug": "core-tyrant",
+   "slug": "core-tyrant", "side": true,
    "galaxy": "VERDANCE",
    "prompt": "the Core Tyrant, a hornet-queen flagship: a striped armoured thorax, a huge stinger at the prow, wing cases spread, a pulsing yellow venom core, many eyes"
   },
@@ -80,7 +80,7 @@
   },
   {
    "boss": "ASH_REVENANT",
-   "slug": "ash-revenant",
+   "slug": "ash-revenant", "side": true,
    "galaxy": "ASHFALL",
    "prompt": "the Ash Revenant, a burnt-out hulk that will not die: a skeletal frame of black iron with embers for eyes, flesh regrowing over it in red strands, ash pouring from its vents"
   },
@@ -123,7 +123,7 @@
   },
   {
    "boss": "EMBER_TITAN",
-   "slug": "ember-titan",
+   "slug": "ember-titan", "side": true,
    "galaxy": "ASHFALL",
    "prompt": "the Ember Titan, a colossal armoured flagship: layered black plates like a volcano's slope, a caldera at the core glowing orange, lava rivers down its wings, bone spurs"
   },
@@ -152,7 +152,7 @@
   },
   {
    "boss": "GLACIER_BREAKER",
-   "slug": "glacier-breaker",
+   "slug": "glacier-breaker", "side": true,
    "galaxy": "CRYONIS",
    "prompt": "the Glacier Breaker, a wide heavy icebreaker flagship: a ram prow of blue ice, frozen corpses packed into the hull like cargo, cracked frozen eyes along the wings"
   },
@@ -176,7 +176,7 @@
   },
   {
    "boss": "GEYSER_MAW",
-   "slug": "geyser-maw",
+   "slug": "geyser-maw", "side": true,
    "galaxy": "CRYONIS",
    "prompt": "the Geyser Maw, a tall flagship like a frozen throat: a vertical gaping mouth of ice fangs venting steam, blue frozen flesh around it, frost-cracked bone struts"
   },
@@ -269,7 +269,7 @@
   },
   {
    "boss": "BONEPICKER",
-   "slug": "bonepicker",
+   "slug": "bonepicker", "side": true,
    "galaxy": "NULL",
    "prompt": "the Bonepicker, a scavenger flagship: a carcass of ribs fused with void-black flesh, clusters of lidless eyes between the ribs, feelers hanging from the prow, violet light inside"
   },

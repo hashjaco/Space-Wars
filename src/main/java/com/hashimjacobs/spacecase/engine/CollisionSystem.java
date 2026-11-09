@@ -4,11 +4,13 @@ import java.util.Random;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Explosion;
+import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.mode.WorldTemplate;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.entity.Asteroid;
+import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
@@ -89,21 +91,22 @@ public final class CollisionSystem {
      */
     private void resolveTerrain(World world) {
         Terrain terrain = world.terrain();
-        if (terrain.isEmpty()) {
-            return;
-        }
         WorldTemplate template = terrain.template();
         for (PlayerShip player : world.players()) {
             if (!player.isAlive()) {
+                continue;
+            }
+            // Ahead of the rock, so a level can be hot without being a cave.
+            if (template.ambientDamage() > 0 && world.tick() % 60 == 0) {
+                player.takeDamage(template.ambientDamage());
+            }
+            if (terrain.isEmpty()) {
                 continue;
             }
             boolean scraped = terrain.pushInside(player);
             if (scraped && !player.justHit() && template.contactDamage() > 0) {
                 player.takeDamage(template.contactDamage());
                 sounds.play(SoundFx.COLLISION);
-            }
-            if (template.ambientDamage() > 0 && world.tick() % 60 == 0) {
-                player.takeDamage(template.ambientDamage());
             }
         }
     }
@@ -297,7 +300,10 @@ public final class CollisionSystem {
             shooter.recordHit();
             BossPhase before = enemy.isBoss() ? enemy.phase() : null;
             enemy.takeDamage(bullet.damage());
-            world.addEffect(Explosion.HIT_SPARK, bullet.centerX(), bullet.centerY(), 28);
+            // ponytail: the hydra is the one boss that bleeds. Boss.bleeds() when a second creature wants it.
+            boolean bleeds = enemy.isBoss() && enemy.boss() == Boss.HYDRA;
+            world.addEffect(bleeds ? Explosion.BLOOD_SPLAT : Explosion.HIT_SPARK,
+                    bullet.centerX(), bullet.centerY(), bleeds ? 44 : 28);
             world.emit(Particle.Kind.SPARK, bullet.centerX(), bullet.centerY(), 2, 3);
             if (!enemy.isAlive()) {
                 awardKill(world, shooter, enemy);
@@ -500,6 +506,9 @@ public final class CollisionSystem {
                 continue;
             }
             bullet.kill();
+            if (bullet.sprite() == Sprite.ROUND_ACID) {
+                world.addEffect(Explosion.ACID_SPLASH, bullet.centerX(), bullet.centerY(), 56);
+            }
             boolean lostALife = player.takeDamage(bullet.damage());
             sounds.play(SoundFx.COLLISION);
             if (lostALife) {
@@ -528,6 +537,9 @@ public final class CollisionSystem {
                 continue;
             }
             bullet.kill();
+            if (bullet.sprite() == Sprite.ROUND_ACID) {
+                world.addEffect(Explosion.ACID_SPLASH, bullet.centerX(), bullet.centerY(), 56);
+            }
             boolean lostALife = player.takeDamage(bullet.damage());
             sounds.play(SoundFx.COLLISION);
             if (lostALife) {

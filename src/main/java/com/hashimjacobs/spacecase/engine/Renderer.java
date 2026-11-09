@@ -26,12 +26,13 @@ import javafx.scene.text.TextAlignment;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.BossArt;
-import com.hashimjacobs.spacecase.asset.KitArt;
 import com.hashimjacobs.spacecase.asset.EnemyArt;
+import com.hashimjacobs.spacecase.asset.Explosion;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Round;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
+import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BossHead;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.BurrowingWorm;
@@ -93,13 +94,15 @@ public final class Renderer {
     /** Hydra necks: a dark edge under a hide-coloured core, matching the generated torso. */
     private static final Color NECK_OUTLINE = Color.web("#131c10");
     private static final Color NECK_HIDE = Color.web("#24361f");
+    private static final Color NECK_SINEW = Color.web("#7a1c16");
 
     private static final Font PILOT_NAME_FONT = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION);
 
     /** One frame at 60Hz. Above this the readout goes red. */
     private static final double FRAME_BUDGET_MS = 1000.0 / 60;
 
-    private static Paint halo(Color core) {
+    /** A soft radial glow of one colour; public so the on-foot stage lights the same way. */
+    public static Paint halo(Color core) {
         RadialGradient gradient = new RadialGradient(
                 0, 0, 0.5, 0.5, 0.5, true, CycleMethod.NO_CYCLE,
                 new Stop(0, core.deriveColor(0, 1, 1, 0.5)),
@@ -139,7 +142,6 @@ public final class Renderer {
     private static final Glow GLOW = new Glow(0.35);
     /** Brightness all the way down: the image's own silhouette, in black, for a cast shadow. */
     private static final ColorAdjust SILHOUETTE = new ColorAdjust(0, 0, -1, 0);
-    private static final Paint ENGINE_HALO = halo(Color.web("#5bbce0"));
     private static final Color MOOD = Color.rgb(70, 80, 120);
     private final WritableImage grain = grain(128);
 
@@ -244,15 +246,7 @@ public final class Renderer {
             gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
             gc.setGlobalAlpha(1);
         }
-        if (settings.filmGrain()) {
-            int tick = world.tick();
-            gc.save();
-            gc.setGlobalBlendMode(BlendMode.OVERLAY);
-            gc.setGlobalAlpha(0.08);
-            gc.setFill(new ImagePattern(grain, (tick * 37) % 128, (tick * 53) % 128, 128, 128, false));
-            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
-            gc.restore();
-        }
+        drawGrain(world.tick());
         if (settings.cinematic() && director.bossWarning() && world.bossPresent()) {
             drawArrival(world.boss(), director);
         }
@@ -269,6 +263,19 @@ public final class Renderer {
      *
      * Off with reducedFlash, which already governs everything else that dims or pulses the arena.
      */
+    private void drawGrain(int tick) {
+        if (!settings.filmGrain()) {
+            return;
+        }
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.OVERLAY);
+        gc.setGlobalAlpha(0.08);
+        gc.setFill(new ImagePattern(grain, (tick * 37) % 128, (tick * 53) % 128, 128, 128, false));
+        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.restore();
+    }
+
+
     private void drawVignette() {
         if (settings.reducedFlash()) {
             return;
@@ -295,6 +302,16 @@ public final class Renderer {
         gc.setTextBaseline(VPos.BOTTOM);
         gc.setFill(worstMs <= FRAME_BUDGET_MS ? Tokens.BRAND : Tokens.DANGER);
         gc.fillText(String.format("worst %.1f ms  x%d", worstMs, steps), 16, GameConfig.HEIGHT - 12);
+    }
+
+    /** A quiet corner tag while the mute hotkey is on, so silence never reads as a fault. */
+    public void drawMuted() {
+        gc.setFont(PILOT_NAME_FONT);
+        // Bottom centre: the corners belong to the seat panels once four pilots are flying.
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.BOTTOM);
+        gc.setFill(Tokens.TEXT_DIM);
+        gc.fillText("MUTED  (M)", GameConfig.WIDTH / 2.0, GameConfig.HEIGHT - 12);
     }
 
     /** The between-levels report, over a frozen world. */
@@ -443,7 +460,7 @@ public final class Renderer {
     /** The flagship's frame for this tick in the loop its hull fraction calls for. */
     private static Image bossFrame(EnemyShip boss, int tick) {
         BossArt art = boss.bossArt();
-        BossArt.State state = art.stateFor(boss.hullFraction());
+        BossArt.State state = boss.artState();
         return Assets.bossFrames(art, state).get(art.frameIndexAt(state, tick));
     }
 
@@ -486,6 +503,18 @@ public final class Renderer {
             drawWormBody(worm);
         }
         Image frame = bossFrame(boss, tick);
+        // A hydra head faces down its own neck, so a lunge arrives jaws first. The art is drawn
+        // jaws-down; the rotation is about the head's centre, which is where the neck ends.
+        boolean turned = boss instanceof BossHead head && boss.boss() == Boss.HYDRA;
+        if (turned) {
+            BossHead head = (BossHead) boss;
+            double degrees = -Math.toDegrees(Math.atan2(head.centerX() - head.neckRootX(),
+                    head.centerY() - head.neckRootY()));
+            gc.save();
+            gc.translate(head.centerX(), head.centerY());
+            gc.rotate(degrees);
+            gc.translate(-head.centerX(), -head.centerY());
+        }
         // The body breathes on its mounts; parts keep their true anchors so necks and arms meet them.
         boolean body = !boss.isBossPart() && !settings.reducedFlash();
         double x = boss.x() + (body ? 3 * Math.sin(tick * 0.045) : 0);
@@ -498,7 +527,7 @@ public final class Renderer {
         // A slow loop (the rendered ones hold each frame for a fraction of a second) cross-fades
         // into its next frame, so the motion flows instead of stepping.
         BossArt art = boss.bossArt();
-        BossArt.State state = art.stateFor(boss.hullFraction());
+        BossArt.State state = boss.artState();
         if (art.ticksPerFrame() >= 8 && art.frameCount(state) > 1) {
             double blend = (tick % art.ticksPerFrame()) / (double) art.ticksPerFrame();
             List<Image> frames = Assets.bossFrames(art, state);
@@ -509,6 +538,9 @@ public final class Renderer {
             gc.setGlobalAlpha(alpha);
         }
         gc.setEffect(null);
+        if (turned) {
+            gc.restore();
+        }
     }
 
     /** The image's silhouette dropped down-right onto the sky, as if lit from above-left. */
@@ -595,9 +627,11 @@ public final class Renderer {
 
         gc.save();
         gc.setLineCap(StrokeLineCap.ROUND);
-        for (int pass = 0; pass < 2; pass++) {
-            gc.setStroke(pass == 0 ? NECK_OUTLINE : NECK_HIDE);
-            gc.setLineWidth(pass == 0 ? 30 : 22);
+        // The hydra's necks are flayed: a raw red sinew runs down the hide.
+        int passes = head.boss() == Boss.HYDRA ? 3 : 2;
+        for (int pass = 0; pass < passes; pass++) {
+            gc.setStroke(pass == 0 ? NECK_OUTLINE : pass == 1 ? NECK_HIDE : NECK_SINEW);
+            gc.setLineWidth(pass == 0 ? 30 : pass == 1 ? 22 : 7);
             gc.beginPath();
             gc.moveTo(rootX, rootY);
             gc.quadraticCurveTo(controlX, controlY, tipX, tipY);
@@ -753,21 +787,18 @@ public final class Renderer {
         ChassisArt hull = player.loadout().chassisArt();
         int pose = player.lean().ordinal();
         boolean sideOn = player.facing().horizontal();
+        ChassisArt.View view = sideOn ? ChassisArt.View.SIDE : ChassisArt.View.TOP;
         Image frame = hull == null
                 ? Assets.image(shorting ? player.scorchedSprite() : player.sprite())
-                : Assets.chassisFrames(hull, player.loadout().livery().hue(), player.loadout().livery().saturation(),
-                        pose, shorting || player.justHit(), sideOn).get(hull.frameIndexAt(tick));
+                : Assets.chassisFrames(hull, player.loadout().kit().slug(), view, player.loadout().livery().hue(),
+                        player.loadout().livery().saturation(), pose, shorting || player.justHit())
+                        .get(view.frameIndexAt(tick));
+        if (hull != null) {
+            // Behind the hull, so the nozzles sit over the root of the flame.
+            drawFlame(player, hull, sideOn, hullDegrees, tick);
+        }
         if (settings.cinematic()) {
-            // Engine wash under the hull, then the hull's shadow on the sky, then the hull lit.
-            double wash = player.width() * 0.9;
-            double ex = player.centerX() - wash / 2 + (sideOn ? player.width() * 0.35 : 0);
-            double ey = player.y() + player.height() * (sideOn ? 0.1 : 0.62);
-            gc.save();
-            gc.setGlobalBlendMode(BlendMode.SCREEN);
-            gc.setGlobalAlpha(0.5 + 0.15 * Math.sin(tick * 0.6));
-            gc.setFill(ENGINE_HALO);
-            gc.fillOval(ex, ey, wash, wash * 0.7);
-            gc.restore();
+            // The hull's shadow on the sky, then the hull lit.
             gc.save();
             gc.setEffect(SILHOUETTE);
             gc.setGlobalAlpha(gc.getGlobalAlpha() * 0.28);
@@ -778,21 +809,47 @@ public final class Renderer {
         }
         drawImage(frame, player, hullDegrees);
         gc.setEffect(null);
-        // Drawn at the hull's own size and rotation so the part tracks the pose and, in battle
-        // mode, turns with a player two who is facing the other way.
-        KitArt part = player.loadout().kit().art();
+        // A CG hull wears its kit in its own frames; only the drawn fallback hulls take the decal.
         Sprite kit = player.kitOverlay();
-        if (part != null) {
-            drawImage(Assets.kitFrames(part, pose, sideOn).get(part.frameIndexAt(tick)), player, hullDegrees);
-        } else if (kit != null && hull == null) {
-            // ponytail: the drawn kit decals are placed on the old hull's outline and float off a CG
-            // hull, so they wait for KitArt there; the kit's effect on the ship is unchanged.
+        if (kit != null && hull == null) {
             drawSprite(kit, player, hullDegrees);
         }
         if (faded) {
             gc.setGlobalAlpha(1.0);
         }
         drawPilotName(player);
+    }
+
+    /**
+     * The engine flame, a loop of its own anchored at the hull's tail.
+     *
+     * The hull models have no flame, so it can flicker, stretch with the pose and turn with the
+     * ship without being baked into every frame. Drawn in the hull's own frame -- nose up, or nose
+     * right in profile -- and turned with it, so battle mode's far seat gets it too. The art is a
+     * plume pointing down from its top edge; in profile it is turned a quarter to point left.
+     */
+    private void drawFlame(PlayerShip player, ChassisArt hull, boolean sideOn, double hullDegrees, int tick) {
+        List<Image> frames = Assets.explosionFrames(Explosion.ENGINE_FLAME);
+        Image flame = frames.get((tick / Explosion.ENGINE_FLAME.ticksPerFrame()) % frames.size());
+        // Box in the hull's own orientation: nose up for top-down, nose right in profile.
+        double w = player.width(), h = player.height();
+        double size = (sideOn ? h : w) * 0.42;
+        double length = size * (1.5 + 0.12 * Math.sin(tick * 0.7));
+        gc.save();
+        gc.translate(player.centerX(), player.centerY());
+        gc.rotate(hullDegrees);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        if (sideOn) {
+            // Nozzles at the left end, sideTailY down the profile; the plume streams left.
+            double ax = -w / 2 + w * 0.06, ay = (hull.sideTailY() - 0.5) * h;
+            gc.translate(ax, ay);
+            gc.rotate(90);
+            gc.drawImage(flame, -size / 2, 0, size, length);
+        } else {
+            double ax = (hull.tailX() - 0.5) * w, ay = (hull.tailY() - 0.5) * h - size * 0.15;
+            gc.drawImage(flame, ax - size / 2, ay, size, length);
+        }
+        gc.restore();
     }
 
     /**
@@ -838,7 +895,8 @@ public final class Renderer {
         }
         // ponytail: every round of a kind animates in phase; offset by bullet if a spread looks mechanical.
         List<Image> frames = Assets.roundFrames(round);
-        drawImage(frames.get((tick / Round.TICKS_PER_FRAME) % frames.size()), bullet, bullet.headingDegrees());
+        drawImage(frames.get((tick / Round.TICKS_PER_FRAME) % frames.size()), bullet,
+                bullet.headingDegrees() + tick * round.spinDegreesPerTick());
     }
 
     private void drawSprite(Entity entity) {

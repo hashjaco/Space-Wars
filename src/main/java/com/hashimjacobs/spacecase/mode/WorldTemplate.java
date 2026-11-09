@@ -18,7 +18,7 @@ package com.hashimjacobs.spacecase.mode;
 public enum WorldTemplate {
 
     /** Open space. Every level flew like this before templates existed, and most still do. */
-    OPEN_FIELD(1.00, 0, 0, 0, 0, 0, null, null),
+    OPEN_FIELD(1.00, 0, 0, 0, 0, 0, null, null, "Open space"),
 
     /**
      * A tunnel: rock closing in from both sides, and waves still coming at you down the middle.
@@ -30,7 +30,19 @@ public enum WorldTemplate {
      * leaves five ship-widths -- tight enough to have to steer through, never tight enough to be
      * stuck in. Contact hurts about as much as ramming an enemy.
      */
-    CAVE(0.34, 0.60, 9, 14, 0, 0, "#3a2f27", "#7a6250");
+    CAVE(0.34, 0.60, 9, 14, 0, 0, "#3a2f27", "#7a6250", "Rock closes in -- mind the walls"),
+
+    /**
+     * The Forgeworks: the cave, with heat on top. Two a second is about a third of a full hull a
+     * minute, so lingering costs something but a clean run through the waves does not.
+     */
+    FORGE(0.34, 0.60, 9, 14, 2, 0, "#3a2420", "#c2552a", "Furnace heat -- the hull cooks while you linger"),
+
+    /**
+     * Coronal Arc: open space with the star dragging every ship toward the bottom of the arena.
+     * 0.9 against a PLAYER_SPEED of 5.5 is felt on every dodge but always beaten.
+     */
+    SUN_DRAG(1.00, 0, 0, 0, 0, 0.9, null, null, "Solar wind -- the star drags you downrange");
 
     private final double minLaneFraction;
     private final double roughness;
@@ -40,9 +52,10 @@ public enum WorldTemplate {
     private final double pull;
     private final String rockHex;
     private final String edgeHex;
+    private final String hint;
 
     WorldTemplate(double minLaneFraction, double roughness, int harmonics, int contactDamage,
-                  int ambientDamage, double pull, String rockHex, String edgeHex) {
+                  int ambientDamage, double pull, String rockHex, String edgeHex, String hint) {
         this.minLaneFraction = minLaneFraction;
         this.roughness = roughness;
         this.harmonics = harmonics;
@@ -51,6 +64,12 @@ public enum WorldTemplate {
         this.pull = pull;
         this.rockHex = rockHex;
         this.edgeHex = edgeHex;
+        this.hint = hint;
+    }
+
+    /** One line for the route map, so the hazard is known before it is flown into. */
+    public String hint() {
+        return hint;
     }
 
     /**

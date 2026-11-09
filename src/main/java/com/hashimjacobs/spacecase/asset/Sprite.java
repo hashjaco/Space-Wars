@@ -691,9 +691,9 @@ public enum Sprite {
     L1_FIGHTER("level-1/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L1_CRUISER("level-1/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L2_SCOUT("level-2/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L2_FIGHTER("level-2/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L2_CRUISER("level-2/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L2_SCOUT("level-2/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L2_FIGHTER("level-2/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L2_CRUISER("level-2/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L3_SCOUT("level-3/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L3_FIGHTER("level-3/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -711,9 +711,9 @@ public enum Sprite {
     L6_FIGHTER("level-6/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L6_CRUISER("level-6/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L7_SCOUT("level-7/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L7_FIGHTER("level-7/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L7_CRUISER("level-7/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L7_SCOUT("level-7/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L7_FIGHTER("level-7/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L7_CRUISER("level-7/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L8_SCOUT("level-8/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L8_FIGHTER("level-8/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -739,9 +739,9 @@ public enum Sprite {
     L11_FIGHTER("level-11/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L11_CRUISER("level-11/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L12_SCOUT("level-12/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L12_FIGHTER("level-12/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L12_CRUISER("level-12/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L12_SCOUT("level-12/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L12_FIGHTER("level-12/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L12_CRUISER("level-12/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L13_SCOUT("level-13/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L13_FIGHTER("level-13/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -769,9 +769,9 @@ public enum Sprite {
     L18_FIGHTER("level-18/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L18_CRUISER("level-18/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L19_SCOUT("level-19/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L19_FIGHTER("level-19/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L19_CRUISER("level-19/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L19_SCOUT("level-19/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L19_FIGHTER("level-19/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L19_CRUISER("level-19/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L20_SCOUT("level-20/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L20_FIGHTER("level-20/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -786,9 +786,9 @@ public enum Sprite {
     L22_FIGHTER("level-22/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L22_CRUISER("level-22/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L23_SCOUT("level-23/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L23_FIGHTER("level-23/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L23_CRUISER("level-23/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L23_SCOUT("level-23/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L23_FIGHTER("level-23/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L23_CRUISER("level-23/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L24_SCOUT("level-24/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L24_FIGHTER("level-24/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -802,9 +802,9 @@ public enum Sprite {
     L26_FIGHTER("level-26/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L26_CRUISER("level-26/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L27_SCOUT("level-27/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L27_FIGHTER("level-27/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L27_CRUISER("level-27/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L27_SCOUT("level-27/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L27_FIGHTER("level-27/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L27_CRUISER("level-27/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L28_SCOUT("level-28/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L28_FIGHTER("level-28/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -832,9 +832,9 @@ public enum Sprite {
     L33_FIGHTER("level-33/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L33_CRUISER("level-33/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L34_SCOUT("level-34/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L34_FIGHTER("level-34/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L34_CRUISER("level-34/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L34_SCOUT("level-34/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L34_FIGHTER("level-34/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L34_CRUISER("level-34/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L35_SCOUT("level-35/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L35_FIGHTER("level-35/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -844,9 +844,9 @@ public enum Sprite {
     L36_FIGHTER("level-36/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L36_CRUISER("level-36/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L37_SCOUT("level-37/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L37_FIGHTER("level-37/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L37_CRUISER("level-37/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L37_SCOUT("level-37/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L37_FIGHTER("level-37/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L37_CRUISER("level-37/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L38_SCOUT("level-38/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L38_FIGHTER("level-38/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -862,9 +862,9 @@ public enum Sprite {
     L40_CRUISER("level-40/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     // ---- Galaxy 5: Null (levels 41-50) -----------------------------------------------
-    L41_SCOUT("level-41/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L41_FIGHTER("level-41/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L41_CRUISER("level-41/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L41_SCOUT("level-41/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L41_FIGHTER("level-41/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L41_CRUISER("level-41/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L42_SCOUT("level-42/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L42_FIGHTER("level-42/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -891,9 +891,9 @@ public enum Sprite {
     L47_FIGHTER("level-47/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L47_CRUISER("level-47/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L48_SCOUT("level-48/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
-    L48_FIGHTER("level-48/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
-    L48_CRUISER("level-48/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
+    L48_SCOUT("level-48/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
+    L48_FIGHTER("level-48/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
+    L48_CRUISER("level-48/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
 
     L49_SCOUT("level-49/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L49_FIGHTER("level-49/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -983,6 +983,11 @@ public enum Sprite {
     ROUND_STARDUST("fx-round-stardust/1.png", 30, 30),
     ROUND_EGG("fx-round-egg/1.png", 28, 28),
     ROUND_FANG("fx-round-fang/1.png", 28, 28),
+    // The hydra's: acid bile from the heads, bloody bone from the torso (tools/openart/fx.py).
+    ROUND_ACID("fx-acid-vomit/1.png", 36, 36),
+    ROUND_SKULL("fx-bone-skull/1.png", 46, 46),
+    ROUND_RIB("fx-bone-rib/1.png", 46, 46),
+    ROUND_FEMUR("fx-bone-femur/1.png", 46, 46),
 
     SCYTHE_BLADE("scythe-blade.png", 96, 32),
     FLAK_PELLET("flak-pellet.png", 14, 14),
@@ -1212,6 +1217,39 @@ public enum Sprite {
     L50_FAR("level-50/far.png"),
     L50_MID("level-50/mid.png"),
     L50_NEAR("level-50/near.png"),
+
+    // CG galaxy skies (OpenArt, tools/openart/sky.py): one far/mid/near set per galaxy, drawn by mode.Level.skyLayers.
+    SKY_VERDANCE_FAR("sky-cg/verdance/far.png"),
+    SKY_VERDANCE_MID("sky-cg/verdance/mid.png"),
+    SKY_VERDANCE_NEAR("sky-cg/verdance/near.png"),
+    SKY_ASHFALL_FAR("sky-cg/ashfall/far.png"),
+    SKY_ASHFALL_MID("sky-cg/ashfall/mid.png"),
+    SKY_ASHFALL_NEAR("sky-cg/ashfall/near.png"),
+    SKY_CRYONIS_FAR("sky-cg/cryonis/far.png"),
+    SKY_CRYONIS_MID("sky-cg/cryonis/mid.png"),
+    SKY_CRYONIS_NEAR("sky-cg/cryonis/near.png"),
+    SKY_TEMPEST_FAR("sky-cg/tempest/far.png"),
+    SKY_TEMPEST_MID("sky-cg/tempest/mid.png"),
+    SKY_TEMPEST_NEAR("sky-cg/tempest/near.png"),
+    SKY_NULL_FAR("sky-cg/null/far.png"),
+    SKY_NULL_MID("sky-cg/null/mid.png"),
+    SKY_NULL_NEAR("sky-cg/null/near.png"),
+    // The same skies for the levels that turned side-on: overlays streaking sideways, every layer seamed left-to-right.
+    SKY_VERDANCE_SIDE_FAR("sky-cg/verdance-side/far.png"),
+    SKY_VERDANCE_SIDE_MID("sky-cg/verdance-side/mid.png"),
+    SKY_VERDANCE_SIDE_NEAR("sky-cg/verdance-side/near.png"),
+    SKY_ASHFALL_SIDE_FAR("sky-cg/ashfall-side/far.png"),
+    SKY_ASHFALL_SIDE_MID("sky-cg/ashfall-side/mid.png"),
+    SKY_ASHFALL_SIDE_NEAR("sky-cg/ashfall-side/near.png"),
+    SKY_CRYONIS_SIDE_FAR("sky-cg/cryonis-side/far.png"),
+    SKY_CRYONIS_SIDE_MID("sky-cg/cryonis-side/mid.png"),
+    SKY_CRYONIS_SIDE_NEAR("sky-cg/cryonis-side/near.png"),
+    SKY_TEMPEST_SIDE_FAR("sky-cg/tempest-side/far.png"),
+    SKY_TEMPEST_SIDE_MID("sky-cg/tempest-side/mid.png"),
+    SKY_TEMPEST_SIDE_NEAR("sky-cg/tempest-side/near.png"),
+    SKY_NULL_SIDE_FAR("sky-cg/null-side/far.png"),
+    SKY_NULL_SIDE_MID("sky-cg/null-side/mid.png"),
+    SKY_NULL_SIDE_NEAR("sky-cg/null-side/near.png"),
 
     // Sprixen chassis hulls: the same grid as the three sets above, cut by GenerateAssets.playersSprixen.
     INTERCEPTOR_SX_MILITIA_BANK_LEFT("player/interceptor-sx-militia-bank-left.png", Draw.PLAYER_W, Draw.PLAYER_H, true),
@@ -1576,6 +1614,8 @@ public enum Sprite {
     TWIN_BOOM_SX_CHROME_BANK_RIGHT_HIT_SIDE("player/twin-boom-sx-chrome-bank-right-hit-side.png", Draw.PLAYER_H, Draw.PLAYER_W, true),
 
     // Garage upgrade icons, one per Upgrade in enum order. Sprixen output placed by tools/sprixen.
+    /** The hangar deck behind the garage's bays (tools/openart/fx.py). */
+    GARAGE_BAY("garage/bay.png", 996, 864),
     GARAGE_FIREPOWER("garage/firepower.png", 24, 24),
     GARAGE_FIRE_RATE("garage/fire_rate.png", 24, 24),
     GARAGE_SALVO("garage/salvo.png", 24, 24),

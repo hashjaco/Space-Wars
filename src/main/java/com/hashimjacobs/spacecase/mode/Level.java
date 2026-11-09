@@ -2,6 +2,8 @@ package com.hashimjacobs.spacecase.mode;
 
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Set;
+import java.util.EnumSet;
 import java.util.List;
 
 import com.hashimjacobs.spacecase.asset.EnemyArt;
@@ -39,7 +41,7 @@ public enum Level {
     VERDANT_AIRSPACE("Verdant Airspace",
             Sprite.L2_FAR, Sprite.L2_MID, Sprite.L2_NEAR,
             Sprite.L2_SCOUT, Sprite.L2_FIGHTER, Sprite.L2_CRUISER,
-            Boss.HIVE_MATRIARCH, 3),
+            Boss.HIVE_MATRIARCH, 3, Orientation.RIGHT_TO_LEFT),
 
     CANOPY_DESCENT("Canopy Descent",
             Sprite.L3_FAR, Sprite.L3_MID, Sprite.L3_NEAR,
@@ -64,7 +66,7 @@ public enum Level {
     STAR_CORE("Star Core",
             Sprite.L7_FAR, Sprite.L7_MID, Sprite.L7_NEAR,
             Sprite.L7_SCOUT, Sprite.L7_FIGHTER, Sprite.L7_CRUISER,
-            Boss.CORE_TYRANT, 5),
+            Boss.CORE_TYRANT, 5, Orientation.RIGHT_TO_LEFT),
 
     ESCAPE_VECTOR("Escape Vector",
             Sprite.L8_FAR, Sprite.L8_MID, Sprite.L8_NEAR,
@@ -109,7 +111,7 @@ public enum Level {
     ASHFALL_SKY("Ashfall Sky",
             Sprite.L12_FAR, Sprite.L12_MID, Sprite.L12_NEAR,
             Sprite.L12_SCOUT, Sprite.L12_FIGHTER, Sprite.L12_CRUISER,
-            Boss.ASH_REVENANT, 4),
+            Boss.ASH_REVENANT, 4, Orientation.RIGHT_TO_LEFT),
 
     SLAGFIELDS("Slagfields",
             Sprite.L13_FAR, Sprite.L13_MID, Sprite.L13_NEAR,
@@ -125,7 +127,7 @@ public enum Level {
     THE_FORGEWORKS("The Forgeworks",
             Sprite.L15_FAR, Sprite.L15_MID, Sprite.L15_NEAR,
             Sprite.L15_SCOUT, Sprite.L15_FIGHTER, Sprite.L15_CRUISER,
-            Boss.FORGE_OVERSEER, 5, WorldTemplate.CAVE),
+            Boss.FORGE_OVERSEER, 5, WorldTemplate.FORGE),
 
     PYROCLAST("Pyroclast",
             Sprite.L16_FAR, Sprite.L16_MID, Sprite.L16_NEAR,
@@ -149,12 +151,12 @@ public enum Level {
     CORONAL_ARC("Coronal Arc",
             Sprite.L18_FAR, Sprite.L18_MID, Sprite.L18_NEAR,
             Sprite.L18_SCOUT, Sprite.L18_FIGHTER, Sprite.L18_CRUISER,
-            Boss.CORONA_HERALD, 5),
+            Boss.CORONA_HERALD, 5, WorldTemplate.SUN_DRAG),
 
     EMBER_CANYON("Ember Canyon",
             Sprite.L19_FAR, Sprite.L19_MID, Sprite.L19_NEAR,
             Sprite.L19_SCOUT, Sprite.L19_FIGHTER, Sprite.L19_CRUISER,
-            Boss.EMBER_TITAN, 5),
+            Boss.EMBER_TITAN, 5, Orientation.RIGHT_TO_LEFT),
 
     /** Caldera Heart: the bottom of the galaxy, and the man waiting at it. */
     CALDERA_HEART("Caldera Heart",
@@ -181,7 +183,7 @@ public enum Level {
     GLACIER_SHELF("Glacier Shelf",
             Sprite.L23_FAR, Sprite.L23_MID, Sprite.L23_NEAR,
             Sprite.L23_SCOUT, Sprite.L23_FIGHTER, Sprite.L23_CRUISER,
-            Boss.GLACIER_BREAKER, 3),
+            Boss.GLACIER_BREAKER, 3, Orientation.RIGHT_TO_LEFT),
 
     /** Under-Ice: the water leg, flown under the shelf rather than over it. */
     UNDER_ICE("Under-Ice",
@@ -202,7 +204,7 @@ public enum Level {
     GEYSER_FLATS("Geyser Flats",
             Sprite.L27_FAR, Sprite.L27_MID, Sprite.L27_NEAR,
             Sprite.L27_SCOUT, Sprite.L27_FIGHTER, Sprite.L27_CRUISER,
-            Boss.GEYSER_MAW, 4),
+            Boss.GEYSER_MAW, 4, Orientation.RIGHT_TO_LEFT),
 
     HAILWALL("Hailwall",
             Sprite.L28_FAR, Sprite.L28_MID, Sprite.L28_NEAR,
@@ -246,7 +248,7 @@ public enum Level {
     RING_DEBRIS("Ring Debris",
             Sprite.L34_FAR, Sprite.L34_MID, Sprite.L34_NEAR,
             Sprite.L34_SCOUT, Sprite.L34_FIGHTER, Sprite.L34_CRUISER,
-            Boss.RING_REAVER, 5),
+            Boss.RING_REAVER, 5, Orientation.RIGHT_TO_LEFT),
 
     /** Static Canyon: the one leg in the galaxy with ground under it. */
     STATIC_CANYON("Static Canyon",
@@ -262,7 +264,7 @@ public enum Level {
     DEEP_DESCENT("Deep Descent",
             Sprite.L37_FAR, Sprite.L37_MID, Sprite.L37_NEAR,
             Sprite.L37_SCOUT, Sprite.L37_FIGHTER, Sprite.L37_CRUISER,
-            Boss.DOWNDRAFT_PROW, 6),
+            Boss.DOWNDRAFT_PROW, 6, Orientation.RIGHT_TO_LEFT),
 
     /** Upper Deck: back out on top of the weather, and the man who was waiting in Ashfall. */
     UPPER_DECK("Upper Deck",
@@ -303,7 +305,7 @@ public enum Level {
     DEAD_BELT("Dead Belt",
             Sprite.L41_FAR, Sprite.L41_MID, Sprite.L41_NEAR,
             Sprite.L41_SCOUT, Sprite.L41_FIGHTER, Sprite.L41_CRUISER,
-            Boss.BONEPICKER, 6),
+            Boss.BONEPICKER, 6, Orientation.RIGHT_TO_LEFT),
 
     /** Hulk Drift: a dead fleet, and something living in it. */
     HULK_DRIFT("Hulk Drift",
@@ -356,7 +358,7 @@ public enum Level {
     PHOTON_RING("Photon Ring",
             Sprite.L48_FAR, Sprite.L48_MID, Sprite.L48_NEAR,
             Sprite.L48_SCOUT, Sprite.L48_FIGHTER, Sprite.L48_CRUISER,
-            Boss.PHOTON_HALO, 4),
+            Boss.PHOTON_HALO, 4, Orientation.RIGHT_TO_LEFT),
 
     /** The Throat: the second dead structure, and the last enclosure in the campaign. */
     THE_THROAT("The Throat",
@@ -449,6 +451,21 @@ public enum Level {
      * The structural sibling of {@link #orientation()}, and carried the same way -- as data the
      * engine reads, rather than as a branch anywhere in it.
      */
+    /**
+     * How thick the rocks are here, as a multiplier on the difficulty's asteroid chance.
+     *
+     * Scales the threshold of the existing roll, never adds a draw: SpawnDirectorTest pins the
+     * seeded run (ROADMAP rule 8). The belts and debris fields are the levels named for rock.
+     */
+    public double asteroidDensity() {
+        return switch (this) {
+            case CINDER_BELT -> 2.0;
+            case SHATTER_DRIFT, RING_DEBRIS, DEAD_BELT, HULK_DRIFT -> 1.6;
+            case SLAGFIELDS, PYROCLAST -> 1.3;
+            default -> 1;
+        };
+    }
+
     public WorldTemplate template() {
         return template;
     }
@@ -503,6 +520,9 @@ public enum Level {
      * added to {@link #SKIES} as the art lands; a galaxy without one draws its generated layers.
      */
     public List<Sprite> skyLayers() {
+        if (TURNED.contains(this)) {
+            return SIDE_SKIES.get(galaxy());
+        }
         boolean special = template() != WorldTemplate.OPEN_FIELD
                 || orientation() != Orientation.TOP_DOWN
                 || indexInGalaxy() == Galaxy.LEVELS_PER_GALAXY;
@@ -510,8 +530,29 @@ public enum Level {
         return sky != null ? sky : layers;
     }
 
-    /** Galaxy-wide CG skies, far, mid, near. Empty until the art lands. */
-    private static final Map<Galaxy, List<Sprite>> SKIES = Map.of();
+    /**
+     * Levels that were turned side-on after their backdrops had been drawn top-down, two a galaxy,
+     * so consecutive levels alternate direction. Their generated layers have a built-in up (an
+     * atmosphere, a canyon wall) and cannot tile sideways, so they fly the galaxy's side-on CG sky
+     * instead. The levels built side-on from the start keep their own sideways starfields.
+     */
+    private static final Set<Level> TURNED = EnumSet.of(VERDANT_AIRSPACE, STAR_CORE, ASHFALL_SKY, EMBER_CANYON,
+            GLACIER_SHELF, GEYSER_FLATS, RING_DEBRIS, DEEP_DESCENT, DEAD_BELT, PHOTON_RING);
+
+    private static final Map<Galaxy, List<Sprite>> SIDE_SKIES = Map.of(
+            Galaxy.VERDANCE, List.of(Sprite.SKY_VERDANCE_SIDE_FAR, Sprite.SKY_VERDANCE_SIDE_MID, Sprite.SKY_VERDANCE_SIDE_NEAR),
+            Galaxy.ASHFALL, List.of(Sprite.SKY_ASHFALL_SIDE_FAR, Sprite.SKY_ASHFALL_SIDE_MID, Sprite.SKY_ASHFALL_SIDE_NEAR),
+            Galaxy.CRYONIS, List.of(Sprite.SKY_CRYONIS_SIDE_FAR, Sprite.SKY_CRYONIS_SIDE_MID, Sprite.SKY_CRYONIS_SIDE_NEAR),
+            Galaxy.TEMPEST, List.of(Sprite.SKY_TEMPEST_SIDE_FAR, Sprite.SKY_TEMPEST_SIDE_MID, Sprite.SKY_TEMPEST_SIDE_NEAR),
+            Galaxy.NULL, List.of(Sprite.SKY_NULL_SIDE_FAR, Sprite.SKY_NULL_SIDE_MID, Sprite.SKY_NULL_SIDE_NEAR));
+
+    /** Galaxy-wide CG skies, far, mid, near. */
+    private static final Map<Galaxy, List<Sprite>> SKIES = Map.of(
+            Galaxy.VERDANCE, List.of(Sprite.SKY_VERDANCE_FAR, Sprite.SKY_VERDANCE_MID, Sprite.SKY_VERDANCE_NEAR),
+            Galaxy.ASHFALL, List.of(Sprite.SKY_ASHFALL_FAR, Sprite.SKY_ASHFALL_MID, Sprite.SKY_ASHFALL_NEAR),
+            Galaxy.CRYONIS, List.of(Sprite.SKY_CRYONIS_FAR, Sprite.SKY_CRYONIS_MID, Sprite.SKY_CRYONIS_NEAR),
+            Galaxy.TEMPEST, List.of(Sprite.SKY_TEMPEST_FAR, Sprite.SKY_TEMPEST_MID, Sprite.SKY_TEMPEST_NEAR),
+            Galaxy.NULL, List.of(Sprite.SKY_NULL_FAR, Sprite.SKY_NULL_MID, Sprite.SKY_NULL_NEAR));
 
     /** This level's art for an enemy archetype. The archetype itself carries health, speed and score. */
     public Sprite enemySprite(EnemyShip.EnemyKind kind) {

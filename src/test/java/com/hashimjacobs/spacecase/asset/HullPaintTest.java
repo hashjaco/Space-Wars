@@ -35,7 +35,7 @@ class HullPaintTest {
     }
 
     @Test
-    void aBankNarrowsTheHullAndTheSideCutTurnsItNoseRight() {
+    void aBankNarrowsTheHullAndAProfilePitchesInstead() {
         int w = 20, h = 4;
         int[] solid = new int[w * h];
         java.util.Arrays.fill(solid, GREEN);
@@ -43,10 +43,17 @@ class HullPaintTest {
         assertEquals(0, banked[0], "the hard bank pulls the wingtip in");
         assertNotEquals(0, banked[w / 2], "the spine stays put");
 
-        int[] marked = new int[w * h];
-        marked[3] = GREEN; // top row: the nose end
-        int[] turned = HullPaint.quarterTurn(marked, w, h);
-        assertEquals(GREEN, turned[3 * h + (h - 1)], "the top row ends up on the right");
+        int pixels = 0;
+        int[] square = new int[40 * 40];
+        for (int y = 15; y < 25; y++) {
+            for (int x = 5; x < 35; x++) {
+                square[y * 40 + x] = GREEN;
+            }
+        }
+        for (int p : HullPaint.derive(square, 40, 40, HullPaint.GREEN, 1f, 0, false, true)) {
+            pixels += p != 0 ? 1 : 0;
+        }
+        assertEquals(300, pixels, 30, "pitching turns the hull, it does not shrink or smear it");
     }
 
     @Test

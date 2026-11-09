@@ -179,6 +179,21 @@ public final class GameConfig {
     public static final double ACID_SPEED = 1.9;
     public static final int ACID_DAMAGE = 12;
     public static final double ACID_TURN_RATE = 0.055;
+    /** A hydra head spits a fan of acid rather than one homing glob: three, a little apart. */
+    public static final int ACID_FAN_SHOTS = 3;
+    public static final double ACID_FAN_SPREAD = 0.20;
+
+    /**
+     * The hydra's heads lunge: once every HYDRA_LUNGE_CYCLE_TICKS each, staggered between heads, the
+     * neck shoots out this much further than its sweep and the jaws bite. Sized so the longest neck
+     * at full lunge still ends inside the arena (HydraTest).
+     */
+    public static final double HYDRA_LUNGE_REACH = 160;
+    public static final int HYDRA_LUNGE_CYCLE_TICKS = 360;
+
+    /** The torso's bone vomit: slower than a bullet, and tumbling. */
+    public static final double BONE_SPEED_SCALE = 0.75;
+    public static final double BONE_SPIN_DEGREES = 6;
 
     public static final double POWERUP_DRIFT_SPEED = 1.6;
     public static final int POWERUP_LIFETIME_TICKS = 620;

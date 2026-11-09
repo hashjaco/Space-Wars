@@ -155,6 +155,9 @@ public final class GameLoop {
     private boolean finished;
     private boolean bossMusicPlaying;
     private GarageSession garage;
+
+    /** Dev only ({@code --garage}): the run opens in the garage, for looking at the bays. */
+    public static boolean devGarage;
     private SaveSlot levelStartSave;
 
     /** Toggles the frame-time readout. Held-key edge, so one press flips it rather than sixty. */
@@ -261,6 +264,9 @@ public final class GameLoop {
         restore(resume);
         snapshotLevelStart();
         snapshotSave();
+        if (devGarage) {
+            openGarage();
+        }
     }
 
     /**

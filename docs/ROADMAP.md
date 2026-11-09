@@ -67,7 +67,8 @@ test fails. Spell the ten out.
 
 **8. Do not add a `random.next*()` call to an existing spawn path.**
 `SpawnDirectorTest.theSameSeedProducesTheSameRun` pins the draw order. New constraints clamp the
-result after the draw, as the terrain lane check does.
+result after the draw, as the terrain lane check does. A level may scale the *threshold* of an existing roll
+(`Level.asteroidDensity()` multiplies the asteroid chance); it may not add a roll.
 
 **9. A side-on level is four things that must agree.** The sky tiles horizontally
 (`Theme(..., sideways = true)`), the hulls are cut pointing left (`Faction(..., sideways = true)`),
@@ -75,6 +76,14 @@ the `Sprite` constants swap width and height, and the flagship's frames are turn
 generator (`BossProfile(..., sideways = true)`) rather than rotated at render time.
 `LevelTest.sideOnLevelsDeclareTransposedEnemySizes` guards the third; nothing guards the others.
 Getting it wrong draws a ship with its hitbox at right angles and reads as a collision bug.
+
+Two levels a galaxy were turned side-on after their backdrops had been drawn top-down
+(`Level.TURNED`: 2, 7, 12, 19, 23, 27, 34, 37, 41, 48), so consecutive levels alternate direction.
+Their generated layers have a built-in up and are not drawn; they fly the galaxy's side-on CG sky,
+`sky-cg/<galaxy>-side/` (`tools/openart/sky.py --side`, seamed left-to-right). A CG or Sprixen
+flagship is turned by rotating its committed frames -90 degrees (as `cg.py import` does for a
+`"side": true` row) and transposing its `BossArt` box; a generated one by `BossProfile(..., true)`.
+The CG hostiles already have `-side` twins.
 
 ---
 

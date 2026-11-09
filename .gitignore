@@ -42,3 +42,10 @@ tools/flux/node_modules/
 tools/flux/worker-configuration.d.ts
 tools/sprixen/.hulls-state.json
 tools/sprixen/.map-state.json
+tools/tripo/out/
+tools/tripo/.tripo-state.json
+tools/openart/out/
+tools/openart/.sky-state.json
+.tripo/
+tools/tripo/.models-state.json
+tools/openart/.fx-state.json

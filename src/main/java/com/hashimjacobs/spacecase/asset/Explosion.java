@@ -21,7 +21,14 @@ public enum Explosion {
     /** A bullet landing on a hull: a bright ray burst, a third of a second. Sprixen, see ASSETS.md. */
     HIT_SPARK("fx-hit-spark", 24, 1),
     /** The ring a dying flagship pushes out, under the fireballs. Sprixen. */
-    BOSS_RING("fx-boss-shockwave", 47, 1);
+    BOSS_RING("fx-boss-shockwave", 47, 1),
+    // The hydra's: a burst of gore where a shot lands on it, and acid hissing where its spit lands
+    // on you. OpenArt stills animated on import (tools/openart/fx.py). Append only: World stores
+    // pending explosions by ordinal.
+    BLOOD_SPLAT("fx-blood-splat", 12, 2),
+    ACID_SPLASH("fx-acid-splash", 12, 2),
+    /** Not a one-shot: the player's engine flame, looped behind every CG hull (Renderer.drawFlame). */
+    ENGINE_FLAME("fx-engine-flame", 8, 3);
 
     private final String directory;
     private final int frameCount;

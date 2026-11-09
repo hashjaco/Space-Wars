@@ -115,10 +115,10 @@ public enum BossArt {
     SQUALL_WARDEN("boss-squall-warden", 8, 6, 248, 148),
     THUNDER_BROOD("boss-thunder-brood", 8, 6, 239, 175),
     EYEWALL_LANCE("boss-eyewall-lance", 8, 6, 169, 227),
-    RING_REAVER("boss-ring-reaver", 8, 6, 269, 131),
+    RING_REAVER("boss-ring-reaver", 8, 6, 131, 269),  // side-on: turned nose-left, box transposed
     STATIC_CRAWLER("boss-static-crawler", 8, 6, 257, 147),
     MAGNETAR_MAW("boss-magnetar-maw", 8, 6, 220, 191),
-    DOWNDRAFT_PROW("boss-downdraft-prow", 8, 6, 200, 191),
+    DOWNDRAFT_PROW("boss-downdraft-prow", 8, 6, 191, 200),  // side-on: turned nose-left, box transposed
 
     /**
      * Level 38's rig: Vaunt again, in a bigger one. The cockpit and the arms are separate targets
@@ -174,7 +174,7 @@ public enum BossArt {
 
     SHELLBORN("boss-shellborn", 8, 6, 224, 179),
     FRAME_DRAG("boss-frame-drag", 8, 6, 267, 143),
-    PHOTON_HALO("boss-photon-halo", 8, 6, 283, 135),
+    PHOTON_HALO("boss-photon-halo", 8, 6, 135, 283),  // side-on: turned nose-left, box transposed
     GULLET("boss-gullet", 8, 6, 181, 220),
 
     /**
@@ -204,37 +204,39 @@ public enum BossArt {
     CINDER_WARDEN_SX("boss-cinder-warden-sx", 8, 6, 264, 135),
     SHARD_CUTTER_SX("boss-shard-cutter-sx", 8, 6, 207, 173),
     SQUALL_WARDEN_SX("boss-squall-warden-sx", 8, 6, 248, 148),
-    BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 248, 165),
+    BONEPICKER_SX("boss-bonepicker-sx", 8, 6, 165, 248),  // side-on: turned nose-left, box transposed
     SENTINEL_CG("boss-sentinel-cg", 24, 24, 210, 162),
-    HIVE_MATRIARCH_CG("boss-hive-matriarch-cg", 24, 24, 226, 159),
+    HIVE_MATRIARCH_CG("boss-hive-matriarch-cg", 24, 24, 159, 226),  // side-on: turned nose-left, box transposed
     BLOOM_COLOSSUS_CG("boss-bloom-colossus-cg", 24, 24, 220, 187),
     SCRAP_HIVE_CG("boss-scrap-hive-cg", 24, 24, 226, 168),
     FOUNDRY_WARDEN_CG("boss-foundry-warden-cg", 24, 24, 230, 163),
     VOID_WEAVER_CG("boss-void-weaver-cg", 24, 24, 206, 172),
-    CORE_TYRANT_CG("boss-core-tyrant-cg", 24, 24, 250, 185),
+    CORE_TYRANT_CG("boss-core-tyrant-cg", 24, 24, 185, 250),  // side-on: turned nose-left, box transposed
     EXODUS_DREADNOUGHT_CG("boss-exodus-dreadnought-cg", 24, 24, 250, 188),
     DUNE_LEVIATHAN_CG("boss-dune-leviathan-cg", 24, 24, 214, 153),
-    HYDRA_CG("boss-hydra-cg", 24, 24, 236, 154),
-    HYDRA_HEAD_CG("boss-hydra-head-cg", 24, 24, 64, 64),
+    // The hydra is Tripo3D + Blender (tools/tripo/models.py): the torso has rage and death loops, the
+    // head a bite. The torso box keeps its width and takes the render's 1.34 aspect.
+    HYDRA_CG("boss-hydra-cg", 24, 0, 24, 24, 24, 236, 176),
+    HYDRA_HEAD_CG("boss-hydra-head-cg", 24, 0, 0, 0, 12, 24, 64, 64),
     CINDER_WARDEN_CG("boss-cinder-warden-cg", 24, 24, 264, 135),
-    ASH_REVENANT_CG("boss-ash-revenant-cg", 24, 24, 227, 167),
+    ASH_REVENANT_CG("boss-ash-revenant-cg", 24, 24, 167, 227),  // side-on: turned nose-left, box transposed
     SLAG_BARON_CG("boss-slag-baron-cg", 24, 24, 191, 200),
     VENT_CRAWLER_CG("boss-vent-crawler-cg", 24, 24, 253, 144),
     FORGE_OVERSEER_CG("boss-forge-overseer-cg", 24, 24, 235, 163),
     PYRE_SOVEREIGN_CG("boss-pyre-sovereign-cg", 24, 24, 253, 151),
     SUNWARD_LANCE_CG("boss-sunward-lance-cg", 24, 24, 211, 179),
     CORONA_HERALD_CG("boss-corona-herald-cg", 24, 24, 272, 159),
-    EMBER_TITAN_CG("boss-ember-titan-cg", 24, 24, 237, 200),
+    EMBER_TITAN_CG("boss-ember-titan-cg", 24, 24, 200, 237),  // side-on: turned nose-left, box transposed
     FORGE_RIG_CG("boss-forge-rig-cg", 24, 24, 266, 200),
     FORGE_RIG_COCKPIT_CG("boss-forge-rig-cockpit-cg", 24, 24, 72, 72),
     FORGE_RIG_ARM_CG("boss-forge-rig-arm-cg", 24, 24, 78, 78),
     SHARD_CUTTER_CG("boss-shard-cutter-cg", 24, 24, 207, 173),
     FROST_HARRIER_CG("boss-frost-harrier-cg", 24, 24, 179, 207),
-    GLACIER_BREAKER_CG("boss-glacier-breaker-cg", 24, 24, 256, 143),
+    GLACIER_BREAKER_CG("boss-glacier-breaker-cg", 24, 24, 143, 256),  // side-on: turned nose-left, box transposed
     ICE_WRAITH_CG("boss-ice-wraith-cg", 24, 24, 232, 179),
     CRYO_MARSHAL_CG("boss-cryo-marshal-cg", 24, 24, 229, 165),
     TRENCH_HORROR_CG("boss-trench-horror-cg", 24, 24, 261, 149),
-    GEYSER_MAW_CG("boss-geyser-maw-cg", 24, 24, 224, 195),
+    GEYSER_MAW_CG("boss-geyser-maw-cg", 24, 24, 195, 224),  // side-on: turned nose-left, box transposed
     HAIL_BASTION_CG("boss-hail-bastion-cg", 24, 24, 269, 153),
     SHATTER_PROW_CG("boss-shatter-prow-cg", 24, 24, 220, 184),
     FROZEN_EMPRESS_CG("boss-frozen-empress-cg", 24, 24, 313, 207),
@@ -245,9 +247,12 @@ public enum BossArt {
      * sub-directory of the same name and are optional: an art that lacks one falls back to IDLE.
      * HURT and RAGE switch at the same hull fractions as {@code Boss.phaseFor}, so the hull
      * changes on the tick the phase does. DEATH is a one-shot played by {@code World.Wreck}.
+     * BITE is the only one chosen by what the part is doing rather than by its hull: a hydra head
+     * shows it while lunging ({@code BossHead.artState}), and it animates fast, at
+     * {@link #BITE_TICKS_PER_FRAME}, because a lunge lasts under two seconds.
      */
     public enum State {
-        IDLE, HURT, RAGE, DEATH;
+        IDLE, HURT, RAGE, DEATH, BITE;
 
         /** The sub-directory, or none for the idle loop which sits at the top. */
         String directory() {
@@ -263,6 +268,9 @@ public enum BossArt {
     /** Frames per {@link State}, in ordinal order; zero means the state is absent. */
     private final int[] frameCounts;
 
+    /** Jaws snap at ten frames a second, whatever pace the idle loop breathes at. */
+    public static final int BITE_TICKS_PER_FRAME = 6;
+
     BossArt(String directory, int frameCount, int ticksPerFrame, double width, double height) {
         this(directory, frameCount, 0, 0, 0, ticksPerFrame, width, height);
     }
@@ -270,9 +278,15 @@ public enum BossArt {
     /** An art with damage loops. The box is the hitbox: copy it from the row this replaces. */
     BossArt(String directory, int idle, int hurt, int rage, int death, int ticksPerFrame,
             double width, double height) {
+        this(directory, idle, hurt, rage, death, 0, ticksPerFrame, width, height);
+    }
+
+    /** An art with damage loops and a bite. */
+    BossArt(String directory, int idle, int hurt, int rage, int death, int bite, int ticksPerFrame,
+            double width, double height) {
         this.directory = directory;
         this.frameCount = idle;
-        this.frameCounts = new int[] {idle, hurt, rage, death};
+        this.frameCounts = new int[] {idle, hurt, rage, death, bite};
         this.ticksPerFrame = ticksPerFrame;
         this.width = width;
         this.height = height;
@@ -308,7 +322,8 @@ public enum BossArt {
 
     /** Frame of a looping state at the given tick. */
     public int frameIndexAt(State state, int tick) {
-        int index = (tick / ticksPerFrame) % frameCount(state);
+        int pace = state == State.BITE ? BITE_TICKS_PER_FRAME : ticksPerFrame;
+        int index = (tick / pace) % frameCount(state);
         return index;
     }
 
