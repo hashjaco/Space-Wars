@@ -29,7 +29,7 @@ import com.hashimjacobs.spacecase.prefs.Difficulty;
  */
 public final class Replay {
 
-    private static final int VERSION = 1;
+    private static final int VERSION = 2;   // 2: the button byte carries the ship special
 
     public record Header(long seed, GameMode mode, Difficulty difficulty, boolean endless,
                          boolean resumed, int players) {
@@ -84,7 +84,7 @@ public final class Replay {
                 for (Intent intent : intents) {
                     out.writeDouble(intent.moveX());
                     out.writeDouble(intent.moveY());
-                    out.writeBoolean(intent.firing());
+                    out.writeByte(intent.buttons());
                 }
                 ticks++;
             } catch (IOException impossible) {
@@ -140,7 +140,7 @@ public final class Replay {
                     }
                     Intent[] intents = new Intent[header.players()];
                     for (int i = 0; i < intents.length; i++) {
-                        intents[i] = new Intent(in.readDouble(), in.readDouble(), in.readBoolean());
+                        intents[i] = Intent.of(in.readDouble(), in.readDouble(), in.readByte());
                     }
                     current.ticks().add(intents);
                 } else {

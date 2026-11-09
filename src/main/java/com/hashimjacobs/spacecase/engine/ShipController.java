@@ -1,5 +1,8 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.function.IntFunction;
 
 import com.hashimjacobs.spacecase.GameConfig;
@@ -7,8 +10,10 @@ import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Bullet;
+import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
+import com.hashimjacobs.spacecase.garage.Chassis;
 import com.hashimjacobs.spacecase.garage.Upgrade;
 import com.hashimjacobs.spacecase.entity.Rocket;
 
@@ -55,10 +60,11 @@ public final class ShipController {
      */
     public Intent sample(InputState input, StickTuning tuning) {
         boolean firing = controls.anyHeld(input, controls.fire());
+        boolean special = controls.anyHeld(input, controls.special());
 
         double[] stick = analogTravel(tuning);
         if (stick != null) {
-            return new Intent(stick[0], stick[1], firing);
+            return new Intent(stick[0], stick[1], firing, special);
         }
 
         double dx = 0;
@@ -82,7 +88,7 @@ public final class ShipController {
             dx *= diagonal;
             dy *= diagonal;
         }
-        return new Intent(dx, dy, firing);
+        return new Intent(dx, dy, firing, special);
     }
 
     /**
@@ -109,7 +115,134 @@ public final class ShipController {
             return;
         }
         applyMovement(intent, world);
+        applySpecial(intent.special(), world, sounds);
         applyFire(intent.firing(), world, sounds);
+    }
+
+    // ---- the special ----------------------------------------------------------------------------
+
+    /**
+     * The meter, the held breath and the shot.
+     *
+     * Pressing with a full meter spends it and freezes the whole arena for the windup -- the same
+     * deterministic hit-stop a boss phase change uses, so every peer holds on the same tick and the
+     * cinematic the renderer plays over it can never desync anything. The freeze skips this method,
+     * so the first apply after it is the moment the shot goes.
+     */
+    private void applySpecial(boolean pressed, World world, SoundPlayer sounds) {
+        int tick = world.tick();
+        if (ship.specialStartTick() >= 0) {
+            if (tick >= ship.specialStartTick() + GameConfig.SPECIAL_WINDUP_TICKS) {
+                releaseSpecial(world, sounds);
+            }
+        } else if (pressed && ship.specialReady()) {
+            ship.beginSpecial(tick);
+            world.freeze(GameConfig.SPECIAL_WINDUP_TICKS);
+            sounds.play(SoundFx.BOSS_ROAR);
+            return;
+        } else {
+            ship.chargeSpecial(1);
+        }
+        if (ship.specialActiveTicks() > 0) {
+            if (ship.loadout().chassis() == Chassis.TWIN_BOOM) {
+                fireLances(world);
+            }
+            ship.tickSpecial();
+        }
+    }
+
+    private void releaseSpecial(World world, SoundPlayer sounds) {
+        world.shake(14);
+        world.flash();
+        sounds.play(SoundFx.BOSS_ROCKET);
+        switch (ship.loadout().chassis()) {
+            case STOCK -> ship.releaseSpecial(GameConfig.NOVA_CANNON_TICKS);
+            case INTERCEPTOR -> {
+                ship.releaseSpecial(0);
+                fireSwarm(world);
+            }
+            case GUNSHIP -> {
+                ship.releaseSpecial(0);
+                fireBroadside(world);
+            }
+            case TWIN_BOOM -> ship.releaseSpecial(GameConfig.LANCE_TICKS);
+        }
+    }
+
+    /** Interceptor: a fan of homing rockets, handed out over the nearest targets so they spread. */
+    private void fireSwarm(World world) {
+        List<EnemyShip> targets = new ArrayList<>();
+        for (EnemyShip enemy : world.enemies()) {
+            if (enemy.isAlive()) {
+                targets.add(enemy);
+            }
+        }
+        targets.sort(Comparator.comparingDouble(e -> distanceSquared(e.centerX(), e.centerY())));
+        int count = GameConfig.SWARM_ROCKETS;
+        for (int i = 0; i < count; i++) {
+            double degrees = (i / (count - 1.0) - 0.5) * GameConfig.SWARM_FAN_DEGREES;
+            double[] v = heading(degrees, GameConfig.PLAYER_ROCKET_SPEED);
+            ship.recordShot();
+            double[] muzzle = muzzle(Sprite.ROCKET);
+            world.addBullet(new Rocket(Sprite.ROCKET, muzzle[0], muzzle[1], v[0], v[1], ship,
+                    targets.isEmpty() ? null : targets.get(i % targets.size()),
+                    ship.damageFor(GameConfig.PLAYER_ROCKET_DAMAGE),
+                    GameConfig.PLAYER_ROCKET_TURN_RATE, GameConfig.PLAYER_ROCKET_FUSE_TICKS));
+        }
+    }
+
+    /** Gunship: a wall of detonating shells across the whole lane, all leaving together. */
+    private void fireBroadside(World world) {
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
+        // The lane runs along the nose; the wall spans the other axis, edge to edge.
+        double across = dirY != 0 ? GameConfig.WIDTH : GameConfig.HEIGHT;
+        double radius = GameConfig.NOVA_BLAST_RADIUS
+                + ship.loadout().level(Upgrade.YIELD) * GameConfig.UPGRADE_YIELD_STEP;
+        double[] muzzle = muzzle(Sprite.NOVA_SHELL);
+        int count = GameConfig.BROADSIDE_SHELLS;
+        for (int i = 0; i < count; i++) {
+            double offset = (i + 0.5) * across / count;
+            double x = dirY != 0 ? offset - Sprite.NOVA_SHELL.width() / 2 : muzzle[0];
+            double y = dirY != 0 ? muzzle[1] : offset - Sprite.NOVA_SHELL.height() / 2;
+            ship.recordShot();
+            Bullet shell = new Bullet(Sprite.NOVA_SHELL, x, y, dirX * GameConfig.NOVA_SPEED * 1.6,
+                    dirY * GameConfig.NOVA_SPEED * 1.6, ship, ship.damageFor(GameConfig.NOVA_DAMAGE));
+            world.addBullet(shell.detonating(radius));
+        }
+    }
+
+    /** Twin-Boom: one piercing bolt a tick from each boom, the two streams sweeping outward. */
+    private void fireLances(World world) {
+        double progress = 1 - ship.specialActiveTicks() / (double) GameConfig.LANCE_TICKS;
+        double sweep = progress * GameConfig.LANCE_SWEEP_DEGREES;
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
+        for (int side = -1; side <= 1; side += 2) {
+            Bullet lance = bullet(Sprite.TRI_BULLET_UP, 0, GameConfig.LANCE_DAMAGE);
+            double[] v = heading(side * sweep, GameConfig.BULLET_SPEED);
+            lance.setVelocity(v[0], v[1]);
+            // Each boom sits a third of the hull out from the centre line.
+            double out = side * ship.width() / 3;
+            lance.setPosition(lance.x() - dirY * out, lance.y() + dirX * out);
+            world.addBullet(lance.piercing());
+        }
+    }
+
+    /** Velocity along the nose turned by {@code degrees}, positive to the ship's right. */
+    private double[] heading(double degrees, double speed) {
+        double r = Math.toRadians(degrees);
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
+        double along = StrictMath.cos(r) * speed;
+        double side = StrictMath.sin(r) * speed;
+        return new double[] {dirX * along - dirY * side, dirY * along + dirX * side};
+    }
+
+    private double distanceSquared(double x, double y) {
+        double dx = x - ship.centerX();
+        double dy = y - ship.centerY();
+        return dx * dx + dy * dy;
     }
 
     private void applyMovement(Intent intent, World world) {

@@ -92,7 +92,7 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
                 ByteBuffer buffer = ByteBuffer.allocate(INTENT_BODY);
                 buffer.putDouble(intent.moveX());
                 buffer.putDouble(intent.moveY());
-                buffer.put((byte) (intent.firing() ? 1 : 0));
+                buffer.put(intent.buttons());
                 yield buffer.array();
             }
             case CHECKSUM -> ByteBuffer.allocate(CHECKSUM_BODY).putLong(checksum).array();
@@ -133,7 +133,7 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
             case INTENT -> {
                 require(kind, body, INTENT_BODY);
                 yield intent(playerNumber, tick,
-                        new Intent(buffer.getDouble(), buffer.getDouble(), buffer.get() != 0));
+                        Intent.of(buffer.getDouble(), buffer.getDouble(), buffer.get()));
             }
             case CHECKSUM -> {
                 require(kind, body, CHECKSUM_BODY);

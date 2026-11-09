@@ -19,7 +19,14 @@ public record PlayerControls(
         Set<KeyCode> down,
         Set<KeyCode> left,
         Set<KeyCode> right,
-        Set<KeyCode> fire) {
+        Set<KeyCode> fire,
+        Set<KeyCode> special) {
+
+    /** A seat with no special key, which is every caller from before the special. */
+    public PlayerControls(Set<KeyCode> up, Set<KeyCode> down, Set<KeyCode> left, Set<KeyCode> right,
+                          Set<KeyCode> fire) {
+        this(up, down, left, right, fire, Set.of());
+    }
 
     /** How many seats {@link Settings} holds bindings for. One keyboard carries two. */
     private static final int SEATS_WITH_KEYS = 2;
@@ -51,7 +58,27 @@ public record PlayerControls(
                 keys(settings, player, solo, ControlAction.DOWN),
                 keys(settings, player, solo, ControlAction.LEFT),
                 keys(settings, player, solo, ControlAction.RIGHT),
-                keys(settings, player, solo, ControlAction.FIRE));
+                keys(settings, player, solo, ControlAction.FIRE),
+                special(settings, player, solo));
+    }
+
+    /**
+     * The ship special: the bound Special key (which is also where a pad's B lands, see
+     * GamepadMapping), plus Z for player one and / for player two -- both, for player one alone.
+     * Fixed extras like Space is for fire, so a rebind never takes them away. / is player two's
+     * Punch, but only on foot, which never reads these.
+     */
+    private static Set<KeyCode> special(Settings settings, int player, boolean solo) {
+        java.util.Set<KeyCode> keys = new java.util.HashSet<>();
+        keys.add(settings.key(player, ControlAction.SPECIAL));
+        keys.add(ControlAction.SPECIAL.defaultKey(player));
+        if (player == 1) {
+            keys.add(KeyCode.Z);
+        }
+        if (player == 2 || solo) {
+            keys.add(KeyCode.SLASH);
+        }
+        return Set.copyOf(keys);
     }
 
     private static Set<KeyCode> keys(Settings settings, int player, boolean solo,

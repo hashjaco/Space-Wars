@@ -151,6 +151,27 @@ public final class GameConfig {
     public static final int NOVA_DAMAGE = 20;
     public static final int NOVA_BLAST_DAMAGE = 55;
     public static final double NOVA_BLAST_RADIUS = 130;
+
+    // ---- The ship special (B / Z / slash): a meter, a held breath, then the airframe's own shot ----
+    /** A full meter. It gains one a tick, so a pilot who never lands a hit still gets one every 40 s. */
+    public static final int SPECIAL_FULL = 2400;
+    /** Meter gained per point of damage dealt, so a pilot doing the work fires about every 25 s. */
+    public static final int SPECIAL_CHARGE_PER_DAMAGE = 2;
+    /** The held breath: the whole arena freezes this long while the cinematic zooms in and out. */
+    public static final int SPECIAL_WINDUP_TICKS = 66;
+    /** Stock's Nova Cannon: how long the super-beam burns, how much wider and harder than the laser. */
+    public static final int NOVA_CANNON_TICKS = 90;
+    public static final double NOVA_CANNON_WIDTH = 4;
+    public static final int NOVA_CANNON_DAMAGE = 5;
+    /** Interceptor's Swarm: homing rockets fanned across this many degrees. */
+    public static final int SWARM_ROCKETS = 16;
+    public static final double SWARM_FAN_DEGREES = 160;
+    /** Gunship's Broadside: a wall of detonating shells across the whole lane. */
+    public static final int BROADSIDE_SHELLS = 14;
+    /** Twin-Boom's Twin Lances: a bolt a tick from each boom, sweeping out to this angle. */
+    public static final int LANCE_TICKS = 60;
+    public static final double LANCE_SWEEP_DEGREES = 40;
+    public static final int LANCE_DAMAGE = 16;
     public static final int NOVA_FIRE_COOLDOWN = 46;
 
     public static final double ENEMY_BULLET_SPEED = 4.5;

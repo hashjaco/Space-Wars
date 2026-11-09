@@ -163,6 +163,26 @@ public enum Chassis {
         return label;
     }
 
+    /** The airframe's special, fired from a full meter. See {@code engine.ShipController.releaseSpecial}. */
+    public String specialLabel() {
+        return switch (this) {
+            case STOCK -> "Nova Cannon";
+            case INTERCEPTOR -> "Swarm";
+            case GUNSHIP -> "Broadside";
+            case TWIN_BOOM -> "Twin Lances";
+        };
+    }
+
+    /** The color the special charges in, as hex so this stays loadable without the toolkit. */
+    public String specialColor() {
+        return switch (this) {
+            case STOCK -> "#ff4a3a";
+            case INTERCEPTOR -> "#5fd8ff";
+            case GUNSHIP -> "#ffb43a";
+            case TWIN_BOOM -> "#c88aff";
+        };
+    }
+
     public int cost() {
         return cost;
     }

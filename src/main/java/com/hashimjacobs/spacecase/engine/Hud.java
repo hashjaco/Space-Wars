@@ -33,7 +33,7 @@ final class Hud {
      * {@code barY + BAR_HEIGHT + 22}, plus its own text height. Nothing else in the HUD uses the
      * bottom of the screen, so there is nothing down there to collide with.
      */
-    private static final double PANEL_HEIGHT = 97;
+    private static final double PANEL_HEIGHT = 105;   // +8 for the special meter
 
     /** Inset from whichever corner a panel is anchored to. */
     private static final double PANEL_MARGIN = 16;
@@ -102,6 +102,8 @@ final class Hud {
 
         double barY = y + 50;
         drawHealthBar(player, x, barY, tick);
+        drawSpecialMeter(player, x, barY + BAR_HEIGHT + 3, tick);
+        barY += SPECIAL_HEIGHT + 3;
 
         gc.setFont(smallFont);
         gc.setFill(livesColour(player, tick));
@@ -132,6 +134,34 @@ final class Hud {
             return Tokens.DANGER_LOW;
         }
         return (tick / 20) % 2 == 0 ? Tokens.DANGER_LOW : LIVES_NORMAL;
+    }
+
+    private static final double SPECIAL_HEIGHT = 5;
+
+    /**
+     * The special's meter, a thin bar under the hull's, in the airframe's own color. Full, it
+     * breathes and names the buttons, because a meter nobody knows how to spend is decoration.
+     */
+    private void drawSpecialMeter(PlayerShip player, double x, double y, int tick) {
+        double fraction = player.specialCharge() / (double) GameConfig.SPECIAL_FULL;
+        Color tint = Color.web(player.loadout().chassis().specialColor());
+        gc.setFill(Tokens.TRACK);
+        gc.fillRoundRect(x, y, PANEL_WIDTH, SPECIAL_HEIGHT, 4, 4);
+        boolean full = player.specialReady();
+        double breath = full && !settings.reducedFlash() ? 0.65 + 0.35 * Math.sin(tick * 0.15) : 1;
+        gc.setGlobalAlpha(breath);
+        gc.setFill(tint);
+        gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, SPECIAL_HEIGHT, 4, 4);
+        gc.setGlobalAlpha(1);
+        if (full) {
+            gc.setFont(smallFont);
+            gc.setFill(tint);
+            gc.setTextAlign(TextAlignment.RIGHT);
+            String keys = player.playerNumber() == 2 ? "B or /" : "B or Z";
+            gc.fillText(player.loadout().chassis().specialLabel().toUpperCase() + "  ·  " + keys,
+                    x + PANEL_WIDTH, y + SPECIAL_HEIGHT + 3);
+            gc.setTextAlign(TextAlignment.LEFT);
+        }
     }
 
     private void drawHealthBar(PlayerShip player, double x, double y, int tick) {
