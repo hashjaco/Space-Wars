@@ -3,7 +3,13 @@ name: Release
 on:
   push:
     tags: ['v*']
+  # Rebuilds an existing tag's downloads, e.g. after a platform is added to the matrix. Assets
+  # with the same name are replaced; the code built is the tag's, only this workflow is newer.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build and publish, e.g. v2.1.0
+        required: true
 
 permissions:
   contents: write
@@ -21,6 +27,12 @@ jobs:
             label: macos
             installer: dmg
             installerArgs: ""
+          # macos-latest is Apple Silicon only. GitHub's last Intel image; drop this entry when
+          # GitHub retires it.
+          - os: macos-15-intel
+            label: macos-intel
+            installer: dmg
+            installerArgs: ""
           - os: ubuntu-latest
             label: linux
             installer: deb
@@ -32,6 +44,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Set up JDK 26
         uses: actions/setup-java@v4
@@ -69,6 +83,12 @@ jobs:
             --java-options "--enable-native-access=ALL-UNNAMED" \
             --dest dist ${{ matrix.installerArgs }}
 
+      # Both Mac runners name their image SpaceCase-<version>.dmg; keep them apart on the release.
+      - name: Mark the Intel installer
+        if: matrix.label == 'macos-intel'
+        shell: bash
+        run: for f in dist/*.dmg; do mv "$f" "${f%.dmg}-intel.dmg"; done
+
       - uses: actions/upload-artifact@v4
         with:
           name: space-case-${{ matrix.label }}
@@ -90,6 +110,7 @@ jobs:
       - name: Attach installers and jars to the release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
             artifacts/*.dmg
             artifacts/*.deb
@@ -103,7 +124,8 @@ jobs:
 
             | | |
             |---|---|
-            | macOS | `SpaceCase-*.dmg` |
+            | macOS (Apple Silicon) | `SpaceCase-*.dmg` |
+            | macOS (Intel) | `SpaceCase-*-intel.dmg` |
             | Windows | `SpaceCase-*.msi` |
             | Linux | `spacecase_*.deb` |
 
