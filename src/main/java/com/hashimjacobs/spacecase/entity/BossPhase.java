@@ -69,7 +69,7 @@ public enum BossPhase {
      * Four rounds at right angles.
      *
      * The one pattern with a gap you can stand in on purpose rather than by luck, which is why it is
-     * the heaviest per round: reading it is the whole defence.
+     * the heaviest per round: reading it is the whole defense.
      */
     CROSSFIRE(4, 30, Math.PI / 2, 2.2),
 

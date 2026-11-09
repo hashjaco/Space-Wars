@@ -55,7 +55,7 @@ public final class Gamepad {
 
     private AnimationTimer timer;
     private boolean wasEnabled = true;
-    private int recognisedPads = -1;
+    private int recognizedPads = -1;
 
     /** Returns a pad reader, or one that does nothing if no controller support could be started. */
     public static Gamepad start(Scene scene, Settings settings) {
@@ -192,7 +192,7 @@ public final class Gamepad {
     }
 
     /**
-     * Says how many pads SDL recognised, whenever that number changes.
+     * Says how many pads SDL recognized, whenever that number changes.
      *
      * SDL only opens a joystick it has a mapping for, so a pad missing from gamecontrollerdb.txt
      * reads as zero here, exactly like no pad at all. Telling those two apart would need a raw
@@ -205,22 +205,22 @@ public final class Gamepad {
      */
     private void reportPads() {
         int count = controllers.getNumControllers();
-        if (count == recognisedPads) {
+        if (count == recognizedPads) {
             return;
         }
-        recognisedPads = count;
+        recognizedPads = count;
         System.err.println(count == 0
-                ? "No gamepad recognised. If one is connected, SDL has no mapping for it -- see"
+                ? "No gamepad recognized. If one is connected, SDL has no mapping for it -- see"
                         + " the controller notes in README.md."
-                : count + " gamepad(s) recognised.");
+                : count + " gamepad(s) recognized.");
     }
 
     /** How many pads SDL has a mapping for, or zero on a build with no controller support. */
-    public int recognisedPads() {
-        return controllers == null ? 0 : Math.max(recognisedPads, 0);
+    public int recognizedPads() {
+        return controllers == null ? 0 : Math.max(recognizedPads, 0);
     }
 
-    /** This slot's pad name, or null when nothing is recognised there. */
+    /** This slot's pad name, or null when nothing is recognized there. */
     public String padName(int slot) {
         return names[slot];
     }

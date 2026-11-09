@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Set;
 
 import javafx.scene.input.KeyCode;
-import com.hashimjacobs.spacecase.ui.MenuWindow;
 
 /**
  * The between-levels garage, as rules rather than pixels.
@@ -22,29 +21,60 @@ import com.hashimjacobs.spacecase.ui.MenuWindow;
 public final class GarageSession {
 
     /**
-     * The fixed rows in every bay, in the order they are drawn and cursored through.
+     * The sidebar's categories, cycled with left and right on the tab strip at its top.
      *
-     * The looks first, right under the ship on its pad, so browsing a frame, a paint job or a kit
-     * changes the thing directly above the cursor; then the upgrades; then LAUNCH.
+     * The looks get a tab of their own, so browsing a frame, a paint job or a kit sits right next to
+     * the ship it changes; the upgrades are split by {@link Upgrade.Category}, which existed for
+     * exactly this and was read by nothing. Mobility and utility share a tab: three rows between them
+     * would make two thin tabs. LAUNCH ends every tab, so the way out is never a tab away.
      */
-    private static final int CHASSIS_ROW = 0;
-    private static final int LIVERY_ROW = 1;
-    private static final int KIT_ROW = 2;
-    private static final int FIRST_UPGRADE_ROW = 3;
-    private static final int UPGRADE_ROWS = Upgrade.values().length;
-    private static final int LAUNCH_ROW = FIRST_UPGRADE_ROW + UPGRADE_ROWS;
-    private static final int ROW_COUNT = LAUNCH_ROW + 1;
+    public enum Tab {
+        SHIP("Ship"), WEAPONS("Weapons"), DEFENSE("Defense"), SYSTEMS("Systems");
 
-    /**
-     * Rows a bay shows at once.
-     *
-     * Fourteen is every row the catalogue currently has -- eleven upgrades plus paint, kit and
-     * launch -- and the taller panel has room for all of them, so nothing scrolls today. The window
-     * is here as the safety net rather than as machinery in use: the first upgrade past this number
-     * starts a bay scrolling on its own instead of quietly pushing LAUNCH off the bottom, which is
-     * how a player would lose the way out of the garage.
-     */
-    private static final int VISIBLE_ROWS = 14;
+        private final String label;
+
+        Tab(String label) {
+            this.label = label;
+        }
+
+        public String label() {
+            return label;
+        }
+
+        /** Whether this tab lists the upgrade. */
+        public boolean holds(Upgrade upgrade) {
+            return switch (this) {
+                case SHIP -> false;
+                case WEAPONS -> upgrade.category() == Upgrade.Category.WEAPONS;
+                case DEFENSE -> upgrade.category() == Upgrade.Category.DEFENSE;
+                case SYSTEMS -> upgrade.category() == Upgrade.Category.MOBILITY
+                        || upgrade.category() == Upgrade.Category.UTILITY;
+            };
+        }
+    }
+
+    /** What a row is, so the cursor can be acted on without fixed row numbers. */
+    private enum Slot { CHASSIS, LIVERY, KIT, UPGRADE, LAUNCH }
+
+    private record Entry(Slot slot, Upgrade upgrade) {
+    }
+
+    /** The rows of a tab, in order, ending in LAUNCH. */
+    private static List<Entry> entries(Tab tab) {
+        List<Entry> entries = new ArrayList<>();
+        if (tab == Tab.SHIP) {
+            entries.add(new Entry(Slot.CHASSIS, null));
+            entries.add(new Entry(Slot.LIVERY, null));
+            entries.add(new Entry(Slot.KIT, null));
+        }
+        for (Upgrade upgrade : Upgrade.values()) {
+            if (tab.holds(upgrade)) {
+                entries.add(new Entry(Slot.UPGRADE, upgrade));
+            }
+        }
+        entries.add(new Entry(Slot.LAUNCH, null));
+        return entries;
+    }
 
     /** One pilot's identity and controls. Fixed for the life of the session. */
     public record Seat(String pilotName, Set<KeyCode> up, Set<KeyCode> down, Set<KeyCode> left,
@@ -79,8 +109,9 @@ public final class GarageSession {
         private final Seat seat;
         private final Loadout loadout;
         private int credits;
-        private int cursor;
-        private final MenuWindow window = new MenuWindow(ROW_COUNT, VISIBLE_ROWS);
+        private Tab tab = Tab.SHIP;
+        /** 0 is the tab strip; 1 onward are the tab's rows, LAUNCH last. */
+        private int position;
         private int chassisBrowse;
         private int liveryBrowse;
         private int kitBrowse;
@@ -106,6 +137,16 @@ public final class GarageSession {
 
         private Chassis browsedChassis() {
             return Chassis.values()[chassisBrowse];
+        }
+
+        /** The row under the cursor, or null on the tab strip. */
+        private Entry entry() {
+            return position == 0 ? null : entries(tab).get(position - 1);
+        }
+
+        private Slot slot() {
+            Entry entry = entry();
+            return entry == null ? null : entry.slot();
         }
     }
 
@@ -152,11 +193,11 @@ public final class GarageSession {
                 return true;
             }
             if (bay.seat.left().contains(code)) {
-                cycle(bay, -1);
+                sideways(bay, -1);
                 return true;
             }
             if (bay.seat.right().contains(code)) {
-                cycle(bay, 1);
+                sideways(bay, 1);
                 return true;
             }
             if (bay.seat.buy().contains(code)) {
@@ -169,22 +210,17 @@ public final class GarageSession {
 
     private void move(Bay bay, int delta) {
         bay.message = "";
-        bay.cursor = Math.floorMod(bay.cursor + delta, ROW_COUNT);
-        bay.window.follow(bay.cursor);
+        bay.position = Math.floorMod(bay.position + delta, entries(bay.tab).size() + 1);
     }
 
-    /** First row on screen in this bay. {@link #rows} still returns all of them. */
-    public int firstVisibleRow(int bay) {
-        return bays.get(bay).window.firstVisible();
-    }
-
-    public int visibleRows(int bay) {
-        return bays.get(bay).window.visibleRows();
-    }
-
-    /** Whether this bay has more rows than it can show, so the overlay draws a scroll track. */
-    public boolean scrolls(int bay) {
-        return bays.get(bay).window.scrolls();
+    /** On the tab strip left and right change tab; on a look they browse it. */
+    private void sideways(Bay bay, int delta) {
+        if (bay.position == 0) {
+            bay.message = "";
+            bay.tab = Tab.values()[Math.floorMod(bay.tab.ordinal() + delta, Tab.values().length)];
+            return;
+        }
+        cycle(bay, delta);
     }
 
     /**
@@ -196,17 +232,17 @@ public final class GarageSession {
      */
     private void cycle(Bay bay, int delta) {
         bay.message = "";
-        if (bay.cursor == CHASSIS_ROW) {
+        if (bay.slot() == Slot.CHASSIS) {
             bay.chassisBrowse = Math.floorMod(bay.chassisBrowse + delta, Chassis.values().length);
             bay.loadout.select(bay.browsedChassis());
             return;
         }
-        if (bay.cursor == LIVERY_ROW) {
+        if (bay.slot() == Slot.LIVERY) {
             bay.liveryBrowse = Math.floorMod(bay.liveryBrowse + delta, Livery.values().length);
             bay.loadout.select(bay.browsedLivery());
             return;
         }
-        if (bay.cursor == KIT_ROW) {
+        if (bay.slot() == Slot.KIT) {
             bay.kitBrowse = Math.floorMod(bay.kitBrowse + delta, Kit.values().length);
             bay.loadout.select(bay.browsedKit());
         }
@@ -214,19 +250,23 @@ public final class GarageSession {
 
     private void buy(Bay bay) {
         bay.message = "";
-        if (bay.cursor == LAUNCH_ROW) {
+        Slot slot = bay.slot();
+        if (slot == null) {
+            return;   // fire on the tab strip buys nothing
+        }
+        if (slot == Slot.LAUNCH) {
             bay.done = true;
             return;
         }
-        if (bay.cursor >= FIRST_UPGRADE_ROW) {
-            buyUpgrade(bay, Upgrade.values()[bay.cursor - FIRST_UPGRADE_ROW]);
+        if (slot == Slot.UPGRADE) {
+            buyUpgrade(bay, bay.entry().upgrade());
             return;
         }
-        if (bay.cursor == CHASSIS_ROW) {
+        if (slot == Slot.CHASSIS) {
             buyChassis(bay);
             return;
         }
-        if (bay.cursor == LIVERY_ROW) {
+        if (slot == Slot.LIVERY) {
             buyLivery(bay);
             return;
         }
@@ -234,7 +274,7 @@ public final class GarageSession {
         // instead of two, "anything that is not launch, an upgrade or paint" stopped being a safe
         // way to say "the kit row", and a mis-ordered constant would have bought the wrong thing
         // with nothing to report it.
-        if (bay.cursor == KIT_ROW) {
+        if (slot == Slot.KIT) {
             buyKit(bay);
         }
     }
@@ -340,15 +380,20 @@ public final class GarageSession {
     public Look look(int index) {
         Bay bay = bays.get(index);
         Loadout worn = bay.loadout;
-        Chassis chassis = bay.cursor == CHASSIS_ROW ? bay.browsedChassis() : worn.chassis();
-        Livery livery = bay.cursor == LIVERY_ROW ? bay.browsedLivery() : worn.livery();
-        Kit kit = bay.cursor == KIT_ROW ? bay.browsedKit() : worn.kit();
+        Chassis chassis = bay.slot() == Slot.CHASSIS ? bay.browsedChassis() : worn.chassis();
+        Livery livery = bay.slot() == Slot.LIVERY ? bay.browsedLivery() : worn.livery();
+        Kit kit = bay.slot() == Slot.KIT ? bay.browsedKit() : worn.kit();
         boolean owned = worn.owns(chassis) && worn.owns(livery) && worn.owns(kit);
         return new Look(chassis, livery, kit, owned);
     }
 
+    /** Index into {@link #rows} of the row under the cursor, or -1 while it is on the tab strip. */
     public int cursor(int bay) {
-        return bays.get(bay).cursor;
+        return bays.get(bay).position - 1;
+    }
+
+    public Tab tab(int bay) {
+        return bays.get(bay).tab;
     }
 
     public boolean done(int bay) {
@@ -359,56 +404,52 @@ public final class GarageSession {
         return bays.get(bay).message;
     }
 
-    public static int launchRow() {
-        return LAUNCH_ROW;
-    }
-
-    /** Where the looks end and the upgrades begin, for the divider the bay draws between them. */
-    public static int firstUpgradeRow() {
-        return FIRST_UPGRADE_ROW;
-    }
-
-    /** Everything one bay draws, top to bottom, already priced against what the pilot can afford. */
+    /** The current tab's rows, top to bottom, LAUNCH last, priced against what the pilot can afford. */
     public List<Row> rows(int index) {
         Bay bay = bays.get(index);
-        List<Row> rows = new ArrayList<>(ROW_COUNT);
+        List<Row> rows = new ArrayList<>();
         // The browsed item, not the worn one: an unowned paint job has to show its price to be
         // worth buying, and it is never worn until it is paid for.
-        //
-        // This order has to match the row constants above; GarageSessionTest pins it.
-        Chassis chassis = bay.browsedChassis();
-        boolean chassisOwned = bay.loadout.owns(chassis);
-        // The airframe is the one cosmetic that changes how the ship flies, so it says how.
-        String frame = String.format("Hull %d%%   Speed %d%%   Fire rate %d%%", Math.round(chassis.healthFactor() * 100),
-                Math.round(chassis.speedFactor() * 100), Math.round(100 / chassis.reloadFactor()));
-        rows.add(new Row("Airframe", chassis.label(), chassisOwned ? 0 : chassis.cost(),
-                chassisOwned || chassis.cost() <= bay.credits, chassisOwned, 0, 0, frame, null));
-
-        Livery livery = bay.browsedLivery();
-        boolean liveryOwned = bay.loadout.owns(livery);
-        rows.add(new Row("Paint", livery.label(), liveryOwned ? 0 : livery.cost(),
-                liveryOwned || livery.cost() <= bay.credits, liveryOwned));
-
-        Kit kit = bay.browsedKit();
-        boolean kitOwned = bay.loadout.owns(kit);
-        rows.add(new Row("Body kit", kit.label(), kitOwned ? 0 : kit.cost(),
-                kitOwned || kit.cost() <= bay.credits, kitOwned));
-
-        for (Upgrade upgrade : Upgrade.values()) {
-            int level = bay.loadout.level(upgrade);
-            boolean maxed = bay.loadout.isMaxed(upgrade);
-            int cost = upgrade.costFor(level);
-            String detail = maxed
-                    ? upgrade.effectAt(level, bay.loadout.chassis())
-                    : upgrade.effectAt(level, bay.loadout.chassis()) + "  ->  "
-                            + upgrade.effectAt(level + 1, bay.loadout.chassis());
-            rows.add(new Row(upgrade.label(), upgrade.description(), cost,
-                    !maxed && cost <= bay.credits, maxed,
-                    level, upgrade.maxLevel(), detail, upgrade));
+        for (Entry entry : entries(bay.tab)) {
+            rows.add(switch (entry.slot()) {
+                case CHASSIS -> {
+                    Chassis chassis = bay.browsedChassis();
+                    boolean owned = bay.loadout.owns(chassis);
+                    // The airframe is the one look that changes how the ship flies, so it says how.
+                    String frame = String.format("Hull %d%%  Speed %d%%  Rate %d%%  Special: %s",
+                            Math.round(chassis.healthFactor() * 100), Math.round(chassis.speedFactor() * 100),
+                            Math.round(100 / chassis.reloadFactor()), chassis.specialLabel());
+                    yield new Row("Airframe", chassis.label(), owned ? 0 : chassis.cost(),
+                            owned || chassis.cost() <= bay.credits, owned, 0, 0, frame, null);
+                }
+                case LIVERY -> {
+                    Livery livery = bay.browsedLivery();
+                    boolean owned = bay.loadout.owns(livery);
+                    yield new Row("Paint", livery.label(), owned ? 0 : livery.cost(),
+                            owned || livery.cost() <= bay.credits, owned);
+                }
+                case KIT -> {
+                    Kit kit = bay.browsedKit();
+                    boolean owned = bay.loadout.owns(kit);
+                    yield new Row("Body kit", kit.label(), owned ? 0 : kit.cost(),
+                            owned || kit.cost() <= bay.credits, owned);
+                }
+                case UPGRADE -> {
+                    Upgrade upgrade = entry.upgrade();
+                    int level = bay.loadout.level(upgrade);
+                    boolean maxed = bay.loadout.isMaxed(upgrade);
+                    int cost = upgrade.costFor(level);
+                    String detail = maxed
+                            ? upgrade.effectAt(level, bay.loadout.chassis())
+                            : upgrade.effectAt(level, bay.loadout.chassis()) + "  ->  "
+                                    + upgrade.effectAt(level + 1, bay.loadout.chassis());
+                    yield new Row(upgrade.label(), upgrade.description(), cost,
+                            !maxed && cost <= bay.credits, maxed,
+                            level, upgrade.maxLevel(), detail, upgrade);
+                }
+                case LAUNCH -> new Row("LAUNCH", "", 0, true, false);
+            });
         }
-
-        rows.add(new Row("LAUNCH", "", 0, true, false));
         return Collections.unmodifiableList(rows);
     }
-
 }

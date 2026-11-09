@@ -36,16 +36,16 @@ public enum Upgrade {
     YIELD("Yield", "The nova answers for more ground.",
             Category.WEAPONS, 2, 260),
 
-    // ---- Defence ------------------------------------------------------------------------------
+    // ---- Defense ------------------------------------------------------------------------------
 
     HULL("Hull", "More maximum health.",
-            Category.DEFENCE, GameConfig.UPGRADE_MAX_LEVEL, GameConfig.UPGRADE_COST_STEP),
+            Category.DEFENSE, GameConfig.UPGRADE_MAX_LEVEL, GameConfig.UPGRADE_COST_STEP),
     SHIELDING("Plating", "Every hit lands for less.",
-            Category.DEFENCE, GameConfig.UPGRADE_MAX_LEVEL, GameConfig.UPGRADE_COST_STEP),
+            Category.DEFENSE, GameConfig.UPGRADE_MAX_LEVEL, GameConfig.UPGRADE_COST_STEP),
     CAPACITOR("Capacitor", "Shields you pick up soak more.",
-            Category.DEFENCE, 2, 140),
+            Category.DEFENSE, 2, 140),
     REPAIR("Repair rig", "Patches the hull while you fly clean.",
-            Category.DEFENCE, 3, 140),
+            Category.DEFENSE, 3, 140),
 
     // ---- Mobility -----------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ public enum Upgrade {
 
     /** How the garage groups the rows. Order here is the order they are listed in. */
     public enum Category {
-        WEAPONS("Weapons"), DEFENCE("Defence"), MOBILITY("Mobility"), UTILITY("Utility");
+        WEAPONS("Weapons"), DEFENSE("Defense"), MOBILITY("Mobility"), UTILITY("Utility");
 
         private final String label;
 

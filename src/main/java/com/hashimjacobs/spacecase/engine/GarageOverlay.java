@@ -37,29 +37,28 @@ final class GarageOverlay {
     private static final Color PANEL = Tokens.SURFACE_1;
     private static final Color PANEL_EDGE = Tokens.EDGE_STRONG;
 
-    private static final double PANEL_WIDTH = 396;
-    /** The counter starts under the lift pads; the ships turn above it, over the hangar deck. */
-    private static final double PANEL_TOP = 318;
-    /** Where each ship turns, and how big: the turntable frames are a three-quarter view. */
-    private static final double PAD_Y = 196;
-    private static final double SHOWCASE_SIZE = 210;
-
     /**
-     * Sized to the rows it shows, plus the ship above them.
+     * Each bay is a ship column and a sidebar, side by side.
      *
-     * Was 500, holding about eight rows, which the catalogue outgrew: fourteen upgrades plus
-     * chassis, paint, kit and launch is eighteen. Rather than shrink the rows, the panel got taller
-     * and the turntable got smaller. Sized to what it actually holds -- the stand, the rows, the
-     * focused row's readout, and the two lines at the foot -- because a panel with a hand's width of
-     * nothing at the bottom reads as unfinished rather than as spacious.
+     * The ship turns on its pad on the left with room to be looked at; the menu is a column down
+     * the right, tabs at its top and LAUNCH pinned to its foot. Two pilots split the screen and each
+     * gets the same arrangement at a smaller scale.
      */
-    private static final double PANEL_HEIGHT = 508;
-    private static final double PANEL_GAP = 24;
+    private static final double MARGIN = 16;
+    private static final double BAY_GAP = 16;
+    private static final double SIDEBAR_TOP = 96;
+    private static final double SIDEBAR_BOTTOM_GAP = 48;
+    private static final double SIDEBAR_WIDE = 420;
+    private static final double SIDEBAR_NARROW = 286;
+    private static final double SHOWCASE_WIDE = 400;
+    private static final double SHOWCASE_NARROW = 176;
+    private static final double TABS_OFFSET = 50;
+    private static final double TAB_HEIGHT = 28;
     /** Icon width plus the breath between it and the label. */
     private static final double ICON_GAP = 32;
 
     private static final double ROW_PITCH = Tokens.ROW_GARAGE;
-    private static final double ROWS_TOP_OFFSET = 56;
+    private static final double ROWS_TOP_OFFSET = 110;
 
     /** Where the focused row's before-and-after readout sits, and what it adds to that row. */
     private static final double DETAIL_OFFSET = 17;
@@ -103,33 +102,39 @@ final class GarageOverlay {
         gc.fillText("GARAGE", GameConfig.WIDTH / 2, 58);
         gc.setFont(rowFont);
         gc.setFill(MUTED);
-        gc.fillText("Up/down choose    left/right try on a frame, paint or kit    fire to buy",
+        gc.fillText("Left/right on the tabs change category    up/down choose    left/right try on a look    fire to buy",
                 GameConfig.WIDTH / 2, GameConfig.HEIGHT - 26);
 
         int bays = session.bayCount();
-        double totalWidth = bays * PANEL_WIDTH + (bays - 1) * PANEL_GAP;
-        double x = (GameConfig.WIDTH - totalWidth) / 2;
+        double bayWidth = (GameConfig.WIDTH - 2 * MARGIN - (bays - 1) * BAY_GAP) / Math.max(1, bays);
+        boolean narrow = bays > 1;
         for (int bay = 0; bay < bays; bay++) {
-            drawBay(session, bay, x, tick);
-            x += PANEL_WIDTH + PANEL_GAP;
+            drawBay(session, bay, MARGIN + bay * (bayWidth + BAY_GAP), bayWidth, narrow, tick);
         }
     }
 
-    private void drawBay(GarageSession session, int bay, double x, int tick) {
-        drawShowcase(session.look(bay), x + PANEL_WIDTH / 2, PAD_Y, tick);
+    private void drawBay(GarageSession session, int bay, double x, double width, boolean narrow, int tick) {
+        double sideWidth = narrow ? SIDEBAR_NARROW : SIDEBAR_WIDE;
+        double sideX = x + width - sideWidth;
+        double top = SIDEBAR_TOP;
+        double height = GameConfig.HEIGHT - SIDEBAR_TOP - SIDEBAR_BOTTOM_GAP;
+
+        // The ship column: everything left of the sidebar, the pad a little above its middle.
+        double size = Math.min(narrow ? SHOWCASE_NARROW : SHOWCASE_WIDE, sideX - x - 20);
+        drawShowcase(session.look(bay), x + (sideX - x) / 2, top + height * 0.42, size, tick);
 
         gc.save();
         gc.setGlobalAlpha(0.92);
         gc.setFill(PANEL);
-        gc.fillRoundRect(x, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, 12, 12);
+        gc.fillRoundRect(sideX, top, sideWidth, height, 12, 12);
         gc.restore();
         gc.setStroke(PANEL_EDGE);
         gc.setLineWidth(1.5);
-        gc.strokeRoundRect(x, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT, 12, 12);
+        gc.strokeRoundRect(sideX, top, sideWidth, height, 12, 12);
 
-        double left = x + 22;
-        double right = x + PANEL_WIDTH - 22;
-        double y = PANEL_TOP + 18;
+        double left = sideX + 20;
+        double right = sideX + sideWidth - 20;
+        double y = top + 16;
 
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(headingFont);
@@ -140,51 +145,75 @@ final class GarageOverlay {
         gc.setFill(BRAND);
         gc.fillText(session.credits(bay) + " CR", right, y);
 
-        y = PANEL_TOP + ROWS_TOP_OFFSET;
+        drawTabs(session.tab(bay), session.cursor(bay) < 0, left + 6, top + TABS_OFFSET, right - left - 12);
+
         List<GarageSession.Row> rows = session.rows(bay);
         int cursor = session.cursor(bay);
-        // Only the slice on screen. rows() still hands back all of them, which is what keeps the
-        // row indices the session and its tests speak in unchanged.
-        int first = session.firstVisibleRow(bay);
-        int visible = session.visibleRows(bay);
-        for (int i = first; i < Math.min(rows.size(), first + visible); i++) {
-            if ((i == GarageSession.firstUpgradeRow() || i == GarageSession.launchRow()) && i > first) {
-                // The looks, the upgrades and the way out are three different kinds of row.
-                gc.setStroke(PANEL_EDGE);
-                gc.setLineWidth(1);
-                y += 12;
-                gc.strokeLine(left - 6, y - 24, right + 6, y - 24);
-            }
-            y = drawRow(left, right, y, rows.get(i), i == cursor, i == GarageSession.launchRow());
+        y = top + ROWS_TOP_OFFSET;
+        int launch = rows.size() - 1;
+        for (int i = 0; i < launch; i++) {
+            y = drawRow(left, right, y, rows.get(i), i == cursor, false);
         }
-        if (session.scrolls(bay)) {
-            drawScrollTrack(right + 10, PANEL_TOP + ROWS_TOP_OFFSET - 12,
-                    visible * ROW_PITCH, first, visible, rows.size());
-        }
+
+        // LAUNCH is pinned to the foot of the sidebar, so the way out never moves between tabs.
+        double launchY = top + height - 44;
+        gc.setStroke(PANEL_EDGE);
+        gc.setLineWidth(1);
+        gc.strokeLine(left - 6, launchY - 14, right + 6, launchY - 14);
+        drawRow(left, right, launchY, rows.get(launch), cursor == launch, true);
 
         String message = session.message(bay);
         if (!message.isEmpty()) {
             gc.setTextAlign(TextAlignment.LEFT);
             gc.setFont(rowFont);
             gc.setFill(Tokens.DANGER_SOFT);
-            gc.fillText(message, left, y + 8);
+            gc.fillText(message, left, launchY - 40);
         }
 
         if (session.done(bay)) {
             gc.setTextAlign(TextAlignment.CENTER);
             gc.setFont(promptFont);
             gc.setFill(MUTED);
-            gc.fillText("READY - waiting for the other pilot",
-                    x + PANEL_WIDTH / 2, PANEL_TOP + PANEL_HEIGHT - 26);
+            gc.fillText("READY - waiting for the other pilot", sideX + sideWidth / 2, top + height + 8);
         }
     }
 
     /**
-     * The ship on its lift pad, turning: a full revolution of the three-quarter turntable render,
-     * in the browsed paint, with the browsed kit bolted on. Not yet bought, it says so.
+     * The category strip. The current tab is filled; with the cursor on the strip it is outlined in
+     * the brand colour and flanked by arrows, which is the cue that left and right now change tab.
      */
-    private void drawShowcase(GarageSession.Look look, double centreX, double centreY, int tick) {
-        double size = SHOWCASE_SIZE;
+    private void drawTabs(GarageSession.Tab current, boolean focused, double x, double y, double width) {
+        GarageSession.Tab[] tabs = GarageSession.Tab.values();
+        double tabWidth = width / tabs.length;
+        gc.setTextAlign(TextAlignment.CENTER);
+        for (int i = 0; i < tabs.length; i++) {
+            double tx = x + i * tabWidth;
+            boolean selected = tabs[i] == current;
+            if (selected) {
+                gc.setFill(Tokens.SURFACE_2);
+                gc.fillRoundRect(tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6, 6);
+                if (focused) {
+                    gc.setStroke(BRAND);
+                    gc.setLineWidth(1.5);
+                    gc.strokeRoundRect(tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6, 6);
+                }
+            }
+            gc.setFont(selected ? valueFont : rowFont);
+            gc.setFill(selected ? (focused ? BRAND : Color.WHITE) : MUTED);
+            gc.fillText(tabs[i].label().toUpperCase(), tx + tabWidth / 2, y + 6);
+        }
+        if (focused) {
+            gc.setFont(valueFont);
+            gc.setFill(BRAND);
+            gc.fillText("<", x - 6, y + 6);
+            gc.fillText(">", x + width + 6, y + 6);
+        }
+        gc.setStroke(PANEL_EDGE);
+        gc.setLineWidth(1);
+        gc.strokeLine(x, y + TAB_HEIGHT + 8, x + width, y + TAB_HEIGHT + 8);
+    }
+
+    private void drawShowcase(GarageSession.Look look, double centreX, double centreY, double size, int tick) {
         // The pad: a lit ring on the deck, and a cone of light from the gantry above it.
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
@@ -242,7 +271,7 @@ final class GarageOverlay {
         double textLeft = left;
         if (row.upgrade() != null) {
             Sprite icon = iconFor(row.upgrade());
-            gc.drawImage(Assets.image(icon), left, y - 15, icon.width(), icon.height());
+            gc.drawImage(Assets.image(icon), left, y + 8 - icon.height() / 2, icon.width(), icon.height());
             textLeft = left + ICON_GAP;
         }
         gc.setTextAlign(TextAlignment.LEFT);
@@ -256,7 +285,7 @@ final class GarageOverlay {
 
         boolean ladder = row.maxLevel() > 0;
         if (ladder) {
-            drawMeter(left + ICON_GAP + 122, y - 8, row);
+            drawMeter(right - 64 - row.maxLevel() * (SEGMENT_WIDTH + SEGMENT_GAP), y + 8 - SEGMENT_HEIGHT / 2, row);
         }
 
         gc.setTextAlign(TextAlignment.RIGHT);
@@ -320,17 +349,6 @@ final class GarageOverlay {
     }
 
     /** Where the visible slice sits in the whole list, for a bay that no longer shows all of it. */
-    private void drawScrollTrack(double x, double y, double height, int first, int visible,
-                                 int total) {
-        gc.setFill(Tokens.TRACK);
-        gc.fillRoundRect(x, y, 4, height, 2, 2);
-        double thumb = height * visible / total;
-        double offset = height * first / total;
-        gc.setFill(PANEL_EDGE);
-        gc.fillRoundRect(x, y + offset, 4, thumb, 2, 2);
-    }
-
-    /** One icon per upgrade; the switch is exhaustive, so a new Upgrade without art fails to compile. */
     static Sprite iconFor(Upgrade upgrade) {
         return switch (upgrade) {
             case FIREPOWER -> Sprite.GARAGE_FIREPOWER;
