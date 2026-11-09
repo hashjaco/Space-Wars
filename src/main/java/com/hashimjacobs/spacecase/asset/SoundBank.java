@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.net.URL;
 import java.util.Random;
 import java.util.EnumMap;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -127,6 +129,12 @@ public final class SoundBank implements SoundPlayer {
     private final Map<MusicTrack, MediaPlayer> music = new EnumMap<>(MusicTrack.class);
     private MusicCue currentCue;
     private MusicTrack currentTrack;
+    /**
+     * What each cue played last, so the next round of it picks something else. Kept per cue rather
+     * than as one "last track", because the garage plays between every two levels and would
+     * otherwise be the only thing remembered.
+     */
+    private final Map<MusicCue, MusicTrack> lastPicked = new EnumMap<>(MusicCue.class);
 
     private final Settings settings;
     private final Random random = new Random();
@@ -278,9 +286,19 @@ public final class SoundBank implements SoundPlayer {
             playerFor(currentTrack, volume).play();
             return;
         }
+        // Neither the cue's own last song nor the one playing now -- a boss swap that landed on the
+        // level's track would sound like no swap at all.
+        Set<MusicTrack> avoid = EnumSet.noneOf(MusicTrack.class);
+        if (lastPicked.get(cue) != null) {
+            avoid.add(lastPicked.get(cue));
+        }
+        if (currentTrack != null) {
+            avoid.add(currentTrack);
+        }
         stopMusicNow();
         currentCue = cue;
-        currentTrack = cue.pick(random);
+        currentTrack = cue.pick(random, avoid);
+        lastPicked.put(cue, currentTrack);
         MediaPlayer player = playerFor(currentTrack, volume);
         // Reused players carry their old position, so a cue that comes back around starts over
         // rather than resuming mid-phrase.

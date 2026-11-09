@@ -338,7 +338,11 @@ public enum Boss {
      * {@code entity} and close a package cycle.
      */
     public MusicCue music() {
-        return this == AEON ? MusicCue.AEON_BOSS : MusicCue.BOSS;
+        if (this == AEON) {
+            return MusicCue.AEON_BOSS;
+        }
+        // The finales are the hard fights, and the only ones that get the heavy tracks.
+        return indexInGalaxy() == LEVELS_PER_GALAXY ? MusicCue.FINALE_BOSS : MusicCue.BOSS;
     }
 
     /**
