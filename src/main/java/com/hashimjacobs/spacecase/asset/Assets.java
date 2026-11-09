@@ -33,6 +33,7 @@ public final class Assets {
     private static final Map<Explosion, List<Image>> EXPLOSION_FRAMES = new EnumMap<>(Explosion.class);
     /** One list per state an art has; states it lacks are never asked for. */
     private static final Map<BossArt, Map<BossArt.State, List<Image>>> BOSS_FRAMES = new EnumMap<>(BossArt.class);
+    private static final Map<Round, List<Image>> ROUND_FRAMES = new EnumMap<>(Round.class);
     private static final Map<EnemyArt, List<Image>> ENEMY_FRAMES = new EnumMap<>(EnemyArt.class);
     private static final Map<MapArt, List<Image>> PLANET_FRAMES = new EnumMap<>(MapArt.class);
     private static final Map<MapArt, Image> SKIES = new EnumMap<>(MapArt.class);
@@ -87,6 +88,10 @@ public final class Assets {
             List<Image> frames = decodeFrames(explosion.frameCount(), explosion::framePath, 0, 0);
             EXPLOSION_FRAMES.put(explosion, frames);
         }
+        for (Round round : Round.values()) {
+            Sprite still = round.sprite();
+            ROUND_FRAMES.put(round, decodeFrames(round.frameCount(), round::framePath, still.width(), still.height()));
+        }
         displayFontFamily = loadDisplayFont();
         loaded = true;
     }
@@ -102,6 +107,14 @@ public final class Assets {
         List<Image> frames = EXPLOSION_FRAMES.get(explosion);
         if (frames == null) {
             throw new IllegalStateException("Assets.load() must run before requesting " + explosion);
+        }
+        return frames;
+    }
+
+    public static List<Image> roundFrames(Round round) {
+        List<Image> frames = ROUND_FRAMES.get(round);
+        if (frames == null) {
+            throw new IllegalStateException("Assets.load() must run before requesting " + round);
         }
         return frames;
     }

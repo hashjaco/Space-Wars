@@ -1,6 +1,8 @@
 package com.hashimjacobs.spacecase.entity;
 
 import com.hashimjacobs.spacecase.asset.Sprite;
+import java.util.EnumMap;
+import java.util.Map;
 
 /**
  * What a flagship's primary weapon actually puts in the air.
@@ -13,6 +15,11 @@ import com.hashimjacobs.spacecase.asset.Sprite;
  * at you says which part of the campaign you are in before the sky does, and the ten flagships of a
  * galaxy are already told apart by their three phases and their special. Fifty rounds would be fifty
  * sprites to draw and no more legible than five.
+ *
+ * <strong>Except the creatures.</strong> A flagship that is plainly an animal -- the magma crab, the
+ * sandworm, the spider -- fires something out of its own body instead: a spike, radioactive
+ * stardust, a web. Only the art changes ({@link #artFor}); the speed and damage are still its
+ * galaxy's, so the tuning below holds for every boss.
  *
  * The factors are against {@code GameConfig.ENEMY_BULLET_SPEED} and {@code ENEMY_BULLET_DAMAGE}, so
  * the whole set still moves with those two constants. They trade off deliberately: nothing here is
@@ -40,6 +47,29 @@ public enum Ordnance {
     /** Levels in a galaxy, which is the block of flagships that shares a round. */
     private static final int PER_GALAXY = 10;
 
+    /** Creature flagships and what they fire in place of their galaxy's round. See {@code asset.Round}. */
+    private static final Map<Boss, Sprite> CREATURE_ART = new EnumMap<>(Boss.class);
+
+    static {
+        for (Boss boss : new Boss[] {Boss.VENT_CRAWLER, Boss.FOUNDRY_WARDEN, Boss.SHELLBORN}) {
+            CREATURE_ART.put(boss, Sprite.ROUND_SPIKE);
+        }
+        for (Boss boss : new Boss[] {Boss.VOID_WEAVER, Boss.STATIC_CRAWLER}) {
+            CREATURE_ART.put(boss, Sprite.ROUND_WEB);
+        }
+        CREATURE_ART.put(Boss.CORE_TYRANT, Sprite.ROUND_STINGER);
+        for (Boss boss : new Boss[] {Boss.DUNE_LEVIATHAN, Boss.GULLET, Boss.STORM_SERPENT}) {
+            CREATURE_ART.put(boss, Sprite.ROUND_STARDUST);
+        }
+        for (Boss boss : new Boss[] {Boss.SENTINEL, Boss.HIVE_MATRIARCH, Boss.THUNDER_BROOD}) {
+            CREATURE_ART.put(boss, Sprite.ROUND_EGG);
+        }
+        for (Boss boss : new Boss[] {Boss.BLOOM_COLOSSUS, Boss.TRENCH_HORROR, Boss.GEYSER_MAW,
+                Boss.MAGNETAR_MAW, Boss.SHROUDMAW}) {
+            CREATURE_ART.put(boss, Sprite.ROUND_FANG);
+        }
+    }
+
     private final Sprite art;
     private final double speedFactor;
     private final double damageFactor;
@@ -62,8 +92,18 @@ public enum Ordnance {
      * the last round rather than an ArrayIndexOutOfBoundsException in the middle of a boss fight.
      */
     public static Ordnance forBoss(Boss boss) {
-        int galaxy = Math.min(boss.ordinal() / PER_GALAXY, values().length - 1);
+        return forLevel(boss.ordinal());
+    }
+
+    /** The round of the galaxy a level is in; also what that galaxy's ordinary hulls fire. */
+    public static Ordnance forLevel(int levelOrdinal) {
+        int galaxy = Math.min(levelOrdinal / PER_GALAXY, values().length - 1);
         return values()[galaxy];
+    }
+
+    /** What this flagship's primary weapon looks like: its own round if it is a creature, else its galaxy's. */
+    public static Sprite artFor(Boss boss) {
+        return CREATURE_ART.getOrDefault(boss, forBoss(boss).art());
     }
 
     public Sprite art() {

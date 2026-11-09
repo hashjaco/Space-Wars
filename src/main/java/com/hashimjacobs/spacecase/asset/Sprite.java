@@ -973,6 +973,17 @@ public enum Sprite {
     BOSS_BOLT("boss-bolt.png", 17, 28),
     BOSS_VOID("boss-void.png", 23, 23),
 
+    /**
+     * The creature flagships' own rounds: frame one of each {@link Round}, which the renderer
+     * animates. Square because the AI frames are; the footprint is the collision box.
+     */
+    ROUND_SPIKE("fx-round-spike/1.png", 28, 28),
+    ROUND_WEB("fx-round-web/1.png", 28, 28),
+    ROUND_STINGER("fx-round-stinger/1.png", 28, 28),
+    ROUND_STARDUST("fx-round-stardust/1.png", 30, 30),
+    ROUND_EGG("fx-round-egg/1.png", 28, 28),
+    ROUND_FANG("fx-round-fang/1.png", 28, 28),
+
     SCYTHE_BLADE("scythe-blade.png", 96, 32),
     FLAK_PELLET("flak-pellet.png", 14, 14),
     NOVA_SHELL("nova-shell.png", 30, 38),

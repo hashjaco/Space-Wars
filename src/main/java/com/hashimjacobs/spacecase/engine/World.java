@@ -12,6 +12,7 @@ import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
+import com.hashimjacobs.spacecase.entity.Ordnance;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
@@ -67,6 +68,9 @@ public final class World {
 
     /** What shape the current level is. Open space until a level says otherwise. */
     private Terrain terrain = Terrain.NONE;
+
+    /** What the current galaxy's ordinary hulls fire. The original bolt until a level says otherwise. */
+    private Sprite enemyRound = Sprite.ENEMY_BULLET;
 
     private int tick;
 
@@ -135,6 +139,11 @@ public final class World {
     public void enterLevel(Level level) {
         setOrientation(level.orientation());
         terrain = new Terrain(level.template(), level.orientation(), level.ordinal());
+        enemyRound = Ordnance.forLevel(level.ordinal()).art();
+    }
+
+    public Sprite enemyRound() {
+        return enemyRound;
     }
 
     public void setOrientation(Orientation orientation) {
