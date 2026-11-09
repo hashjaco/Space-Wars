@@ -88,13 +88,13 @@ class GarageSessionTest {
         session.handleKey(KeyCode.S);
         session.handleKey(KeyCode.S);
 
-        assertEquals(2, session.cursor(0));
-        assertEquals(0, session.cursor(1));
+        assertEquals(1, session.cursor(0));
+        assertEquals(-1, session.cursor(1), "still on the tab strip");
 
         session.handleKey(KeyCode.DOWN);
 
-        assertEquals(2, session.cursor(0));
-        assertEquals(1, session.cursor(1));
+        assertEquals(1, session.cursor(0));
+        assertEquals(0, session.cursor(1));
     }
 
     @Test
@@ -115,22 +115,25 @@ class GarageSessionTest {
         int rows = session.rows(0).size();
 
         session.handleKey(KeyCode.W);
-        assertEquals(rows - 1, session.cursor(0), "up from the top wraps to the bottom");
+        assertEquals(rows - 1, session.cursor(0), "up from the tab strip wraps to LAUNCH");
 
         session.handleKey(KeyCode.S);
-        assertEquals(0, session.cursor(0));
+        assertEquals(-1, session.cursor(0), "and down from LAUNCH back to the strip");
     }
 
-    /**
-     * The paint row, named rather than counted.
-     *
-     * These used to index it as {@code Upgrade.values().length}, which was right until the airframe
-     * row went in ahead of it. Both tests then bought a gunship and asserted the pilot owned their
-     * own livery -- which they always do -- and passed. A test that moves when the layout moves is
-     * worse than one that fails.
-     */
+    /** The paint row on the Ship tab, found by its label rather than counted. */
     private static int paintRow() {
-        return GarageSession.firstUpgradeRow() - 2;
+        List<GarageSession.Row> rows = solo(0).rows(0);
+        for (int i = 0; i < rows.size(); i++) {
+            if (rows.get(i).label().equals("Paint")) {
+                return i;
+            }
+        }
+        throw new AssertionError("no paint row on the Ship tab");
+    }
+
+    private static int launchRow(GarageSession session) {
+        return session.rows(0).size() - 1;
     }
 
     @Test
@@ -169,14 +172,14 @@ class GarageSessionTest {
     @Test
     void theSessionIsDoneOnlyOnceEveryBayHasLaunched() {
         GarageSession session = pair(0, 0);
-        moveTo(session, GarageSession.launchRow());
+        moveTo(session, launchRow(session));
 
         session.handleKey(KeyCode.SHIFT);
 
         assertTrue(session.done(0));
         assertFalse(session.everyoneDone(), "one pilot launching must not warp the other out");
 
-        for (int i = 0; i < GarageSession.launchRow(); i++) {
+        for (int i = 0; i <= launchRow(session); i++) {
             session.handleKey(KeyCode.DOWN);
         }
         session.handleKey(KeyCode.COMMA);
@@ -227,21 +230,21 @@ class GarageSessionTest {
     @Test
     void aFinishedBayIgnoresFurtherInput() {
         GarageSession session = solo(500);
-        moveTo(session, GarageSession.launchRow());
+        moveTo(session, launchRow(session));
         session.handleKey(KeyCode.SHIFT);
 
         boolean consumed = session.handleKey(KeyCode.W);
 
         assertFalse(consumed);
-        assertEquals(GarageSession.launchRow(), session.cursor(0));
+        assertEquals(launchRow(session), session.cursor(0));
     }
 
-    /** Both bays down from the looks to the first upgrade, FIREPOWER. */
+    /** Both bays across to the Weapons tab and down onto its first row, FIREPOWER. */
     private static void toUpgrades(GarageSession session) {
-        for (int i = 0; i < GarageSession.firstUpgradeRow(); i++) {
-            session.handleKey(KeyCode.S);
-            session.handleKey(KeyCode.DOWN);
-        }
+        session.handleKey(KeyCode.D);
+        session.handleKey(KeyCode.RIGHT);
+        session.handleKey(KeyCode.S);
+        session.handleKey(KeyCode.DOWN);
     }
 
     @Test
@@ -250,7 +253,6 @@ class GarageSessionTest {
         assertEquals("Airframe", session.rows(0).get(0).label());
         assertEquals("Paint", session.rows(0).get(1).label());
         assertEquals("Body kit", session.rows(0).get(2).label());
-        assertEquals(Upgrade.FIREPOWER, session.rows(0).get(GarageSession.firstUpgradeRow()).upgrade());
         moveTo(session, 2);
         session.handleKey(KeyCode.D);
         assertNotEquals(Kit.STOCK, session.look(0).kit(), "the stand shows the kit being browsed");
@@ -260,8 +262,45 @@ class GarageSessionTest {
         assertEquals(Kit.STOCK, session.look(0).kit(), "moving off the row puts the worn kit back");
     }
 
+    // ---- tabs ------------------------------------------------------------------------------------
+
+    @Test
+    void leftAndRightOnTheStripChangeTabAndWrap() {
+        GarageSession session = solo(0);
+        assertEquals(GarageSession.Tab.SHIP, session.tab(0));
+        session.handleKey(KeyCode.D);
+        assertEquals(GarageSession.Tab.WEAPONS, session.tab(0));
+        assertEquals(Upgrade.FIREPOWER, session.rows(0).get(0).upgrade());
+        session.handleKey(KeyCode.A);
+        session.handleKey(KeyCode.A);
+        assertEquals(GarageSession.Tab.SYSTEMS, session.tab(0), "left from the first tab wraps to the last");
+        session.handleKey(KeyCode.SHIFT);
+        assertFalse(session.done(0), "fire on the strip buys and launches nothing");
+    }
+
+    @Test
+    void everyUpgradeIsOnExactlyOneTabAndEveryTabEndsInLaunch() {
+        GarageSession session = solo(0);
+        java.util.Map<Upgrade, Integer> seen = new java.util.EnumMap<>(Upgrade.class);
+        for (GarageSession.Tab tab : GarageSession.Tab.values()) {
+            List<GarageSession.Row> rows = session.rows(0);
+            assertEquals("LAUNCH", rows.get(rows.size() - 1).label(), tab + " ends in LAUNCH");
+            for (GarageSession.Row row : rows) {
+                if (row.upgrade() != null) {
+                    seen.merge(row.upgrade(), 1, Integer::sum);
+                    assertTrue(tab.holds(row.upgrade()));
+                }
+            }
+            session.handleKey(KeyCode.D);
+        }
+        for (Upgrade upgrade : Upgrade.values()) {
+            assertEquals(1, seen.getOrDefault(upgrade, 0), upgrade + " is listed once");
+        }
+    }
+
+    /** Down from the tab strip onto row {@code row} of the current tab. */
     private static void moveTo(GarageSession session, int row) {
-        for (int i = 0; i < row; i++) {
+        for (int i = 0; i <= row; i++) {
             session.handleKey(KeyCode.S);
         }
     }

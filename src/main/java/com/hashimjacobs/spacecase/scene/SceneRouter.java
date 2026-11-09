@@ -921,7 +921,7 @@ public final class SceneRouter {
     /**
      * What SDL currently recognises, for the value column of the settings screen's Pads row.
      *
-     * SDL only opens a pad it has a mapping for, so an unrecognised controller is indistinguishable
+     * SDL only opens a pad it has a mapping for, so an unrecognized controller is indistinguishable
      * here from no controller at all -- Jamepad binds no raw joystick count. Saying so plainly, and
      * pointing at the fix, is worth more than a bare "none": a player whose pad is plugged in and
      * lit up otherwise has nothing to go on.
@@ -930,8 +930,8 @@ public final class SceneRouter {
         if (gamepad == null) {
             return "unavailable";
         }
-        if (gamepad.recognisedPads() == 0) {
-            return "none recognised -- see README";
+        if (gamepad.recognizedPads() == 0) {
+            return "none recognized -- see README";
         }
         StringBuilder text = new StringBuilder();
         for (int slot = 0; slot < 2; slot++) {
