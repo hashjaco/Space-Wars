@@ -16,6 +16,7 @@ import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
+import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 
@@ -203,7 +204,7 @@ public final class CollisionSystem {
         double[] full = player.beamBox();
         double nearest = PlayerShip.UNSTOPPED;
         for (EnemyShip enemy : world.enemies()) {
-            if (enemy.isAlive() && overlaps(full, enemy)) {
+            if (enemy.isAlive() && overlaps(full, enemy) && !yieldsToPart(enemy, full)) {
                 nearest = Math.min(nearest, beamDistance(player.facing(), full, enemy));
             }
         }
@@ -231,6 +232,31 @@ public final class CollisionSystem {
             case LEFT -> beam[0] + beam[2] - (target.x() + target.width());
             case RIGHT -> target.x() - beam[0];
         };
+    }
+
+    /**
+     * Whether a shot on this flagship's hull should pass on to one of its own living parts.
+     *
+     * Vaunt's rig bolts its arms and cockpit inside the body's box, and the body is first in the
+     * enemy list -- so the hull, which takes nothing while any part lives, ate every bullet and
+     * stopped the beam before either reached the pieces that could be hurt. A shot in the lane of
+     * a living part sitting inside the hull goes on to that part. Heads outside a torso (the hydra)
+     * fail the inside test, so they are unaffected.
+     */
+    private static boolean yieldsToPart(EnemyShip enemy, double[] shot) {
+        Orientation facing = enemy.orientation();
+        double from = facing.across(shot[0], shot[1]);
+        double to = from + facing.acrossExtent(shot[2], shot[3]);
+        for (EnemyShip part : enemy.parts()) {
+            if (!part.isAlive() || !part.intersects(enemy)) {
+                continue;
+            }
+            double lane = facing.across(part.x(), part.y());
+            if (from < lane + facing.acrossExtent(part.width(), part.height()) && to > lane) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** {@code box} is {@code {x, y, width, height}}, as {@code PlayerShip.beamBox} returns it. */
@@ -287,7 +313,8 @@ public final class CollisionSystem {
         // Enemies before asteroids so a shot into an overlapping pair reliably hits the ship,
         // which is the one the player was aiming at and the one that pays.
         for (EnemyShip enemy : world.enemies()) {
-            if (!enemy.isAlive() || !bullet.intersects(enemy) || !bullet.canStillHit(enemy)) {
+            if (!enemy.isAlive() || !bullet.intersects(enemy) || !bullet.canStillHit(enemy)
+                    || yieldsToPart(enemy, new double[] {bullet.x(), bullet.y(), bullet.width(), bullet.height()})) {
                 continue;
             }
             PlayerShip shooter = bullet.owner();
