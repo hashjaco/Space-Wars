@@ -252,10 +252,13 @@ public final class SoundBank implements SoundPlayer {
             return;
         }
         FloatControl gain = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
-        float decibels = volume <= 0
-                ? gain.getMinimum()
-                : (float) (20 * Math.log10(volume));
-        gain.setValue(Math.max(gain.getMinimum(), Math.min(gain.getMaximum(), decibels)));
+        gain.setValue(decibels(volume, gain.getMinimum(), gain.getMaximum()));
+    }
+
+    /** The 0..1 to decibels conversion, clamped to the control's range. Package-private for tests. */
+    static float decibels(double volume, float minimum, float maximum) {
+        float decibels = volume <= 0 ? minimum : (float) (20 * Math.log10(volume));
+        return Math.max(minimum, Math.min(maximum, decibels));
     }
 
     /**
