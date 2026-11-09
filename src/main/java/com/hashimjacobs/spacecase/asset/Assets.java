@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.function.IntFunction;
 
 import javafx.scene.image.Image;
+import javafx.scene.image.PixelFormat;
+import javafx.scene.image.WritableImage;
 import javafx.scene.text.Font;
 
 /**
@@ -35,8 +37,13 @@ public final class Assets {
     private static final Map<PoseKey, List<Image>> CHASSIS_FRAMES = new HashMap<>();
     private static final Map<KitPoseKey, List<Image>> KIT_FRAMES = new HashMap<>();
 
-    private record PoseKey(ChassisArt art, int pose, boolean hit, boolean side) {
+    private record PoseKey(ChassisArt art, float hue, float saturation, int pose, boolean hit, boolean side) {
     }
+
+    /** Each CG hull's straight green loop as ARGB, decoded once; every paint and pose derives from it. */
+    private static final Map<ChassisArt, List<int[]>> CHASSIS_BASE = new EnumMap<>(ChassisArt.class);
+    /** Twice the drawn box, so a hull stays sharp on a 2x display. */
+    private static final int HULL_W = (int) (Sprite.P1_STRAIGHT.width() * 2), HULL_H = (int) (Sprite.P1_STRAIGHT.height() * 2);
 
     private record KitPoseKey(KitArt art, int pose, boolean side) {
     }
@@ -120,14 +127,35 @@ public final class Assets {
         return frames;
     }
 
-    /** A player hull's loop for one pose, decoded to the stock hull's box (transposed for the side cut). */
-    public static List<Image> chassisFrames(ChassisArt art, int pose, boolean hit, boolean sideOn) {
+    /**
+     * A player hull's loop in one paint and pose, derived from its green loop by {@link HullPaint} on
+     * first request. Twice the stock hull's box, transposed for the side cut; the renderer draws it
+     * into the ship's box.
+     */
+    public static List<Image> chassisFrames(ChassisArt art, float hue, float saturation, int pose,
+                                            boolean hit, boolean sideOn) {
         requireLoaded(art);
-        double w = sideOn ? Sprite.P1_STRAIGHT.height() : Sprite.P1_STRAIGHT.width();
-        double h = sideOn ? Sprite.P1_STRAIGHT.width() : Sprite.P1_STRAIGHT.height();
-        List<Image> frames = CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, pose, hit, sideOn),
-                key -> decodeFrames(art.frameCount(), index -> art.framePath(pose, hit, sideOn, index), w, h));
-        return frames;
+        return CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, hue, saturation, pose, hit, sideOn), key -> {
+            List<int[]> base = CHASSIS_BASE.computeIfAbsent(art, missing -> {
+                List<int[]> decoded = new ArrayList<>(missing.frameCount());
+                for (int index = 1; index <= missing.frameCount(); index++) {
+                    Image image = decode(missing.framePath(index), HULL_W, HULL_H);
+                    int[] argb = new int[HULL_W * HULL_H];
+                    image.getPixelReader().getPixels(0, 0, HULL_W, HULL_H, PixelFormat.getIntArgbInstance(), argb, 0, HULL_W);
+                    decoded.add(argb);
+                }
+                return decoded;
+            });
+            int w = sideOn ? HULL_H : HULL_W, h = sideOn ? HULL_W : HULL_H;
+            List<Image> frames = new ArrayList<>(base.size());
+            for (int[] argb : base) {
+                WritableImage frame = new WritableImage(w, h);
+                frame.getPixelWriter().setPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(),
+                        HullPaint.derive(argb, HULL_W, HULL_H, hue, saturation, pose, hit, sideOn), 0, w);
+                frames.add(frame);
+            }
+            return Collections.unmodifiableList(frames);
+        });
     }
 
     /** A kit part's loop for one pose, decoded like the hull it sits on. */

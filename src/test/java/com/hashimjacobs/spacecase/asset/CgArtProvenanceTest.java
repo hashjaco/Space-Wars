@@ -49,19 +49,12 @@ class CgArtProvenanceTest {
     }
 
     @Test
-    void everyChassisArtFrameExistsForEveryPoseAndVariant() {
+    void everyChassisArtFrameExists() {
         List<String> missing = new ArrayList<>();
         for (ChassisArt art : ChassisArt.values()) {
-            for (int pose = 0; pose < ChassisArt.POSES.length; pose++) {
-                for (boolean hit : new boolean[] {false, true}) {
-                    for (boolean side : new boolean[] {false, true}) {
-                        for (int frame = 1; frame <= art.frameCount(); frame++) {
-                            String path = art.framePath(pose, hit, side, frame);
-                            if (!Files.exists(RESOURCES.resolve(path.substring(1)))) {
-                                missing.add(path);
-                            }
-                        }
-                    }
+            for (int frame = 1; frame <= art.frameCount(); frame++) {
+                if (!Files.exists(RESOURCES.resolve(art.framePath(frame).substring(1)))) {
+                    missing.add(art.framePath(frame));
                 }
             }
         }

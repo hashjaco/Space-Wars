@@ -14,6 +14,7 @@ import javafx.scene.text.TextAlignment;
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Loadout;
@@ -192,9 +193,12 @@ final class GarageOverlay {
         gc.save();
         gc.translate(centreX, centreY);
         gc.rotate(tick * SPIN_DEGREES_PER_TICK);
-        Image hullImage = Assets.image(hull);
+        ChassisArt art = loadout.chassisArt();
+        Image hullImage = art == null ? Assets.image(hull)
+                : Assets.chassisFrames(art, loadout.livery().hue(), loadout.livery().saturation(), 2, false, false)
+                        .get(art.frameIndexAt(tick));
         gc.drawImage(hullImage, -w / 2, -h / 2, w, h);
-        if (kit != null) {
+        if (kit != null && art == null) {
             // Inside the same transform, so the decal turns with the hull it is bolted to.
             gc.drawImage(Assets.image(kit), -w / 2, -h / 2, w, h);
         }

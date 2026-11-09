@@ -743,7 +743,8 @@ public final class Renderer {
         boolean sideOn = player.facing().horizontal();
         Image frame = hull == null
                 ? Assets.image(shorting ? player.scorchedSprite() : player.sprite())
-                : Assets.chassisFrames(hull, pose, shorting || player.justHit(), sideOn).get(hull.frameIndexAt(tick));
+                : Assets.chassisFrames(hull, player.loadout().livery().hue(), player.loadout().livery().saturation(),
+                        pose, shorting || player.justHit(), sideOn).get(hull.frameIndexAt(tick));
         if (settings.cinematic()) {
             // Engine wash under the hull, then the hull's shadow on the sky, then the hull lit.
             double wash = player.width() * 0.9;
@@ -771,7 +772,9 @@ public final class Renderer {
         Sprite kit = player.kitOverlay();
         if (part != null) {
             drawImage(Assets.kitFrames(part, pose, sideOn).get(part.frameIndexAt(tick)), player, hullDegrees);
-        } else if (kit != null) {
+        } else if (kit != null && hull == null) {
+            // ponytail: the drawn kit decals are placed on the old hull's outline and float off a CG
+            // hull, so they wait for KitArt there; the kit's effect on the ship is unchanged.
             drawSprite(kit, player, hullDegrees);
         }
         if (faded) {

@@ -76,6 +76,26 @@ public enum Livery {
      * {@code sideOn} picks the turned cut of whichever frame the lists name, so a level flown
      * side-on costs no second pair of lists here.
      */
+    /**
+     * The hue a CG hull's green paint turns to, and how much of its saturation it keeps: the
+     * generator's {@code Coat} values, which paint the bought chassis today.
+     */
+    public float hue() {
+        return switch (this) {
+            case MILITIA_GREEN -> 0.33f;
+            case CORSAIR_RED -> 0.98f;
+            case ION_BLUE -> 0.55f;
+            case SOLAR_AMBER -> 0.10f;
+            case VOID_VIOLET -> 0.76f;
+            case CHROME -> 0.00f;
+        };
+    }
+
+    /** The generated green is a muted sage; half again as much colour is the old hulls' arcade brightness. */
+    public float saturation() {
+        return this == CHROME ? 0.15f : 1.6f;
+    }
+
     public Sprite pose(int leanIndex, boolean hit, boolean sideOn) {
         List<Sprite> set = hit ? scorched : poses;
         Sprite chosen = set.get(leanIndex);

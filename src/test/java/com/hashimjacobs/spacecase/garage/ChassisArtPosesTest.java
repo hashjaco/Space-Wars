@@ -23,12 +23,10 @@ class ChassisArtPosesTest {
     }
 
     @Test
-    void everyChassisAndPaintResolvesToItsOwnArtOrToNothing() {
+    void everyChassisResolvesToItsOwnArtOrToNothingWhateverThePaint() {
         for (Chassis chassis : Chassis.values()) {
-            for (Livery livery : Livery.values()) {
-                ChassisArt art = ChassisArt.named(chassis.name() + "_" + livery.name());
-                assertTrue(art == null || art.name().equals(chassis.name() + "_" + livery.name()));
-            }
+            ChassisArt art = ChassisArt.named(chassis.name());
+            assertTrue(art == null || art.name().equals(chassis.name()));
         }
         assertNull(Kit.STOCK.art(), "stock has no part");
     }
