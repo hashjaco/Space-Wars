@@ -77,6 +77,32 @@ class CgArtProvenanceTest {
         assertTrue(missing.isEmpty(), "creature round frames are missing: " + missing);
     }
 
+    /**
+     * The on-foot cast: every folder a kind's states and moves draw from (see OnFootRenderer.animFor and
+     * Move.anim) has a first frame. The renderer falls back to a puppeted still without one, which is a
+     * safety net, not a look.
+     */
+    @Test
+    void everyOnFootMoveHasFrames() {
+        java.util.Map<String, List<String>> cast = java.util.Map.of(
+                "pilot", List.of("idle", "walk", "run", "jump", "hurt", "death", "combo_1", "combo_2", "combo_3",
+                        "dodge", "flourish", "special", "victory"),
+                "thrall", List.of("combat_idle", "walk", "hurt", "death", "combo_1", "combo_2"),
+                "foreman", List.of("combat_idle", "walk", "hurt", "death", "combo_1", "combo_2", "combo_3", "special"),
+                "riveteer", List.of("combat_idle", "walk", "hurt", "death", "special"),
+                "brute", List.of("combat_idle", "walk", "hurt", "death", "combo_1", "combo_2"));
+        List<String> missing = new ArrayList<>();
+        cast.forEach((who, moves) -> {
+            for (String move : moves) {
+                Path first = RESOURCES.resolve("sprites/onfoot/" + who + "/" + move + "/1.png");
+                if (!Files.exists(first)) {
+                    missing.add(who + "/" + move);
+                }
+            }
+        });
+        assertTrue(missing.isEmpty(), "on-foot moves with no frames: " + missing);
+    }
+
     @Test
     void everyChassisArtFrameExists() {
         // Every chassis, bare and with every kit, in every view. Kit names spelled out: asset cannot see garage.

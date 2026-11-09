@@ -16,7 +16,11 @@ public final class Fighter {
     public enum Kind {
         PILOT(44, 118, 1.0, 100, 1.0),
         THRALL(50, 108, 0.9, 34, 0.62),
-        FOREMAN(118, 230, 3.6, 520, 0.55);
+        FOREMAN(118, 230, 3.6, 520, 0.55),
+        /** Ranged: keeps its distance and puts a rivet down the floor after a readable wind-up. */
+        RIVETEER(48, 112, 0.85, 40, 0.5),
+        /** Heavy: shrugs off light hits until enough of them pile up, and rams. */
+        BRUTE(74, 150, 2.0, 140, 0.45);
 
         final double width, height, mass;
         final int health;
@@ -43,6 +47,8 @@ public final class Fighter {
     public enum State { FREE, ATTACK, GUARD, CHARGE, HITSTUN, LAUNCHED, DOWN, GETUP, DEAD }
 
     static final int MAX_KI = 100;
+    /** Light damage a Brute absorbs before it finally flinches. */
+    static final double BRUTE_ARMOR = 30;
     static final int CHARGE_MAX = 90;
     static final int CHARGE_MIN = 14;
     static final int NEEDLE_COST = 22;
@@ -65,6 +71,8 @@ public final class Fighter {
     Move move;
     final Set<Fighter> struck = new HashSet<>();
     int hitstun;
+    /** Light damage a Brute has soaked since it last flinched. */
+    double soaked;
     int juggles;
     int charge;
     /** Power of the lance being fired, 0..1, fixed at release. */
@@ -154,15 +162,32 @@ public final class Fighter {
         return move != null && stateTicks >= move.startup && stateTicks < move.startup + move.active;
     }
 
+    /**
+     * Hit-stop holds the world but not the player: fresh presses go into the same buffers {@link #think}
+     * fills, and are acted on when it ends. {@code last} is left alone, so think still sees every edge.
+     */
+    void latch(Buttons b, Physics p) {
+        if (b.jump() && !last.jump() || b.jumpAlt() && !last.jumpAlt()) {
+            jumpBuffer = p.bufferTicks();
+        }
+        if (b.punch() && !last.punch()) {
+            punchBuffer = p.bufferTicks();
+        }
+        if (b.kick() && !last.kick()) {
+            kickBuffer = p.bufferTicks();
+        }
+    }
+
     /** Pilot only: turns this tick's buttons into intent, buffered so a press a little early still lands. */
     void think(Buttons b, Physics p) {
         boolean punchEdge = b.punch() && !last.punch();
         boolean kickEdge = b.kick() && !last.kick();
-        boolean jumpEdge = b.jump() && !last.jump();
+        // Either source pressed fresh is a jump, even while the other is held (see Buttons).
+        boolean jumpEdge = b.jump() && !last.jump() || b.jumpAlt() && !last.jumpAlt();
         boolean specialEdge = b.special() && !last.special();
         boolean specialRelease = !b.special() && last.special();
         last = b;
-        jumpHeld = b.jump();
+        jumpHeld = b.jump() || b.jumpAlt();
 
         jumpBuffer = jumpEdge ? p.bufferTicks() : Math.max(0, jumpBuffer - 1);
         punchBuffer = punchEdge ? p.bufferTicks() : Math.max(0, punchBuffer - 1);
@@ -401,6 +426,13 @@ public final class Fighter {
         hurtFlash = 8;
         if (kind == Kind.FOREMAN && health > 0 && state == State.ATTACK) {
             return damage;      // armoured through its own attacks: trade with it, do not interrupt it
+        }
+        if (kind == Kind.BRUTE && health > 0 && !m.heavy()) {
+            soaked += damage;
+            if (soaked < BRUTE_ARMOR) {
+                return damage;  // jabs bounce off; a heavy hit, or enough jabs, makes it flinch
+            }
+            soaked = 0;
         }
         if (state == State.CHARGE) {
             charge = 0;

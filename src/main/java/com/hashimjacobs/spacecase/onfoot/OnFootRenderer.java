@@ -55,13 +55,34 @@ public final class OnFootRenderer {
     private static final Paint MOLTEN_HALO = Renderer.halo(MOLTEN);
     /** Second seat: same pilot, re-dyed, so two players are told apart at a glance and art costs nothing. */
     private static final ColorAdjust SECOND_SEAT = new ColorAdjust(-0.55, 0.1, 0, 0);
-    private static final ColorAdjust FLASH = new ColorAdjust(0, -1, 1, 0);
+    /**
+     * A frame's hit flash: the same shape in white, laid over the frame. Baked once per frame rather
+     * than a ColorAdjust under ADD, which flashed the frame's whole rectangle, not the body.
+     */
+    private static final Map<Image, Image> WHITE = new java.util.IdentityHashMap<>();
+
+    private static Image whiteOf(Image frame) {
+        return WHITE.computeIfAbsent(frame, f -> {
+            int w = (int) f.getWidth(), h = (int) f.getHeight();
+            javafx.scene.image.WritableImage white = new javafx.scene.image.WritableImage(w, h);
+            javafx.scene.image.PixelReader in = f.getPixelReader();
+            javafx.scene.image.PixelWriter out = white.getPixelWriter();
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    int alpha = in.getArgb(x, y) >>> 24;
+                    out.setArgb(x, y, alpha == 0 ? 0 : alpha << 24 | 0x00ffffff);
+                }
+            }
+            return white;
+        });
+    }
     private static final Font TITLE = Font.font(Tokens.BODY, FontWeight.BOLD, 46);
     private static final Font CAPTION = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_LABEL);
     private static final double FLOOR = OnFootStage.FLOOR;
 
     /** On-screen height of a character's frame relative to its body height; frames include reach and air. */
-    private static final double PILOT_ART = 1.207, THRALL_ART = 1.078, FOREMAN_ART = 1.141;  // canvas / standing body, printed by onfoot.py import
+    private static final double PILOT_ART = 1.102, THRALL_ART = 1.434, FOREMAN_ART = 1.141,
+            RIVETEER_ART = 1.008, BRUTE_ART = 1.033;  // canvas / standing body, printed by onfoot.py import
 
     private static final Map<String, List<Image>> FRAMES = new HashMap<>();
     private static final Map<String, Image> STILLS = new HashMap<>();
@@ -105,6 +126,7 @@ public final class OnFootRenderer {
         }
         for (Fighter f : s.enemies()) {
             drawFighter(f, tick);
+            drawRivetAim(f, tick);
         }
         for (Fighter f : s.pilots()) {
             if (visible(f, s)) {
@@ -318,16 +340,38 @@ public final class OnFootRenderer {
         gc.fillOval(f.x() - w / 2, FLOOR - 8, w, 14);
     }
 
+    /**
+     * A Riveteer's tell: a thin red line down its aim that brightens as the wind-up runs out, so the
+     * shot is read and jumped rather than eaten.
+     */
+    private void drawRivetAim(Fighter f, int tick) {
+        if (f.kind != Fighter.Kind.RIVETEER || f.state() != Fighter.State.ATTACK || f.move() != Move.RIVET
+                || f.stateTicks() >= Move.RIVET.startup) {
+            return;
+        }
+        double p = f.stateTicks() / (double) Move.RIVET.startup;
+        double y = f.y() - f.kind.height() * 0.6;
+        double x = f.x() + f.facing() * f.kind.width() * 0.6;
+        boolean blink = !settings.reducedFlash() && p > 0.7 && (tick / 3) % 2 == 0;
+        gc.setStroke(Color.color(1, 0.2, 0.15, blink ? 0.9 : 0.25 + 0.5 * p));
+        gc.setLineWidth(1.5);
+        gc.strokeLine(x, y, x + f.facing() * 900, y);
+    }
+
     private void drawFighter(Fighter f, int tick) {
         String who = switch (f.kind) {
             case PILOT -> "pilot";
             case THRALL -> "thrall";
             case FOREMAN -> "foreman";
+            case RIVETEER -> "riveteer";
+            case BRUTE -> "brute";
         };
         double art = switch (f.kind) {
             case PILOT -> PILOT_ART;
             case THRALL -> THRALL_ART;
             case FOREMAN -> FOREMAN_ART;
+            case RIVETEER -> RIVETEER_ART;
+            case BRUTE -> BRUTE_ART;
         };
         String[] anim = animFor(f);
         List<Image> frames = frames(who, anim[0]);
@@ -378,10 +422,11 @@ public final class OnFootRenderer {
             }
             gc.drawImage(frame, -w / 2, -h, w, h);
             if (f.hurtFlash() > 0 && !settings.reducedFlash()) {
-                gc.setEffect(FLASH);
-                gc.setGlobalBlendMode(BlendMode.ADD);
+                // Plain alpha, not ADD: an image drawn with ADD lightens its whole rectangle here, clear
+                // pixels included, which is the box that used to flash around a struck enemy.
+                gc.setEffect(null);
                 gc.setGlobalAlpha(fade * f.hurtFlash() / 12.0);
-                gc.drawImage(frame, -w / 2, -h, w, h);
+                gc.drawImage(whiteOf(frame), -w / 2, -h, w, h);
             }
         }
         gc.restore();
@@ -511,8 +556,10 @@ public final class OnFootRenderer {
     }
 
     private void drawBeam(OnFootStage.Beam b, int tick) {
-        Color core = b.needle() ? VIOLET : b.owner().kind == Fighter.Kind.FOREMAN ? MOLTEN : TEAL;
-        Paint halo = b.needle() ? KEY_HALO : b.owner().kind == Fighter.Kind.FOREMAN ? MOLTEN_HALO : TEAL_HALO;
+        // Any enemy's beam is molten; only a pilot's is teal.
+        boolean hostile = b.owner().kind != Fighter.Kind.PILOT;
+        Color core = b.needle() ? VIOLET : hostile ? MOLTEN : TEAL;
+        Paint halo = b.needle() ? KEY_HALO : hostile ? MOLTEN_HALO : TEAL_HALO;
         double life = b.life() / (double) b.maxLife();
         double swell = Math.min(1, (1 - life) * 6) * Math.min(1, life * 4);
         double wobble = settings.reducedFlash() ? 1 : 1 + 0.1 * Math.sin(tick * 1.3);

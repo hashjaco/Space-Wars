@@ -1,0 +1,1320 @@
+{
+ "concept_style": "Full-body character for a 3D game, standing in a relaxed A-pose with the arms held slightly away from the body and the legs apart, seen from the front, the whole body visible from head to feet and centred with margin around it, plain flat light-grey studio background, soft even lighting, pre-rendered 3D CGI look, one character, no text, no base, no ground, no shadow. Match the materials, palette and rendering of the reference image.",
+ "characters": [
+  {
+   "slug": "pilot",
+   "ref": "onfoot/pilot/idle/1.png",
+   "prompt": "A human starfighter pilot: sleek dark armored flight suit with glowing teal seams, chest harness, helmet with the visor raised showing a determined face, compact athletic build, armored gauntlets.",
+   "anims": {
+    "idle": "idle",
+    "walk": "walk",
+    "run": "run",
+    "hurt": "fall@0,0.3",
+    "death": "fall",
+    "jump": "jump"
+   },
+   "size": 256,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -40
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -105
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -50
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -100
+     ],
+     "Spine": [
+      0,
+      0,
+      -6
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      14
+     ],
+     "RightLeg": [
+      0,
+      0,
+      14
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -16
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.3,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -12
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.3,
+        {
+         "LeftArm": [
+          0,
+          0,
+          -90
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ],
+         "RightArm": [
+          0,
+          0,
+          -30
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_3": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.22,
+        {
+         "RightArm": [
+          0,
+          0,
+          -10
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -70
+         ],
+         "Spine": [
+          0,
+          0,
+          -20
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -30
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          35
+         ],
+         "RightLeg": [
+          0,
+          0,
+          30
+         ]
+        }
+       ],
+       [
+        0.45,
+        {
+         "RightArm": [
+          0,
+          0,
+          -165
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -35
+         ],
+         "Spine": [
+          0,
+          0,
+          12
+         ],
+         "Neck": [
+          0,
+          0,
+          8
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "dodge": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.3,
+        {
+         "RightUpLeg": [
+          0,
+          0,
+          -70
+         ],
+         "RightLeg": [
+          0,
+          0,
+          0
+         ],
+         "Spine": [
+          0,
+          0,
+          18
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          30
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -30
+         ],
+         "RightArm": [
+          0,
+          0,
+          25
+         ],
+         "LeftArm": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "flourish": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.2,
+        {
+         "RightUpLeg": [
+          0,
+          0,
+          -50
+         ],
+         "RightLeg": [
+          0,
+          0,
+          80
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.42,
+        {
+         "RightUpLeg": [
+          0,
+          0,
+          -105
+         ],
+         "RightLeg": [
+          0,
+          0,
+          8
+         ],
+         "Spine": [
+          0,
+          0,
+          24
+         ],
+         "RightArm": [
+          0,
+          0,
+          30
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -60
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.25,
+        {
+         "RightArm": [
+          0,
+          0,
+          35
+         ],
+         "LeftArm": [
+          0,
+          0,
+          35
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -90
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -90
+         ],
+         "Spine": [
+          0,
+          0,
+          12
+         ]
+        }
+       ],
+       [
+        0.42,
+        {
+         "RightArm": [
+          0,
+          0,
+          -85
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -85
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -6
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -6
+         ],
+         "Spine": [
+          0,
+          0,
+          -16
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          -85
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -85
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -6
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -6
+         ],
+         "Spine": [
+          0,
+          0,
+          -16
+         ]
+        }
+       ]
+      ]
+     },
+     "victory": {
+      "frames": 6,
+      "keys": [
+       [
+        0,
+        {
+         "RightArm": [
+          0,
+          0,
+          -62
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -125
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -58
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -128
+         ],
+         "Spine": [
+          0,
+          0,
+          -12
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          -64
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -122
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -125
+         ],
+         "Spine": [
+          0,
+          0,
+          -14
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "thrall",
+   "ref": "onfoot/thrall/combat_idle/1.png",
+   "prompt": "A Foundry Thrall from an alien undercity: a lean biomechanical worker-creature, glossy green-black insect plates grafted over sinewy grey flesh, molten resin leaking from its seams, sick yellow glands, glowing furnace-orange eyes, long clawed arms.",
+   "anims": {
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 256,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -30
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -50
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -35
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -55
+     ],
+     "Spine": [
+      0,
+      0,
+      -18
+     ],
+     "Neck": [
+      0,
+      0,
+      10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      12
+     ],
+     "RightLeg": [
+      0,
+      0,
+      20
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -18
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      16
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.45,
+        {
+         "RightArm": [
+          0,
+          0,
+          -160
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -30
+         ],
+         "Spine": [
+          0,
+          0,
+          5
+         ]
+        }
+       ],
+       [
+        0.65,
+        {
+         "RightArm": [
+          0,
+          0,
+          -40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -10
+         ],
+         "Spine": [
+          0,
+          0,
+          -30
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.45,
+        {
+         "Spine": [
+          0,
+          0,
+          8
+         ],
+         "RightArm": [
+          0,
+          0,
+          20
+         ],
+         "LeftArm": [
+          0,
+          0,
+          20
+         ]
+        }
+       ],
+       [
+        0.65,
+        {
+         "Spine": [
+          0,
+          0,
+          -38
+         ],
+         "RightArm": [
+          0,
+          0,
+          -85
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -80
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -8
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -8
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -45
+         ],
+         "RightUpLeg": [
+          0,
+          0,
+          35
+         ],
+         "RightLeg": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combat_idle": {
+      "frames": 16,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "Spine": [
+          0,
+          0,
+          -24
+         ],
+         "Neck": [
+          0,
+          0,
+          14
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -58
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -62
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "foreman",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "The Foundry Foreman: a towering hulking insectoid brute, domed green-black beetle shell on its back with venting smokestacks, a molten-orange furnace glowing in its open ribcage, one enormous piston-driven right fist, mandibles.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 384,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -95
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.68,
+        {
+         "RightArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "Spine": [
+          0,
+          0,
+          -35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_3": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.6,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.8,
+        {
+         "RightArm": [
+          0,
+          0,
+          -15
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -15
+         ],
+         "Spine": [
+          0,
+          0,
+          -48
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -40
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          45
+         ],
+         "RightLeg": [
+          0,
+          0,
+          40
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.6,
+        {
+         "RightArm": [
+          0,
+          0,
+          45
+         ],
+         "LeftArm": [
+          0,
+          0,
+          45
+         ],
+         "Spine": [
+          0,
+          0,
+          22
+         ],
+         "Neck": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          45
+         ],
+         "LeftArm": [
+          0,
+          0,
+          45
+         ],
+         "Spine": [
+          0,
+          0,
+          22
+         ],
+         "Neck": [
+          0,
+          0,
+          15
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "riveteer",
+   "ref": "onfoot/thrall/combat_idle/1.png",
+   "prompt": "A Foundry Riveteer from an alien undercity: a wiry biomechanical sniper-creature in the same green-black insect plating and grey sinew as a thrall, a long industrial rivet gun grafted onto its right forearm with a glowing orange-hot barrel, a cluster of yellow compound eyes, a belt of red-hot rivets.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall",
+    "special": "shoot@0.2,1"
+   },
+   "size": 256,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -30
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -50
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -35
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -55
+     ],
+     "Spine": [
+      0,
+      0,
+      -18
+     ],
+     "Neck": [
+      0,
+      0,
+      10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      12
+     ],
+     "RightLeg": [
+      0,
+      0,
+      20
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -18
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      16
+     ]
+    },
+    "moves": {}
+   }
+  },
+  {
+   "slug": "brute",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "A Slag Brute from an alien undercity: a broad hunched biomechanical bruiser, thick slabs of cooled black slag armor over green-black insect plates, cracks glowing molten orange, a massive armored right shoulder built for ramming, short heavy legs, small glowing eyes deep under a brow plate.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 300,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          30
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -100
+         ],
+         "Spine": [
+          0,
+          0,
+          8
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -80
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -55
+         ],
+         "Spine": [
+          0,
+          0,
+          -22
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "Spine": [
+          0,
+          0,
+          -40
+         ],
+         "RightArm": [
+          0,
+          0,
+          -20
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -110
+         ],
+         "LeftArm": [
+          0,
+          0,
+          15
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -45
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          30
+         ],
+         "RightUpLeg": [
+          0,
+          0,
+          35
+         ]
+        }
+       ],
+       [
+        0.85,
+        {
+         "Spine": [
+          0,
+          0,
+          -40
+         ],
+         "RightArm": [
+          0,
+          0,
+          -20
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -110
+         ],
+         "LeftArm": [
+          0,
+          0,
+          15
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -45
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          30
+         ],
+         "RightUpLeg": [
+          0,
+          0,
+          35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     }
+    }
+   }
+  }
+ ],
+ "note_anims": "anims: game move -> Tripo preset, optionally '@from,to' as fractions of the clip. 'hurt' is the opening stagger of 'fall': the 'hurt' preset is a seated knee-hold, not a flinch.",
+ "note_poses": "poses: attacks keyed on the Mixamo rig, Euler degrees added to the rest pose. Z- swings a limb or leans the spine forward; Leg Z+ bends the knee; ForeArm Z- bends the elbow. 'stance' is merged under every key."
+}

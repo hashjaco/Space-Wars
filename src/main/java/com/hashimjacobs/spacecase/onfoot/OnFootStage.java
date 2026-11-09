@@ -39,14 +39,18 @@ public final class OnFootStage {
     }
 
     /** A locked arena: walls at left and right, these enemies, cleared when they are all down. */
-    record Segment(double left, double right, int thralls, boolean boss) {
+    record Segment(double left, double right, int thralls, int riveteers, int brutes, boolean boss) {
     }
 
     static final List<Segment> SEGMENTS = List.of(
-            new Segment(560, 1560, 4, false),
-            new Segment(1500, 2500, 5, false),
-            new Segment(2440, 3440, 7, false),
-            new Segment(3200, 4200, 3, true));
+            new Segment(560, 1560, 4, 0, 0, false),
+            new Segment(1500, 2500, 4, 1, 0, false),
+            new Segment(2440, 3440, 5, 2, 1, false),
+            new Segment(3200, 4200, 2, 0, 1, true));
+
+    /** One enemy waiting to drop in, and from which side. */
+    private record Spawn(Fighter.Kind kind, int side) {
+    }
 
     public record Beam(Fighter owner, double x, double y, int dir, double length, double thickness,
                        int life, int maxLife, int damage, int every, boolean needle) {
@@ -72,7 +76,7 @@ public final class OnFootStage {
     private final List<Beam> beams = new ArrayList<>();
     private final List<Shock> shocks = new ArrayList<>();
     private final List<Particle> particles = new ArrayList<>();
-    private final List<Integer> pendingSpawns = new ArrayList<>();
+    private final List<Spawn> pendingSpawns = new ArrayList<>();
     private final List<Cue> cues = new ArrayList<>();
 
     private Beat beat = Beat.LANDING;
@@ -151,6 +155,12 @@ public final class OnFootStage {
         zoomKick *= 0.85;
         if (freeze > 0) {
             // Hit-stop: the world holds still, which is where most of a punch's weight comes from.
+            // The pilots' thumbs do not: a press made during it is kept, so the jump over a pound's
+            // shockwave -- pressed as the hit lands, which is when hit-stop runs -- is not lost.
+            for (Fighter pilot : pilots) {
+                Buttons b = pilot.player - 1 < input.size() ? input.get(pilot.player - 1) : Buttons.NONE;
+                pilot.latch(b, physics);
+            }
             freeze--;
             return;
         }
@@ -317,6 +327,11 @@ public final class OnFootStage {
             for (int i = 0; i < 18; i++) {
                 debris(f.x + (random.nextDouble() - 0.5) * 160, FLOOR);
             }
+        } else if (m == Move.RIVET && t == m.startup) {
+            beams.add(new Beam(f, muzzle, chest, f.facing, 900, 7, 10, 10, m.damage, 999, false));
+            cues.add(Cue.BEAM);
+        } else if (m == Move.RAM && f.hitting()) {
+            f.vx = f.facing * 9;    // the charge itself: the whole active window at a run
         } else if (m == Move.LUNGE && f.hitting()) {
             f.vx = f.facing * 7;    // driven through the whole active window, or friction eats it
         } else if (m == Move.SLAM && t == m.startup - 6) {
@@ -476,6 +491,14 @@ public final class OnFootStage {
                 foreman(e, dist, toward);
                 continue;
             }
+            if (e.kind == Fighter.Kind.RIVETEER) {
+                riveteer(e, target, dist, toward);
+                continue;
+            }
+            if (e.kind == Fighter.Kind.BRUTE) {
+                brute(e, dist, toward);
+                continue;
+            }
             if (!e.token && attacking < ATTACKERS_PER_PILOT * livePilots() && e.cooldown <= 0) {
                 e.token = true;
                 attacking++;
@@ -524,6 +547,40 @@ public final class OnFootStage {
         }
         e.cooldown = (rage ? 40 : 70) + random.nextInt(40);
     }
+
+    /** Hangs back at rifle range, steps away from a pilot who closes in, and fires when lined up. */
+    private void riveteer(Fighter e, Fighter target, double dist, int toward) {
+        double speed = physics.walkSpeed() * e.kind.pace;
+        double goal = dist < RIVET_NEAR ? -toward : dist > RIVET_FAR ? toward : 0;
+        e.vx = goal == 0 ? e.vx * 0.8 : Fighter.approach(e.vx, goal * speed, 0.4);
+        if (e.cooldown <= 0 && dist < RIVET_FAR + 140 && target.alive()) {
+            e.start(Move.RIVET);
+            e.cooldown = 90 + random.nextInt(60);
+        }
+    }
+
+    /** Walks in. Close, it hooks; at range it lowers its shoulder and charges. */
+    private void brute(Fighter e, double dist, int toward) {
+        double speed = physics.walkSpeed() * e.kind.pace;
+        if (dist > 110) {
+            e.vx = Fighter.approach(e.vx, toward * speed, 0.3);
+        } else {
+            e.vx *= 0.8;
+        }
+        if (e.cooldown > 0) {
+            return;
+        }
+        if (dist < 130) {
+            e.start(Move.SMASH);
+            e.cooldown = 50 + random.nextInt(40);
+        } else if (dist < 440 && random.nextInt(3) == 0) {
+            e.start(Move.RAM);
+            e.cooldown = 80 + random.nextInt(50);
+        }
+    }
+
+    /** The distance band a Riveteer keeps from its pilot. */
+    static final double RIVET_NEAR = 300, RIVET_FAR = 420;
 
     private int livePilots() {
         int n = 0;
@@ -585,7 +642,15 @@ public final class OnFootStage {
                 spawnClock = 0;
                 pendingSpawns.clear();
                 for (int i = 0; i < s.thralls(); i++) {
-                    pendingSpawns.add(i % 3 == 2 ? -1 : 1);
+                    pendingSpawns.add(new Spawn(Fighter.Kind.THRALL, i % 3 == 2 ? -1 : 1));
+                }
+                // The specialists come mid-wave, so the crowd they hide behind is already there.
+                int at = Math.min(2, pendingSpawns.size());
+                for (int i = 0; i < s.riveteers(); i++) {
+                    pendingSpawns.add(Math.min(at + i, pendingSpawns.size()), new Spawn(Fighter.Kind.RIVETEER, i % 2 == 0 ? 1 : -1));
+                }
+                for (int i = 0; i < s.brutes(); i++) {
+                    pendingSpawns.add(new Spawn(Fighter.Kind.BRUTE, 1));
                 }
                 if (s.boss()) {
                     Fighter foreman = spawn(Fighter.Kind.FOREMAN, s.right() - 160);
@@ -605,10 +670,11 @@ public final class OnFootStage {
         Segment s = SEGMENTS.get(segment);
         spawnClock++;
         if (!pendingSpawns.isEmpty() && spawnClock % 50 == 1) {
-            int side = pendingSpawns.remove(0);
+            Spawn next = pendingSpawns.remove(0);
+            int side = next.side();
             double x = side > 0 ? Math.min(s.right() - 40, camera + GameConfig.WIDTH + 40)
                     : Math.max(s.left() + 40, camera - 40);
-            Fighter e = spawn(Fighter.Kind.THRALL, x);
+            Fighter e = spawn(next.kind(), x);
             e.vy = -6;      // they drop in from the catwalks
             e.y = FLOOR - 160;
             e.grounded = false;
