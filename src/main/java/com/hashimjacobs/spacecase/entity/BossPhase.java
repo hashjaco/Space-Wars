@@ -45,6 +45,13 @@ public enum BossPhase {
      */
     VORTEX(12, 30, Math.PI / 6),
 
+    /**
+     * Bloody bone vomited in a wide, slow, tumbling fan: skulls, ribcages, femurs. Only the hydra's
+     * torso fires it. Slower than a bullet (GameConfig.BONE_SPEED_SCALE), so it reads as a wall of
+     * debris to weave through rather than a stream to outrun.
+     */
+    BONE_FAN(4, 96, 0.40),
+
     // ---- Specials ----------------------------------------------------------------------------
     //
     // Fired on every fourth volley instead of the health phase, by Boss.special(). They are ordinary

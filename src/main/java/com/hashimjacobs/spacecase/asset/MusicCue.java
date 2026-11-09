@@ -25,7 +25,7 @@ public enum MusicCue {
      * track per galaxy made ten levels in a row sound identical. Galaxies share tracks because
      * there are only six; what keeps a galaxy its own is which four, and its signature.
      *
-     * The heavy tracks are not here at all: metal and hard rock are saved for the finales.
+     * The heavy tracks are not here at all: metal and hard rock are saved for the bosses.
      * Resolved by {@link #forGalaxy(Galaxy)}; {@code GameMode.musicFor(Level)} is what callers use.
      */
     VERDANCE(MusicTrack.PIXEL_WOMP_RUN, MusicTrack.STARLIGHT_CIRCUIT, MusicTrack.GRIME_QUEST,
@@ -43,14 +43,10 @@ public enum MusicCue {
     BATTLE(MusicTrack.BASSLINE_RIOT_VARIANT),
 
     /**
-     * Swapped in while an ordinary flagship is on screen, and back out when it dies. Several, so
-     * the swap always changes the song rather than landing on whatever the level was playing.
+     * Swapped in while any flagship is on screen, and back out when it dies. Every boss gets metal
+     * and hard rock; none of it plays anywhere else, so the swap always changes the song.
      */
-    BOSS(MusicTrack.GRIME_QUEST_REMIX, MusicTrack.BASSLINE_RIOT_VARIANT, MusicTrack.GRIME_QUEST),
-
-    /** A galaxy's last flagship. The hard fights are the only ones that get metal and hard rock. */
-    FINALE_BOSS(MusicTrack.DEATH_PUNK, MusicTrack.DEATH_METAL),
-
+    BOSS(MusicTrack.DEATH_PUNK, MusicTrack.DEATH_METAL),
 
     /** The between-levels garage, between the debrief and the warp. */
     GARAGE(MusicTrack.GARAGE_MUSIC),

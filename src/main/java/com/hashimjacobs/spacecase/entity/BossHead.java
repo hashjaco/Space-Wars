@@ -1,5 +1,8 @@
 package com.hashimjacobs.spacecase.entity;
 
+import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.BossArt;
+
 /**
  * One of the hydra's heads: a target in its own right, on a neck that never stops moving.
  *
@@ -80,6 +83,9 @@ public final class BossHead extends EnemyShip {
      */
     private int age;
 
+    /** Where a lunge aims: the angle to the nearest pilot, held inside this neck's reach of arc. */
+    private double aim;
+
     BossHead(EnemyShip body, int index, int heads, int health) {
         super(body.boss(), body.centerX(), body.y(), body.scale(), SIZE, SIZE, health,
                 Math.max(1, body.boss().scoreValue() / 6));
@@ -100,9 +106,53 @@ public final class BossHead extends EnemyShip {
         return body.parts().size();
     }
 
-    /** The torso does the tracking; a head goes where its neck takes it. */
+    /**
+     * The torso does the tracking; a head only takes aim, for its next lunge.
+     *
+     * Called every fixed step with the nearest pilot ({@code Replayer.driveEnemies}), so a lunge is
+     * a pure function of the world state and stays deterministic across lockstep peers.
+     */
     @Override
     public void trackAcross(Entity target) {
+        Orientation facing = body.orientation();
+        double dx = target.centerX() - neckRootX(), dy = target.centerY() - neckRootY();
+        double toTarget = StrictMath.atan2(facing.across(dx, dy), Math.max(1, facing.along(dx, dy)));
+        double half = SECTOR_SPAN * 0.5 + SWING;
+        aim = Math.max(-half, Math.min(half, toTarget));
+    }
+
+    /**
+     * How far into a lunge this head is: 0 at rest, 1 at full stretch.
+     *
+     * The worm's strike envelope (BurrowingWorm) squeezed into a third of the cycle: a fast strike,
+     * a beat with the jaws out, a slower pull back. The rest of the cycle is the ordinary sweep.
+     * Heads take turns, a third of a cycle apart, so one is usually coming at you.
+     */
+    public double lunge() {
+        // The Frozen Empress's heads keep their stately sweep; only the hydra bites.
+        if (body.boss() != Boss.HYDRA) {
+            return 0;
+        }
+        int cycle = GameConfig.HYDRA_LUNGE_CYCLE_TICKS;
+        double p = Math.floorMod(age + index * cycle / heads, cycle) / (double) cycle;
+        if (p >= 0.35) {
+            return 0;
+        }
+        return p < 0.08 ? smooth(p / 0.08) : p < 0.18 ? 1 : 1 - smooth((p - 0.18) / 0.17);
+    }
+
+    public boolean lunging() {
+        return lunge() > 0.5;
+    }
+
+    /** Jaws open while the neck is out, if the art has them. */
+    @Override
+    public BossArt.State artState() {
+        return lunging() && bossArt().has(BossArt.State.BITE) ? BossArt.State.BITE : super.artState();
+    }
+
+    private static double smooth(double t) {
+        return t * t * (3 - 2 * t);
     }
 
     /**
@@ -181,7 +231,9 @@ public final class BossHead extends EnemyShip {
     /** Where this neck is pointing, measured from straight down-arena. */
     public double angle() {
         double sector = SECTOR_SPAN * (spread() - 0.5);
-        return sector + StrictMath.sin(phaseAngle()) * SWING;
+        double swept = sector + StrictMath.sin(phaseAngle()) * SWING;
+        double lunge = lunge();
+        return swept + (aim - swept) * lunge;
     }
 
     /**
@@ -197,6 +249,6 @@ public final class BossHead extends EnemyShip {
      */
     private double reach() {
         double swing = (REACH_MAX - REACH_MIN) * (0.5 + 0.5 * StrictMath.cos(phaseAngle() * 2));
-        return REACH_MIN + index * NECK_LENGTH_STEP + swing;
+        return REACH_MIN + index * NECK_LENGTH_STEP + swing + lunge() * GameConfig.HYDRA_LUNGE_REACH;
     }
 }

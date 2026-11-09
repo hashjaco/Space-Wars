@@ -134,12 +134,14 @@ class FrozenEmpressTest {
         EnemyShip hydra = new EnemyShip(Boss.HYDRA, 400, 90, 1);
         EnemyShip empress = new EnemyShip(Boss.FROZEN_EMPRESS, 400, 90, 1);
 
-        assertEquals(210, EnemyWeapons.rocketCooldownFor(hydra.parts().get(0)),
-                "the hydra's heads were tuned at 210 and must stay there");
+        // The hydra's heads now spit a fan of three, so they retch at half the rate the one-ball
+        // budget was tuned at; the per-part rule underneath is unchanged.
+        assertEquals(420, EnemyWeapons.rocketCooldownFor(hydra.parts().get(0)),
+                "the hydra's heads were tuned at 210 a ball, doubled for a fan");
         assertEquals(280, EnemyWeapons.rocketCooldownFor(empress.parts().get(0)),
                 "a fourth part earns a longer fuse gap, not a fifth ball on screen");
 
-        assertEquals(onScreen(hydra), onScreen(empress), 0.05,
+        assertEquals(onScreen(hydra) * 2, onScreen(empress), 0.05,
                 "acid on screen should not depend on how many parts a flagship fields");
     }
 

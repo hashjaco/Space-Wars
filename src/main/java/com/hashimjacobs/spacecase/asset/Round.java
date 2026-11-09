@@ -20,7 +20,13 @@ public enum Round {
     STINGER(Sprite.ROUND_STINGER, "fx-round-stinger", 2, "#ffd23f"),
     STARDUST(Sprite.ROUND_STARDUST, "fx-round-stardust", 4, "#8dff3a"),
     EGG(Sprite.ROUND_EGG, "fx-round-egg", 4, "#c8e070"),
-    FANG(Sprite.ROUND_FANG, "fx-round-fang", 4, "#ff8aa0");
+    FANG(Sprite.ROUND_FANG, "fx-round-fang", 4, "#ff8aa0"),
+    // The hydra's, from OpenArt stills (tools/openart/fx.py): the acid wobbles, the bones tumble.
+    ACID(Sprite.ROUND_ACID, "fx-acid-vomit", 8, "#7dff3a", 0),
+    // Bone-white halo: the bones are dark and bloody, and read as blobs on a meat-red cave without it.
+    SKULL(Sprite.ROUND_SKULL, "fx-bone-skull", 1, "#f2e6c8", 6),
+    RIB(Sprite.ROUND_RIB, "fx-bone-rib", 1, "#f2e6c8", -5),
+    FEMUR(Sprite.ROUND_FEMUR, "fx-bone-femur", 1, "#f2e6c8", 7);
 
     /** At sixty ticks a second, twelve frames a second: quick enough to read as spin at bullet size. */
     public static final int TICKS_PER_FRAME = 5;
@@ -37,12 +43,23 @@ public enum Round {
     private final String directory;
     private final int frameCount;
     private final String haloHex;
+    private final double spinDegreesPerTick;
 
     Round(Sprite sprite, String directory, int frameCount, String haloHex) {
+        this(sprite, directory, frameCount, haloHex, 0);
+    }
+
+    /** A round that tumbles in flight, this many degrees a tick on top of its heading. */
+    Round(Sprite sprite, String directory, int frameCount, String haloHex, double spinDegreesPerTick) {
         this.sprite = sprite;
         this.directory = directory;
         this.frameCount = frameCount;
         this.haloHex = haloHex;
+        this.spinDegreesPerTick = spinDegreesPerTick;
+    }
+
+    public double spinDegreesPerTick() {
+        return spinDegreesPerTick;
     }
 
     /** The animated round a sprite stands for, or null for an ordinary still projectile. */

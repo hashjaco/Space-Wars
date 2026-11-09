@@ -1,0 +1,32 @@
+{
+ "_comment": "One CG hostile per galaxy and archetype. Styled with the galaxy flavour from tools/sprixen/manifest/bosses.json so grunts match their flagships; ref is that galaxy's flagship still. yaw (degrees about the up axis) turns each Tripo model nose-down for the render, set after looking at the preview.",
+ "kinds": {
+  "SCOUT": "a small, fast scout fighter: one slim pointed body with two short swept wings, lightweight and darting, a single engine glow at the tail",
+  "FIGHTER": "a medium attack fighter: a compact armoured body with two forward weapon pods on short wings, twin engine glows at the tail",
+  "CRUISER": "a heavy gun cruiser: a broad, thick armoured hull wider than it is long, a gun turret on top, four engine glows across the tail"
+ },
+ "refs": {
+  "VERDANCE": "boss-sentinel-cg/1.png",
+  "ASHFALL": "boss-cinder-warden-cg/1.png",
+  "CRYONIS": "boss-shard-cutter-cg/1.png",
+  "TEMPEST": "boss-squall-warden-sx/1.png",
+  "NULL": "boss-bonepicker-sx/1.png"
+ },
+ "yaw": {
+  "verdance-scout": 0,
+  "verdance-fighter": 90,
+  "verdance-cruiser": 90,
+  "ashfall-scout": 0,
+  "ashfall-fighter": 90,
+  "ashfall-cruiser": 90,
+  "cryonis-scout": 0,
+  "cryonis-fighter": -90,
+  "cryonis-cruiser": 90,
+  "tempest-scout": -90,
+  "tempest-fighter": 90,
+  "tempest-cruiser": 90,
+  "null-scout": 90,
+  "null-fighter": 180,
+  "null-cruiser": -90
+ }
+}

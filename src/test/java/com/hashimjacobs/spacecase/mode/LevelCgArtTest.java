@@ -34,7 +34,12 @@ class LevelCgArtTest {
             boolean special = level.template() != WorldTemplate.OPEN_FIELD
                     || level.orientation() != Orientation.TOP_DOWN
                     || level.indexInGalaxy() == Galaxy.LEVELS_PER_GALAXY;
-            if (special) {
+            if (special && level.orientation() != Orientation.TOP_DOWN && level.skyLayers() != level.layers()) {
+                // A level turned side-on after its backdrop was drawn flies its galaxy's sideways sky.
+                for (var layer : level.skyLayers()) {
+                    assertTrue(layer.resourcePath().contains("-side/"), level + " flies " + layer + " sideways");
+                }
+            } else if (special) {
                 assertSame(level.layers(), level.skyLayers(), level.name());
             } else {
                 assertEquals(3, level.skyLayers().size(), level.name());

@@ -5,7 +5,9 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
+import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BossHead;
 import com.hashimjacobs.spacecase.entity.Bullet;
@@ -108,7 +110,8 @@ class HydraTest {
         assertEquals(before, world.bullets().size(), "a dead head must not keep firing");
 
         EnemyShip living = headsOf(world).get(1);
-        for (int tick = 0; tick < 300; tick++) {
+        // A head's only gun is its acid fan, on a long timer (EnemyWeapons.rocketCooldownFor).
+        for (int tick = 0; tick < 900; tick++) {
             EnemyWeapons.driveWeapons(world, living, target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
         assertTrue(world.bullets().size() > before, "the others carry on");
@@ -228,14 +231,16 @@ class HydraTest {
         for (int tick = 0; tick < 600; tick++) {
             EnemyWeapons.driveWeapons(world, torsoOf(world), target, LEVEL, 60, ENEMY_CAP, SoundPlayer.SILENT);
         }
-        assertTrue(world.bullets().stream().noneMatch(b -> b instanceof Rocket),
-                "the torso has no mouth of its own");
+        assertTrue(world.bullets().stream().noneMatch(b -> b.sprite() == Sprite.ROUND_ACID),
+                "the torso vomits bone, never acid");
 
         for (int tick = 0; tick < 600; tick++) {
             EnemyWeapons.driveWeapons(world, headsOf(world).get(0), target, LEVEL, 60, ENEMY_CAP,
                     SoundPlayer.SILENT);
         }
-        assertTrue(world.bullets().stream().anyMatch(b -> b instanceof Rocket),
+        long acid = world.bullets().stream().filter(b -> b.sprite() == Sprite.ROUND_ACID).count();
+        assertEquals(0, acid % GameConfig.ACID_FAN_SHOTS, "a head spits a whole fan at once, had " + acid);
+        assertTrue(world.bullets().stream().anyMatch(b -> b.sprite() == Sprite.ROUND_ACID),
                 "a head should have spat by now");
     }
 
@@ -253,11 +258,11 @@ class HydraTest {
             world.update();
             world.sweep();
             peak = Math.max(peak, (int) world.bullets().stream()
-                    .filter(b -> b instanceof Rocket).count());
+                    .filter(b -> b.sprite() == Sprite.ROUND_ACID).count());
         }
 
         assertTrue(peak > 0, "the heads should have spat at all");
-        assertTrue(peak <= 12, "acid accumulated to " + peak + " in the air");
+        assertTrue(peak <= 4 * GameConfig.ACID_FAN_SHOTS, "acid accumulated to " + peak + " in the air");
     }
 
     @Test
@@ -305,5 +310,28 @@ class HydraTest {
 
         assertTrue(head.remainingHealthFraction() < headBefore, "the head should have taken it");
         assertTrue(torso.isAlive());
+    }
+
+    /** Each head lunges at the pilot in turn, biting at full stretch, and pulls back. */
+    @Test
+    void aLungingHeadBitesAndWithdraws() {
+        World world = withHydra();
+        PlayerShip target = world.players().get(0);
+        BossHead head = (BossHead) headsOf(world).get(0);
+        double rest = Double.MAX_VALUE, furthest = 0;
+        boolean bit = false;
+        for (int tick = 0; tick < GameConfig.HYDRA_LUNGE_CYCLE_TICKS * 2; tick++) {
+            head.trackAcross(target);
+            world.update();
+            double reach = Math.hypot(head.centerX() - head.neckRootX(), head.centerY() - head.neckRootY());
+            furthest = Math.max(furthest, reach);
+            rest = Math.min(rest, reach);
+            bit |= head.lunging();
+        }
+        assertTrue(bit, "a head should lunge within two cycles");
+        assertTrue(furthest > 210 + GameConfig.HYDRA_LUNGE_REACH * 0.8, "the lunge should outreach the sweep, got " + furthest);
+        assertTrue(rest < 220, "and pull back again, nearest was " + rest);
+        // Only a head with bite frames shows them; the hull loop is never chosen by a lunge.
+        assertEquals(BossArt.State.IDLE, BossArt.HYDRA_HEAD_CG.stateFor(0.1));
     }
 }

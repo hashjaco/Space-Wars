@@ -11,6 +11,7 @@ import com.hashimjacobs.spacecase.GameConfig;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -43,6 +44,7 @@ class GarageSessionTest {
     @Test
     void buyingChargesCreditsAndRaisesTheLevel() {
         GarageSession session = solo(500);
+        toUpgrades(session);
         int price = Upgrade.FIREPOWER.costFor(0);
 
         session.handleKey(KeyCode.SHIFT);
@@ -54,6 +56,7 @@ class GarageSessionTest {
     @Test
     void anUnaffordablePurchaseChangesNothing() {
         GarageSession session = solo(0);
+        toUpgrades(session);
 
         session.handleKey(KeyCode.SHIFT);
 
@@ -65,6 +68,7 @@ class GarageSessionTest {
     @Test
     void aMaxedUpgradeStopsChargingAndStopsRising() {
         GarageSession session = solo(100000);
+        toUpgrades(session);
         for (int i = 0; i < GameConfig.UPGRADE_MAX_LEVEL; i++) {
             session.handleKey(KeyCode.SHIFT);
         }
@@ -96,6 +100,7 @@ class GarageSessionTest {
     @Test
     void buyingInOneBayDoesNotSpendTheOtherPilotsCredits() {
         GarageSession session = pair(500, 500);
+        toUpgrades(session);
 
         session.handleKey(KeyCode.SHIFT);
 
@@ -125,7 +130,7 @@ class GarageSessionTest {
      * worse than one that fails.
      */
     private static int paintRow() {
-        return GarageSession.launchRow() - 2;
+        return GarageSession.firstUpgradeRow() - 2;
     }
 
     @Test
@@ -184,6 +189,7 @@ class GarageSessionTest {
         // A pad sends the player's fire key and then a menu confirm tap; player two's confirm is
         // Enter, which used to end every bay -- so buying from a pad warped the crew out instead.
         GarageSession session = pair(500, 500);
+        toUpgrades(session);
         int price = Upgrade.FIREPOWER.costFor(0);
 
         session.handleKey(KeyCode.COMMA);
@@ -228,6 +234,30 @@ class GarageSessionTest {
 
         assertFalse(consumed);
         assertEquals(GarageSession.launchRow(), session.cursor(0));
+    }
+
+    /** Both bays down from the looks to the first upgrade, FIREPOWER. */
+    private static void toUpgrades(GarageSession session) {
+        for (int i = 0; i < GarageSession.firstUpgradeRow(); i++) {
+            session.handleKey(KeyCode.S);
+            session.handleKey(KeyCode.DOWN);
+        }
+    }
+
+    @Test
+    void theLooksComeFirstAndBrowsingAKitPreviewsIt() {
+        GarageSession session = solo(0);
+        assertEquals("Airframe", session.rows(0).get(0).label());
+        assertEquals("Paint", session.rows(0).get(1).label());
+        assertEquals("Body kit", session.rows(0).get(2).label());
+        assertEquals(Upgrade.FIREPOWER, session.rows(0).get(GarageSession.firstUpgradeRow()).upgrade());
+        moveTo(session, 2);
+        session.handleKey(KeyCode.D);
+        assertNotEquals(Kit.STOCK, session.look(0).kit(), "the stand shows the kit being browsed");
+        assertFalse(session.look(0).owned(), "and says it is only a preview");
+        assertEquals(Kit.STOCK, session.loadout(0).kit(), "nothing is worn until it is bought");
+        session.handleKey(KeyCode.S);
+        assertEquals(Kit.STOCK, session.look(0).kit(), "moving off the row puts the worn kit back");
     }
 
     private static void moveTo(GarageSession session, int row) {

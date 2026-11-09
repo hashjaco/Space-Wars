@@ -79,25 +79,13 @@ class CgArtProvenanceTest {
 
     @Test
     void everyChassisArtFrameExists() {
+        // Every chassis, bare and with every kit, in every view. Kit names spelled out: asset cannot see garage.
         List<String> missing = new ArrayList<>();
         for (ChassisArt art : ChassisArt.values()) {
-            for (int frame = 1; frame <= art.frameCount(); frame++) {
-                if (!Files.exists(RESOURCES.resolve(art.framePath(frame).substring(1)))) {
-                    missing.add(art.framePath(frame));
-                }
-            }
-        }
-        assertTrue(missing.isEmpty(), "hull loop frames are missing: " + missing);
-    }
-
-    @Test
-    void everyKitArtFrameExistsForEveryPose() {
-        List<String> missing = new ArrayList<>();
-        for (KitArt art : KitArt.values()) {
-            for (int pose = 0; pose < ChassisArt.POSES.length; pose++) {
-                for (boolean side : new boolean[] {false, true}) {
-                    for (int frame = 1; frame <= art.frameCount(); frame++) {
-                        String path = art.framePath(pose, side, frame);
+            for (String kit : new String[] {null, "fins", "armour", "lance"}) {
+                for (ChassisArt.View view : ChassisArt.View.values()) {
+                    for (int frame = 1; frame <= view.frameCount(); frame++) {
+                        String path = art.framePath(kit, view, frame);
                         if (!Files.exists(RESOURCES.resolve(path.substring(1)))) {
                             missing.add(path);
                         }
@@ -105,14 +93,14 @@ class CgArtProvenanceTest {
                 }
             }
         }
-        assertTrue(missing.isEmpty(), "kit part frames are missing: " + missing);
+        assertTrue(missing.isEmpty(), "hull loop frames are missing: " + missing);
     }
 
     @Test
     void cgDirectoriesAreNamedInTheManifest() throws IOException {
         String manifest = Files.readString(Path.of("ASSETS.md"));
         List<String> unlisted = new ArrayList<>();
-        for (String dir : new String[] {"enemy-cg", "player-cg", "kit-cg", "sky-cg", "map-cg"}) {
+        for (String dir : new String[] {"enemy-cg", "hull-cg", "sky-cg", "map-cg"}) {
             if (Files.isDirectory(RESOURCES.resolve("sprites").resolve(dir)) && !manifest.contains(dir)) {
                 unlisted.add(dir);
             }

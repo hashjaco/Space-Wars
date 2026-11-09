@@ -33,7 +33,10 @@ class OrdnanceTest {
                 fired.add(round);
             }
         }
-        assertEquals(EnumSet.allOf(Round.class), fired);
+        // The hydra's rounds are thrown by EnemyWeapons directly (acid fan, BONE_FAN), not by artFor.
+        Set<Round> expected = EnumSet.allOf(Round.class);
+        expected.removeAll(EnumSet.of(Round.ACID, Round.SKULL, Round.RIB, Round.FEMUR));
+        assertEquals(expected, fired);
     }
 
     @Test

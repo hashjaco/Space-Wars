@@ -32,15 +32,15 @@ class MusicCueTest {
     }
 
     @Test
-    void heavyTracksOnlyPlayForHardBosses() {
+    void heavyTracksOnlyPlayForBosses() {
         Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK);
-        Set<MusicCue> hard = EnumSet.of(MusicCue.FINALE_BOSS, MusicCue.AEON_BOSS);
+        Set<MusicCue> hard = EnumSet.of(MusicCue.BOSS, MusicCue.AEON_BOSS);
         for (MusicCue cue : MusicCue.values()) {
             if (hard.contains(cue)) {
                 assertTrue(heavy.containsAll(cue.tracks()), cue + " should be metal or hard rock only");
             } else {
                 for (MusicTrack track : cue.tracks()) {
-                    assertFalse(heavy.contains(track), cue + " plays " + track + ", which is saved for hard bosses");
+                    assertFalse(heavy.contains(track), cue + " plays " + track + ", which is saved for bosses");
                 }
             }
         }
@@ -52,7 +52,7 @@ class MusicCueTest {
             assertTrue(MusicCue.forGalaxy(galaxy).tracks().size() >= 3,
                     galaxy + " should rotate several tracks, not loop one for ten levels");
         }
-        assertTrue(MusicCue.BOSS.tracks().size() >= 3, "ordinary flagships should not all share one song");
+        assertTrue(MusicCue.BOSS.tracks().size() >= 2, "flagships should not all share one song");
     }
 
     @Test
@@ -78,14 +78,10 @@ class MusicCueTest {
     }
 
     @Test
-    void onlyTheFinalesAndAeonGetTheHeavyCues() {
+    void everyBossGetsTheHeavyCue() {
         for (Boss boss : Boss.values()) {
-            boolean finale = boss.ordinal() % Galaxy.LEVELS_PER_GALAXY == Galaxy.LEVELS_PER_GALAXY - 1;
-            MusicCue expected = boss == Boss.AEON ? MusicCue.AEON_BOSS
-                    : finale ? MusicCue.FINALE_BOSS : MusicCue.BOSS;
-            assertEquals(expected, boss.music(), boss.name());
+            assertEquals(boss == Boss.AEON ? MusicCue.AEON_BOSS : MusicCue.BOSS, boss.music(), boss.name());
         }
-        assertEquals(MusicCue.FINALE_BOSS, Boss.HYDRA.music());
     }
 
     @Test

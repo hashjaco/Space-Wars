@@ -21,13 +21,19 @@ import com.hashimjacobs.spacecase.ui.MenuWindow;
  */
 public final class GarageSession {
 
-    /** The fixed rows in every bay, in the order they are drawn and cursored through. */
+    /**
+     * The fixed rows in every bay, in the order they are drawn and cursored through.
+     *
+     * The looks first, right under the ship on its pad, so browsing a frame, a paint job or a kit
+     * changes the thing directly above the cursor; then the upgrades; then LAUNCH.
+     */
+    private static final int CHASSIS_ROW = 0;
+    private static final int LIVERY_ROW = 1;
+    private static final int KIT_ROW = 2;
+    private static final int FIRST_UPGRADE_ROW = 3;
     private static final int UPGRADE_ROWS = Upgrade.values().length;
-    private static final int CHASSIS_ROW = UPGRADE_ROWS;
-    private static final int LIVERY_ROW = UPGRADE_ROWS + 1;
-    private static final int KIT_ROW = UPGRADE_ROWS + 2;
-    private static final int LAUNCH_ROW = UPGRADE_ROWS + 3;
-    private static final int ROW_COUNT = UPGRADE_ROWS + 4;
+    private static final int LAUNCH_ROW = FIRST_UPGRADE_ROW + UPGRADE_ROWS;
+    private static final int ROW_COUNT = LAUNCH_ROW + 1;
 
     /**
      * Rows a bay shows at once.
@@ -212,8 +218,8 @@ public final class GarageSession {
             bay.done = true;
             return;
         }
-        if (bay.cursor < UPGRADE_ROWS) {
-            buyUpgrade(bay, Upgrade.values()[bay.cursor]);
+        if (bay.cursor >= FIRST_UPGRADE_ROW) {
+            buyUpgrade(bay, Upgrade.values()[bay.cursor - FIRST_UPGRADE_ROW]);
             return;
         }
         if (bay.cursor == CHASSIS_ROW) {
@@ -322,6 +328,25 @@ public final class GarageSession {
         return bays.get(bay).loadout;
     }
 
+    /** What the ship on the stand wears: the worn loadout, with the row under the cursor swapped in. */
+    public record Look(Chassis chassis, Livery livery, Kit kit, boolean owned) {
+    }
+
+    /**
+     * The preview: whatever the pilot is browsing on the row the cursor is on, owned or not, over
+     * what they are wearing. A paint job or a kit has to be seen on the hull before it is bought,
+     * which is the whole point of a garage; moving off the row puts the worn one back.
+     */
+    public Look look(int index) {
+        Bay bay = bays.get(index);
+        Loadout worn = bay.loadout;
+        Chassis chassis = bay.cursor == CHASSIS_ROW ? bay.browsedChassis() : worn.chassis();
+        Livery livery = bay.cursor == LIVERY_ROW ? bay.browsedLivery() : worn.livery();
+        Kit kit = bay.cursor == KIT_ROW ? bay.browsedKit() : worn.kit();
+        boolean owned = worn.owns(chassis) && worn.owns(livery) && worn.owns(kit);
+        return new Look(chassis, livery, kit, owned);
+    }
+
     public int cursor(int bay) {
         return bays.get(bay).cursor;
     }
@@ -338,10 +363,37 @@ public final class GarageSession {
         return LAUNCH_ROW;
     }
 
+    /** Where the looks end and the upgrades begin, for the divider the bay draws between them. */
+    public static int firstUpgradeRow() {
+        return FIRST_UPGRADE_ROW;
+    }
+
     /** Everything one bay draws, top to bottom, already priced against what the pilot can afford. */
     public List<Row> rows(int index) {
         Bay bay = bays.get(index);
         List<Row> rows = new ArrayList<>(ROW_COUNT);
+        // The browsed item, not the worn one: an unowned paint job has to show its price to be
+        // worth buying, and it is never worn until it is paid for.
+        //
+        // This order has to match the row constants above; GarageSessionTest pins it.
+        Chassis chassis = bay.browsedChassis();
+        boolean chassisOwned = bay.loadout.owns(chassis);
+        // The airframe is the one cosmetic that changes how the ship flies, so it says how.
+        String frame = String.format("Hull %d%%   Speed %d%%   Fire rate %d%%", Math.round(chassis.healthFactor() * 100),
+                Math.round(chassis.speedFactor() * 100), Math.round(100 / chassis.reloadFactor()));
+        rows.add(new Row("Airframe", chassis.label(), chassisOwned ? 0 : chassis.cost(),
+                chassisOwned || chassis.cost() <= bay.credits, chassisOwned, 0, 0, frame, null));
+
+        Livery livery = bay.browsedLivery();
+        boolean liveryOwned = bay.loadout.owns(livery);
+        rows.add(new Row("Paint", livery.label(), liveryOwned ? 0 : livery.cost(),
+                liveryOwned || livery.cost() <= bay.credits, liveryOwned));
+
+        Kit kit = bay.browsedKit();
+        boolean kitOwned = bay.loadout.owns(kit);
+        rows.add(new Row("Body kit", kit.label(), kitOwned ? 0 : kit.cost(),
+                kitOwned || kit.cost() <= bay.credits, kitOwned));
+
         for (Upgrade upgrade : Upgrade.values()) {
             int level = bay.loadout.level(upgrade);
             boolean maxed = bay.loadout.isMaxed(upgrade);
@@ -354,25 +406,6 @@ public final class GarageSession {
                     !maxed && cost <= bay.credits, maxed,
                     level, upgrade.maxLevel(), detail, upgrade));
         }
-
-        // The browsed item, not the worn one: an unowned paint job has to show its price to be
-        // worth buying, and it is never worn until it is paid for.
-        //
-        // This block's order has to match the row constants above, and nothing enforces that.
-        Chassis chassis = bay.browsedChassis();
-        boolean chassisOwned = bay.loadout.owns(chassis);
-        rows.add(new Row("Airframe", chassis.label(), chassisOwned ? 0 : chassis.cost(),
-                chassisOwned || chassis.cost() <= bay.credits, chassisOwned));
-
-        Livery livery = bay.browsedLivery();
-        boolean liveryOwned = bay.loadout.owns(livery);
-        rows.add(new Row("Paint", livery.label(), liveryOwned ? 0 : livery.cost(),
-                liveryOwned || livery.cost() <= bay.credits, liveryOwned));
-
-        Kit kit = bay.browsedKit();
-        boolean kitOwned = bay.loadout.owns(kit);
-        rows.add(new Row("Body kit", kit.label(), kitOwned ? 0 : kit.cost(),
-                kitOwned || kit.cost() <= bay.credits, kitOwned));
 
         rows.add(new Row("LAUNCH", "", 0, true, false));
         return Collections.unmodifiableList(rows);

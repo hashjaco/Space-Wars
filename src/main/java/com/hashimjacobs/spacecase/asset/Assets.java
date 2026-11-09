@@ -38,18 +38,20 @@ public final class Assets {
     private static final Map<MapArt, List<Image>> PLANET_FRAMES = new EnumMap<>(MapArt.class);
     private static final Map<MapArt, Image> SKIES = new EnumMap<>(MapArt.class);
     private static final Map<PoseKey, List<Image>> CHASSIS_FRAMES = new HashMap<>();
-    private static final Map<KitPoseKey, List<Image>> KIT_FRAMES = new HashMap<>();
 
-    private record PoseKey(ChassisArt art, float hue, float saturation, int pose, boolean hit, boolean side) {
+    private record PoseKey(ChassisArt art, String kit, ChassisArt.View view, float hue, float saturation,
+                           int pose, boolean hit) {
+    }
+
+    private record BaseKey(ChassisArt art, String kit, ChassisArt.View view) {
     }
 
     /** Each CG hull's straight green loop as ARGB, decoded once; every paint and pose derives from it. */
-    private static final Map<ChassisArt, List<int[]>> CHASSIS_BASE = new EnumMap<>(ChassisArt.class);
+    private static final Map<BaseKey, List<int[]>> CHASSIS_BASE = new HashMap<>();
     /** Twice the drawn box, so a hull stays sharp on a 2x display. */
     private static final int HULL_W = (int) (Sprite.P1_STRAIGHT.width() * 2), HULL_H = (int) (Sprite.P1_STRAIGHT.height() * 2);
-
-    private record KitPoseKey(KitArt art, int pose, boolean side) {
-    }
+    /** The turntable frames' own size: the garage shows the hull far bigger than it flies. */
+    private static final int TURN_PX = 256;
 
     /** Images the last {@link #preload} started, still decoding on a JavaFX loader thread. */
     private static final List<Image> WARMING = new ArrayList<>();
@@ -156,44 +158,37 @@ public final class Assets {
     }
 
     /**
-     * A player hull's loop in one paint and pose, derived from its green loop by {@link HullPaint} on
-     * first request. Twice the stock hull's box, transposed for the side cut; the renderer draws it
-     * into the ship's box.
+     * A player hull's loop in one view, kit, paint and pose, derived from its green loop by
+     * {@link HullPaint} on first request. Top and side are twice the stock hull's box (transposed
+     * for the profile); the renderer draws them into the ship's box. The turntable keeps its size.
+     *
+     * @param kit {@code Kit.slug()}, or null for the bare hull
      */
-    public static List<Image> chassisFrames(ChassisArt art, float hue, float saturation, int pose,
-                                            boolean hit, boolean sideOn) {
+    public static List<Image> chassisFrames(ChassisArt art, String kit, ChassisArt.View view, float hue,
+                                            float saturation, int pose, boolean hit) {
         requireLoaded(art);
-        return CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, hue, saturation, pose, hit, sideOn), key -> {
-            List<int[]> base = CHASSIS_BASE.computeIfAbsent(art, missing -> {
-                List<int[]> decoded = new ArrayList<>(missing.frameCount());
-                for (int index = 1; index <= missing.frameCount(); index++) {
-                    Image image = decode(missing.framePath(index), HULL_W, HULL_H);
-                    int[] argb = new int[HULL_W * HULL_H];
-                    image.getPixelReader().getPixels(0, 0, HULL_W, HULL_H, PixelFormat.getIntArgbInstance(), argb, 0, HULL_W);
+        return CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, kit, view, hue, saturation, pose, hit), key -> {
+            int w = view == ChassisArt.View.TURN ? TURN_PX : view == ChassisArt.View.SIDE ? HULL_H : HULL_W;
+            int h = view == ChassisArt.View.TURN ? TURN_PX : view == ChassisArt.View.SIDE ? HULL_W : HULL_H;
+            List<int[]> base = CHASSIS_BASE.computeIfAbsent(new BaseKey(art, kit, view), missing -> {
+                List<int[]> decoded = new ArrayList<>(view.frameCount());
+                for (int index = 1; index <= view.frameCount(); index++) {
+                    Image image = decode(art.framePath(kit, view, index), w, h);
+                    int[] argb = new int[w * h];
+                    image.getPixelReader().getPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(), argb, 0, w);
                     decoded.add(argb);
                 }
                 return decoded;
             });
-            int w = sideOn ? HULL_H : HULL_W, h = sideOn ? HULL_W : HULL_H;
             List<Image> frames = new ArrayList<>(base.size());
             for (int[] argb : base) {
                 WritableImage frame = new WritableImage(w, h);
                 frame.getPixelWriter().setPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(),
-                        HullPaint.derive(argb, HULL_W, HULL_H, hue, saturation, pose, hit, sideOn), 0, w);
+                        HullPaint.derive(argb, w, h, hue, saturation, pose, hit, view == ChassisArt.View.SIDE), 0, w);
                 frames.add(frame);
             }
             return Collections.unmodifiableList(frames);
         });
-    }
-
-    /** A kit part's loop for one pose, decoded like the hull it sits on. */
-    public static List<Image> kitFrames(KitArt art, int pose, boolean sideOn) {
-        requireLoaded(art);
-        double w = sideOn ? Sprite.P1_STRAIGHT.height() : Sprite.P1_STRAIGHT.width();
-        double h = sideOn ? Sprite.P1_STRAIGHT.width() : Sprite.P1_STRAIGHT.height();
-        List<Image> frames = KIT_FRAMES.computeIfAbsent(new KitPoseKey(art, pose, sideOn),
-                key -> decodeFrames(art.frameCount(), index -> art.framePath(pose, sideOn, index), w, h));
-        return frames;
     }
 
     /**

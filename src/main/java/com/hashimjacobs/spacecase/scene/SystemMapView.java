@@ -154,8 +154,8 @@ final class SystemMapView {
 
         ChassisArt hull = loadout.chassisArt();
         Image image = hull == null ? Assets.image(loadout.chassisPose(2, false, false))
-                : Assets.chassisFrames(hull, loadout.livery().hue(), loadout.livery().saturation(), 2, false, false)
-                        .get(hull.frameIndexAt(tick));
+                : Assets.chassisFrames(hull, loadout.kit().slug(), ChassisArt.View.TOP, loadout.livery().hue(),
+                        loadout.livery().saturation(), 2, false).get(ChassisArt.View.TOP.frameIndexAt(tick));
         gc.save();
         gc.translate(fx + (tx - fx) * t, fy + (ty - fy) * t);
         gc.rotate(heading * Math.sin(Math.PI * t));
@@ -333,9 +333,7 @@ final class SystemMapView {
         gc.setFont(Font.font(Tokens.BODY, FontWeight.NORMAL, Tokens.SIZE_BODY));
         gc.setFill(Tokens.TEXT_SECONDARY);
         gc.fillText(level.wavesBeforeBoss() + " waves before the flagship", textX, PANEL_TOP + 92);
-        gc.fillText(level.template().hasRock()
-                        ? "Rock closes in -- mind the walls"
-                        : "Open space", textX, PANEL_TOP + 114);
+        gc.fillText(level.template().hint(), textX, PANEL_TOP + 114);
 
         gc.setFill(node.best() > 0 ? Tokens.BRAND : Tokens.TEXT_FAINT);
         gc.fillText(node.best() > 0 ? "Best  " + node.best() : "-- not yet flown --",

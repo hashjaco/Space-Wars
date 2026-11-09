@@ -1,0 +1,67 @@
+{
+ "_comment": "Props for tools/tripo/models.py. ref is a file under src/main/resources/sprites, a repo path, or 'from:<name>' (another item's picked concept, for an edit). yaw turns the model nose-down from above, set after looking at the first top render. renders: [state, view, motion, frames, px].",
+ "items": {
+  "hydra-body": {
+   "ref": "boss-hydra-cg/1.png",
+   "variants": 2,
+   "yaw": -90,
+   "prompt": "The torso of a horrific alien hydra, the hive-queen boss of a sci-fi shoot-'em-up: a bloated, glistening green-black armoured thorax, wider than it is long, its hide split open over an exposed ribcage of yellowed bone, half-digested human skeletons and skulls fused into the flesh and jutting through it, bloody torn sinew, pulsing yellow bioluminescent egg sacs on the flanks, acid drool. Three thick wet severed neck stumps with raw red cross-sections, close together along the front edge where the heads attach, no heads. Seen from above and slightly in front, the whole creature visible and centred with margin, plain flat light-grey studio background, pre-rendered 3D CGI look, one object, no text, no ground.",
+   "renders": [
+    [
+     "idle",
+     "top",
+     "sway",
+     24,
+     512
+    ],
+    [
+     "rage",
+     "top",
+     "twitch",
+     24,
+     512
+    ],
+    [
+     "death",
+     "top",
+     "sink",
+     24,
+     512
+    ]
+   ]
+  },
+  "hydra-head": {
+   "ref": "boss-hydra-head-cg/1.png",
+   "variants": 2,
+   "yaw": -90,
+   "prompt": "The head of a horrific alien hydra on the stump of its neck: an eyeless skull-like maw of green-black chitin and wet flayed muscle, rows of jagged broken teeth with bits of human bone and blood caught in them, the jaws shut, acid-green bile drooling from the lips, a raw red torn neck at the back. Seen from above and slightly behind, the snout pointing toward the viewer's bottom edge, the whole head visible and centred with margin, plain flat light-grey studio background, pre-rendered 3D CGI look, one object, no text, no ground.",
+   "renders": [
+    [
+     "idle",
+     "top",
+     "sway",
+     24,
+     256
+    ]
+   ],
+   "tilt": "0,-40,0"
+  },
+  "hydra-head-open": {
+   "ref": "from:hydra-head",
+   "variants": 2,
+   "yaw": -90,
+   "box": "hydra-head",
+   "prompt": "The exact same hydra head as the reference image, same materials and colours, but with its jaws gaped wide open mid-bite, the lower jaw unhinged, a glowing acid-green gullet inside, strings of bile and blood stretched between the teeth, a human ribcage caught in its teeth. Same camera angle, plain flat light-grey studio background, pre-rendered 3D CGI look, one object, no text, no ground.",
+   "renders": [
+    [
+     "bite",
+     "top",
+     "thrust",
+     12,
+     256
+    ]
+   ],
+   "tilt": "0,-72,0"
+  }
+ }
+}

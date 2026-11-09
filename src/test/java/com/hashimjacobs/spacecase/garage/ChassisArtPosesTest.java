@@ -28,6 +28,19 @@ class ChassisArtPosesTest {
             ChassisArt art = ChassisArt.named(chassis.name());
             assertTrue(art == null || art.name().equals(chassis.name()));
         }
-        assertNull(Kit.STOCK.art(), "stock has no part");
+        assertNull(Kit.STOCK.slug(), "the bare hull has no kit suffix");
+        for (Kit kit : Kit.values()) {
+            // CgArtProvenanceTest spells the kit directories out, because asset cannot see garage.
+            assertTrue(kit == Kit.STOCK || java.util.List.of("fins", "armour", "lance").contains(kit.slug()), kit.name());
+        }
+    }
+
+    @Test
+    void everyChassisAnchorsItsFlameAtItsTail() {
+        for (ChassisArt art : ChassisArt.values()) {
+            assertTrue(art.tailX() > 0 && art.tailX() < 1, art + " flame off the side of the hull");
+            assertTrue(art.tailY() > 0.8 && art.tailY() <= 1, art + " flame not at the tail");
+            assertTrue(art.sideTailY() > 0 && art.sideTailY() < 1, art + " flame off the profile");
+        }
     }
 }

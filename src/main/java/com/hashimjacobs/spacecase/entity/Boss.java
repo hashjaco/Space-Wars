@@ -65,12 +65,15 @@ public enum Boss {
     /**
      * Level 10. Three heads on necks of their own, each its own target.
      *
-     * The body is armoured until every head is down; killing one silences that head's fire. It
-     * opens on SPAWNER deliberately -- the torso vents crawlers while the heads do the shooting,
-     * so there is never a fourth gun in the mix.
+     * The body is armoured until every head is down; killing one silences that head's fire. The
+     * heads lunge and bite on their necks and spit fans of acid (BossHead, EnemyWeapons.spitAcid);
+     * the torso vomits slow, tumbling bloody bone (BONE_FAN), which is a wall to weave through
+     * rather than a stream to outrun. No special: three threats, each readable on its own
+     * (EnemyShip.firingPhase, EnemyWeapons.driveWeapons). The last third is summed health, which by
+     * then is mostly the torso alone, so only there does it add a light spread to the bone.
      */
     HYDRA("Hydra", BossArt.HYDRA_CG, 3000, 1900,
-            BossPhase.SPAWNER, BossPhase.RING, BossPhase.AIMED_BURST,
+            BossPhase.BONE_FAN, BossPhase.BONE_FAN, BossPhase.SPREAD,
             3, BossArt.HYDRA_HEAD_CG),
 
     // ---- Galaxy 2: Ashfall ---------------------------------------------------------------
@@ -341,8 +344,7 @@ public enum Boss {
         if (this == AEON) {
             return MusicCue.AEON_BOSS;
         }
-        // The finales are the hard fights, and the only ones that get the heavy tracks.
-        return indexInGalaxy() == LEVELS_PER_GALAXY ? MusicCue.FINALE_BOSS : MusicCue.BOSS;
+        return MusicCue.BOSS;
     }
 
     /**

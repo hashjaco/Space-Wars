@@ -4,6 +4,7 @@ import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.asset.Sprite;
+import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
@@ -154,7 +155,10 @@ final class EnemyWeapons {
         if (!enemy.isAlive()) {
             return;
         }
-        if (enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown))) {
+        // A hydra head bites and spits acid; it has no bullet pattern on top. Three heads spraying
+        // spores under the acid and the bone was what made the fight impossible to read.
+        boolean hydraHead = enemy.isBossPart() && enemy.boss() == Boss.HYDRA;
+        if (!hydraHead && enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown))) {
             BossPhase fired = enemy.isBoss() ? enemy.firingPhase() : null;
             fire(world, enemy, target, level, enemyCap);
             // Ordinary enemies stay silent, as they always have; a spawner is venting escorts
@@ -194,8 +198,10 @@ final class EnemyWeapons {
      * directly rather than inferring from a fight.
      */
     static int rocketCooldownFor(EnemyShip enemy) {
+        // A hydra head's fan is three globs where a ball was one, so it retches half as often.
+        int fan = enemy.isBossPart() && enemy.boss() == Boss.HYDRA ? 2 : 1;
         return enemy.isBossPart()
-                ? ROCKET_COOLDOWN_PER_PART * Math.max(1, enemy.siblingParts())
+                ? ROCKET_COOLDOWN_PER_PART * Math.max(1, enemy.siblingParts()) * fan
                 : ROCKET_COOLDOWN_TICKS;
     }
 
@@ -215,7 +221,37 @@ final class EnemyWeapons {
      * Slow and heavy on purpose. They turn, but at {@code BOSS_ROCKET_TURN_RATE} a player flying
      * flat out can still lead them into a wide arc and leave, which is the intended answer to them.
      */
+    /** What the hydra's torso vomits, in turn across the fan. */
+    private static final Sprite[] BONES = {Sprite.ROUND_SKULL, Sprite.ROUND_RIB, Sprite.ROUND_FEMUR};
+
+    /**
+     * A hydra head's spit: a fan of acid bile straight at the pilot, slow enough to weave through.
+     *
+     * Replaces the single homing glob the heads used to fire. A fan aimed once reads as the head
+     * retching at you; a homing ball read as a missile with a green coat of paint.
+     */
+    private static void spitAcid(World world, EnemyShip head, PlayerShip target) {
+        Orientation facing = head.orientation();
+        double centre = 0;
+        if (target != null) {
+            double dx = target.centerX() - head.centerX(), dy = target.centerY() - head.centerY();
+            centre = StrictMath.atan2(facing.across(dx, dy), Math.max(1, facing.along(dx, dy)));
+        }
+        double speed = GameConfig.ACID_SPEED * Math.min(head.scale(), SPEED_SCALE_CAP);
+        int damage = (int) Math.round(GameConfig.ACID_DAMAGE * head.scale());
+        double first = centre - GameConfig.ACID_FAN_SPREAD * (GameConfig.ACID_FAN_SHOTS - 1) / 2.0;
+        for (int i = 0; i < GameConfig.ACID_FAN_SHOTS; i++) {
+            double angle = first + i * GameConfig.ACID_FAN_SPREAD;
+            addBullet(world, head, StrictMath.cos(angle) * speed, StrictMath.sin(angle) * speed, damage,
+                    Sprite.ROUND_ACID).withFuse(ACID_FUSE_TICKS);
+        }
+    }
+
     private static void fireRockets(World world, EnemyShip boss, PlayerShip target, int salvo) {
+        if (boss.isBossPart() && boss.boss() == Boss.HYDRA) {
+            spitAcid(world, boss, target);
+            return;
+        }
         // A head spits acid; a warship launches ordnance. Both home, both burn out, and both go
         // through Rocket -- which means neither needs a new collision, sweep or render path.
         boolean acid = boss.isBossPart();
@@ -316,11 +352,15 @@ final class EnemyWeapons {
         int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * round.damageFactor()
                 * phase.damageScale() * boss.scale());
 
+        boolean bones = phase == BossPhase.BONE_FAN;
+        if (bones) {
+            speed *= GameConfig.BONE_SPEED_SCALE;
+        }
         for (int i = 0; i < shots; i++) {
             double angle = centreAngle + firstOffset + i * spread;
             // Zero points down-arena, whichever way that is; the pattern turns with the level.
             addBullet(world, boss, StrictMath.cos(angle) * speed, StrictMath.sin(angle) * speed, damage,
-                    art);
+                    bones ? BONES[i % BONES.length] : art);
         }
     }
 
@@ -389,8 +429,8 @@ final class EnemyWeapons {
      * is turned into screen coordinates here, so no caller has to know which way the level runs.
      * The muzzle sits three quarters of the way down the hull along the direction of travel.
      */
-    private static void addBullet(World world, EnemyShip enemy, double along, double across,
-                                  int damage, Sprite art) {
+    private static Bullet addBullet(World world, EnemyShip enemy, double along, double across,
+                                    int damage, Sprite art) {
         Orientation facing = enemy.orientation();
         double lead = facing.alongExtent(enemy.width(), enemy.height()) * 0.25;
         double x = enemy.centerX() - art.width() / 2 + facing.vx(lead, 0);
@@ -398,5 +438,6 @@ final class EnemyWeapons {
         Bullet bullet = new Bullet(art, x, y,
                 facing.vx(along, across), facing.vy(along, across), null, damage);
         world.addBullet(bullet);
+        return bullet;
     }
 }

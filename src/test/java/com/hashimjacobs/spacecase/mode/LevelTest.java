@@ -150,4 +150,16 @@ class LevelTest {
         }
         assertTrue(sideOn > 0, "no side-on levels found, so this test proved nothing");
     }
+
+    @Test
+    void everyHazardCanBeFlownAgainstAndIsNamedOnTheMap() {
+        for (WorldTemplate template : WorldTemplate.values()) {
+            assertTrue(template.pull() < com.hashimjacobs.spacecase.GameConfig.PLAYER_SPEED / 3, template + " pulls too hard to fly against");
+            assertTrue(template.hint() != null && !template.hint().isBlank(), template + " needs a map hint");
+        }
+        for (Level level : Level.values()) {
+            assertTrue(level.asteroidDensity() > 0, level.name());
+        }
+        assertEquals(1.0, Level.ORBITAL_APPROACH.asteroidDensity(), "SpawnDirectorTest's seeded run flies level 1");
+    }
 }

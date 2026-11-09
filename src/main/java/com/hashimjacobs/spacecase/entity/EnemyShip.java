@@ -503,7 +503,9 @@ public class EnemyShip extends Entity {
      * rhythm.
      */
     public BossPhase firingPhase() {
-        if (isBossPart() || volleys % VOLLEYS_PER_SPECIAL != VOLLEYS_PER_SPECIAL - 1) {
+        // The hydra's threat is its necks, its acid and its bone: a fourth pattern on top of three
+        // was the fight being undodgeable, so it fires no special.
+        if (isBossPart() || boss == Boss.HYDRA || volleys % VOLLEYS_PER_SPECIAL != VOLLEYS_PER_SPECIAL - 1) {
             return phase();
         }
         return boss.special();
@@ -536,6 +538,11 @@ public class EnemyShip extends Entity {
     /** The frames this ship animates through: a part wears its own art, not the flagship's. */
     public BossArt bossArt() {
         return isBossPart() ? boss.headArt() : boss.art();
+    }
+
+    /** The loop to draw now: chosen by hull for a flagship, overridden by a part that acts. */
+    public BossArt.State artState() {
+        return bossArt().stateFor(hullFraction());
     }
 
     /**
