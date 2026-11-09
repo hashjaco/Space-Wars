@@ -34,6 +34,8 @@ public final class Assets {
     /** One list per state an art has; states it lacks are never asked for. */
     private static final Map<BossArt, Map<BossArt.State, List<Image>>> BOSS_FRAMES = new EnumMap<>(BossArt.class);
     private static final Map<EnemyArt, List<Image>> ENEMY_FRAMES = new EnumMap<>(EnemyArt.class);
+    private static final Map<MapArt, List<Image>> PLANET_FRAMES = new EnumMap<>(MapArt.class);
+    private static final Map<MapArt, Image> SKIES = new EnumMap<>(MapArt.class);
     private static final Map<PoseKey, List<Image>> CHASSIS_FRAMES = new HashMap<>();
     private static final Map<KitPoseKey, List<Image>> KIT_FRAMES = new HashMap<>();
 
@@ -120,6 +122,19 @@ public final class Assets {
     }
 
     /** A regular hostile's loop at its natural size; the box scales per wave, so it is applied at draw time. */
+    /** A galaxy's turning planet for the universe map, decoded the first time the map shows it. */
+    public static List<Image> planetFrames(MapArt art) {
+        requireLoaded(art);
+        return PLANET_FRAMES.computeIfAbsent(art,
+                missing -> decodeFrames(MapArt.FRAMES, missing::planetFramePath, 0, 0));
+    }
+
+    /** The sky behind a galaxy's route. */
+    public static Image mapSky(MapArt art) {
+        requireLoaded(art);
+        return SKIES.computeIfAbsent(art, missing -> decode(missing.skyPath(), 0, 0));
+    }
+
     public static List<Image> enemyFrames(EnemyArt art) {
         requireLoaded(art);
         List<Image> frames = ENEMY_FRAMES.computeIfAbsent(art,

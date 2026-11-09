@@ -36,6 +36,22 @@ class CgArtProvenanceTest {
     }
 
     @Test
+    void everyMapPlanetFrameAndSkyExists() {
+        List<String> missing = new ArrayList<>();
+        for (MapArt art : MapArt.values()) {
+            for (int frame = 1; frame <= MapArt.FRAMES; frame++) {
+                if (!Files.exists(RESOURCES.resolve(art.planetFramePath(frame).substring(1)))) {
+                    missing.add(art.planetFramePath(frame));
+                }
+            }
+            if (!Files.exists(RESOURCES.resolve(art.skyPath().substring(1)))) {
+                missing.add(art.skyPath());
+            }
+        }
+        assertTrue(missing.isEmpty(), "universe map art is missing: " + missing);
+    }
+
+    @Test
     void everyEnemyArtFrameExists() {
         List<String> missing = new ArrayList<>();
         for (EnemyArt art : EnemyArt.values()) {
@@ -83,7 +99,7 @@ class CgArtProvenanceTest {
     void cgDirectoriesAreNamedInTheManifest() throws IOException {
         String manifest = Files.readString(Path.of("ASSETS.md"));
         List<String> unlisted = new ArrayList<>();
-        for (String dir : new String[] {"enemy-cg", "player-cg", "kit-cg", "sky-cg"}) {
+        for (String dir : new String[] {"enemy-cg", "player-cg", "kit-cg", "sky-cg", "map-cg"}) {
             if (Files.isDirectory(RESOURCES.resolve("sprites").resolve(dir)) && !manifest.contains(dir)) {
                 unlisted.add(dir);
             }

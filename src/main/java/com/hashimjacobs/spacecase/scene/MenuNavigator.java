@@ -49,6 +49,11 @@ public final class MenuNavigator {
         onFocusMoved.accept(index);
     }
 
+    /** Adds a second focus listener after whatever is there, such as the panel's own scrolling. */
+    public void alsoOnFocusMoved(java.util.function.IntConsumer more) {
+        setOnFocusMoved(onFocusMoved.andThen(more));
+    }
+
     /** Runs when Escape is pressed. Defaults to doing nothing. */
     public void setOnBack(Runnable onBack) {
         this.onBack = onBack;

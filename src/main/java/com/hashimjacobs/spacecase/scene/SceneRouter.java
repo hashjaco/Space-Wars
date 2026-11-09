@@ -22,6 +22,8 @@ import javafx.stage.Stage;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.MapArt;
 import com.hashimjacobs.spacecase.asset.MusicCue;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
@@ -29,6 +31,7 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.engine.Gamepad;
 import com.hashimjacobs.spacecase.engine.MenuRepeat;
 import com.hashimjacobs.spacecase.engine.RoundResult;
+import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
@@ -213,9 +216,33 @@ public final class SceneRouter {
         MenuNavigator navigator = panel.navigator();
         navigator.setOnBack(this::showStartMenu);
 
-        StackPane root = MenuScreen.build("UNIVERSE", panel,
+        GalaxyPreview preview = new GalaxyPreview();
+        HBox body = new HBox(Tokens.GAP_L, panel, preview.canvas());
+        body.setAlignment(Pos.CENTER);
+        StackPane root = MenuScreen.build("UNIVERSE", body,
                 MenuScreen.caption("Finish a galaxy to open the next one.", 12, Tokens.TEXT_FAINT));
+        // The focused galaxy's planet beside the list and its sky behind it. Reset and Back keep
+        // whichever galaxy was last focused rather than blanking the screen.
+        navigator.alsoOnFocusMoved(focused -> {
+            if (focused < Galaxy.values().length) {
+                Galaxy galaxy = Galaxy.values()[focused];
+                MapArt art = MapArt.valueOf(galaxy.name());
+                preview.show(art, saves.isGalaxyUnlocked(mode, galaxy));
+                root.setBackground(MenuScreen.backdrop(Assets.mapSky(art)));
+            }
+        });
         show(root, navigator::handleKey);
+
+        if (!settings.reducedFlash()) {
+            AnimationTimer turn = new AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    preview.tick();
+                }
+            };
+            turn.start();
+            screenPulse = turn;
+        }
     }
 
     /**
@@ -252,7 +279,9 @@ public final class SceneRouter {
      */
     public void showSystemMap(GameMode mode, Galaxy galaxy) {
         SystemMapModel map = new SystemMapModel(mode, galaxy, saves, highScores);
-        SystemMapView view = new SystemMapView(map, settings);
+        // The first pilot's ship, as the garage last left it.
+        Loadout loadout = Loadout.decode(pilots.loadoutCode(pilots.name(1)), 1);
+        SystemMapView view = new SystemMapView(map, settings, loadout);
 
         map.setOnBack(() -> showGalaxySelect(mode));
         map.setOnLaunch(level -> startGame(mode, SaveSlot.forReplay(mode, level)));
@@ -260,6 +289,7 @@ public final class SceneRouter {
 
         StackPane root = MenuScreen.build(galaxy.label().toUpperCase(java.util.Locale.ROOT),
                 view.canvas());
+        root.setBackground(MenuScreen.backdrop(Assets.mapSky(MapArt.valueOf(galaxy.name()))));
         view.draw();
         show(root, map::handleKey);
 
