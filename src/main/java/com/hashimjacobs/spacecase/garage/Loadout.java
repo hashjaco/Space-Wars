@@ -312,9 +312,9 @@ public final class Loadout {
         return chassis.pose(livery, leanIndex, hit, sideOn);
     }
 
-    /** The CG loops for this airframe in this paint, or null while they have not landed. */
+    /** The CG loop for this airframe, or null while it has not landed. The paint is applied on decode. */
     public ChassisArt chassisArt() {
-        return ChassisArt.named(chassis.name() + "_" + livery.name());
+        return ChassisArt.named(chassis.name());
     }
 
     public boolean owns(Livery candidate) {

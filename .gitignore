@@ -40,3 +40,4 @@ tools/sprixen/.cg-*
 tools/flux/.wrangler/
 tools/flux/node_modules/
 tools/flux/worker-configuration.d.ts
+tools/sprixen/.hulls-state.json
