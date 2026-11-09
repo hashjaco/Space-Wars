@@ -32,13 +32,60 @@ class MusicCueTest {
     }
 
     @Test
-    void noTrackIsUsedByTwoCues() {
-        Set<MusicTrack> seen = EnumSet.noneOf(MusicTrack.class);
+    void heavyTracksOnlyPlayForHardBosses() {
+        Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK);
+        Set<MusicCue> hard = EnumSet.of(MusicCue.FINALE_BOSS, MusicCue.AEON_BOSS);
         for (MusicCue cue : MusicCue.values()) {
-            for (MusicTrack track : cue.tracks()) {
-                assertTrue(seen.add(track), track + " is claimed by more than one cue");
+            if (hard.contains(cue)) {
+                assertTrue(heavy.containsAll(cue.tracks()), cue + " should be metal or hard rock only");
+            } else {
+                for (MusicTrack track : cue.tracks()) {
+                    assertFalse(heavy.contains(track), cue + " plays " + track + ", which is saved for hard bosses");
+                }
             }
         }
+    }
+
+    @Test
+    void everyGalaxyRotatesSeveralTracks() {
+        for (Galaxy galaxy : Galaxy.values()) {
+            assertTrue(MusicCue.forGalaxy(galaxy).tracks().size() >= 3,
+                    galaxy + " should rotate several tracks, not loop one for ten levels");
+        }
+        assertTrue(MusicCue.BOSS.tracks().size() >= 3, "ordinary flagships should not all share one song");
+    }
+
+    @Test
+    void pickNeverRepeatsWhatItWasToldToAvoid() {
+        Random random = new Random(5);
+        for (MusicCue cue : MusicCue.values()) {
+            MusicTrack last = cue.pick(random);
+            for (int i = 0; i < 60; i++) {
+                MusicTrack next = cue.pick(random, EnumSet.of(last));
+                if (cue.tracks().size() > 1) {
+                    assertNotEquals(last, next, cue + " repeated " + last + " back to back");
+                }
+                assertTrue(cue.tracks().contains(next));
+                last = next;
+            }
+        }
+    }
+
+    @Test
+    void pickFallsBackWhenEveryTrackIsAvoided() {
+        MusicTrack only = MusicCue.AEON_BOSS.pick(new Random(1), EnumSet.allOf(MusicTrack.class));
+        assertEquals(MusicTrack.DEATH_METAL, only);
+    }
+
+    @Test
+    void onlyTheFinalesAndAeonGetTheHeavyCues() {
+        for (Boss boss : Boss.values()) {
+            boolean finale = boss.ordinal() % Galaxy.LEVELS_PER_GALAXY == Galaxy.LEVELS_PER_GALAXY - 1;
+            MusicCue expected = boss == Boss.AEON ? MusicCue.AEON_BOSS
+                    : finale ? MusicCue.FINALE_BOSS : MusicCue.BOSS;
+            assertEquals(expected, boss.music(), boss.name());
+        }
+        assertEquals(MusicCue.FINALE_BOSS, Boss.HYDRA.music());
     }
 
     @Test
