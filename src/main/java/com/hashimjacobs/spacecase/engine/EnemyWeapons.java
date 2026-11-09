@@ -269,7 +269,7 @@ final class EnemyWeapons {
             addBullet(world, enemy,
                     StrictMath.cos(angle) * GameConfig.ENEMY_BULLET_SPEED,
                     StrictMath.sin(angle) * GameConfig.ENEMY_BULLET_SPEED,
-                    GameConfig.ENEMY_BULLET_DAMAGE, Sprite.ENEMY_BULLET);
+                    GameConfig.ENEMY_BULLET_DAMAGE, world.enemyRound());
         }
     }
 
@@ -310,6 +310,7 @@ final class EnemyWeapons {
         // (GameConfig.BULLET_SPEED, 10) stops being dodgeable and starts being unfair.
         // The galaxy's round decides how fast and how hard; the pattern decides how many and where.
         Ordnance round = boss.boss().ordnance();
+        Sprite art = Ordnance.artFor(boss.boss());
         double speed = GameConfig.ENEMY_BULLET_SPEED * round.speedFactor()
                 * Math.min(boss.scale(), SPEED_SCALE_CAP);
         int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * round.damageFactor()
@@ -319,7 +320,7 @@ final class EnemyWeapons {
             double angle = centreAngle + firstOffset + i * spread;
             // Zero points down-arena, whichever way that is; the pattern turns with the level.
             addBullet(world, boss, StrictMath.cos(angle) * speed, StrictMath.sin(angle) * speed, damage,
-                    round.art());
+                    art);
         }
     }
 

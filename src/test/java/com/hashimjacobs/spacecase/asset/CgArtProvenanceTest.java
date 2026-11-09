@@ -65,6 +65,19 @@ class CgArtProvenanceTest {
     }
 
     @Test
+    void everyRoundFrameExists() {
+        List<String> missing = new ArrayList<>();
+        for (Round round : Round.values()) {
+            for (int frame = 1; frame <= round.frameCount(); frame++) {
+                if (!Files.exists(RESOURCES.resolve(round.framePath(frame).substring(1)))) {
+                    missing.add(round.framePath(frame));
+                }
+            }
+        }
+        assertTrue(missing.isEmpty(), "creature round frames are missing: " + missing);
+    }
+
+    @Test
     void everyChassisArtFrameExists() {
         List<String> missing = new ArrayList<>();
         for (ChassisArt art : ChassisArt.values()) {

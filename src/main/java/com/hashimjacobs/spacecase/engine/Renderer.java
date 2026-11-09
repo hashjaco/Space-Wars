@@ -1,6 +1,8 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.EnumMap;
 import java.util.List;
+import java.util.Map;
 
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
@@ -27,6 +29,7 @@ import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.KitArt;
 import com.hashimjacobs.spacecase.asset.EnemyArt;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
+import com.hashimjacobs.spacecase.asset.Round;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.BossHead;
@@ -77,6 +80,15 @@ public final class Renderer {
 
     /** A soft wash behind a floating pickup, so it reads as an object with power in it. */
     private static final Paint PICKUP_HALO = halo(Color.web("#ffe9a8"));
+
+    /** Each creature round glows in its own colour, so a spike and a fang differ at the edge of vision. */
+    private static final Map<Round, Paint> ROUND_HALOS = new EnumMap<>(Round.class);
+
+    static {
+        for (Round round : Round.values()) {
+            ROUND_HALOS.put(round, halo(Color.web(round.haloHex())));
+        }
+    }
 
     /** Hydra necks: a dark edge under a hide-coloured core, matching the generated torso. */
     private static final Color NECK_OUTLINE = Color.web("#131c10");
@@ -202,7 +214,7 @@ public final class Renderer {
             drawHitBar(enemy);
         }
         for (Bullet bullet : world.bullets()) {
-            drawBullet(bullet);
+            drawBullet(bullet, world.tick());
         }
         // Between the bullets and the hulls, so a ship is drawn over its own muzzle rather than
         // sitting behind the beam it is firing.
@@ -804,10 +816,12 @@ public final class Renderer {
      * The gradient matters: a flat oval under a screen blend paints a solid disc that swallows the
      * sprite instead of haloing it.
      */
-    private void drawBullet(Bullet bullet) {
+    private void drawBullet(Bullet bullet, int tick) {
+        Round round = Round.of(bullet.sprite());
         // ponytail: keyed off the sprite. If a third hostile projectile colour turns up, put the
         // halo on Sprite itself rather than growing this chain.
-        Paint halo = bullet.firedByPlayer() ? PLAYER_HALO
+        Paint halo = round != null ? ROUND_HALOS.get(round)
+                : bullet.firedByPlayer() ? PLAYER_HALO
                 : bullet.sprite() == Sprite.ACID_BALL ? ACID_HALO
                 : ENEMY_HALO;
         double size = Math.max(bullet.width(), bullet.height()) * 1.35;
@@ -818,7 +832,13 @@ public final class Renderer {
         gc.fillOval(bullet.centerX() - size / 2, bullet.centerY() - size / 2, size, size);
         gc.restore();
 
-        drawSprite(bullet.sprite(), bullet, bullet.headingDegrees());
+        if (round == null) {
+            drawSprite(bullet.sprite(), bullet, bullet.headingDegrees());
+            return;
+        }
+        // ponytail: every round of a kind animates in phase; offset by bullet if a spread looks mechanical.
+        List<Image> frames = Assets.roundFrames(round);
+        drawImage(frames.get((tick / Round.TICKS_PER_FRAME) % frames.size()), bullet, bullet.headingDegrees());
     }
 
     private void drawSprite(Entity entity) {
