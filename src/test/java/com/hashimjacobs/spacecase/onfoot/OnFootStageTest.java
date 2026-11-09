@@ -188,4 +188,57 @@ class OnFootStageTest {
         OnFootStage s = play(11, 2, 60 * 60 * 6);
         assertTrue(s.done(), "stuck at " + s.beat() + " segment " + s.segment());
     }
+
+    @Test
+    void aBruteShrugsOffJabsUntilTheyPileUpButAHeavyHitLands() {
+        Fighter brute = new Fighter(Fighter.Kind.BRUTE, 0, 500);
+        int jabs = 0;
+        while (brute.state != Fighter.State.HITSTUN && jabs < 20) {
+            brute.takeHit(Move.JAB, -1, 1, Move.JAB.knockX, Move.JAB.knockY, P);
+            jabs++;
+        }
+        assertEquals((int) Math.ceil(Fighter.BRUTE_ARMOR / Move.JAB.damage), jabs,
+                "jabs bounce off until their damage reaches the armor");
+
+        Fighter fresh = new Fighter(Fighter.Kind.BRUTE, 0, 500);
+        fresh.takeHit(Move.UPPERCUT, -1, 1, Move.UPPERCUT.knockX, Move.UPPERCUT.knockY, P);
+        assertTrue(fresh.state != Fighter.State.FREE, "a heavy hit gets through at once");
+    }
+
+    @Test
+    void theStageFieldsRiveteersAndBrutesAlongsideTheThralls() {
+        OnFootStage s = new OnFootStage(11, 2, P);
+        java.util.Set<Fighter.Kind> seen = java.util.EnumSet.noneOf(Fighter.Kind.class);
+        for (int t = 0; t < 60 * 60 * 6 && !s.done(); t++) {
+            s.step(bot(s));
+            for (Fighter e : s.enemies()) {
+                seen.add(e.kind);
+            }
+        }
+        assertTrue(seen.containsAll(java.util.EnumSet.of(Fighter.Kind.THRALL, Fighter.Kind.RIVETEER,
+                Fighter.Kind.BRUTE, Fighter.Kind.FOREMAN)), "met: " + seen);
+    }
+
+    @Test
+    void fireJumpsEvenWhileUpIsHeldAsAStickDriftingUpWhileRunningHolds() {
+        Fighter f = pilot();
+        Buttons upAndRight = new Buttons(false, true, true, false, false, false, false, false, false);
+        for (int t = 0; t < 120; t++) {
+            tick(f, upAndRight);    // the first tick's up is a jump; then it lands, up still held
+        }
+        assertTrue(f.grounded, "landed, still holding up");
+        tick(f, new Buttons(false, true, true, false, false, false, false, false, true));
+        assertTrue(f.vy < 0, "A pressed fresh is a jump though up was already down");
+    }
+
+    @Test
+    void aJumpPressedDuringHitStopIsKeptForWhenItEnds() {
+        Fighter f = pilot();
+        for (int t = 0; t < 30; t++) {
+            tick(f, IDLE);
+        }
+        f.latch(press(true, false, false, false, false), P);   // tapped and released inside the freeze
+        tick(f, IDLE);
+        assertTrue(f.vy < 0, "the tap made during hit-stop jumps once it is over");
+    }
 }

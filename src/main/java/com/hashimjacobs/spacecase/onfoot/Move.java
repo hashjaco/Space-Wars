@@ -33,7 +33,14 @@ public enum Move {
     PISTON("combo_1", 16, 5, 22, 120, 0.15, 0.55, 14, 10, -6, 24, 8, false),
     SLAM("combo_2", 20, 4, 30, 100, 0.1, 1.0, 18, 3, -9, 30, 9, true),
     POUND("combo_3", 26, 4, 30, 0, 0, 0, 0, 0, 0, 0, 10, false),
-    MOLTEN_BEAM("special", 44, 0, 26, 0, 0, 0, 0, 0, 0, 20, 0, false);
+    MOLTEN_BEAM("special", 44, 0, 26, 0, 0, 0, 0, 0, 0, 20, 0, false),
+
+    // A Riveteer. The rivet is a short, thin beam: a long wind-up says where it is going.
+    RIVET("special", 30, 4, 26, 0, 0, 0, 12, 3, -1, 16, 4, false),
+
+    // A Slag Brute. A heavy hook up close, and a shoulder charge from range that knocks down.
+    SMASH("combo_1", 15, 4, 22, 82, 0.15, 0.6, 13, 7, -2, 20, 5, false),
+    RAM("combo_2", 22, 16, 28, 64, 0.1, 0.95, 16, 12, -5, 24, 7, true);
 
     final String anim;
     final int startup, active, recovery;
