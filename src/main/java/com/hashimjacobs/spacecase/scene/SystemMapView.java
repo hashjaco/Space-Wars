@@ -10,7 +10,10 @@ import javafx.scene.text.TextAlignment;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.ChassisArt;
+import com.hashimjacobs.spacecase.asset.MapArt;
 import com.hashimjacobs.spacecase.entity.Boss;
+import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.scene.SystemMapModel.Node;
@@ -53,37 +56,127 @@ final class SystemMapView {
     /** Slowest pulse that still reads as alive. Suppressed entirely under reduced flash. */
     private static final double PULSE_TICKS = 90;
 
+    /** The galaxy's planet, in the open middle of the route loop, behind everything on it. */
+    private static final double PLANET_SIZE = 190;
+    private static final double PLANET_X = 0.58;
+    private static final double PLANET_Y = 0.5;
+
+    /** The player's ship: parked above the focused node, gliding to the next one in this long. */
+    private static final double TRAVEL_TICKS = 18;
+    private static final double SHIP_W = 34;
+    private static final double SHIP_H = 36;
+    private static final double SHIP_LIFT = NODE_RADIUS + 44;
+
     private final Canvas canvas = new Canvas(WIDTH, HEIGHT);
     private final GraphicsContext gc = canvas.getGraphicsContext2D();
     private final SystemMapModel model;
     private final Settings settings;
     private final Color accent;
+    private final MapArt art;
+    private final Loadout loadout;
 
     private int tick;
+    /** Where the ship's glide started, the node it is flying to, and how far along it is. */
+    private double fromX;
+    private double fromY;
+    private int shipTo;
+    private double travel = TRAVEL_TICKS;
 
-    SystemMapView(SystemMapModel model, Settings settings) {
+    SystemMapView(SystemMapModel model, Settings settings, Loadout loadout) {
         this.model = model;
         this.settings = settings;
+        this.loadout = loadout;
         this.accent = Color.web(model.galaxy().accent());
+        this.art = MapArt.valueOf(model.galaxy().name());
+        this.shipTo = model.cursor();
+        this.fromX = parkX(model.focused());
+        this.fromY = parkY(model.focused());
     }
 
     Canvas canvas() {
         return canvas;
     }
 
-    /** Advances the one idle animation. Ignored when the player has asked for less motion. */
+    /**
+     * Advances the idle animations and the ship's glide. Never called when the player has asked
+     * for less motion, which is what holds the planet still and makes the ship jump instead.
+     */
     void tick() {
         tick++;
+        travel++;
     }
 
     void draw() {
+        if (model.cursor() != shipTo) {
+            // Leave from wherever the ship is drawn now, so a second press mid-glide does not jump.
+            double t = glide();
+            Node target = model.nodes().get(shipTo);
+            fromX += (parkX(target) - fromX) * t;
+            fromY += (parkY(target) - fromY) * t;
+            shipTo = model.cursor();
+            travel = settings.reducedFlash() ? TRAVEL_TICKS : 0;
+        }
         gc.clearRect(0, 0, WIDTH, HEIGHT);
+        drawPlanet();
         drawConnectors();
         for (Node node : model.nodes()) {
             drawNode(node, node == model.focused());
         }
+        drawShip();
         drawPanel();
         drawMessage();
+    }
+
+    private void drawPlanet() {
+        Image frame = Assets.planetFrames(art).get(MapArt.frameIndexAt(tick));
+        double cx = ROUTE_INSET + PLANET_X * (WIDTH - ROUTE_INSET * 2);
+        double cy = ROUTE_TOP + PLANET_Y * ROUTE_HEIGHT;
+        gc.setGlobalAlpha(0.9);
+        gc.drawImage(frame, cx - PLANET_SIZE / 2, cy - PLANET_SIZE / 2, PLANET_SIZE, PLANET_SIZE);
+        gc.setGlobalAlpha(1);
+    }
+
+    /**
+     * The equipped hull, parked above the focused node, gliding when the cursor moves.
+     *
+     * The reticle still marks focus; the ship is the same signal in motion, and turns toward where
+     * it is going and back as it arrives. The hull call is GarageOverlay's, fallback and all.
+     */
+    private void drawShip() {
+        Node to = model.nodes().get(shipTo);
+        double t = glide();
+        double fx = fromX;
+        double fy = fromY;
+        double tx = parkX(to);
+        double ty = parkY(to);
+        // Zero once parked: from and to coincide, and sin(pi) brings the nose back up anyway.
+        double heading = Math.toDegrees(Math.atan2(tx - fx, -(ty - fy)));
+
+        ChassisArt hull = loadout.chassisArt();
+        Image image = hull == null ? Assets.image(loadout.chassisPose(2, false, false))
+                : Assets.chassisFrames(hull, loadout.livery().hue(), loadout.livery().saturation(), 2, false, false)
+                        .get(hull.frameIndexAt(tick));
+        gc.save();
+        gc.translate(fx + (tx - fx) * t, fy + (ty - fy) * t);
+        gc.rotate(heading * Math.sin(Math.PI * t));
+        gc.drawImage(image, -SHIP_W / 2, -SHIP_H / 2, SHIP_W, SHIP_H);
+        gc.restore();
+    }
+
+    private double glide() {
+        return smoothstep(Math.min(1, travel / TRAVEL_TICKS));
+    }
+
+    static double smoothstep(double t) {
+        return t * t * (3 - 2 * t);
+    }
+
+    private static double parkX(Node node) {
+        return x(node);
+    }
+
+    private static double parkY(Node node) {
+        return y(node) - SHIP_LIFT;
     }
 
     /**
@@ -101,7 +194,15 @@ final class SystemMapView {
             boolean flown = isDone(from) && (isDone(to) || to.state() == NodeState.CURRENT);
             gc.setStroke(accent.deriveColor(0, 1, 1, flown ? 0.55 : 0.22));
             gc.setLineDashes(flown ? null : new double[]{6, 8});
+            if (to.state() == NodeState.CURRENT) {
+                // The leg into the next fight marches toward it: the one segment that is a way
+                // forward rather than a record. Still under reduced flash, since tick never moves.
+                gc.setStroke(accent.deriveColor(0, 1, 1, 0.8));
+                gc.setLineDashes(10, 8);
+                gc.setLineDashOffset(-tick * 0.5);
+            }
             gc.strokeLine(x(from), y(from), x(to), y(to));
+            gc.setLineDashOffset(0);
         }
         gc.setLineDashes(null);
     }

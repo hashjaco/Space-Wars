@@ -64,13 +64,17 @@ final class MenuScreen {
      * hence the fill underneath -- the same bargain {@code Renderer.drawScrollingBackground} makes.
      */
     private static Background starfield() {
-        Image image = Assets.image(Sprite.L1_FAR);
+        return backdrop(Assets.image(Sprite.L1_FAR));
+    }
+
+    /** A sky covering the whole screen, over the space colour: the menus' own, or a galaxy's. */
+    static Background backdrop(Image image) {
         BackgroundImage backdrop = new BackgroundImage(
                 image,
                 BackgroundRepeat.NO_REPEAT,
                 BackgroundRepeat.NO_REPEAT,
                 BackgroundPosition.CENTER,
-                new BackgroundSize(GameConfig.WIDTH, GameConfig.HEIGHT, false, false, false, true));
+                new BackgroundSize(1, 1, true, true, false, true));
         Background background = new Background(
                 List.of(new BackgroundFill(Tokens.SPACE, null, null)), List.of(backdrop));
         return background;

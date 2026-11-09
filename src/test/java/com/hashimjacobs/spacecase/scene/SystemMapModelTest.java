@@ -243,4 +243,13 @@ class SystemMapModelTest {
             assertTrue(node.y() >= 0 && node.y() <= 1, node.level() + " is off the map: " + node.y());
         }
     }
+
+    @Test
+    void everyGalaxyHasMapArt() {
+        for (Galaxy galaxy : Galaxy.values()) {
+            assertEquals(galaxy.name(), com.hashimjacobs.spacecase.asset.MapArt.valueOf(galaxy.name()).name());
+        }
+        assertEquals(Galaxy.values().length, com.hashimjacobs.spacecase.asset.MapArt.values().length,
+                "a MapArt with no galaxy is art that never shows");
+    }
 }
