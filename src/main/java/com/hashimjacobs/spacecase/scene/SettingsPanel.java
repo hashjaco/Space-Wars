@@ -5,6 +5,8 @@ import javafx.scene.layout.VBox;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.DoubleConsumer;
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.hashimjacobs.spacecase.asset.SoundBank;
@@ -18,12 +20,8 @@ import com.hashimjacobs.spacecase.prefs.Settings;
  */
 final class SettingsPanel extends VBox {
 
-    private static final double VOLUME_STEP = 0.1;
-    private static final double DEADZONE_STEP = 0.05;
-    private static final double SENSITIVITY_STEP = 0.25;
-    private static final double MIN_SENSITIVITY = 0.50;
-    private static final double MAX_SENSITIVITY = 2.00;
-    private static final double MAX_DEADZONE = 0.80;
+    /** What one Left/Right press moves a slider row by. Drags snap finer; see each row. */
+    private static final double KEY_STEP = 0.05;
     private static final int PLAYERS = 2;
 
     private final Settings settings;
@@ -44,6 +42,8 @@ final class SettingsPanel extends VBox {
     private final MenuButton padStatusRow;
     private final Supplier<String> padStatus;
     private final MenuPanel rows;
+    /** Pushes the stored values back into the bars, for {@link #refreshLabels}. */
+    private final List<Runnable> barRefreshers = new ArrayList<>();
 
     /**
      * @param padStatus what the pad reader currently sees, or null where no reader exists. Supplied
@@ -64,8 +64,12 @@ final class SettingsPanel extends VBox {
         this.sounds = sounds;
         this.padStatus = padStatus;
 
-        musicRow = new MenuButton("", this::cycleMusicVolume);
-        sfxRow = new MenuButton("", this::cycleSfxVolume);
+        // Range and drag snap per row; the setters on Settings own the real clamping.
+        musicRow = sliderRow(0, 1, 0.01, settings::musicVolume, value -> {
+            settings.setMusicVolume(value);
+            sounds.applyVolumes();
+        });
+        sfxRow = sliderRow(0, 1, 0.01, settings::sfxVolume, settings::setSfxVolume);
         difficultyRow = new MenuButton("", this::cycleDifficulty);
         controllerRow = new MenuButton("", this::toggleController);
         analogRow = new MenuButton("", this::toggleAnalog);
@@ -80,9 +84,12 @@ final class SettingsPanel extends VBox {
             int player = slot + 1;
             fireButtonRow[slot] = new MenuButton("", () -> cycleFireButton(player));
             pauseButtonRow[slot] = new MenuButton("", () -> cyclePauseButton(player));
-            sensitivityRow[slot] = new MenuButton("", () -> cycleSensitivity(player));
+            sensitivityRow[slot] = sliderRow(0.50, 2.00, 0.05,
+                    () -> settings.gamepadSensitivity(player),
+                    value -> settings.setGamepadSensitivity(player, value));
         }
-        deadzoneRow = new MenuButton("", this::cycleDeadzone);
+        deadzoneRow = sliderRow(0.05, 0.80, 0.01,
+                settings::gamepadDeadzone, settings::setGamepadDeadzone);
         // Nothing to activate: a readout, not a control. Left in the navigable list all the same so
         // it cannot be skipped past unseen on a pad, which is exactly who needs to read it.
         padStatusRow = new MenuButton("", () -> { });
@@ -123,19 +130,6 @@ final class SettingsPanel extends VBox {
      * the readout exists to explain.
      */
     void refresh() {
-        refreshLabels();
-    }
-
-    private void cycleMusicVolume() {
-        double next = wrapVolume(settings.musicVolume());
-        settings.setMusicVolume(next);
-        sounds.applyVolumes();
-        refreshLabels();
-    }
-
-    private void cycleSfxVolume() {
-        double next = wrapVolume(settings.sfxVolume());
-        settings.setSfxVolume(next);
         refreshLabels();
     }
 
@@ -186,37 +180,26 @@ final class SettingsPanel extends VBox {
     }
 
     /**
-     * Steps up in quarters and wraps back to the floor past the top.
+     * A row whose value is dragged on a bar or stepped with Left/Right.
      *
-     * Wraps to the minimum rather than to zero the way the deadzone does: sensitivity is read as an
-     * exponent's reciprocal, and zero has no meaning there.
+     * Enter does nothing on these rows: the old click-to-cycle wrapped from full straight to silent,
+     * which is the thing the bar replaces.
      */
-    private void cycleSensitivity(int player) {
-        double next = settings.gamepadSensitivity(player) + SENSITIVITY_STEP;
-        if (next > MAX_SENSITIVITY + 0.0001) {
-            next = MIN_SENSITIVITY;
-        }
-        settings.setGamepadSensitivity(player, next);
-        refreshLabels();
-    }
-
-    /** Steps up in twentieths and wraps back to the smallest past the top. */
-    private void cycleDeadzone() {
-        double next = settings.gamepadDeadzone() + DEADZONE_STEP;
-        if (next > MAX_DEADZONE + 0.0001) {
-            next = 0;
-        }
-        settings.setGamepadDeadzone(next);
-        refreshLabels();
-    }
-
-    /** Steps up in tenths and wraps back to silent past the top. */
-    private static double wrapVolume(double current) {
-        double next = current + VOLUME_STEP;
-        if (next > 1.0001) {
-            return 0;
-        }
-        return next;
+    private MenuButton sliderRow(double min, double max, double dragStep,
+                                 DoubleSupplier get, DoubleConsumer set) {
+        MenuButton row = new MenuButton("", () -> { });
+        LevelBar bar = new LevelBar(min, max, dragStep, value -> {
+            set.accept(value);
+            refreshLabels();
+        });
+        row.setTrailing(bar, direction -> {
+            // Hundredths, so repeated key steps do not drift off the grid in float dust.
+            double next = Math.round((get.getAsDouble() + direction * KEY_STEP) * 100) / 100.0;
+            set.accept(Math.max(min, Math.min(max, next)));
+            refreshLabels();
+        });
+        barRefreshers.add(() -> bar.setValue(get.getAsDouble()));
+        return row;
     }
 
     private void refreshLabels() {
@@ -239,6 +222,7 @@ final class SettingsPanel extends VBox {
         }
         deadzoneRow.setRow("Deadzone", percent(settings.gamepadDeadzone()));
         padStatusRow.setRow("Pads", padStatus == null ? "--" : padStatus.get());
+        barRefreshers.forEach(Runnable::run);
     }
 
     private static String percent(double value) {

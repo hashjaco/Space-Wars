@@ -134,6 +134,46 @@ class MenuNavigatorTest {
         return spies;
     }
 
+    @Test
+    void leftAndRightNudgeTheFocusedSlider() {
+        Slider slider = new Slider();
+        MenuNavigator navigator = new MenuNavigator(List.of(slider));
+
+        assertTrue(navigator.handleKey(KeyCode.RIGHT));
+        assertTrue(navigator.handleKey(KeyCode.D));
+        assertTrue(navigator.handleKey(KeyCode.LEFT));
+        assertTrue(navigator.handleKey(KeyCode.A));
+        assertTrue(navigator.handleKey(KeyCode.RIGHT));
+
+        assertEquals(1, slider.level);
+    }
+
+    @Test
+    void leftAndRightPassThroughOnAPlainRow() {
+        MenuNavigator navigator = new MenuNavigator(List.copyOf(spies(2)));
+
+        assertFalse(navigator.handleKey(KeyCode.LEFT));
+        assertFalse(navigator.handleKey(KeyCode.D));
+    }
+
+    private static final class Slider implements MenuNavigator.Item {
+        private int level;
+
+        @Override
+        public void setHighlighted(boolean highlighted) {
+        }
+
+        @Override
+        public void activate() {
+        }
+
+        @Override
+        public boolean adjust(int direction) {
+            level += direction;
+            return true;
+        }
+    }
+
     private static final class Spy implements MenuNavigator.Item {
         private boolean focused;
         private int activations;

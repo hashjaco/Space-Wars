@@ -1,0 +1,59 @@
+{
+ "style": "Pre-rendered 3D CGI look with smooth shading, a cold blue key light from the left and a warm furnace-orange rim light from the right, deep shadow, transparent background, no text, no base, no ground, no shadow.",
+ "characters": [
+  {
+   "slug": "pilot",
+   "prompt": "A human starfighter pilot standing in a fighting stance, full body, seen exactly side-on facing right. Sleek dark armoured flight suit with glowing teal seams, chest harness, helmet with the visor raised showing a determined face, compact athletic build, bare armoured fists raised.",
+   "descriptions": {
+    "combo_1": "a fast straight jab with the lead fist, snapping back",
+    "combo_2": "a heavy cross punch with the rear fist, hips turning",
+    "combo_3": "a rising uppercut that lifts the whole body onto the toes",
+    "dodge": "a low sweeping kick along the floor, crouching on the standing leg",
+    "flourish": "a spinning roundhouse kick at head height, landing back in stance",
+    "special": "cups both hands at the hip, gathers glowing teal energy between the palms, then thrusts both palms forward and holds them out",
+    "victory": "raises both forearms crossed in front of the face to block and holds the guard"
+   }
+  },
+  {
+   "slug": "thrall",
+   "prompt": "A Foundry Thrall from an alien undercity: a hunched biomechanical worker-creature, glossy green-black insect plates grafted over sinewy grey flesh, molten resin leaking from its seams, sick yellow glands, glowing furnace-orange eyes, long clawed arms, full body, seen exactly side-on facing right.",
+   "descriptions": {
+    "combo_1": "a quick clawed swipe forward",
+    "combo_2": "a lunging two-armed slash",
+    "combo_3": "a heavy overhead claw smash"
+   }
+  },
+  {
+   "slug": "foreman",
+   "prompt": "The Foundry Foreman: a towering hulking insectoid brute, domed green-black beetle shell on its back with venting smokestacks, a molten-orange furnace glowing in its open ribcage, one enormous piston-driven fist, mandibles, full body, seen exactly side-on facing right.",
+   "descriptions": {
+    "combo_1": "a huge piston-fist punch forward",
+    "combo_2": "grabs forward with both claws and slams down onto the floor",
+    "combo_3": "leaps a little and pounds both fists into the floor",
+    "special": "the ribcage furnace flares and it fires a molten beam from its chest while bracing"
+   }
+  }
+ ],
+ "props": [
+  {
+   "slug": "rift-key",
+   "prompt": "The Rift Key: an ornate alien crystal key artifact, a glowing violet void-energy core held in a dark chitin-and-iron cradle, floating, three-quarter view."
+  },
+  {
+   "slug": "floor",
+   "prompt": "A long side-view strip of wet bolted industrial metal floor panels with chitin ribbing and resin drips, seen exactly side-on, the top edge is a flat walkway, filling the whole frame, dark biomechanical undercity.",
+   "scene": true,
+   "resolution": "1024x256"
+  },
+  {
+   "slug": "crate",
+   "prompt": "A heavy riveted iron cargo crate crusted with green-black chitin and dried resin, seen exactly side-on."
+  },
+  {
+   "slug": "backdrop",
+   "prompt": "A wide side-view background painting of a vast dark alien undercity cavern: towering ribbed biomechanical foundry chimneys, glossy green-black chitin arches, distant furnace glow in orange, hanging chains and pipes, haze and steam, cold blue light shafts from above, painterly pre-rendered CGI, no characters, no text, empty floor area at the bottom.",
+   "scene": true,
+   "resolution": "1024x512"
+  }
+ ]
+}

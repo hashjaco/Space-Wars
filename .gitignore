@@ -40,6 +40,8 @@ tools/sprixen/.cg-*
 tools/flux/.wrangler/
 tools/flux/node_modules/
 tools/flux/worker-configuration.d.ts
+tools/sprixen/.onfoot-state.json
+tools/sprixen/__pycache__/
 tools/sprixen/.hulls-state.json
 tools/sprixen/.map-state.json
 tools/tripo/out/

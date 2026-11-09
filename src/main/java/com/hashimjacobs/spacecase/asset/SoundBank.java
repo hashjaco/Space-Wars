@@ -139,6 +139,13 @@ public final class SoundBank implements SoundPlayer {
     private final Settings settings;
     private final Random random = new Random();
 
+    /**
+     * Silence flags, written on the JavaFX thread and read by {@link #play} there and below.
+     * Paused holds the music where it is; muted keeps it running at zero, so unmuting is seamless.
+     */
+    private volatile boolean paused;
+    private volatile boolean muted;
+
     public SoundBank(Settings settings) {
         this.settings = settings;
         // Queued rather than decoded here: nine clips, one of them nine seconds long, used to be
@@ -200,6 +207,9 @@ public final class SoundBank implements SoundPlayer {
     public void play(SoundFx effect) {
         // Volume is resolved here rather than on the audio thread: it is a plain field read, and
         // passing the value across means the setting is never read from two threads at once.
+        if (paused || muted) {
+            return;
+        }
         double volume = effect.baseVolume() * settings.sfxVolume();
         requests.increment();
         audio.execute(() -> {
@@ -277,7 +287,10 @@ public final class SoundBank implements SoundPlayer {
     public void playMusic(MusicCue cue) {
         // Volume read here for the same reason as in play(): the setting is written on the JavaFX
         // thread, so carrying the value across leaves the audio thread reading nothing shared.
-        double volume = settings.musicVolume();
+        // A new cue means play has moved on -- quitting to the menu from the pause screen, say --
+        // so the pause ends here rather than every such path having to remember to lift it.
+        paused = false;
+        double volume = musicLevel();
         audio.execute(() -> playMusicNow(cue, volume));
     }
 
@@ -354,9 +367,48 @@ public final class SoundBank implements SoundPlayer {
         });
     }
 
+    /**
+     * Holds every sound while the game is paused: the track stops where it is, and any effect still
+     * ringing -- a nine-second roar, say -- is cut off. Resuming picks the track up mid-phrase.
+     */
+    public void setPaused(boolean pause) {
+        paused = pause;
+        audio.execute(() -> {
+            if (pause) {
+                for (Clip[] pool : clips.values()) {
+                    for (Clip clip : pool) {
+                        clip.stop();
+                    }
+                }
+            }
+            if (currentTrack != null) {
+                MediaPlayer player = music.get(currentTrack);
+                if (pause) {
+                    player.pause();
+                } else {
+                    player.play();
+                }
+            }
+        });
+    }
+
+    /** Flips the session-only mute. Not saved: a game that reopens silent would look broken. */
+    public void toggleMute() {
+        muted = !muted;
+        applyVolumes();
+    }
+
+    public boolean isMuted() {
+        return muted;
+    }
+
+    private double musicLevel() {
+        return muted ? 0 : settings.musicVolume();
+    }
+
     /** Call after the user changes a volume so the change is audible immediately. */
     public void applyVolumes() {
-        double volume = settings.musicVolume();
+        double volume = musicLevel();
         audio.execute(() -> {
             for (MediaPlayer player : music.values()) {
                 player.setVolume(volume);

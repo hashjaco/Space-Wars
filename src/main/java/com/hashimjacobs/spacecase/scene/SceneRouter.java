@@ -674,6 +674,7 @@ public final class SceneRouter {
                 "Settings, Keyboard.",
                 "",
                 "ESCAPE          pause / resume        F11   fullscreen",
+                "M               mute / unmute",
                 "MENUS           arrows or W/S, Enter to choose",
                 "CONTROLLERS     stick or d-pad, A to fire, Start to pause.",
                 "                First pad is player one. Buttons and",
