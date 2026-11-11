@@ -3,6 +3,7 @@ package com.hashimjacobs.spacecase.garage;
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.entity.PowerUp;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -85,6 +86,27 @@ class UpgradeBalanceTest {
 
         assertTrue(everything > oneGalaxy * 2,
                 "the whole catalogue at " + everything + " credits would be bought in two galaxies");
+    }
+
+    /**
+     * Stacking a weapon must not make it better than the thing stacking was invented for: no full
+     * stack may out-damage a full tri-shot fan against one target, every round landing.
+     */
+    @Test
+    void noStackedWeaponOutDamagesAFullTriShot() {
+        double tri = (2 + GameConfig.TRI_SHOT_MAX_STACKS) * GameConfig.BULLET_DAMAGE
+                / (double) GameConfig.PLAYER_FIRE_COOLDOWN;
+        double scythe = PowerUp.Kind.SCYTHE.maxStacks() * GameConfig.SCYTHE_DAMAGE
+                / (double) GameConfig.SCYTHE_FIRE_COOLDOWN;
+        double flak = (GameConfig.FLAK_PELLETS + PowerUp.Kind.FLAK.maxStacks() - 1) * GameConfig.FLAK_DAMAGE
+                / (double) GameConfig.FLAK_FIRE_COOLDOWN;
+        double rockets = PowerUp.Kind.ROCKETS.maxStacks() * GameConfig.PLAYER_ROCKET_DAMAGE
+                / (double) GameConfig.ROCKET_FIRE_COOLDOWN;
+        double nova = PowerUp.Kind.NOVA.maxStacks() * (GameConfig.NOVA_DAMAGE + GameConfig.NOVA_BLAST_DAMAGE)
+                / (double) GameConfig.NOVA_FIRE_COOLDOWN;
+        assertTrue(scythe < tri && flak < tri && rockets < tri && nova < tri,
+                "per tick: tri " + tri + ", scythe " + scythe + ", flak " + flak
+                        + ", rockets " + rockets + ", nova " + nova);
     }
 
     /** A shortened reload must not turn the rocket pickup into the primary weapon. */

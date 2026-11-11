@@ -73,6 +73,24 @@ class PlayerShipTest {
     }
 
     @Test
+    void everyWeaponStacksToItsOwnCapAndSwappingStartsOver() {
+        for (PowerUp.Kind weapon : new PowerUp.Kind[] {PowerUp.Kind.SCYTHE, PowerUp.Kind.FLAK,
+                PowerUp.Kind.ROCKETS, PowerUp.Kind.NOVA, PowerUp.Kind.MEGA_LASER}) {
+            PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
+            for (int i = 0; i < 5; i++) {
+                ship.collect(weapon);
+            }
+            assertEquals(weapon.maxStacks(), ship.stacks(weapon), weapon.name());
+
+            ship.collect(PowerUp.Kind.TRI_SHOT);
+            assertEquals(0, ship.stacks(weapon), weapon + " should be holstered by a swap");
+            ship.collect(weapon);
+            assertEquals(1, ship.stacks(weapon), weapon + " comes back at one");
+        }
+        assertEquals(1, PowerUp.Kind.MEGA_LASER.maxStacks(), "the beam must not stack");
+    }
+
+    @Test
     void triShotStacksToThreeAndNoFurther() {
         PlayerShip ship = new PlayerShip(1, "TESTER", Facing.UP, 0, 0);
         assertEquals(0, ship.triStacks());
