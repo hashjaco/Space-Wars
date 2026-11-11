@@ -11,6 +11,8 @@ public class EnemyShip extends Entity {
 
     /** How far in a boss advances before it stops and holds station to fight. */
     private static final double BOSS_HOLD_DEPTH = 90;
+    /** The deepest a flagship's patrol takes it: it comes at you and backs off between the two. */
+    private static final double BOSS_DEEPEST = 170;
 
     /**
      * How fast a flagship comes in, and how fast it slides to stay over you.
@@ -235,7 +237,7 @@ public class EnemyShip extends Entity {
     public void update() {
         super.update();
         age++;
-        if (isBoss() && orientation.depth(x(), y(), width(), height()) > BOSS_HOLD_DEPTH) {
+        if (isBoss() && orientation.depth(x(), y(), width(), height()) > BOSS_DEEPEST) {
             // Stop advancing but keep whatever sideways drift the tracker gave us.
             // ponytail: leaves up to one tick of overshoot (0.35px, once) where the old code
             // snapped the position back. Use Orientation.atX/atY if that ever shows.
@@ -257,6 +259,10 @@ public class EnemyShip extends Entity {
      * straight back is what keeps the boss parked there.
      */
     public void trackAcross(Entity target) {
+        if (isBoss() && orientation.depth(x(), y(), width(), height()) >= BOSS_HOLD_DEPTH * 0.6) {
+            patrol(target);
+            return;
+        }
         double toTarget = orientation.across(target.centerX() - centerX(),
                 target.centerY() - centerY());
         double jink = kind == null ? 0 : kind.weave();
@@ -269,6 +275,33 @@ public class EnemyShip extends Entity {
         double progress = orientation.depth(x(), y(), width(), height()) / orientation.arenaDepth();
         double advance = move.advance(orientation.along(velocityX(), velocityY()),
                 descentSpeed, progress, age);
+        setVelocity(orientation.vx(advance, step), orientation.vy(advance, step));
+    }
+
+    /**
+     * How a flagship moves once it has arrived: around, not parked over the player.
+     *
+     * In a burst it sweeps across the lane past the player's column, so its aimed fire comes from a
+     * moving gun and there is somewhere to stand that it is not pointing at. In a break or a charge
+     * it closes on the player's column, faster, which is the moment it is lining up. Its depth
+     * drifts between BOSS_HOLD_DEPTH and BOSS_DEEPEST on a slow sine, so it comes at you and backs
+     * off. A proportional step rather than HUNT's full-speed sign, so it glides to a stop instead of
+     * twitching on the spot. All on the combat clock, so it is the same on every peer.
+     */
+    private void patrol(Entity target) {
+        double breadth = orientation.arenaBreadth();
+        double extent = orientation.acrossExtent(width(), height());
+        boolean lining = resting() || specialTicks() >= 0;
+        double sweep = lining ? 0 : StrictMath.sin(combatTicks / 95.0) * 0.28 * breadth;
+        double aim = orientation.across(target.centerX(), target.centerY()) + sweep;
+        aim = Math.max(extent / 2, Math.min(breadth - extent / 2, aim));
+        double speed = (lining ? 1.4 : 1) * (isEnraged() ? trackSpeed * ENRAGE_TRACK_SCALE : trackSpeed);
+        double toAim = aim - orientation.across(centerX(), centerY());
+        double step = Math.max(-speed, Math.min(speed, toAim * 0.06));
+        double wantDepth = BOSS_HOLD_DEPTH + (BOSS_DEEPEST - BOSS_HOLD_DEPTH)
+                * 0.5 * (1 - StrictMath.cos(combatTicks / 210.0));
+        double depth = orientation.depth(x(), y(), width(), height());
+        double advance = Math.max(-0.8, Math.min(0.8, (wantDepth - depth) * 0.04));
         setVelocity(orientation.vx(advance, step), orientation.vy(advance, step));
     }
 
@@ -452,6 +485,20 @@ public class EnemyShip extends Entity {
         return 1;
     }
 
+    /** A flagship whose parts still shield it: shots on it land but do nothing yet. */
+    public boolean armoured() {
+        return !isBossPart() && hasLivingGuard();
+    }
+
+    /** Parts still alive, for the HUD's count. */
+    public int livingParts() {
+        int alive = 0;
+        for (EnemyShip part : parts) {
+            alive += part.isAlive() ? 1 : 0;
+        }
+        return alive;
+    }
+
     /**
      * Whether any piece that guards the rest of this ship is still alive.
      *
@@ -473,42 +520,97 @@ public class EnemyShip extends Entity {
         return boss.phaseFor(remainingHealthFraction());
     }
 
-    /**
-     * Volleys this flagship has fired. Drives the special's cadence and nothing else.
-     *
-     * On the ship rather than in {@code engine.EnemyWeapons} because a flagship outlives no tick but
-     * the weapons class is static: there is nowhere else for a per-ship count to live, and a map
-     * keyed by ship in the weapons class would be the same field with a leak attached.
-     */
-    private int volleys;
+    // ---- The fight's rhythm ----------------------------------------------------------------
+    //
+    // A flagship fires its primary in bursts with breaks between them, and every 8 to 15 seconds
+    // stops, charges where you can see it, and lets go of its special. Before this it fired one
+    // pattern on a short cooldown for the whole fight with a special every fourth volley, which
+    // read as a wall with no gaps. Everything here counts the flagship's own combat ticks and its
+    // ordinal, never a shared Random, so lockstep peers and replays fight the same fight.
 
-    /** Ticks the volley counter. Called once per volley, after the shot goes out. */
-    public void countVolley() {
-        volleys++;
+    /** Primary fire for this long, then a break for REST_TICKS. */
+    public static final int BURST_TICKS = 150;
+    public static final int REST_TICKS = 80;
+    /** The charge before a special: long enough to see it coming and get out of the way. */
+    public static final int CHARGE_TICKS = 45;
+    /** A special is a barrage of this many volleys, this far apart. */
+    public static final int SPECIAL_VOLLEYS = 3;
+    public static final int SPECIAL_VOLLEY_GAP = 14;
+    /** Specials land 8 to 15 seconds apart at 60 ticks a second. The first comes a little sooner. */
+    public static final int SPECIAL_GAP_MIN = 480, SPECIAL_GAP_SPREAD = 420, FIRST_SPECIAL = 360;
+
+    /** Ticks this flagship has been fighting, advanced by {@link #tickCombat} from the weapons driver. */
+    private int combatTicks;
+    private int nextSpecialAt = FIRST_SPECIAL;
+    private int specialsFired;
+
+    /** One tick of the fight's clock. Called every fixed step for a flagship, never for a part. */
+    public void tickCombat() {
+        combatTicks++;
+        if (combatTicks >= nextSpecialAt + specialLength()) {
+            specialsFired++;
+            nextSpecialAt = combatTicks + specialGap();
+        }
     }
 
-    /** How many primaries go out between specials. Three, then the special, as the pattern. */
-    private static final int VOLLEYS_PER_SPECIAL = 4;
+    /** The flagship whose rhythm this ship keeps: itself, or the body a part belongs to. */
+    protected EnemyShip rhythmOwner() {
+        return this;
+    }
+
+    /** Between bursts: no primary fire, and the flagship repositions. */
+    public boolean resting() {
+        EnemyShip owner = rhythmOwner();
+        int cycle = Math.floorMod(owner.combatTicks + owner.boss.ordinal() * 37, BURST_TICKS + REST_TICKS);
+        return cycle >= BURST_TICKS;
+    }
+
+    /** The first tick of a break, when the flagship launches its rockets. */
+    public boolean restBegins() {
+        EnemyShip owner = rhythmOwner();
+        return Math.floorMod(owner.combatTicks + owner.boss.ordinal() * 37, BURST_TICKS + REST_TICKS) == BURST_TICKS;
+    }
+
+    /** Ticks into the current special, or -1 outside one. 0 to CHARGE_TICKS is the wind-up. */
+    public int specialTicks() {
+        EnemyShip owner = rhythmOwner();
+        int into = owner.combatTicks - owner.nextSpecialAt;
+        return into >= 0 && into < owner.specialLength() ? into : -1;
+    }
+
+    /** Winding up a special: 0 to 1 over the charge, 0 otherwise. Drawn as a growing glow. */
+    public double charge() {
+        int into = specialTicks();
+        return into >= 0 && into < CHARGE_TICKS ? (into + 1) / (double) CHARGE_TICKS : 0;
+    }
+
+    /** Whether a special volley goes out this tick. */
+    public boolean specialVolleyNow() {
+        int fired = specialTicks() - CHARGE_TICKS;
+        return fired >= 0 && fired % SPECIAL_VOLLEY_GAP == 0 && fired / SPECIAL_VOLLEY_GAP < SPECIAL_VOLLEYS;
+    }
+
+    private int specialLength() {
+        return CHARGE_TICKS + SPECIAL_VOLLEYS * SPECIAL_VOLLEY_GAP;
+    }
 
     /**
-     * The pattern going out on this volley: the health phase, or the special every fourth time.
-     *
-     * Asked twice a tick -- once by the cooldown, once by the fire -- and it has to give the same
-     * answer to both, which is why {@link #volleys} is advanced after the shot rather than before.
-     * A phase that changed between the two would arm a special and then fire it on the primary's
-     * clock.
-     *
-     * Parts sit this out. A hydra's heads firing a lance each on their own counters would be three
-     * specials in the air with nobody having chosen that, and the torso is the thing with the
-     * rhythm.
+     * 8 to 15 seconds to the next one, varied: an integer hash of the ordinal and the count, so it
+     * is never the same gap twice running and never needs a draw. An enraged flagship comes a
+     * quarter sooner.
      */
+    private int specialGap() {
+        int h = boss.ordinal() * 0x9E3779B1 + specialsFired * 0x85EBCA6B;
+        h ^= h >>> 15;
+        h *= 0x2C1B3C6D;
+        h ^= h >>> 12;
+        int gap = SPECIAL_GAP_MIN + Math.floorMod(h, SPECIAL_GAP_SPREAD + 1);
+        return isEnraged() ? gap * 3 / 4 : gap;
+    }
+
+    /** The primary pattern. The special is fired separately, on its own timer ({@link #specialVolleyNow}). */
     public BossPhase firingPhase() {
-        // The hydra's threat is its necks, its acid and its bone: a fourth pattern on top of three
-        // was the fight being undodgeable, so it fires no special.
-        if (isBossPart() || boss == Boss.HYDRA || volleys % VOLLEYS_PER_SPECIAL != VOLLEYS_PER_SPECIAL - 1) {
-            return phase();
-        }
-        return boss.special();
+        return phase();
     }
 
     /**
@@ -542,6 +644,10 @@ public class EnemyShip extends Entity {
 
     /** The loop to draw now: chosen by hull for a flagship, overridden by a part that acts. */
     public BossArt.State artState() {
+        // A flagship stripped of its guards is enraged in the picture as well as the fight.
+        if (!parts.isEmpty() && !isBossPart() && !hasLivingGuard() && bossArt().has(BossArt.State.RAGE)) {
+            return BossArt.State.RAGE;
+        }
         return bossArt().stateFor(hullFraction());
     }
 

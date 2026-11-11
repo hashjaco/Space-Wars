@@ -196,6 +196,20 @@ public record Debrief(
         return percent;
     }
 
+    /**
+     * A letter for the run, S to C, from the three things a pilot controls: aim, damage taken and
+     * lives kept. Two points each at the top of a ladder, one for a near miss; S needs all six.
+     *
+     * Read off the same thresholds the bonus rows pay on, so the letter never disagrees with them.
+     */
+    public char grade() {
+        int accuracy = accuracyPercent();
+        int points = (accuracy >= 70 ? 2 : accuracy >= 45 ? 1 : 0)
+                + (damageTaken == 0 ? 2 : damageTaken <= GRAZED_DAMAGE ? 1 : 0)
+                + (livesLost == 0 ? 2 : livesLost == 1 ? 1 : 0);
+        return points == 6 ? 'S' : points >= 4 ? 'A' : points >= 2 ? 'B' : 'C';
+    }
+
     /** What the bonuses add up to: added to the round score and to the pilot's career. */
     public int totalBonus() {
         int total = bonuses.stream().mapToInt(Bonus::points).sum();

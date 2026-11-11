@@ -19,7 +19,18 @@ public enum MusicTrack {
     STARLIGHT_CIRCUIT("starlight-circuit.mp3"),
     GARAGE_MUSIC("garage-music.mp3"),
     DEATH_METAL("death-metal.mp3"),
-    DEATH_PUNK("death-punk.mp3");
+    DEATH_PUNK("death-punk.mp3"),
+    UNDERCITY_BRAWL("undercity-brawl.mp3"),
+    STARFALL_OVERTURE("starfall-overture.mp3"),
+    DOGFIGHT_PROTOCOL("dogfight-protocol.mp3"),
+    EVENT_HORIZON("event-horizon.mp3"),
+    AEONS_END("aeons-end.mp3"),
+    MORNING_AFTER_THE_DARK("morning-after-the-dark.mp3"),
+    KESTREL_STATION("kestrel-station.mp3"),
+    THE_NEST("the-nest.mp3"),
+    THE_LEDGER("the-ledger.mp3"),
+    THE_WALL("the-wall.mp3"),
+    THE_STORM_BREAKS("the-storm-breaks.mp3");
     // The two heavy tracks play for every flagship (MusicCue.BOSS); see ASSETS.md for origins.
 
 

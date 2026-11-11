@@ -36,6 +36,7 @@ import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BossHead;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.BurrowingWorm;
+import com.hashimjacobs.spacecase.entity.Core;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
@@ -49,6 +50,7 @@ import com.hashimjacobs.spacecase.onfoot.OnFootRenderer;
 import com.hashimjacobs.spacecase.onfoot.OnFootStage;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
+import com.hashimjacobs.spacecase.ui.Meter;
 import com.hashimjacobs.spacecase.ui.Tokens;
 
 /**
@@ -97,6 +99,9 @@ public final class Renderer {
     private static final Color NECK_OUTLINE = Color.web("#131c10");
     private static final Color NECK_HIDE = Color.web("#24361f");
     private static final Color NECK_SINEW = Color.web("#7a1c16");
+    private static final Color STUMP_MEAT = Color.web("#b3261e");
+    private static final double STUMP_LENGTH = 42;
+    private static final Paint CHARGE_GLOW = halo(Color.web("#ffd27a"));
 
     private static final Font PILOT_NAME_FONT = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION);
 
@@ -208,6 +213,9 @@ public final class Renderer {
         }
         for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
+        }
+        for (Core core : world.cores()) {
+            drawCore(core, world.tick(), world.coreKnown(core.index()));
         }
         for (World.Wreck wreck : world.wrecks()) {
             Image frame = Assets.bossFrames(wreck.art(), BossArt.State.DEATH).get(wreck.frameAt(world.tick()));
@@ -337,8 +345,12 @@ public final class Renderer {
 
     /** The between-levels report, over a frozen world. */
     public void drawDebrief(Level level, List<Debrief> debriefs, List<Standing> standings,
-                            boolean armed) {
-        debriefOverlay.draw(level, debriefs, standings, armed);
+                            int tick, boolean armed, int challengesMet, int challengesNew,
+                            int challengesHeld) {
+        debriefOverlay.draw(level, debriefs, standings, tick, armed);
+        if (challengesHeld >= 0) {
+            debriefOverlay.drawChallenges(tick, debriefs, challengesMet, challengesNew, challengesHeld);
+        }
     }
 
     /** The between-levels garage, over a frozen world. */
@@ -562,6 +574,54 @@ public final class Renderer {
         if (turned) {
             gc.restore();
         }
+        if (!boss.isBossPart() && boss.boss() == Boss.HYDRA) {
+            drawStumps(boss, tick);
+        }
+        if (boss.charge() > 0) {
+            drawCharge(boss, boss.charge());
+        }
+    }
+
+    /**
+     * A flagship winding up its special: a hot glow swelling over it, so the big attack is seen
+     * coming three quarters of a second before it lands.
+     */
+    private void drawCharge(EnemyShip boss, double charge) {
+        double size = Math.max(boss.width(), boss.height()) * (0.7 + 0.8 * charge);
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        gc.setGlobalAlpha(0.25 + 0.55 * charge);
+        gc.setFill(CHARGE_GLOW);
+        gc.fillOval(boss.centerX() - size / 2, boss.centerY() - size / 2, size, size);
+        gc.restore();
+    }
+
+    /**
+     * The hydra's severed necks: a short stump of the same hide where each dead head was, capped
+     * with raw meat that pulses, so the fight shows how far it has come and the torso shows where
+     * it can now be hurt.
+     */
+    private void drawStumps(EnemyShip torso, int tick) {
+        gc.save();
+        gc.setLineCap(StrokeLineCap.ROUND);
+        for (EnemyShip part : torso.parts()) {
+            if (part.isAlive() || !(part instanceof BossHead head)) {
+                continue;
+            }
+            double rootX = head.neckRootX(), rootY = head.neckRootY();
+            double tipX = head.stumpX(STUMP_LENGTH), tipY = head.stumpY(STUMP_LENGTH);
+            for (int pass = 0; pass < 3; pass++) {
+                gc.setStroke(pass == 0 ? NECK_OUTLINE : pass == 1 ? NECK_HIDE : NECK_SINEW);
+                gc.setLineWidth(pass == 0 ? 30 : pass == 1 ? 22 : 7);
+                gc.strokeLine(rootX, rootY, tipX, tipY);
+            }
+            double pulse = 13 + 3 * Math.sin(tick * 0.25 + head.neckRootX());
+            gc.setFill(STUMP_MEAT);
+            gc.fillOval(tipX - pulse, tipY - pulse, pulse * 2, pulse * 2);
+            gc.setFill(NECK_SINEW);
+            gc.fillOval(tipX - pulse * 0.5, tipY - pulse * 0.5, pulse, pulse);
+        }
+        gc.restore();
     }
 
     /** The image's silhouette dropped down-right onto the sky, as if lit from above-left. */
@@ -861,6 +921,39 @@ public final class Renderer {
         drawSprite(powerUp);
     }
 
+    /**
+     * A hidden core: a slowly turning hexagon with a halo. One found on an earlier run is drawn
+     * faint, so a returning pilot can see which ones they still need.
+     */
+    private void drawCore(Core core, int tick, boolean known) {
+        double cx = core.centerX();
+        double cy = core.centerY();
+        double r = Core.SIZE / 2;
+        double pulse = settings.reducedFlash() ? 1 : 0.85 + 0.15 * Math.sin(tick * 0.12);
+        gc.save();
+        gc.setGlobalAlpha(known ? 0.4 : 1);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        gc.setFill(PICKUP_HALO);
+        double glow = r * 4.2 * pulse;
+        gc.fillOval(cx - glow / 2, cy - glow / 2, glow, glow);
+        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+        double[] xs = new double[6];
+        double[] ys = new double[6];
+        for (int i = 0; i < 6; i++) {
+            double angle = tick * 0.02 + i * Math.PI / 3;
+            xs[i] = cx + Math.cos(angle) * r * pulse;
+            ys[i] = cy + Math.sin(angle) * r * pulse;
+        }
+        gc.setFill(Hud.CORE.deriveColor(0, 1, 0.55, 1));
+        gc.fillPolygon(xs, ys, 6);
+        gc.setStroke(Hud.CORE);
+        gc.setLineWidth(2.5);
+        gc.strokePolygon(xs, ys, 6);
+        gc.setFill(Color.WHITE);
+        gc.fillOval(cx - 3, cy - 3, 6, 6);
+        gc.restore();
+    }
+
     private void drawPlayer(PlayerShip player, int tick) {
         if (player.isOut()) {
             return;
@@ -1102,13 +1195,8 @@ public final class Renderer {
         // ponytail: no anti-overlap pass. Two ships stacked and both shot inside the same three
         // seconds will stack their bars. If it ever shows, offset y by the enemy's list index.
         gc.setGlobalAlpha(alpha);
-        gc.setFill(Tokens.TRACK);
-        gc.fillRoundRect(x, y, width, 5, 3, 3);
-        gc.setFill(Tokens.healthColor(fraction));
-        gc.fillRoundRect(x, y, width * fraction, 5, 3, 3);
-        if (fraction <= 0.25) {
-            Hud.stripes(gc, x, y, width * fraction, 5);
-        }
+        Meter.draw(gc, x, y, width, 5, fraction, fraction, Tokens.healthColor(fraction), Tokens.TRACK,
+                0, fraction <= 0.25);
         gc.setGlobalAlpha(1);
     }
 
@@ -1118,10 +1206,8 @@ public final class Renderer {
         double y = player.centerY() - player.height() / 2 - 12;
         double fraction = Math.min(1, player.shieldRemaining() / (double) GameConfig.SHIELD_CAPACITY);
 
-        gc.setFill(Color.web("#0d1626", 0.75));
-        gc.fillRoundRect(x, y, width, 5, 3, 3);
-        gc.setFill(Color.web("#9fd0ff"));
-        gc.fillRoundRect(x, y, width * fraction, 5, 3, 3);
+        Meter.draw(gc, x, y, width, 5, fraction, fraction, Color.web("#9fd0ff"), Color.web("#0d1626", 0.75),
+                0, false);
     }
 
     public void drawPausedVeil() {

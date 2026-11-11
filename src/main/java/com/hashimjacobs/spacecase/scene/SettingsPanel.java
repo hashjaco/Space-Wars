@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.scene;
 
 import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
+import javafx.stage.Stage;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,6 +35,7 @@ final class SettingsPanel extends VBox {
     private final MenuButton reducedFlashRow;
     private final MenuButton cinematicRow;
     private final MenuButton grainRow;
+    private final MenuButton resolutionRow;
     private final MenuButton controlsRow;
     private final MenuButton[] fireButtonRow = new MenuButton[PLAYERS];
     private final MenuButton[] pauseButtonRow = new MenuButton[PLAYERS];
@@ -76,6 +78,7 @@ final class SettingsPanel extends VBox {
         reducedFlashRow = new MenuButton("", this::toggleReducedFlash);
         cinematicRow = new MenuButton("", this::toggleCinematic);
         grainRow = new MenuButton("", this::toggleGrain);
+        resolutionRow = new MenuButton("", this::cycleResolution);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
             controlsRow.setRow("Keyboard", ">");
@@ -101,7 +104,7 @@ final class SettingsPanel extends VBox {
         refreshLabels();
 
         List<MenuButton> panelRows = new ArrayList<>(List.of(
-                musicRow, sfxRow, difficultyRow, reducedFlashRow, cinematicRow, grainRow,
+                musicRow, sfxRow, difficultyRow, resolutionRow, reducedFlashRow, cinematicRow, grainRow,
                 controllerRow, analogRow,
                 fireButtonRow[0], pauseButtonRow[0], sensitivityRow[0],
                 fireButtonRow[1], pauseButtonRow[1], sensitivityRow[1],
@@ -162,6 +165,15 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void cycleResolution() {
+        List<Integer> options = SceneRouter.resolutions();
+        // A stored size this screen cannot fit is not in the list; indexOf's -1 starts the cycle over.
+        int next = options.get((options.indexOf(settings.windowHeight()) + 1) % options.size());
+        settings.setWindowHeight(next);
+        SceneRouter.applyResolution((Stage) getScene().getWindow(), next);
+        refreshLabels();
+    }
+
     private void toggleGrain() {
         settings.setFilmGrain(!settings.filmGrain());
         refreshLabels();
@@ -208,6 +220,7 @@ final class SettingsPanel extends VBox {
         difficultyRow.setRow("Difficulty", settings.difficulty().label());
         reducedFlashRow.setRow("Flashing", settings.reducedFlash() ? "Reduced" : "Full");
         cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
+        resolutionRow.setRow("Resolution", SceneRouter.resolutionLabel(settings.windowHeight()));
         grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");
         analogRow.setRow("Stick mode", settings.gamepadAnalog() ? "Analog" : "Digital");

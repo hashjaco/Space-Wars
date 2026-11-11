@@ -230,4 +230,18 @@ class DebriefTest {
                 .anyMatch(bonus -> bonus.label().startsWith(prefix));
         return present;
     }
+
+    @Test
+    void gradeRunsFromSForAFlawlessLevelToCForARoughOne() {
+        Debrief.Tally before = new Debrief.Tally(0, 0, 0, 0, 0, 3);
+        // 80% accuracy, untouched, no lives lost: every ladder at its top.
+        Debrief flawless = Debrief.of("A", 1, 1, 0, before, new Debrief.Tally(10, 0, 100, 80, 0, 3), 100);
+        // 20% accuracy, heavy damage, two lives lost: nothing on any ladder.
+        Debrief rough = Debrief.of("A", 1, 1, 0, before, new Debrief.Tally(10, 0, 100, 20, 9999, 1), 100);
+        // One life lost is the only blemish: five points of six.
+        Debrief close = Debrief.of("A", 1, 1, 0, before, new Debrief.Tally(10, 0, 100, 80, 0, 2), 100);
+        assertEquals('S', flawless.grade());
+        assertEquals('C', rough.grade());
+        assertEquals('A', close.grade());
+    }
 }

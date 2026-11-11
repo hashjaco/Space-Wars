@@ -320,6 +320,23 @@ public final class SoundBank implements SoundPlayer {
         player.play();
     }
 
+    /**
+     * Plays one track by name, for the soundtrack screen. No cue is current afterwards, so the next
+     * {@link #playMusic} always switches rather than mistaking this for its own song.
+     */
+    public void playTrack(MusicTrack track) {
+        paused = false;
+        double volume = musicLevel();
+        audio.execute(() -> {
+            stopMusicNow();
+            currentTrack = track;
+            MediaPlayer player = playerFor(track, volume);
+            player.seek(player.getStartTime());
+            player.setVolume(volume);
+            player.play();
+        });
+    }
+
     /** Stops the music. The player stays built, ready to be started again. */
     public void stopMusic() {
         audio.execute(this::stopMusicNow);

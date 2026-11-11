@@ -20,7 +20,15 @@ public final class Fighter {
         /** Ranged: keeps its distance and puts a rivet down the floor after a readable wind-up. */
         RIVETEER(48, 112, 0.85, 40, 0.5),
         /** Heavy: shrugs off light hits until enough of them pile up, and rams. */
-        BRUTE(74, 150, 2.0, 140, 0.45);
+        BRUTE(74, 150, 2.0, 140, 0.45),
+        /** Forgeworks boss: the slam that leaves the floor burning. */
+        WARDEN(128, 240, 3.8, 600, 0.52),
+        /** Under-Ice boss: spikes that bloom under your feet. */
+        MATRIARCH(110, 236, 3.4, 680, 0.6),
+        /** Mag-Storm boss: the dash you jump. */
+        TYRANT(96, 222, 3.0, 760, 0.7),
+        /** Hulk Drift boss: the pull you run against, then the pound you jump. */
+        REVENANT(104, 250, 3.6, 840, 0.5);
 
         final double width, height, mass;
         final int health;
@@ -42,6 +50,14 @@ public final class Fighter {
         public double height() {
             return height;
         }
+
+        /** A stage's last fighter: no crowd token, its own bar, and its death ends the fight. */
+        public boolean boss() {
+            return switch (this) {
+                case FOREMAN, WARDEN, MATRIARCH, TYRANT, REVENANT -> true;
+                default -> false;
+            };
+        }
     }
 
     public enum State { FREE, ATTACK, GUARD, CHARGE, HITSTUN, LAUNCHED, DOWN, GETUP, DEAD }
@@ -54,6 +70,8 @@ public final class Fighter {
     static final int NEEDLE_COST = 22;
     static final int DOWN_TICKS = 38;
     static final int GETUP_TICKS = 22;
+    /** Ticks a pilot can't be hit after recovering from a hit: room to walk out of a crowd. */
+    static final int MERCY_TICKS = 40;
 
     public final Kind kind;
     /** 1 or 2 for a pilot, 0 for everyone else. */
@@ -87,6 +105,8 @@ public final class Fighter {
     int landed;
     /** Ticks of red flash after taking a hit. */
     int hurtFlash;
+    /** Ticks left of a pilot's post-hit protection (see {@link #MERCY_TICKS}). */
+    int mercy;
     /** Distance walked, so the walk cycle advances with the feet instead of with the clock. */
     double stride;
 
@@ -120,10 +140,11 @@ public final class Fighter {
     public double lancePower() { return lancePower; }
     public int landed() { return landed; }
     public int hurtFlash() { return hurtFlash; }
+    public int mercy() { return mercy; }
     public int heldTicks() { return heldTicks; }
     public double stride() { return stride; }
     public boolean alive() { return state != State.DEAD; }
-    public boolean rage() { return kind == Kind.FOREMAN && health <= kind.health * 0.22; }
+    public boolean rage() { return kind.boss() && health <= kind.health * 0.22; }
 
     double left() { return x - kind.width / 2; }
     double right() { return x + kind.width / 2; }
@@ -131,7 +152,7 @@ public final class Fighter {
 
     /** Can take a hit right now. Getting up is protected, so a knockdown is not a death sentence. */
     boolean hittable() {
-        return state != State.DEAD && state != State.GETUP && state != State.DOWN;
+        return state != State.DEAD && state != State.GETUP && state != State.DOWN && mercy == 0;
     }
 
     /** Free to act on its own: walking, standing, or in the air under its own power. */
@@ -140,6 +161,9 @@ public final class Fighter {
     }
 
     void enter(State next) {
+        if (player > 0 && next == State.FREE && (state == State.HITSTUN || state == State.GETUP)) {
+            mercy = MERCY_TICKS;
+        }
         state = next;
         stateTicks = 0;
         if (next != State.ATTACK) {
@@ -373,6 +397,7 @@ public final class Fighter {
         stateTicks++;
         landed = Math.max(0, landed - 1);
         hurtFlash = Math.max(0, hurtFlash - 1);
+        mercy = Math.max(0, mercy - 1);
         ki = Math.min(MAX_KI, ki + (player > 0 && state != State.CHARGE ? 0.06 : 0));
         switch (state) {
             case ATTACK -> {
@@ -424,7 +449,7 @@ public final class Fighter {
         }
         health -= damage;
         hurtFlash = 8;
-        if (kind == Kind.FOREMAN && health > 0 && state == State.ATTACK) {
+        if (kind.boss() && health > 0 && state == State.ATTACK) {
             return damage;      // armoured through its own attacks: trade with it, do not interrupt it
         }
         if (kind == Kind.BRUTE && health > 0 && !m.heavy()) {
@@ -439,9 +464,9 @@ public final class Fighter {
         }
         double kx = dir * knockX / kind.mass;
         double ky = knockY / Math.max(1, kind.mass * 0.8);
-        boolean launch = ky < -3 || !grounded || (m.knockdown && kind != Kind.FOREMAN) || health <= 0;
-        if (kind == Kind.FOREMAN && health > 0) {
-            launch = false;  // the Foreman staggers, it does not fly
+        boolean launch = ky < -3 || !grounded || (m.knockdown && !kind.boss()) || health <= 0;
+        if (kind.boss() && health > 0) {
+            launch = false;  // a boss staggers, it does not fly
         }
         if (launch) {
             double decay = Math.pow(p.juggleDecay(), juggles);

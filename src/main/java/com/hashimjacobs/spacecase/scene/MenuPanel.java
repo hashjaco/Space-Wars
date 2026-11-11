@@ -61,8 +61,11 @@ public final class MenuPanel extends VBox {
         CornerRadii corners = new CornerRadii(Tokens.RADIUS_L);
         setBackground(new Background(new BackgroundFill(
                 Tokens.SURFACE_1.deriveColor(0, 1, 1, 0.55), corners, Insets.EMPTY)));
-        setBorder(new Border(new BorderStroke(Tokens.EDGE, BorderStrokeStyle.SOLID, corners,
-                new BorderWidths(Tokens.STROKE_HAIR))));
+        // A brand rule across the top, the mark every card in the game carries (the debrief's too).
+        setBorder(new Border(new BorderStroke(Tokens.BRAND, Tokens.EDGE, Tokens.EDGE, Tokens.EDGE,
+                BorderStrokeStyle.SOLID, BorderStrokeStyle.SOLID, BorderStrokeStyle.SOLID, BorderStrokeStyle.SOLID,
+                corners, new BorderWidths(Tokens.STROKE_BOLD, Tokens.STROKE_HAIR, Tokens.STROKE_HAIR,
+                        Tokens.STROKE_HAIR), Insets.EMPTY)));
         this.buttons = List.of(buttons);
         this.items.addAll(this.buttons);
         this.window = new MenuWindow(this.buttons.size(), VISIBLE_ROWS);
@@ -94,8 +97,22 @@ public final class MenuPanel extends VBox {
     private void mountWindow() {
         getChildren().clear();
         int first = window.firstVisible();
-        for (int row = first; row < first + window.visibleRows(); row++) {
+        int end = first + window.visibleRows();
+        // A list that scrolls says so, at whichever end has more. Both lines are always mounted
+        // when the panel scrolls, blank or not, so the card does not change height as it moves.
+        if (window.scrolls()) {
+            getChildren().add(more(first > 0 ? "\u25b2  " + first + " more" : ""));
+        }
+        for (int row = first; row < end; row++) {
             getChildren().add(buttons.get(row));
         }
+        if (window.scrolls()) {
+            int below = buttons.size() - end;
+            getChildren().add(more(below > 0 ? "\u25bc  " + below + " more" : ""));
+        }
+    }
+
+    private static javafx.scene.Node more(String text) {
+        return MenuScreen.caption(text, Tokens.SIZE_CAPTION, Tokens.TEXT_FAINT);
     }
 }

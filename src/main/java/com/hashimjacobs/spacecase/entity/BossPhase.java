@@ -80,7 +80,10 @@ public enum BossPhase {
      * Eight shots a quarter turn apart, the whole ring swinging back and forth: two fans crossing
      * each other, with gaps that move. Null's special away from its finale.
      */
-    LATTICE(8, 28, Math.PI / 4, 1.3);
+    LATTICE(8, 28, Math.PI / 4, 1.3),
+
+    /** The hydra's special: a full ring of bone thrown out while all its heads lunge at once. */
+    BONE_RING(10, 30, Math.PI / 5, 1.2);
 
     private final int shots;
     private final int cooldownTicks;
@@ -111,7 +114,8 @@ public enum BossPhase {
 
     /** True when this pattern is one of the specials, which is what breaks the primary's rhythm. */
     public boolean isSpecial() {
-        return this == LANCE || this == SCATTER || this == CROSSFIRE || this == BARRAGE || this == LATTICE;
+        return this == LANCE || this == SCATTER || this == CROSSFIRE || this == BARRAGE || this == LATTICE
+                || this == BONE_RING;
     }
 
     public int shots() {

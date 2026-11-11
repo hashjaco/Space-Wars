@@ -17,6 +17,8 @@ import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.text.Font;
 
+import com.hashimjacobs.spacecase.GameConfig;
+
 /**
  * Decodes and caches every image the game draws.
  *
@@ -81,8 +83,7 @@ public final class Assets {
             if (sprite.decodedOnDemand()) {
                 continue;
             }
-            Image image = decode(sprite.resourcePath(), sprite.width(), sprite.height());
-            IMAGES.put(sprite, image);
+            IMAGES.put(sprite, decode(sprite));
         }
         for (Explosion explosion : Explosion.values()) {
             // Zero size means the explosion frames keep their natural dimensions; the size an
@@ -100,8 +101,7 @@ public final class Assets {
 
     public static Image image(Sprite sprite) {
         requireLoaded(sprite);
-        Image image = IMAGES.computeIfAbsent(sprite,
-                missing -> decode(missing.resourcePath(), missing.width(), missing.height()));
+        Image image = IMAGES.computeIfAbsent(sprite, Assets::decode);
         return image;
     }
 
@@ -285,6 +285,16 @@ public final class Assets {
         }
         List<Image> immutable = Collections.unmodifiableList(frames);
         return immutable;
+    }
+
+    /**
+     * A sprite at twice its box, so the game canvas, which rasterizes at window resolution, has the
+     * pixels to stay sharp up to a 2x window or a Retina screen; the sources are cut at 3x. Arena-
+     * sized backdrops stay 1:1: their sources are 996x864, and doubling would only cost memory.
+     */
+    private static Image decode(Sprite sprite) {
+        double k = sprite.width() >= GameConfig.WIDTH ? 1 : 2;
+        return decode(sprite.resourcePath(), sprite.width() * k, sprite.height() * k);
     }
 
     /** A zero width or height means "decode at the image's natural size". */

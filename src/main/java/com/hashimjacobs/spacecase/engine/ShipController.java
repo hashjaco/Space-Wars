@@ -138,7 +138,7 @@ public final class ShipController {
         } else if (pressed && ship.specialReady()) {
             ship.beginSpecial(tick);
             world.freeze(GameConfig.SPECIAL_WINDUP_TICKS);
-            sounds.play(SoundFx.BOSS_ROAR);
+            sounds.play(SoundFx.SPECIAL_CHARGE);
             return;
         } else {
             ship.chargeSpecial(1);
@@ -154,7 +154,7 @@ public final class ShipController {
     private void releaseSpecial(World world, SoundPlayer sounds) {
         world.shake(14);
         world.flash();
-        sounds.play(SoundFx.BOSS_ROCKET);
+        sounds.play(SoundFx.SPECIAL_RELEASE);
         switch (ship.loadout().chassis()) {
             case STOCK -> ship.releaseSpecial(GameConfig.NOVA_CANNON_TICKS);
             case INTERCEPTOR -> {

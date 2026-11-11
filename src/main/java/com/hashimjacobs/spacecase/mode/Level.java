@@ -100,7 +100,7 @@ public enum Level {
     //
     // The galaxy with a ceiling. It opens on a belt, spends its middle underground or hugging the
     // ground, and closes in a caldera -- only Sunward Dive leaves the planet at all. Waves run
-    // 4,4,4,4,5,5,5,5,5,6, so it is a longer galaxy than Verdance as well as a harder one.
+    // 4,4,4,4,5,5,5,5,5,5, so it is a longer galaxy than Verdance as well as a harder one.
 
     /** Cinder Belt: the first rocks, and the first new sky the game ever drew. */
     CINDER_BELT("Cinder Belt",
@@ -162,11 +162,11 @@ public enum Level {
     CALDERA_HEART("Caldera Heart",
             Sprite.L20_FAR, Sprite.L20_MID, Sprite.L20_NEAR,
             Sprite.L20_SCOUT, Sprite.L20_FIGHTER, Sprite.L20_CRUISER,
-            Boss.VAUNT, 6, WorldTemplate.CAVE),
+            Boss.VAUNT, 5, WorldTemplate.CAVE),
 
     // ---- Galaxy 3: Cryonis (levels 21-30) ------------------------------------------------
     // Ice and water. The galaxy's structural idea is pacing rather than palette: the waves
-    // alternate short and long, 3-5-3-5-3-5-4-6-4-6, so it feels different on the clock. It is
+    // alternate short and long, 3-5-3-5-3-5-4-5-4-5, so it feels different on the clock. It is
     // also the only galaxy flown side-on twice, at 21 and 29.
 
     /** Frost Ring: the first of the galaxy's two side-on legs. */
@@ -209,7 +209,7 @@ public enum Level {
     HAILWALL("Hailwall",
             Sprite.L28_FAR, Sprite.L28_MID, Sprite.L28_NEAR,
             Sprite.L28_SCOUT, Sprite.L28_FIGHTER, Sprite.L28_CRUISER,
-            Boss.HAIL_BASTION, 6),
+            Boss.HAIL_BASTION, 5),
 
     /** Shatter Drift: the second side-on leg, which no other galaxy has. */
     SHATTER_DRIFT("Shatter Drift",
@@ -221,12 +221,12 @@ public enum Level {
     THE_FROZEN_HEART("The Frozen Heart",
             Sprite.L30_FAR, Sprite.L30_MID, Sprite.L30_NEAR,
             Sprite.L30_SCOUT, Sprite.L30_FIGHTER, Sprite.L30_CRUISER,
-            Boss.FROZEN_EMPRESS, 6, WorldTemplate.CAVE),
+            Boss.FROZEN_EMPRESS, 5, WorldTemplate.CAVE),
 
     // ---- Galaxy 4: Tempest (levels 31-40) ------------------------------------------------
     // Storm and gas giant, and the galaxy with no floor: six of the ten are inside cloud, exactly
     // one has ground under it, and the finale arrives out of the deck rather than flying in. Waves
-    // run 4,4,5,5,5,5,6,6,6,6 -- a plain climb, because this galaxy's shape is its sky and not its
+    // run 4,4,5,5,5,5,5,5,5,5 -- a plain climb, because this galaxy's shape is its sky and not its
     // clock the way Cryonis's alternation was.
 
     /** Cloudwall: into the weather, and the first sky in the game with no horizon in it. */
@@ -264,13 +264,13 @@ public enum Level {
     DEEP_DESCENT("Deep Descent",
             Sprite.L37_FAR, Sprite.L37_MID, Sprite.L37_NEAR,
             Sprite.L37_SCOUT, Sprite.L37_FIGHTER, Sprite.L37_CRUISER,
-            Boss.DOWNDRAFT_PROW, 6, Orientation.RIGHT_TO_LEFT),
+            Boss.DOWNDRAFT_PROW, 5, Orientation.RIGHT_TO_LEFT),
 
     /** Upper Deck: back out on top of the weather, and the man who was waiting in Ashfall. */
     UPPER_DECK("Upper Deck",
             Sprite.L38_FAR, Sprite.L38_MID, Sprite.L38_NEAR,
             Sprite.L38_SCOUT, Sprite.L38_FIGHTER, Sprite.L38_CRUISER,
-            Boss.VAUNT_IN_THE_STORM_RIG, 6),
+            Boss.VAUNT_IN_THE_STORM_RIG, 5),
 
     /**
      * Lightning Reach: the galaxy's side-on leg.
@@ -284,19 +284,19 @@ public enum Level {
     LIGHTNING_REACH("Lightning Reach",
             Sprite.L39_FAR, Sprite.L39_MID, Sprite.L39_NEAR,
             Sprite.L39_SCOUT, Sprite.L39_FIGHTER, Sprite.L39_CRUISER,
-            Boss.ARC_LANCE, 6, Orientation.RIGHT_TO_LEFT),
+            Boss.ARC_LANCE, 5, Orientation.RIGHT_TO_LEFT),
 
     /** Storm Crown: the top of the weather, and the thing that comes down through it. */
     STORM_CROWN("Storm Crown",
             Sprite.L40_FAR, Sprite.L40_MID, Sprite.L40_NEAR,
             Sprite.L40_SCOUT, Sprite.L40_FIGHTER, Sprite.L40_CRUISER,
-            Boss.STORM_SERPENT, 6),
+            Boss.STORM_SERPENT, 5),
 
     // ---- Galaxy 5: Null (levels 41-50) ---------------------------------------------------
     // No sky and no ground: not one ATMOSPHERE or SURFACE backdrop in the galaxy, so there is
     // nothing to fly over and nothing overhead, and the only enclosures are dead structures.
     //
-    // The waves run 6,6,6,6,5,5,5,4,4,4 -- the only galaxy that shortens as it goes. Verdance and
+    // The waves run 5,5,5,5,5,5,5,4,4,4 -- the only galaxy that shortens as it goes. Verdance and
     // Tempest climb and Cryonis alternates; this one falls in, so the bosses arrive faster and
     // faster. It is not a difficulty cut: the bosses are the hard part of a leg and this delivers
     // more of them per minute, against the steepest health ladder in the game.
@@ -305,25 +305,25 @@ public enum Level {
     DEAD_BELT("Dead Belt",
             Sprite.L41_FAR, Sprite.L41_MID, Sprite.L41_NEAR,
             Sprite.L41_SCOUT, Sprite.L41_FIGHTER, Sprite.L41_CRUISER,
-            Boss.BONEPICKER, 6, Orientation.RIGHT_TO_LEFT),
+            Boss.BONEPICKER, 5, Orientation.RIGHT_TO_LEFT),
 
     /** Hulk Drift: a dead fleet, and something living in it. */
     HULK_DRIFT("Hulk Drift",
             Sprite.L42_FAR, Sprite.L42_MID, Sprite.L42_NEAR,
             Sprite.L42_SCOUT, Sprite.L42_FIGHTER, Sprite.L42_CRUISER,
-            Boss.HULK_CHOIR, 6),
+            Boss.HULK_CHOIR, 5),
 
     /** Shroud: a world that went out. The galaxy's one planet, and it is not lit. */
     SHROUD("Shroud",
             Sprite.L43_FAR, Sprite.L43_MID, Sprite.L43_NEAR,
             Sprite.L43_SCOUT, Sprite.L43_FIGHTER, Sprite.L43_CRUISER,
-            Boss.SHROUDMAW, 6),
+            Boss.SHROUDMAW, 5),
 
     /** Lens Corridor: the first sight of the thing this galaxy is about. */
     LENS_CORRIDOR("Lens Corridor",
             Sprite.L44_FAR, Sprite.L44_MID, Sprite.L44_NEAR,
             Sprite.L44_SCOUT, Sprite.L44_FIGHTER, Sprite.L44_CRUISER,
-            Boss.LENSBREAKER, 6),
+            Boss.LENSBREAKER, 5),
 
     /**
      * Tidal Shear: the galaxy's side-on leg.

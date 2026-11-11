@@ -6,25 +6,34 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.function.Predicate;
 
+import javafx.animation.Animation;
 import javafx.animation.AnimationTimer;
+import javafx.animation.FadeTransition;
+import javafx.animation.Interpolator;
+import javafx.animation.ParallelTransition;
+import javafx.animation.TranslateTransition;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.MapArt;
 import com.hashimjacobs.spacecase.asset.MusicCue;
+import com.hashimjacobs.spacecase.asset.MusicTrack;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -110,6 +119,9 @@ public final class SceneRouter {
      */
     private AnimationTimer screenPulse;
 
+    /** The title intro runs once per launch. */
+    private boolean titleIntroPlayed;
+
     /** The room being joined or waited in, or null when no lobby is open. */
     private RelayClient lobbyRelay;
     private CompletableFuture<RelayClient> lobbyJoin;
@@ -130,45 +142,195 @@ public final class SceneRouter {
         shell.getChildren().add(stage2d);
     }
 
+    /**
+     * The title screen: a short list, Continue first, the pilot's ship turning beside it.
+     *
+     * Nine rows at most, down from eleven. The ones a player wants on every visit stay here; the
+     * ones they want now and then -- loading, pilots, the board, help -- sit one press away under
+     * Extras, which is the Hades/Celeste shape: a front page that says "play", not a site map.
+     */
     public void showStartMenu() {
         stopActiveGame();
         sounds.playMusic(MusicCue.MENU);
 
-        // Continue only exists once there is a run to continue. The map is always offered: a
-        // first-time player seeing Verdance with its first level ready is a better opening than a
-        // menu entry that appears from nowhere after the first game.
+        // Continue only exists once there is a run to continue, and is first so it takes the focus:
+        // a returning player is one press from where they left off.
         List<MenuButton> rows = new ArrayList<>();
         Optional<SaveSlot> held = saves.checkpoint();
         held.ifPresent(save -> rows.add(new MenuButton("Continue", save.describe(),
                 () -> startGame(save.mode(), save))));
+        // A pilot who has never cleared a level gets the intro first; anyone else goes straight in.
+        rows.add(new MenuButton("Play", () -> {
+            if (saves.clearedCount(GameMode.SOLO, Galaxy.VERDANCE) == 0) {
+                playCutscene(Cutscene.INTRO, () -> startGame(GameMode.SOLO));
+            } else {
+                startGame(GameMode.SOLO);
+            }
+        }));
         rows.add(new MenuButton("Universe Map", () -> showGalaxySelect(GameMode.SOLO)));
-        rows.add(new MenuButton("Single Player", () -> startGame(GameMode.SOLO)));
         if (campaignComplete(GameMode.SOLO)) {
             rows.add(new MenuButton("Endless Run", () -> startEndless(GameMode.SOLO)));
         }
         rows.add(new MenuButton("Multiplayer", this::showMultiplayerMenu));
-        rows.add(new MenuButton("Load Game", this::showLoadMenu));
-        rows.add(new MenuButton("Pilots", this::showPilots));
-        rows.add(new MenuButton("Leaderboard", () -> showLeaderboard(GameMode.SOLO)));
+        rows.add(new MenuButton("Extras", "Load game, pilots, story, soundtrack, help", this::showExtras));
         rows.add(new MenuButton("Settings", () -> showSettings(this::showStartMenu)));
-        rows.add(new MenuButton("Help", this::showHelp));
+        // The session mute the M key already flips in a run, where a player first wants it: the
+        // moment the title theme starts. Everything, not the music alone -- there is one mute.
+        MenuButton[] sound = new MenuButton[1];
+        sound[0] = new MenuButton("Sound", () -> {
+            sounds.toggleMute();
+            sound[0].setValue(sounds.isMuted() ? "Muted" : "On");
+        });
+        sound[0].setValue(sounds.isMuted() ? "Muted" : "On");
+        rows.add(sound[0]);
         rows.add(new MenuButton("Exit", this::exit));
         MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
 
-        HBox ships = new HBox(28,
-                MenuScreen.decal(Sprite.P1_STRAIGHT, 54),
-                MenuScreen.decal(Sprite.P2_STRAIGHT, 54));
-        ships.setAlignment(Pos.CENTER);
+        ImageView logo = new ImageView(Assets.image(Sprite.TITLE_LOGO));
+        logo.setFitWidth(Sprite.TITLE_LOGO.width());    // decoded at twice its box, for sharpness
+        logo.setPreserveRatio(true);
+        logo.setSmooth(true);
+        String pilot = pilots.name(1);
+        TitleHero hero = new TitleHero(Loadout.decode(pilots.loadoutCode(pilot), 1));
+        Text pilotLine = MenuScreen.caption(pilot.toUpperCase(java.util.Locale.ROOT), Tokens.SIZE_BUTTON, Tokens.BRAND);
+        Text bestLine = MenuScreen.caption(String.format("Best solo run  %,d", highScores.best(GameMode.SOLO)),
+                Tokens.SIZE_SMALL, Tokens.TEXT_FAINT);
+        VBox heroColumn = new VBox(Tokens.GAP_XS, hero.canvas(), pilotLine, bestLine);
+        heroColumn.setAlignment(Pos.CENTER);
 
-        StackPane root = MenuScreen.build("SPACE CASE",
-                ships,
-                panel,
-                MenuScreen.caption("Best solo run: " + highScores.best(GameMode.SOLO),
-                        Tokens.SIZE_SMALL, Tokens.TEXT_FAINT),
-                MenuScreen.caption("↑↓ move    Enter select    F11 fullscreen",
-                        Tokens.SIZE_CAPTION, Tokens.TEXT_GHOST));
+        StackPane root = MenuScreen.title(logo, panel, heroColumn,
+                MenuScreen.hints("\u2191\u2193", "move", "Enter", "select", "F11", "fullscreen"));
         MenuNavigator navigator = panel.navigator();
-        show(root, navigator::handleKey);
+
+        // The intro plays once per launch, not on every return from a submenu, and the first key
+        // finishes it rather than being lost to it. Reduced flash skips it and holds the ship still.
+        Animation intro = null;
+        if (!titleIntroPlayed && !settings.reducedFlash()) {
+            titleIntroPlayed = true;
+            FadeTransition fade = new FadeTransition(Duration.millis(600), logo);
+            fade.setFromValue(0);
+            fade.setToValue(1);
+            TranslateTransition slide = new TranslateTransition(Duration.millis(450), panel);
+            slide.setFromX(-Tokens.ROW_WIDTH);
+            slide.setToX(0);
+            slide.setInterpolator(Interpolator.EASE_OUT);
+            intro = new ParallelTransition(fade, slide);
+        }
+        Animation playing = intro;
+        Predicate<KeyCode> keys = code -> {
+            if (playing != null && playing.getStatus() == Animation.Status.RUNNING) {
+                playing.stop();
+                logo.setOpacity(1);
+                panel.setTranslateX(0);
+                return true;
+            }
+            return navigator.handleKey(code);
+        };
+        show(root, keys);
+        if (intro != null) {
+            intro.play();
+        }
+        if (!settings.reducedFlash()) {
+            AnimationTimer turn = new AnimationTimer() {
+                @Override
+                public void handle(long now) {
+                    hero.tick();
+                }
+            };
+            turn.start();
+            screenPulse = turn;
+        }
+    }
+
+    /** The occasional destinations the title screen no longer lists. Their Back returns here. */
+    public void showExtras() {
+        MenuPanel panel = new MenuPanel(
+                new MenuButton("Load Game", this::showLoadMenu),
+                new MenuButton("Pilots", this::showPilots),
+                new MenuButton("Leaderboard", () -> showLeaderboard(GameMode.SOLO)),
+                new MenuButton("Story", this::showStory),
+                new MenuButton("Soundtrack", this::showSoundtrack),
+                new MenuButton("Sound Effects", this::showSoundEffects),
+                new MenuButton("Help", this::showHelp),
+                new MenuButton("About", this::showAbout),
+                new MenuButton("Back", this::showStartMenu));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showStartMenu);
+        show(MenuScreen.build("EXTRAS", panel), navigator::handleKey);
+    }
+
+    /**
+     * The cutscenes seen so far, replayable. Unseen ones are listed but locked, with what opens them.
+     * Seen means cleared in either campaign, since a co-op run plays the same scenes.
+     */
+    public void showStory() {
+        sounds.playMusic(MusicCue.MENU);
+        List<MenuButton> rows = new ArrayList<>();
+        for (Cutscene scene : Cutscene.values()) {
+            Galaxy gate = scene.unlockedBy();
+            boolean seen = gate == null || saves.clearedCount(GameMode.SOLO, gate) == Galaxy.LEVELS_PER_GALAXY
+                    || saves.clearedCount(GameMode.COOP, gate) == Galaxy.LEVELS_PER_GALAXY;
+            MenuButton row = new MenuButton(scene.title(),
+                    seen ? scene.when() : "locked -- clear " + gate.label(),
+                    () -> playCutscene(scene, this::showStory));
+            row.setLocked(!seen);
+            rows.add(row);
+        }
+        rows.add(new MenuButton("Back", this::showExtras));
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showExtras);
+        show(MenuScreen.build("STORY", panel), navigator::handleKey);
+    }
+
+    /** Plays a scene full screen, then runs {@code then}. */
+    private void playCutscene(Cutscene scene, Runnable then) {
+        Cutscene.Screen screen = scene.play(sounds, then);
+        show(screen.root(), screen.keys());
+    }
+
+    /** Every track, playable on demand. Leaving puts the menu theme back on. */
+    public void showSoundtrack() {
+        Runnable back = () -> {
+            sounds.playMusic(MusicCue.MENU);
+            showExtras();
+        };
+        List<MenuButton> rows = new ArrayList<>();
+        // One line per row: MenuPanel's twelve visible rows are sized for one-line buttons, and a
+        // "where it plays" second line ran the panel off the bottom of the stage.
+        for (MusicTrack track : MusicTrack.values()) {
+            rows.add(new MenuButton(titleCase(track.name()), () -> sounds.playTrack(track)));
+        }
+        rows.add(new MenuButton("Back", back));
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(back);
+        show(MenuScreen.build("SOUNDTRACK", panel), navigator::handleKey);
+    }
+
+    /** Every effect, one press each, over whatever music is playing. */
+    public void showSoundEffects() {
+        List<MenuButton> rows = new ArrayList<>();
+        for (SoundFx effect : SoundFx.values()) {
+            rows.add(new MenuButton(titleCase(effect.name()), () -> sounds.play(effect)));
+        }
+        rows.add(new MenuButton("Back", this::showExtras));
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showExtras);
+        show(MenuScreen.build("SOUND EFFECTS", panel), navigator::handleKey);
+    }
+
+    /** {@code AEONS_END} to "Aeons End": enum names are the labels, so a new track needs no copy. */
+    private static String titleCase(String constant) {
+        StringBuilder out = new StringBuilder();
+        for (String word : constant.split("_")) {
+            if (out.length() > 0) {
+                out.append(' ');
+            }
+            out.append(word.charAt(0)).append(word.substring(1).toLowerCase(java.util.Locale.ROOT));
+        }
+        return out.toString();
     }
 
     /**
@@ -195,9 +357,9 @@ public final class SceneRouter {
                 Galaxy before = Galaxy.values()[galaxy.ordinal() - 1];
                 status = "locked - clear " + before.label();
             } else if (done == Galaxy.LEVELS_PER_GALAXY) {
-                status = "complete";
+                status = "complete   " + saves.percent(galaxy) + "%";
             } else {
-                status = done + "/" + Galaxy.LEVELS_PER_GALAXY + " cleared";
+                status = done + "/" + Galaxy.LEVELS_PER_GALAXY + " cleared   " + saves.percent(galaxy) + "%";
             }
             MenuButton row = new MenuButton(label, () -> showSystemMap(mode, galaxy));
             row.setValue(status);
@@ -220,7 +382,8 @@ public final class SceneRouter {
         HBox body = new HBox(Tokens.GAP_L, panel, preview.canvas());
         body.setAlignment(Pos.CENTER);
         StackPane root = MenuScreen.build("UNIVERSE", body,
-                MenuScreen.caption("Finish a galaxy to open the next one.", 12, Tokens.TEXT_FAINT));
+                MenuScreen.caption("Campaign " + saves.percent(null) + "% complete. Finish a galaxy to open the next one; "
+                        + "each level's challenges are on its map.", 12, Tokens.TEXT_FAINT));
         // The focused galaxy's planet beside the list and its sky behind it. Reset and Back keep
         // whichever galaxy was last focused rather than blanking the screen.
         navigator.alsoOnFocusMoved(focused -> {
@@ -339,11 +502,11 @@ public final class SceneRouter {
         // they are thinking about where their runs live.
         rows.add(new MenuButton("Cloud Save", "carry this profile to another machine",
                 this::showCloudSave));
-        rows.add(new MenuButton("Back", this::showStartMenu));
+        rows.add(new MenuButton("Back", this::showExtras));
 
         MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
         MenuNavigator navigator = panel.navigator();
-        navigator.setOnBack(this::showStartMenu);
+        navigator.setOnBack(this::showExtras);
 
         StackPane root = MenuScreen.build("LOAD GAME", panel,
                 MenuScreen.caption("Save to a slot from the pause menu during a run", 12,
@@ -352,7 +515,7 @@ public final class SceneRouter {
     }
 
     public void showPilots() {
-        NameEntryPanel panel = new NameEntryPanel(pilots, this::showStartMenu);
+        NameEntryPanel panel = new NameEntryPanel(pilots, this::showExtras);
         StackPane root = MenuScreen.build("PILOTS",
                 panel,
                 MenuScreen.caption("Names show under your ship. Rank is earned across every run.", 12,
@@ -384,11 +547,11 @@ public final class SceneRouter {
         System.arraycopy(entries, 0, rows, 0, entries.length);
         rows[rows.length - 2] = new MenuButton(other.label() + " board",
                 () -> showLeaderboard(other));
-        rows[rows.length - 1] = new MenuButton("Back", this::showStartMenu);
+        rows[rows.length - 1] = new MenuButton("Back", this::showExtras);
 
         MenuPanel panel = new MenuPanel(rows);
         MenuNavigator navigator = panel.navigator();
-        navigator.setOnBack(this::showStartMenu);
+        navigator.setOnBack(this::showExtras);
         // The cursor starts on the first thing worth pressing rather than on row one, which here is
         // a score nobody can do anything with.
         navigator.focus(entries.length);
@@ -662,6 +825,46 @@ public final class SceneRouter {
         return settings.key(player, ControlAction.FIRE).getName();
     }
 
+    /** Shown on the About page. Keep in step with {@code <version>} in pom.xml. */
+    private static final String VERSION = "2.2";
+    private static final String VERSION_DATE = "November 10, 2026";
+
+    /** What the game is and where it came from. */
+    public void showAbout() {
+        VBox lines = new VBox(7);
+        lines.setAlignment(Pos.CENTER_LEFT);
+        lines.getChildren().add(MenuScreen.caption("SPACE CASE", Tokens.SIZE_HEADING, Color.WHITE));
+        lines.getChildren().add(MenuScreen.caption(
+                "Version " + VERSION + "   \u00b7   " + VERSION_DATE, Tokens.SIZE_BODY, Tokens.BRAND));
+        List<String> rows = List.of(
+                "",
+                "A space shooter across five galaxies and fifty levels: fly top-down",
+                "and side-on, fight a flagship at the end of every level, fit out your",
+                "ship in the garage, and play solo, co-op or head to head.",
+                "",
+                "HISTORY",
+                "Hashim Jacobs built Space Case as redemption for a shitty game he",
+                "submitted for an assignment during his undergrad at San Francisco",
+                "State University. What began in 2017 as an infinite vertical-scrolling",
+                "Space Invaders spin-off kept evolving, little by little.",
+                "",
+                "The original game was built by hand, before AI tools existed. Newer",
+                "music, voices and cutscenes were made with AI and are credited in",
+                "ASSETS.md.");
+        for (String row : rows) {
+            boolean heading = row.equals("HISTORY");
+            lines.getChildren().add(MenuScreen.caption(row, heading ? Tokens.SIZE_SMALL : Tokens.SIZE_BODY,
+                    heading ? Tokens.LABEL : Tokens.TEXT_MUTED));
+        }
+
+        MenuButton back = new MenuButton("Back", this::showExtras);
+        MenuPanel panel = new MenuPanel(back);
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(this::showExtras);
+
+        show(MenuScreen.build("ABOUT", lines, panel), navigator::handleKey);
+    }
+
     public void showHelp() {
         VBox lines = new VBox(7);
         lines.setAlignment(Pos.CENTER_LEFT);
@@ -712,10 +915,10 @@ public final class SceneRouter {
             lines.getChildren().add(MenuScreen.caption(row, 13, Tokens.TEXT_MUTED));
         }
 
-        MenuButton back = new MenuButton("Back", this::showStartMenu);
+        MenuButton back = new MenuButton("Back", this::showExtras);
         MenuPanel panel = new MenuPanel(back);
         MenuNavigator navigator = panel.navigator();
-        navigator.setOnBack(this::showStartMenu);
+        navigator.setOnBack(this::showExtras);
 
         StackPane root = MenuScreen.build("HELP", lines, panel);
         show(root, navigator::handleKey);
@@ -826,6 +1029,15 @@ public final class SceneRouter {
         // machine was flying.
         submitToBoard(result);
         stopActiveGame();
+        // A cleared galaxy earns its scene before the numbers.
+        if (result.galaxyCleared()) {
+            playCutscene(Cutscene.after(result.level().galaxy()), () -> showResults(result));
+        } else {
+            showResults(result);
+        }
+    }
+
+    private void showResults(RoundResult result) {
         sounds.playMusic(MusicCue.MENU);
         sounds.play(SoundFx.GAME_OVER);
 
@@ -836,23 +1048,39 @@ public final class SceneRouter {
                         ? "PLAYER " + result.winningPlayerNumber() + " WINS"
                         : "GAME OVER";
 
-        VBox summary = new VBox(6);
-        summary.setAlignment(Pos.CENTER);
-        summary.getChildren().add(MenuScreen.caption(result.mode().label(), 14, Tokens.TEXT_DIM));
-        for (int i = 0; i < result.scores().size(); i++) {
-            String row = "Player " + (i + 1) + " score   " + result.scores().get(i);
-            summary.getChildren().add(MenuScreen.caption(row, 15, Color.WHITE));
+        // A card that celebrates the number rather than listing it: the best score large and
+        // counting up, the record called out, the detail underneath.
+        int best = result.bestScore();
+        Text score = new Text(settings.reducedFlash() ? String.format("%,d", best) : "0");
+        score.setFont(javafx.scene.text.Font.font(Assets.displayFontFamily(), 64));
+        score.setFill(Tokens.BRAND);
+        if (!settings.reducedFlash()) {
+            javafx.beans.property.SimpleDoubleProperty shown = new javafx.beans.property.SimpleDoubleProperty(0);
+            shown.addListener((property, old, value) -> score.setText(String.format("%,d", Math.round(value.doubleValue()))));
+            new javafx.animation.Timeline(new javafx.animation.KeyFrame(Duration.millis(900),
+                    new javafx.animation.KeyValue(shown, best, Interpolator.EASE_OUT))).play();
         }
-        String progress = "Level " + result.level().number() + "   " + result.level().label()
-                + "   -   " + result.wavesSurvived() + " waves"
-                + (result.loop() > 1 ? "   -   loop " + result.loop() : "");
-        summary.getChildren().add(MenuScreen.caption(progress, 13, Tokens.TEXT_DIM));
+
+        VBox summary = MenuScreen.card(
+                MenuScreen.caption(result.mode().label().toUpperCase(java.util.Locale.ROOT), Tokens.SIZE_SMALL, Tokens.LABEL),
+                score);
         if (record) {
-            summary.getChildren().add(MenuScreen.caption("NEW BEST", 15, Tokens.BRAND));
+            Text badge = MenuScreen.caption("\u2605  NEW BEST", Tokens.SIZE_ROW, Tokens.WARN);
+            summary.getChildren().add(badge);
         } else {
             summary.getChildren().add(MenuScreen.caption(
-                    "Best   " + highScores.best(result.mode()), 13, Tokens.TEXT_FAINT));
+                    String.format("Best   %,d", highScores.best(result.mode())), Tokens.SIZE_BODY, Tokens.TEXT_FAINT));
         }
+        if (result.scores().size() > 1) {
+            for (int i = 0; i < result.scores().size(); i++) {
+                summary.getChildren().add(MenuScreen.caption(
+                        String.format("Player %d   %,d", i + 1, result.scores().get(i)), Tokens.SIZE_ROW, Color.WHITE));
+            }
+        }
+        String progress = "Level " + result.level().number() + "   " + result.level().label()
+                + "   \u00b7   " + result.wavesSurvived() + " waves"
+                + (result.loop() > 1 ? "   \u00b7   loop " + result.loop() : "");
+        summary.getChildren().add(MenuScreen.caption(progress, Tokens.SIZE_BODY, Tokens.TEXT_DIM));
 
         // A cleared galaxy is a finish, not a defeat, so the first row moves the player onward
         // instead of offering the run they have just completed all over again.
@@ -995,9 +1223,16 @@ public final class SceneRouter {
         // is what keeps quick tapping responsive: without it the gate would have to guess at when a
         // key came up, and would eat the second of two fast presses.
         MenuRepeat gated = MenuRepeat.gate(keys);
+        // ponytail: keys and pad only; mouse clicks stay silent -- add a hook in MenuButton if missed.
         scene.setOnKeyPressed(event -> {
-            if (gated.test(event.getCode())) {
+            KeyCode code = event.getCode();
+            if (gated.test(code)) {
                 event.consume();
+                if (!gated.passed()) {
+                    return;     // a held key's swallowed repeat: nothing moved, so nothing to hear
+                }
+                boolean select = code == KeyCode.ENTER || code == KeyCode.SPACE;
+                sounds.play(select ? SoundFx.MENU_SELECT : SoundFx.MENU_MOVE);
             }
         });
         scene.setOnKeyReleased(event -> gated.release(event.getCode()));
@@ -1015,6 +1250,54 @@ public final class SceneRouter {
             stage.setFullScreen(!stage.isFullScreen());
             event.consume();
         });
+    }
+
+    /** Window heights the Resolution row offers, before Fit to screen and Fullscreen. */
+    private static final int[] WINDOW_HEIGHTS = {720, 864, 1080, 1296, 1440, 1728, 2160};
+    /** Room left for the title bar and dock when deciding whether a window size fits. */
+    private static final double CHROME = 48;
+
+    /** The window sizes that fit this screen, then {@link Settings#FIT_SCREEN} and {@link Settings#FULLSCREEN}. */
+    static List<Integer> resolutions() {
+        // ponytail: primary screen only; use Screen.getScreensForRectangle if a second monitor matters.
+        javafx.geometry.Rectangle2D screen = javafx.stage.Screen.getPrimary().getVisualBounds();
+        List<Integer> options = new ArrayList<>();
+        for (int height : WINDOW_HEIGHTS) {
+            if (height + CHROME <= screen.getHeight() && widthFor(height) <= screen.getWidth()) {
+                options.add(height);
+            }
+        }
+        options.add(Settings.FIT_SCREEN);
+        options.add(Settings.FULLSCREEN);
+        return options;
+    }
+
+    static String resolutionLabel(int height) {
+        return height == Settings.FULLSCREEN ? "Fullscreen"
+                : height == Settings.FIT_SCREEN ? "Fit to screen"
+                : widthFor(height) + " \u00d7 " + height;
+    }
+
+    private static long widthFor(int height) {
+        return Math.round(height * GameConfig.WIDTH / GameConfig.HEIGHT);
+    }
+
+    /**
+     * Puts the window at the size {@link Settings#windowHeight} names. Any size stays sharp: the game
+     * canvas re-rasterizes at whatever scale {@link #rescale} lands on.
+     */
+    public static void applyResolution(Stage stage, int height) {
+        stage.setFullScreen(height == Settings.FULLSCREEN);
+        stage.setMaximized(height == Settings.FIT_SCREEN);
+        Scene scene = stage.getScene();
+        if (height > 0 && scene != null) {
+            // The stage's size includes its title bar; the scene's is what the game gets.
+            double chromeWidth = Math.max(0, stage.getWidth() - scene.getWidth());
+            double chromeHeight = Math.max(0, stage.getHeight() - scene.getHeight());
+            stage.setWidth(widthFor(height) + chromeWidth);
+            stage.setHeight(height + chromeHeight);
+            stage.centerOnScreen();
+        }
     }
 
     /** Scales the whole screen uniformly so 996x864 fits the window without distortion. */

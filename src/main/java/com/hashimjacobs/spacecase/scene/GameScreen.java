@@ -6,6 +6,7 @@ import java.util.function.IntFunction;
 import java.util.function.Supplier;
 
 import javafx.geometry.Pos;
+import javafx.scene.Group;
 import javafx.scene.Scene;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
@@ -14,6 +15,7 @@ import javafx.scene.layout.BackgroundFill;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.transform.Scale;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
@@ -100,11 +102,38 @@ final class GameScreen {
         this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();
 
-        root = new StackPane(canvas, pauseLayer, settingsLayer, saveLayer);
+        root = new StackPane(sharp(canvas), pauseLayer, settingsLayer, saveLayer);
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
         input.setOnPausePressed(this::togglePause);
+    }
+
+    /**
+     * Keeps the canvas rasterizing at the size it is shown rather than at 996x864.
+     *
+     * The router scales the whole screen to fit the window, and a canvas scaled as a node is a
+     * stretched bitmap. So the canvas grows by that same factor, shrinks back by a transform the
+     * Group hides from layout, and the renderer's base transform scales every draw call up to
+     * match: it still draws in arena units and never knows. Safe because the renderer balances
+     * every save with a restore and never calls setTransform itself.
+     */
+    private static Group sharp(Canvas canvas) {
+        Scale shrink = new Scale(1, 1);
+        canvas.getTransforms().add(shrink);
+        Group group = new Group(canvas);
+        group.localToSceneTransformProperty().addListener((observable, old, transform) -> {
+            double factor = transform.getMxx();     // the router scales uniformly and never rotates
+            if (factor <= 0 || !Double.isFinite(factor) || factor == 1 / shrink.getX()) {
+                return;
+            }
+            canvas.setWidth(GameConfig.WIDTH * factor);
+            canvas.setHeight(GameConfig.HEIGHT * factor);
+            shrink.setX(1 / factor);
+            shrink.setY(1 / factor);
+            canvas.getGraphicsContext2D().setTransform(factor, 0, 0, factor, 0, 0);
+        });
+        return group;
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
@@ -121,7 +150,7 @@ final class GameScreen {
 
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
-        layer.getChildren().addAll(new MenuTitle("Paused", 38, 380, 62), panel);
+        layer.getChildren().addAll(MenuTitle.plate("PAUSED", Tokens.SIZE_OVERLAY_TITLE), panel);
         layer.setBackground(veil());
         layer.setVisible(false);
         return layer;
@@ -134,7 +163,7 @@ final class GameScreen {
         SettingsPanel panel = new SettingsPanel(settings, sounds, padStatus, this::showPauseMenu);
         this.settingsPanel = panel;
         settingsNavigator = panel.navigator(this::showPauseMenu);
-        layer.getChildren().addAll(new MenuTitle("Settings", 38, 380, 62), panel);
+        layer.getChildren().addAll(MenuTitle.plate("SETTINGS", Tokens.SIZE_OVERLAY_TITLE), panel);
         layer.setBackground(veil());
         layer.setVisible(false);
         return layer;
@@ -164,7 +193,7 @@ final class GameScreen {
 
         VBox layer = new VBox(16);
         layer.setAlignment(Pos.CENTER);
-        layer.getChildren().addAll(new MenuTitle("Save Game", 38, 380, 62), panel,
+        layer.getChildren().addAll(MenuTitle.plate("SAVE GAME", Tokens.SIZE_OVERLAY_TITLE), panel,
                 MenuScreen.caption("Saves the start of this level", 12, Tokens.TEXT_DIM));
         layer.setBackground(veil());
         layer.setVisible(false);

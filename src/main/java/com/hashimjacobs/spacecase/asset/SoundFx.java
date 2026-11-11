@@ -63,7 +63,24 @@ public enum SoundFx {
     GAME_OVER("game-over.wav", 0.8),
     LEVEL_CLEAR("level-clear.wav", 0.8),
     /** A flagship arriving. Generated: a sliding detuned bellow with a growl and a crackle. */
-    BOSS_ROAR("boss-roar.wav", 0.7);
+    BOSS_ROAR("boss-roar.wav", 0.7),
+    // Suno Sounds, each replacing a stand-in that borrowed another event's sound. Starting levels;
+    // judge them by ear against the bed like the rest.
+    /** A power-up collected, and the on-foot key. Was LASER and LEVEL_CLEAR. */
+    PICKUP("pickup.wav", 0.5),
+    /** Enemy fire landing on a player. Was COLLISION, the same thud as a wall scrape. */
+    PLAYER_HIT("player-hit.wav", 0.45),
+    /** The special's held breath. Was BOSS_ROAR. */
+    SPECIAL_CHARGE("special-charge.wav", 0.5),
+    /** The special firing. Was BOSS_ROCKET. */
+    SPECIAL_RELEASE("special-release.wav", 0.55),
+    PUNCH("punch.wav", 0.5),
+    BLOCK("block.wav", 0.45),
+    /** Heavies and ground pounds on foot. Was EXPLOSION. */
+    HEAVY_HIT("heavy-hit.wav", 0.55),
+    LAND("land.wav", 0.35),
+    MENU_MOVE("menu-move.wav", 0.25),
+    MENU_SELECT("menu-select.wav", 0.3);
 
     private final String fileName;
     private final double baseVolume;

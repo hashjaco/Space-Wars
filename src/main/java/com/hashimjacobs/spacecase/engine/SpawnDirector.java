@@ -10,6 +10,7 @@ import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BurrowingWorm;
 import com.hashimjacobs.spacecase.entity.PilotedMech;
+import com.hashimjacobs.spacecase.entity.Core;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.entity.PowerUp;
@@ -251,6 +252,7 @@ public final class SpawnDirector {
             return;
         }
         launchedGroup = group;
+        launchCoreWith(world, group);
         List<List<WaveShip>> waves = Waves.forLevel(level);
         if (wavesIntoLevel >= waves.size()) {
             // Not authored yet, so this wave runs on the clock alone -- which is exactly what every
@@ -278,6 +280,38 @@ public final class SpawnDirector {
             waveShips.add(ship);
         }
         waveOnField = !waveShips.isEmpty();
+    }
+
+    /**
+     * Sends one of the level's three hidden cores in behind groups at about a sixth, a half and
+     * five sixths of the way through its waves. Riding in with a group rather than on the clock
+     * means a fast clear never outruns the last one.
+     *
+     * Its lane is a hash of the level and the core, never a draw: the generator is shared with
+     * every spawn after this one, and taking from it would shift them all and break replays.
+     */
+    private void launchCoreWith(World world, int group) {
+        int groups = level.wavesBeforeBoss() * Waves.GROUPS_PER_WAVE;
+        for (int index = 0; index < 3; index++) {
+            if (group != (2 * index + 1) * groups / 6) {
+                continue;
+            }
+            Orientation facing = level.orientation();
+            double fraction = 0.15 + 0.7 * coreLane(level, index);
+            double across = insideLane(world, fraction * facing.arenaBreadth(), Core.SIZE);
+            double depth = -360 - Core.SIZE;
+            world.addCore(new Core(index, facing.atX(depth, across, Core.SIZE, Core.SIZE),
+                    facing.atY(depth, across, Core.SIZE, Core.SIZE)));
+        }
+    }
+
+    /** 0-1, fixed per level and core. SplitMix64's finaliser, so neighbours land far apart. */
+    static double coreLane(Level level, int index) {
+        long z = (level.ordinal() * 3L + index + 1) * 0x9E3779B97F4A7C15L;
+        z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
+        z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
+        z ^= z >>> 31;
+        return (z >>> 11) * 0x1.0p-53;
     }
 
     private void maybeSpawnAsteroid(World world) {
@@ -317,7 +351,10 @@ public final class SpawnDirector {
         if (world.enemies().size() >= difficulty.maxEnemies(world.players().size())) {
             return;
         }
-        if (!rolls(escalated(difficulty.enemyChance()))) {
+        // A quarter as many stragglers while a flagship is up: enough to keep pickups dropping,
+        // not enough to bury the fight under ordinary fire. The roll still happens (rule 8).
+        int chance = escalated(difficulty.enemyChance());
+        if (!rolls(awaitingBossKill ? chance / 4 : chance)) {
             return;
         }
         Orientation facing = level.orientation();
@@ -544,8 +581,12 @@ public final class SpawnDirector {
 
     /** Reference clear time for the current level: its wave clock plus an allowance for the boss. */
     public int parTicks() {
-        int par = level.wavesBeforeBoss() * Waves.GROUPS_PER_WAVE * WAVE_PAR_TICKS + BOSS_PAR_TICKS;
-        return par;
+        return parTicks(level);
+    }
+
+    /** The same par for any level, for the map to quote before it is flown. */
+    public static int parTicks(Level level) {
+        return level.wavesBeforeBoss() * Waves.GROUPS_PER_WAVE * WAVE_PAR_TICKS + BOSS_PAR_TICKS;
     }
 
     /** Passes completed through the whole run, counting from one. */

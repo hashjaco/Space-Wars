@@ -61,7 +61,7 @@ version — JavaFX 26 needs a JDK 26 runtime.
 Other targets:
 
     ./mvnw test               # unit tests; no display, audio device or controller needed
-    ./mvnw package            # target/space-case-2.0.jar
+    ./mvnw package            # target/space-case-<version>.jar
     ./mvnw package -Pshaded   # one self-contained jar for this platform
 
 Installers are built by `jpackage`, which ships inside the JDK; the release workflow runs it once per

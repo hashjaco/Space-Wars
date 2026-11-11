@@ -1,16 +1,22 @@
 package com.hashimjacobs.spacecase.engine;
 
+import com.hashimjacobs.spacecase.asset.SoundPlayer;
+
+import java.util.ArrayList;
+import java.util.List;
 import java.util.EnumSet;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.BossPhase;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Ordnance;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.Level;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -110,27 +116,54 @@ class BossWeaponsTest {
     // ---- the rhythm --------------------------------------------------------------------------
 
     /**
-     * Three of the primary, then the special, then round again.
+     * Bursts with breaks, and a special every 8 to 15 seconds, varied.
      *
-     * This is the whole feature: a flat rhythm is what made a long fight a chore, and a rhythm you
-     * can read is what makes breaking it mean something. Walked over two full cycles, because a
-     * counter that fires the special once and then every tick would pass a single-cycle check.
+     * A flat stream was what made every fight undodgeable. Walked for a minute of combat so the
+     * special's gap is seen several times, since a timer that fires once and then every tick would
+     * pass a single check.
      */
     @Test
-    void aFlagshipFiresThreePrimariesThenItsSpecial() {
+    void aFlagshipBurstsRestsAndChargesItsSpecialEveryEightToFifteenSeconds() {
         EnemyShip boss = flagship(Boss.SENTINEL);
-        BossPhase primary = boss.phase();
-
-        for (int cycle = 0; cycle < 2; cycle++) {
-            for (int volley = 0; volley < 3; volley++) {
-                assertEquals(primary, boss.firingPhase(),
-                        "volley " + volley + " of cycle " + cycle + " should be the primary");
-                boss.countVolley();
+        List<Integer> specials = new ArrayList<>();
+        int rests = 0;
+        for (int tick = 1; tick <= 3600; tick++) {
+            boss.tickCombat();
+            if (boss.specialTicks() == 0) {
+                specials.add(tick);
             }
-            assertEquals(Boss.SENTINEL.special(), boss.firingPhase(),
-                    "the fourth volley of cycle " + cycle + " should be the special");
-            boss.countVolley();
+            rests += boss.restBegins() ? 1 : 0;
+            assertEquals(boss.phase(), boss.firingPhase(), "the primary is the health phase");
         }
+        assertTrue(rests >= 14, "a break every few seconds, got " + rests + " in a minute");
+        assertTrue(specials.size() >= 4, "specials: " + specials);
+        Set<Integer> gaps = new java.util.HashSet<>();
+        for (int k = 1; k < specials.size(); k++) {
+            int gap = specials.get(k) - specials.get(k - 1);
+            assertTrue(gap >= 480 && gap <= 1000, "special gap " + gap + " outside 8-15 s plus its own length");
+            gaps.add(gap);
+        }
+        assertTrue(gaps.size() > 1, "the gap should vary, got " + gaps);
+    }
+
+    /** No primary goes out in a break: whatever lands in one is the rockets or the special. */
+    @Test
+    void aFlagshipHoldsItsPrimaryDuringABreak() {
+        World world = new World(GameMode.SOLO);
+        PlayerShip target = world.players().get(0);
+        EnemyShip boss = flagship(Boss.CINDER_WARDEN);
+        world.addEnemy(boss);
+        int primariesInBreaks = 0;
+        for (int tick = 0; tick < 2400; tick++) {
+            int before = world.bullets().size();
+            boolean quiet = boss.resting() && !boss.restBegins() && boss.specialTicks() < 0;
+            EnemyWeapons.driveWeapons(world, boss, target, Level.CINDER_BELT, 60, 8, SoundPlayer.SILENT);
+            if (quiet && boss.resting() && boss.specialTicks() < 0 && world.bullets().size() > before) {
+                primariesInBreaks++;
+            }
+        }
+        assertEquals(0, primariesInBreaks, "the primary fired during a break");
+        assertTrue(world.bullets().size() > 0, "and it does fire outside them");
     }
 
     /** Every flagship has a special, and it is one of the patterns marked as such. */
@@ -175,11 +208,11 @@ class BossWeaponsTest {
         EnemyShip hydra = new EnemyShip(Boss.HYDRA, 400, 90, 1);
         world.addEnemy(hydra);
 
-        for (EnemyShip part : hydra.parts()) {
-            for (int volley = 0; volley < 8; volley++) {
-                assertEquals(part.phase(), part.firingPhase(),
-                        "a part should always fire the health phase");
-                part.countVolley();
+        for (int tick = 0; tick < 1200; tick++) {
+            hydra.tickCombat();
+            for (EnemyShip part : hydra.parts()) {
+                assertEquals(part.phase(), part.firingPhase(), "a part should always fire the health phase");
+                assertEquals(hydra.resting(), part.resting(), "a part keeps its body's rhythm");
             }
         }
     }

@@ -13,6 +13,7 @@ import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.entity.Bullet;
 import com.hashimjacobs.spacecase.entity.BossPhase;
+import com.hashimjacobs.spacecase.entity.Core;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
@@ -330,11 +331,18 @@ public final class CollisionSystem {
             enemy.takeDamage(bullet.damage());
             shooter.chargeSpecial(bullet.damage() * GameConfig.SPECIAL_CHARGE_PER_DAMAGE);
             // ponytail: the hydra is the one boss that bleeds. Boss.bleeds() when a second creature wants it.
-            boolean bleeds = enemy.isBoss() && enemy.boss() == Boss.HYDRA;
+            // Its torso does not while a head still guards it: sparks off armour say "not yet",
+            // where blood said "you are hurting it" and was a lie.
+            boolean bleeds = enemy.isBoss() && enemy.boss() == Boss.HYDRA && !enemy.armoured();
             world.addEffect(bleeds ? Explosion.BLOOD_SPLAT : Explosion.HIT_SPARK,
                     bullet.centerX(), bullet.centerY(), bleeds ? 44 : 28);
             world.emit(Particle.Kind.SPARK, bullet.centerX(), bullet.centerY(), 2, 3);
             if (!enemy.isAlive()) {
+                if (enemy.isBossPart() && enemy.boss() == Boss.HYDRA) {
+                    // A head comes off: a gout of blood where it was, and its stump stays (Renderer).
+                    world.addEffect(Explosion.BLOOD_SPLAT, enemy.centerX(), enemy.centerY(), 130);
+                    world.shake(8);
+                }
                 awardKill(world, shooter, enemy);
             } else if (before != null && enemy.phase() != before) {
                 // The rhythm the player has been reading just broke; a beat of stillness says so,
@@ -540,7 +548,7 @@ public final class CollisionSystem {
                 world.addEffect(Explosion.ACID_SPLASH, bullet.centerX(), bullet.centerY(), 56);
             }
             boolean lostALife = player.takeDamage(bullet.damage());
-            sounds.play(SoundFx.COLLISION);
+            sounds.play(SoundFx.PLAYER_HIT);
             if (lostALife) {
                 world.addExplosion(player, Explosion.LARGE);
             }
@@ -571,7 +579,7 @@ public final class CollisionSystem {
                 world.addEffect(Explosion.ACID_SPLASH, bullet.centerX(), bullet.centerY(), 56);
             }
             boolean lostALife = player.takeDamage(bullet.damage());
-            sounds.play(SoundFx.COLLISION);
+            sounds.play(SoundFx.PLAYER_HIT);
             if (lostALife) {
                 world.addExplosion(player, Explosion.LARGE);
             }
@@ -629,8 +637,16 @@ public final class CollisionSystem {
                 }
                 powerUp.kill();
                 player.collect(powerUp.kind());
-                sounds.play(SoundFx.LASER);
+                sounds.play(SoundFx.PICKUP);
                 break;
+            }
+        }
+        for (Core core : world.cores()) {
+            for (PlayerShip player : world.players()) {
+                if (core.isAlive() && !player.isOut() && core.intersects(player)) {
+                    world.takeCore(core);
+                    sounds.play(SoundFx.PICKUP);
+                }
             }
         }
     }

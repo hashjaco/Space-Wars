@@ -9,6 +9,7 @@ import com.hashimjacobs.spacecase.asset.Explosion;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.entity.Asteroid;
 import com.hashimjacobs.spacecase.entity.Bullet;
+import com.hashimjacobs.spacecase.entity.Core;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.Entity;
 import com.hashimjacobs.spacecase.entity.Facing;
@@ -38,6 +39,11 @@ public final class World {
     private final List<Asteroid> asteroids = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<PowerUp> powerUps = new ArrayList<>();
+    // Challenge bookkeeping. Touches no score and sits outside the checksum, like the particles.
+    private final List<Core> cores = new ArrayList<>();
+    private int escaped;
+    private int coresTaken;
+    private int coresKnown;
     private final List<ActiveExplosion> explosions = new ArrayList<>();
     private final List<Particle> particles = new ArrayList<>();
     /** Explosions booked for a later tick, as {tick, x, y, size, kind}: a flagship goes in stages. */
@@ -253,6 +259,9 @@ public final class World {
         for (PowerUp powerUp : powerUps) {
             powerUp.update();
             reelIn(powerUp);
+        }
+        for (Core core : cores) {
+            core.update();
         }
         killWhatLeftTheArena();
     }
@@ -476,8 +485,14 @@ public final class World {
         for (EnemyShip enemy : enemies) {
             boolean gone = orientation.depth(enemy.x(), enemy.y(),
                     enemy.width(), enemy.height()) > arenaDepth;
-            if (gone) {
+            if (gone && enemy.isAlive()) {
+                escaped++;
                 enemy.kill();
+            }
+        }
+        for (Core core : cores) {
+            if (orientation.depth(core.x(), core.y(), core.width(), core.height()) > arenaDepth) {
+                core.kill();
             }
         }
         for (PowerUp powerUp : powerUps) {
@@ -558,6 +573,7 @@ public final class World {
         asteroids.removeIf(asteroid -> !asteroid.isAlive());
         bullets.removeIf(bullet -> !bullet.isAlive());
         powerUps.removeIf(powerUp -> !powerUp.isAlive());
+        cores.removeIf(core -> !core.isAlive());
         explosions.removeIf(ActiveExplosion::isFinished);
         particles.removeIf(Particle::isDead);
         wrecks.removeIf(wreck -> wreck.spent(tick));
@@ -644,6 +660,48 @@ public final class World {
     public void addEnemy(EnemyShip enemy) {
         enemy.enter(orientation, arrivals++);
         enemies.add(enemy);
+    }
+
+    /** Sets a hidden core drifting down this level's lane, a little slower than a pickup. */
+    public void addCore(Core core) {
+        core.setVelocity(orientation.vx(GameConfig.POWERUP_DRIFT_SPEED * 0.8, 0),
+                orientation.vy(GameConfig.POWERUP_DRIFT_SPEED * 0.8, 0));
+        cores.add(core);
+    }
+
+    public List<Core> cores() {
+        return cores;
+    }
+
+    /** Takes core {@code index}, for whoever touched it: cores are the team's. */
+    public void takeCore(Core core) {
+        core.kill();
+        coresTaken |= 1 << core.index();
+    }
+
+    /** Which of this level's cores were taken this run, a bit per index. */
+    public int coresTaken() {
+        return coresTaken;
+    }
+
+    /** Hostiles that flew out of the far edge this level. The level-end wipe does not count. */
+    public int escaped() {
+        return escaped;
+    }
+
+    /**
+     * Starts a level's challenge counts. {@code known} is the cores found on earlier runs, which
+     * only the renderer reads, to draw them ghosted.
+     */
+    public void startChallenges(int known) {
+        escaped = 0;
+        coresTaken = 0;
+        coresKnown = known;
+        cores.clear();
+    }
+
+    public boolean coreKnown(int index) {
+        return (coresKnown & (1 << index)) != 0;
     }
 
     public void addAsteroid(Asteroid asteroid) {
