@@ -632,6 +632,12 @@ public final class GameLoop {
         }
 
         updateBossMusic();
+        // Edge-triggered here, not in the director: sound is not part of the simulation.
+        boolean alert = director.warning() != null;
+        if (alert && !alertSounded) {
+            sounds.play(SoundFx.ALERT);
+        }
+        alertSounded = alert;
         if (director.levelCleared()) {
             beginVictoryLap();
             return;
@@ -1001,6 +1007,8 @@ public final class GameLoop {
 
 
     /** Swaps to the boss track while a boss is on screen, and back to the mode's track after. */
+    private boolean alertSounded;
+
     private void updateBossMusic() {
         boolean bossOnScreen = world.bossPresent();
         if (bossOnScreen == bossMusicPlaying) {

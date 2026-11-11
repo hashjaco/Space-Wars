@@ -163,6 +163,7 @@ rather than a remaster.
 | `machine-gun-burst.wav` | Hashim Jacobs | `BOSS_GUN`, the flagship's phase pattern. Decoded to 48 kHz mono PCM from the authored MP3, which is in git history: sound effects play through `javax.sound.sampled`, which is in the JDK and cannot read MP3. Same 1.632 s, same audio |
 | `mega-boss-cannon.wav` | Hashim Jacobs | `BOSS_ROCKET`, the flagship's rocket salvo |
 | `collision.wav` | Generated | Short thud |
+| `alert.wav` | Generated | A set piece announced: a three-blast klaxon on a rising fourth |
 | `boss-roar.wav` | Generated | A flagship arriving: a detuned bellow sliding down a fifth, a growl, a crackle in the tail |
 | `low-health.wav` | Generated | Two-note square warble. No longer played: a nearly dead ship shows it (arcing, smoke, a red-lit bar) instead of saying it. The file stays because the generator writes it |
 | `game-over.wav` | Generated | Descending four-note arpeggio |

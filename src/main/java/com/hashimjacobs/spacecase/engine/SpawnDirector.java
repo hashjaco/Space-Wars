@@ -19,6 +19,7 @@ import com.hashimjacobs.spacecase.entity.WaveShip;
 import com.hashimjacobs.spacecase.mode.Waves;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.mode.ModeRules;
+import com.hashimjacobs.spacecase.mode.SetPiece;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 /**
@@ -98,6 +99,18 @@ public final class SpawnDirector {
     /** Added to the difficulty's per-thousand spawn chances for each full pass through the levels. */
     private static final int LOOP_SPAWN_BONUS = 3;
 
+    /** How long a set piece's banner is up before anything arrives. Two seconds. */
+    static final int PIECE_WARNING_TICKS = 120;
+
+    /** An asteroid field: how often a wall arrives, how many, how fast, and how tough each rock is. */
+    static final int FIELD_ROW_TICKS = 50;
+    static final int FIELD_ROWS = 10;
+    static final double FIELD_FALL = 3.0;
+    /** Forty gun shots. The point is that the gun is the wrong answer; a beam still cuts a door. */
+    private static final int FIELD_ROCK_HEALTH = 400;
+    /** How many lanes of a field are left open, side by side. Two, so a wingman fits. */
+    static final int FIELD_GAP_LANES = 2;
+
     private final Random random;
     private final Difficulty difficulty;
     private final ModeRules rules;
@@ -134,6 +147,10 @@ public final class SpawnDirector {
     private int restTicks;
     private int ticksIntoLevel;
     private int bossWarningTicks;
+    /** Ticks left of this level's {@link SetPiece}; zero when none is running. */
+    private int pieceTicksLeft;
+    /** The ace and its escorts, so the piece can end the moment they are dead. */
+    private final List<EnemyShip> pieceShips = new ArrayList<>();
     private boolean awaitingBossKill;
     private boolean levelCleared;
 
@@ -193,6 +210,12 @@ public final class SpawnDirector {
         if (awaitingBossKill) {
             return;
         }
+        // Before the rest, so the banner goes up the moment the wave is beaten and the rest that
+        // wave earned becomes the breath after the set piece instead.
+        if (pieceTicksLeft > 0) {
+            runSetPiece(world);
+            return;
+        }
         // The quiet between one group and the next. Everything below is held, the wave clock
         // included, so a group gets its whole camping budget once it actually arrives rather than
         // spending part of it waiting to exist.
@@ -236,6 +259,115 @@ public final class SpawnDirector {
         groupInWave = 0;
         wavesSurvived++;
         wavesIntoLevel++;
+        // Halfway through the waves, once: wavesIntoLevel only passes this value one time a level.
+        if (rules.spawnEnemies() && wavesIntoLevel == level.wavesBeforeBoss() / 2) {
+            pieceTicksLeft = level.setPiece().ticks();
+        }
+    }
+
+    /**
+     * One tick of the level's set piece. Draws nothing from the generator: every lane is a hash of
+     * the level and a counter, for the reason given at {@link #launchCoreWith}.
+     */
+    private void runSetPiece(World world) {
+        SetPiece piece = level.setPiece();
+        int t = piece.ticks() - pieceTicksLeft - PIECE_WARNING_TICKS;
+        pieceTicksLeft--;
+        if (t < 0) {
+            return;
+        }
+        switch (piece) {
+            case ASTEROID_FIELD -> {
+                if (t % FIELD_ROW_TICKS == 0 && t / FIELD_ROW_TICKS < FIELD_ROWS) {
+                    launchFieldRow(world, t / FIELD_ROW_TICKS);
+                }
+            }
+            case SWARM -> {
+                if (t % 20 == 0 && t < 360) {
+                    double lane = pieceHash(level, t);
+                    for (double across : new double[] {lane, (lane + 0.5) % 1}) {
+                        launch(world, WaveShip.at(EnemyShip.EnemyKind.SCOUT, 0.06 + 0.82 * across)
+                                .diving().speed(1.5));
+                    }
+                }
+            }
+            case ACE -> {
+                if (t == 0) {
+                    pieceShips.add(launch(world, WaveShip.at(EnemyShip.EnemyKind.CRUISER, 0.42)
+                            .size(1.6).health(6).shots(2).holding()));
+                    pieceShips.add(launch(world, WaveShip.at(EnemyShip.EnemyKind.FIGHTER, 0.2, -90).weaving()));
+                    pieceShips.add(launch(world, WaveShip.at(EnemyShip.EnemyKind.FIGHTER, 0.74, -90).weaving()));
+                } else {
+                    pieceShips.removeIf(ship -> !ship.isAlive());
+                    if (pieceShips.isEmpty()) {
+                        pieceTicksLeft = 0;
+                    }
+                }
+            }
+            case SALVAGE -> {
+                if (t % 60 == 0 && t / 60 < 4) {
+                    launchSalvage(world, t / 60);
+                }
+            }
+            case NONE -> { }
+        }
+    }
+
+    /** One wall of the field: a rock in every lane but the gap. */
+    private void launchFieldRow(World world, int row) {
+        Orientation facing = level.orientation();
+        int lanes = fieldLanes(level);
+        double laneWidth = facing.arenaBreadth() / lanes;
+        int gap = fieldGap(level, row);
+        for (int lane = 0; lane < lanes; lane++) {
+            if (lane >= gap && lane < gap + FIELD_GAP_LANES) {
+                continue;
+            }
+            double across = lane * laneWidth + (laneWidth - Sprite.ASTEROID_HUGE.width()) / 2;
+            Asteroid rock = asteroidAt(facing, Sprite.ASTEROID_HUGE, -90, across, FIELD_ROCK_HEALTH, 22, 30);
+            rock.setVelocity(facing.vx(FIELD_FALL, 0), facing.vy(FIELD_FALL, 0));
+            world.addAsteroid(rock);
+        }
+    }
+
+    static int fieldLanes(Level level) {
+        return (int) (level.orientation().arenaBreadth() / 100);
+    }
+
+    /**
+     * The first open lane of a field's wall. It moves exactly one lane a row, turning back at the
+     * edges, so the way through is always next to the last one and never the same place twice.
+     */
+    static int fieldGap(Level level, int row) {
+        int last = fieldLanes(level) - FIELD_GAP_LANES;
+        int gap = (int) (pieceHash(level, 0) * (last + 1));
+        for (int r = 1; r <= row; r++) {
+            int step = pieceHash(level, r) < 0.5 ? -1 : 1;
+            if (gap + step < 0 || gap + step > last) {
+                step = -step;
+            }
+            gap += step;
+        }
+        return gap;
+    }
+
+    /** Hull, shield, and the same weapon twice: the second one is how a player learns it stacks. */
+    private void launchSalvage(World world, int index) {
+        PowerUp.Kind weapon = pieceHash(level, 99) < 0.5 ? PowerUp.Kind.TRI_SHOT : PowerUp.Kind.ROCKETS;
+        PowerUp.Kind kind = switch (index) {
+            case 0 -> PowerUp.Kind.HEALTH;
+            case 2 -> PowerUp.Kind.SHIELD;
+            default -> weapon;
+        };
+        Orientation facing = level.orientation();
+        double w = kind.sprite().width();
+        double h = kind.sprite().height();
+        double across = (0.15 + 0.7 * pieceHash(level, index)) * facing.arenaBreadth();
+        world.addPowerUp(new PowerUp(kind, facing.atX(-40, across, w, h), facing.atY(-40, across, w, h)));
+    }
+
+    private static double pieceHash(Level level, int n) {
+        return hash01((level.ordinal() + 1) * 1_000_003L + n);
     }
 
     /**
@@ -259,27 +391,32 @@ public final class SpawnDirector {
             // wave in the game did before this existed.
             return;
         }
-        Orientation facing = level.orientation();
         for (WaveShip ordered : Waves.group(waves.get(wavesIntoLevel), groupInWave)) {
-            Sprite art = level.enemySprite(ordered.kind());
-            // From the ordered size, never from the sprite: a ship drawn at 1.4 and placed at 1.0
-            // spawns part of itself inside a wall, and the lane clamp below would be measuring the
-            // wrong extent while it happened.
-            double w = ordered.width(art);
-            double h = ordered.height(art);
-            double across = insideLane(world, ordered.across() * facing.arenaBreadth(),
-                    facing.acrossExtent(w, h));
-            double depth = ordered.setback() - facing.alongExtent(w, h);
-            EnemyShip ship = new EnemyShip(ordered.kind(), art,
-                    facing.atX(depth, across, w, h), facing.atY(depth, across, w, h),
-                    difficulty.enemyScale(level.galaxy()), ordered);
-            // No setVelocity: World.addEnemy stamps enter(orientation), which overwrites one, and
-            // trackAcross would overwrite it again next tick. Authored motion rides in on the
-            // ship's own MoveStyle and descentSpeed, which are what those two read.
-            world.addEnemy(ship);
-            waveShips.add(ship);
+            waveShips.add(launch(world, ordered));
         }
         waveOnField = !waveShips.isEmpty();
+    }
+
+    /** Puts one authored ship on the field, just past the entry edge. Takes no draw. */
+    private EnemyShip launch(World world, WaveShip ordered) {
+        Orientation facing = level.orientation();
+        Sprite art = level.enemySprite(ordered.kind());
+        // From the ordered size, never from the sprite: a ship drawn at 1.4 and placed at 1.0
+        // spawns part of itself inside a wall, and the lane clamp below would be measuring the
+        // wrong extent while it happened.
+        double w = ordered.width(art);
+        double h = ordered.height(art);
+        double across = insideLane(world, ordered.across() * facing.arenaBreadth(),
+                facing.acrossExtent(w, h));
+        double depth = ordered.setback() - facing.alongExtent(w, h);
+        EnemyShip ship = new EnemyShip(ordered.kind(), art,
+                facing.atX(depth, across, w, h), facing.atY(depth, across, w, h),
+                difficulty.enemyScale(level.galaxy()), ordered);
+        // No setVelocity: World.addEnemy stamps enter(orientation), which overwrites one, and
+        // trackAcross would overwrite it again next tick. Authored motion rides in on the
+        // ship's own MoveStyle and descentSpeed, which are what those two read.
+        world.addEnemy(ship);
+        return ship;
     }
 
     /**
@@ -307,7 +444,11 @@ public final class SpawnDirector {
 
     /** 0-1, fixed per level and core. SplitMix64's finaliser, so neighbours land far apart. */
     static double coreLane(Level level, int index) {
-        long z = (level.ordinal() * 3L + index + 1) * 0x9E3779B97F4A7C15L;
+        return hash01(level.ordinal() * 3L + index + 1);
+    }
+
+    private static double hash01(long key) {
+        long z = key * 0x9E3779B97F4A7C15L;
         z = (z ^ (z >>> 30)) * 0xBF58476D1CE4E5B9L;
         z = (z ^ (z >>> 27)) * 0x94D049BB133111EBL;
         z ^= z >>> 31;
@@ -354,7 +495,8 @@ public final class SpawnDirector {
         // A quarter as many stragglers while a flagship is up: enough to keep pickups dropping,
         // not enough to bury the fight under ordinary fire. The roll still happens (rule 8).
         int chance = escalated(difficulty.enemyChance());
-        if (!rolls(awaitingBossKill ? chance / 4 : chance)) {
+        // None at all during a set piece, which is its own fight. Same roll, zero threshold.
+        if (!rolls(pieceTicksLeft > 0 ? 0 : awaitingBossKill ? chance / 4 : chance)) {
             return;
         }
         Orientation facing = level.orientation();
@@ -456,6 +598,8 @@ public final class SpawnDirector {
         ticksIntoWave = 0;
         ticksIntoLevel = 0;
         waveShips.clear();
+        pieceShips.clear();
+        pieceTicksLeft = 0;
         launchedGroup = -1;
         groupInWave = 0;
         waveOnField = false;
@@ -586,7 +730,8 @@ public final class SpawnDirector {
 
     /** The same par for any level, for the map to quote before it is flown. */
     public static int parTicks(Level level) {
-        return level.wavesBeforeBoss() * Waves.GROUPS_PER_WAVE * WAVE_PAR_TICKS + BOSS_PAR_TICKS;
+        return level.wavesBeforeBoss() * Waves.GROUPS_PER_WAVE * WAVE_PAR_TICKS + BOSS_PAR_TICKS
+                + level.setPiece().ticks();
     }
 
     /** Passes completed through the whole run, counting from one. */
@@ -604,6 +749,18 @@ public final class SpawnDirector {
     public boolean bossWarning() {
         boolean warning = bossWarningTicks > 0;
         return warning;
+    }
+
+    /** What the HUD should be shouting, or null. The set piece's name, while it is on its way. */
+    public String warning() {
+        SetPiece piece = level.setPiece();
+        boolean arriving = pieceTicksLeft > piece.ticks() - PIECE_WARNING_TICKS;
+        return arriving ? piece.banner() : null;
+    }
+
+    /** Whether the level's set piece is running, warning included. */
+    public boolean setPieceRunning() {
+        return pieceTicksLeft > 0;
     }
 
     public Level level() {
