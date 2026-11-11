@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.hashimjacobs.spacecase.asset.BossArt;
+import com.hashimjacobs.spacecase.asset.EnemyArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
 /** An AI ship. Drifts down the arena, tracks the nearest player across it, and fires on a timer. */
@@ -374,6 +375,41 @@ public class EnemyShip extends Entity {
         if (hitFlashTicks > 0) {
             hitFlashTicks--;
         }
+        if (firedTicks > 0) {
+            firedTicks--;
+        }
+        if (flinchTicks > 0) {
+            flinchTicks--;
+        }
+        // Eased, so a weaving hull noses over rather than snapping between two angles.
+        double wanted = Math.max(-MAX_PITCH, Math.min(MAX_PITCH, -velocityY() * PITCH_PER_SPEED));
+        pitch += (wanted - pitch) * 0.15;
+    }
+
+    // What a profile hull is doing, for the renderer on side-on levels. None of it is read by the
+    // simulation: a shot fired and a hit taken hold their loops, and the nose follows the climb.
+    private static final double MAX_PITCH = 14;
+    private static final double PITCH_PER_SPEED = 6;
+    private int firedTicks;
+    private int flinchTicks;
+    private double pitch;
+
+    /** Called by {@code engine.EnemyWeapons} when an ordinary ship fires. */
+    public void markFired() {
+        firedTicks = EnemyArt.POSE_TICKS;
+    }
+
+    public int firedTicks() {
+        return firedTicks;
+    }
+
+    public int flinchTicks() {
+        return flinchTicks;
+    }
+
+    /** Degrees nose-up for a hull drawn pointing left; within fourteen either way. */
+    public double pitch() {
+        return pitch;
     }
 
     /** Ticks the hull still reads white after a hit. Short: it is the hit, not the health. */
@@ -692,6 +728,7 @@ public class EnemyShip extends Entity {
     /** Raises the floating bar without touching health, for a hit that armour ate. */
     protected void showHitBar() {
         hitFlashTicks = HIT_FLASH_TICKS;
+        flinchTicks = EnemyArt.POSE_TICKS;
         hitBarTicks = HIT_BAR_TICKS;
     }
 

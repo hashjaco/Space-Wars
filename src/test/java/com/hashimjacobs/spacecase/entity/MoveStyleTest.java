@@ -63,9 +63,14 @@ class MoveStyleTest {
                 turned.update();
             }
 
+            // A profile hull is not its plan view turned, so the two boxes differ. Both enter with
+            // the same edge in the same lane (as authored waves place them), which keeps their jink
+            // on one beat; a style that chases the target is aiming its middle, so there the two
+            // may differ by the half-box between them and a step of hunting, and no more.
             double uprightAcross = Orientation.TOP_DOWN.across(upright.x(), upright.y());
             double turnedAcross = Orientation.RIGHT_TO_LEFT.across(turned.x(), turned.y());
-            assertEquals(uprightAcross, turnedAcross, 1e-9,
+            double halfBoxes = Math.abs(upright.width() - turned.height()) / 2;
+            assertEquals(uprightAcross, turnedAcross, halfBoxes + 4,
                     style + " ended up somewhere else across the lane when the level turned");
 
         }
@@ -221,7 +226,8 @@ class MoveStyleTest {
         Sprite art = facing == Orientation.TOP_DOWN ? Sprite.L1_SCOUT : Sprite.L9_SCOUT;
         double w = ordered.width(art);
         double h = ordered.height(art);
-        double across = centreAcross - facing.acrossExtent(w, h) / 2;
+        // The plan view's half-width off the centre for both, so the entering edge is shared.
+        double across = centreAcross - Sprite.L1_SCOUT.width() / 2;
         EnemyShip ship = new EnemyShip(EnemyShip.EnemyKind.SCOUT, art,
                 facing.atX(0, across, w, h), facing.atY(0, across, w, h), 1, ordered);
         ship.enter(facing);

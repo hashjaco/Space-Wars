@@ -123,16 +123,10 @@ class LevelTest {
      * the archetype sizes are retuned.
      */
     @Test
-    void sideOnLevelsDeclareTransposedEnemySizes() {
-        Level upright = null;
-        for (Level level : Level.values()) {
-            if (level.orientation() == Orientation.TOP_DOWN) {
-                upright = level;
-                break;
-            }
-        }
-        assertTrue(upright != null, "no top-down level to compare against");
-
+    void sideOnEnemyBoxesMatchTheirProfileArt() throws java.io.IOException {
+        // tools/tripo/enemies.py SIDE_MARGIN: the frame is the idle hull plus this much of its
+        // length on every side. The box is the hitbox, so it has to be the hull's shape.
+        double margin = 0.16;
         int sideOn = 0;
         for (Level level : Level.values()) {
             if (level.orientation() == Orientation.TOP_DOWN) {
@@ -140,12 +134,19 @@ class LevelTest {
             }
             sideOn++;
             for (EnemyShip.EnemyKind kind : EnemyShip.EnemyKind.values()) {
-                Sprite turned = level.enemySprite(kind);
-                Sprite plain = upright.enemySprite(kind);
-                assertEquals(plain.height(), turned.width(), 1e-9,
-                        level + " " + kind + " is not turned: its width should be a top-down height");
-                assertEquals(plain.width(), turned.height(), 1e-9,
-                        level + " " + kind + " is not turned: its height should be a top-down width");
+                com.hashimjacobs.spacecase.asset.EnemyArt art = level.enemyArt(kind);
+                assertTrue(art != null && art.profile(), level + " " + kind + " has no profile");
+                java.awt.image.BufferedImage frame = javax.imageio.ImageIO.read(
+                        java.nio.file.Path.of("src/main/resources" + art.framePath(1)).toFile());
+                double length = frame.getWidth() / (1 + 2 * margin);
+                double height = frame.getHeight() - 2 * margin * length;
+                Sprite box = level.enemySprite(kind);
+                assertTrue(box.width() > box.height() * 1.5, level + " " + kind + " is not a profile's box");
+                // A very flat hull keeps a floor under its height so it can still be hit, hence >=.
+                double drawn = box.width() * height / length;
+                assertTrue(box.height() >= drawn - 1.5 && box.height() <= Math.max(20, drawn + 1.5),
+                        level + " " + kind + " box " + box.width() + "x" + box.height()
+                                + " does not fit a hull drawn " + drawn + " tall");
             }
         }
         assertTrue(sideOn > 0, "no side-on levels found, so this test proved nothing");

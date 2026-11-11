@@ -83,7 +83,7 @@ Their generated layers have a built-in up and are not drawn; they fly the galaxy
 `sky-cg/<galaxy>-side/` (`tools/openart/sky.py --side`, seamed left-to-right). A CG or Sprixen
 flagship is turned by rotating its committed frames -90 degrees (as `cg.py import` does for a
 `"side": true` row) and transposing its `BossArt` box; a generated one by `BossProfile(..., true)`.
-The CG hostiles already have `-side` twins.
+The CG hostiles' `-side` loops are true profiles rendered from the beam, with their own boxes in `Sprite` (`LevelTest.sideOnEnemyBoxesMatchTheirProfileArt`); the generated `level-N/enemy-*.png` fallback is still a quarter turn and no longer matches those boxes.
 
 ---
 
@@ -442,7 +442,7 @@ is charged their length.
 
 Not done yet:
 
-- **Side views and animations for enemies on side-scrolling levels.**
+- Profiles for the fifteen side-on flagships (the scouts, fighters and cruisers have theirs).
 - Flank and rear ambushes (spawns only enter from the far edge today).
 - A hazard for one wave rather than a whole level (`WorldTemplate` is per level).
 - A scroll speed-up through the field (terrain scroll is tick-derived and collision-relevant).

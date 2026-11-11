@@ -158,7 +158,7 @@ scythe, flak and nova are rarer, each dropped by one hull class. The HUD lists w
 
 Fifty places in five galaxies, ten each: **Verdance**, **Ashfall**, **Cryonis**, **Tempest** and
 **Null**. Every place has its own parallax sky, its own three hull families of defenders, and its own
-flagship; six of them are flown side-on. A run through a galaxy ends when its tenth flagship falls,
+flagship; sixteen of the fifty levels are flown side-on, where hostiles are drawn in true profile. A run through a galaxy ends when its tenth flagship falls,
 and the Universe Map opens the next. Only Endless Run keeps going past the end, looping the fifty
 with higher spawn pressure each time round.
 

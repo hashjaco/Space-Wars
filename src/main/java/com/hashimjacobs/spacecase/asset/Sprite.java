@@ -691,9 +691,9 @@ public enum Sprite {
     L1_FIGHTER("level-1/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L1_CRUISER("level-1/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L2_SCOUT("level-2/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L2_FIGHTER("level-2/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L2_CRUISER("level-2/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L2_SCOUT("level-2/enemy-scout.png", 74, 25),
+    L2_FIGHTER("level-2/enemy-fighter.png", 83, 40),
+    L2_CRUISER("level-2/enemy-cruiser.png", 122, 66),
 
     L3_SCOUT("level-3/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L3_FIGHTER("level-3/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -711,9 +711,9 @@ public enum Sprite {
     L6_FIGHTER("level-6/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L6_CRUISER("level-6/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L7_SCOUT("level-7/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L7_FIGHTER("level-7/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L7_CRUISER("level-7/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L7_SCOUT("level-7/enemy-scout.png", 74, 25),
+    L7_FIGHTER("level-7/enemy-fighter.png", 83, 40),
+    L7_CRUISER("level-7/enemy-cruiser.png", 122, 66),
 
     L8_SCOUT("level-8/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L8_FIGHTER("level-8/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -726,9 +726,9 @@ public enum Sprite {
      * to turn with it or the hitbox and the hull disagree. {@code entity.Orientation} then picks
      * the right axis off these for spawning and culling.
      */
-    L9_SCOUT("level-9/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L9_FIGHTER("level-9/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L9_CRUISER("level-9/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L9_SCOUT("level-9/enemy-scout.png", 74, 25),
+    L9_FIGHTER("level-9/enemy-fighter.png", 83, 40),
+    L9_CRUISER("level-9/enemy-cruiser.png", 122, 66),
 
     L10_SCOUT("level-10/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L10_FIGHTER("level-10/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -739,9 +739,9 @@ public enum Sprite {
     L11_FIGHTER("level-11/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L11_CRUISER("level-11/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L12_SCOUT("level-12/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L12_FIGHTER("level-12/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L12_CRUISER("level-12/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L12_SCOUT("level-12/enemy-scout.png", 74, 21),
+    L12_FIGHTER("level-12/enemy-fighter.png", 86, 29),
+    L12_CRUISER("level-12/enemy-cruiser.png", 122, 49),
 
     L13_SCOUT("level-13/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L13_FIGHTER("level-13/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -761,34 +761,34 @@ public enum Sprite {
 
 
     /** Sunward Dive's hostiles are cut pointing left, so width and height swap. */
-    L17_SCOUT("level-17/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L17_FIGHTER("level-17/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L17_CRUISER("level-17/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L17_SCOUT("level-17/enemy-scout.png", 74, 21),
+    L17_FIGHTER("level-17/enemy-fighter.png", 86, 29),
+    L17_CRUISER("level-17/enemy-cruiser.png", 122, 49),
 
     L18_SCOUT("level-18/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L18_FIGHTER("level-18/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L18_CRUISER("level-18/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L19_SCOUT("level-19/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L19_FIGHTER("level-19/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L19_CRUISER("level-19/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L19_SCOUT("level-19/enemy-scout.png", 74, 21),
+    L19_FIGHTER("level-19/enemy-fighter.png", 86, 29),
+    L19_CRUISER("level-19/enemy-cruiser.png", 122, 49),
 
     L20_SCOUT("level-20/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L20_FIGHTER("level-20/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L20_CRUISER("level-20/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     /** Frost Ring's hostiles are cut pointing left, so width and height swap. */
-    L21_SCOUT("level-21/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L21_FIGHTER("level-21/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L21_CRUISER("level-21/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L21_SCOUT("level-21/enemy-scout.png", 74, 20),
+    L21_FIGHTER("level-21/enemy-fighter.png", 100, 31),
+    L21_CRUISER("level-21/enemy-cruiser.png", 128, 48),
 
     L22_SCOUT("level-22/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L22_FIGHTER("level-22/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L22_CRUISER("level-22/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L23_SCOUT("level-23/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L23_FIGHTER("level-23/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L23_CRUISER("level-23/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L23_SCOUT("level-23/enemy-scout.png", 74, 20),
+    L23_FIGHTER("level-23/enemy-fighter.png", 100, 31),
+    L23_CRUISER("level-23/enemy-cruiser.png", 128, 48),
 
     L24_SCOUT("level-24/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L24_FIGHTER("level-24/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -802,18 +802,18 @@ public enum Sprite {
     L26_FIGHTER("level-26/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L26_CRUISER("level-26/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L27_SCOUT("level-27/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L27_FIGHTER("level-27/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L27_CRUISER("level-27/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L27_SCOUT("level-27/enemy-scout.png", 74, 20),
+    L27_FIGHTER("level-27/enemy-fighter.png", 100, 31),
+    L27_CRUISER("level-27/enemy-cruiser.png", 128, 48),
 
     L28_SCOUT("level-28/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L28_FIGHTER("level-28/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L28_CRUISER("level-28/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     /** Shatter Drift is the galaxy's second side-on leg, so its hulls turn too. */
-    L29_SCOUT("level-29/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L29_FIGHTER("level-29/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L29_CRUISER("level-29/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L29_SCOUT("level-29/enemy-scout.png", 74, 20),
+    L29_FIGHTER("level-29/enemy-fighter.png", 100, 31),
+    L29_CRUISER("level-29/enemy-cruiser.png", 128, 48),
 
     L30_SCOUT("level-30/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L30_FIGHTER("level-30/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -832,9 +832,9 @@ public enum Sprite {
     L33_FIGHTER("level-33/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L33_CRUISER("level-33/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L34_SCOUT("level-34/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L34_FIGHTER("level-34/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L34_CRUISER("level-34/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L34_SCOUT("level-34/enemy-scout.png", 74, 20),
+    L34_FIGHTER("level-34/enemy-fighter.png", 98, 28),
+    L34_CRUISER("level-34/enemy-cruiser.png", 129, 44),
 
     L35_SCOUT("level-35/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L35_FIGHTER("level-35/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -844,27 +844,27 @@ public enum Sprite {
     L36_FIGHTER("level-36/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L36_CRUISER("level-36/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L37_SCOUT("level-37/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L37_FIGHTER("level-37/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L37_CRUISER("level-37/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L37_SCOUT("level-37/enemy-scout.png", 74, 20),
+    L37_FIGHTER("level-37/enemy-fighter.png", 98, 28),
+    L37_CRUISER("level-37/enemy-cruiser.png", 129, 44),
 
     L38_SCOUT("level-38/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L38_FIGHTER("level-38/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L38_CRUISER("level-38/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     /** Lightning Reach is the galaxy's side-on leg, so its hulls are cut pointing left. */
-    L39_SCOUT("level-39/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L39_FIGHTER("level-39/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L39_CRUISER("level-39/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L39_SCOUT("level-39/enemy-scout.png", 74, 20),
+    L39_FIGHTER("level-39/enemy-fighter.png", 98, 28),
+    L39_CRUISER("level-39/enemy-cruiser.png", 129, 44),
 
     L40_SCOUT("level-40/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L40_FIGHTER("level-40/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L40_CRUISER("level-40/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     // ---- Galaxy 5: Null (levels 41-50) -----------------------------------------------
-    L41_SCOUT("level-41/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L41_FIGHTER("level-41/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L41_CRUISER("level-41/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L41_SCOUT("level-41/enemy-scout.png", 74, 28),
+    L41_FIGHTER("level-41/enemy-fighter.png", 100, 45),
+    L41_CRUISER("level-41/enemy-cruiser.png", 128, 43),
 
     L42_SCOUT("level-42/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L42_FIGHTER("level-42/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -879,9 +879,9 @@ public enum Sprite {
     L44_CRUISER("level-44/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
     /** Tidal Shear is the galaxy's side-on leg, so its hulls are cut pointing left. */
-    L45_SCOUT("level-45/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L45_FIGHTER("level-45/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L45_CRUISER("level-45/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L45_SCOUT("level-45/enemy-scout.png", 74, 28),
+    L45_FIGHTER("level-45/enemy-fighter.png", 100, 45),
+    L45_CRUISER("level-45/enemy-cruiser.png", 128, 43),
 
     L46_SCOUT("level-46/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L46_FIGHTER("level-46/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
@@ -891,9 +891,9 @@ public enum Sprite {
     L47_FIGHTER("level-47/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),
     L47_CRUISER("level-47/enemy-cruiser.png", Draw.CRUISER_W, Draw.CRUISER_H),
 
-    L48_SCOUT("level-48/enemy-scout.png", Draw.SCOUT_H, Draw.SCOUT_W),
-    L48_FIGHTER("level-48/enemy-fighter.png", Draw.FIGHTER_H, Draw.FIGHTER_W),
-    L48_CRUISER("level-48/enemy-cruiser.png", Draw.CRUISER_H, Draw.CRUISER_W),
+    L48_SCOUT("level-48/enemy-scout.png", 74, 28),
+    L48_FIGHTER("level-48/enemy-fighter.png", 100, 45),
+    L48_CRUISER("level-48/enemy-cruiser.png", 128, 43),
 
     L49_SCOUT("level-49/enemy-scout.png", Draw.SCOUT_W, Draw.SCOUT_H),
     L49_FIGHTER("level-49/enemy-fighter.png", Draw.FIGHTER_W, Draw.FIGHTER_H),

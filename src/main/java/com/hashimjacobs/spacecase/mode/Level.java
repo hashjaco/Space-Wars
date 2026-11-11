@@ -26,7 +26,7 @@ import com.hashimjacobs.spacecase.entity.Orientation;
  * loop counter keeps working, and the run ends at the border because {@code engine.GameLoop}
  * notices the galaxy changed, not because the level sequence ran out.
  *
- * Nine is the odd one out, and deliberately: it is the only level flown side-on. That is carried by
+ * Sixteen levels are flown side-on, nine the first of them. That is carried by
  * {@link #orientation()} rather than by a special case anywhere in the engine.
  *
  * Pure data -- no asset loading -- so the enum is usable in tests that never start the JavaFX toolkit.

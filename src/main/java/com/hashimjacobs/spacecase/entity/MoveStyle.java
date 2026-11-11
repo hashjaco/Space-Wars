@@ -11,7 +11,7 @@ package com.hashimjacobs.spacecase.entity;
  * <strong>Nothing here touches x or y.</strong> Everything is in {@link Orientation}'s terms --
  * <em>along</em> the direction of travel and <em>across</em> the lane -- and
  * {@link EnemyShip#trackAcross} does the projection. That is what makes every style below work
- * unchanged on the six side-on levels without a single branch on which way the level runs.
+ * unchanged on the sixteen side-on levels without a single branch on which way the level runs.
  *
  * {@link #HUNT} is the identity: it reproduces exactly what every enemy in the game did before this
  * enum existed, which is what lets the existing suite stand as the regression test for it.

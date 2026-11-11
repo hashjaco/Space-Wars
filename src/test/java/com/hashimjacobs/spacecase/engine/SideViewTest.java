@@ -23,6 +23,26 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class SideViewTest {
 
+    /** What the renderer reads to pick a profile's loop: a shot and a hit each hold theirs, briefly. */
+    @Test
+    void aShotAndAHitEachHoldTheirPoseAndThePitchStaysSmall() {
+        EnemyShip ship = new EnemyShip(EnemyShip.EnemyKind.FIGHTER,
+                com.hashimjacobs.spacecase.asset.Sprite.L2_FIGHTER, 500, 400);
+        assertEquals(0, ship.firedTicks());
+        ship.markFired();
+        ship.takeDamage(1);
+        assertTrue(ship.firedTicks() > 0 && ship.flinchTicks() > 0);
+        ship.setVelocity(-2, -9);
+        for (int tick = 0; tick < 200; tick++) {
+            ship.tickTimers();
+            assertTrue(Math.abs(ship.pitch()) <= 14.0001, "pitched " + ship.pitch());
+        }
+        assertEquals(0, ship.firedTicks());
+        assertEquals(0, ship.flinchTicks());
+        assertTrue(ship.pitch() > 10, "a hull climbing hard should have its nose up");
+    }
+
+
     private static World sideView(GameMode mode) {
         World world = new World(mode);
         world.setOrientation(Orientation.RIGHT_TO_LEFT);
