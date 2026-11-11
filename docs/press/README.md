@@ -15,7 +15,8 @@ CP="target/classes:$(cat /tmp/cp.txt)"
 javac -cp "$CP" -d /tmp/preview \
   tools/preview/com/hashimjacobs/spacecase/prefs/ScratchSettings.java \
   tools/preview/com/hashimjacobs/spacecase/engine/TrailerPilot.java \
-  tools/preview/com/hashimjacobs/spacecase/engine/CaptureHarness.java
+  tools/preview/com/hashimjacobs/spacecase/engine/CaptureHarness.java \
+  tools/preview/com/hashimjacobs/spacecase/onfoot/OnFootCapture.java
 javac -cp target/classes -d /tmp/press tools/press/*.java
 ```
 
@@ -70,6 +71,29 @@ tools/press/contact.sh 50 1200 1 EASY boss /tmp/sheet.png 60   # pick a frame by
 tools/press/still.sh   50 1 EASY boss 720 docs/press/screenshots/native/50-aeon.png
 java -cp "target/classes:/tmp/press" FrameShot 50 \
      docs/press/screenshots/native/50-aeon.png docs/press/screenshots/framed/50-aeon.png
+```
+
+### The README's own shots
+
+`docs/screenshots/` holds what the top-level README shows: smaller than the kit's stills, and gifs
+held under ~2.5 MB each because every re-cut stays in the history. `gif.sh` is `clip.sh` at 12fps,
+420px and a 64-color palette (`W=360` for busy scenes); `OnFootCapture` is `CaptureHarness` for the
+on-foot stage, with a scripted brawler (compile it into `/tmp/preview` alongside the harness).
+
+```sh
+tools/press/still.sh 9  1 EASY waves 4080 docs/screenshots/single-player.png
+tools/press/still.sh 30 1 EASY boss  600  docs/screenshots/boss.png
+tools/press/gif.sh   50 1 EASY boss  360 300 docs/screenshots/flagship.gif
+W=360 tools/press/gif.sh 8 1 EASY waves 3300 240 docs/screenshots/set-piece.gif
+tools/press/gif.sh onfoot FORGEWORKS 1 - 280 300 docs/screenshots/on-foot.gif
+java -cp "/tmp/preview:$CP" com.hashimjacobs.spacecase.scene.MapSmoke docs/screenshots/map.png 0 4
+java -cp "/tmp/preview:$CP" com.hashimjacobs.spacecase.engine.GarageSmoke docs/screenshots/garage.png
+
+# flyover: three legs spliced as raw frames, then one palette for all of them
+FS=$((996*864*4))
+leg() { java -cp "/tmp/preview:$CP" com.hashimjacobs.spacecase.engine.CaptureHarness $1 $(($2+$3)) 1 EASY waves 2>/dev/null \
+        | tail -c +$(($2*FS+1)) | head -c $(($3*FS)); }
+{ leg 9 600 120; leg 26 480 120; leg 45 360 120; } | tools/press/gif.sh - - - - 0 0 docs/screenshots/flyover.gif
 ```
 
 ## capsules/

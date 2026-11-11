@@ -263,10 +263,16 @@ public final class OnFootRenderer {
         }
     }
 
-    /** Pulsing pools of furnace light, added over everything in the world plane. */
+    /**
+     * Pulsing pools of furnace light, laid over everything in the world plane.
+     *
+     * Plain alpha, not ADD. Under ADD these 520x300 gradient ovals came out as a blocky dark-navy
+     * band across the lower half of the screen on some frames -- which ones shifted with whatever
+     * else the frame drew (a hit flash, a beam), so it read as the enemy laser blacking out the
+     * room. At this alpha the warm wash looks the same either way.
+     */
     private void drawLight(double cam, int tick) {
         gc.save();
-        gc.setGlobalBlendMode(BlendMode.ADD);
         for (int i = 0; i < 12; i++) {
             double x = 180 + i * 360;
             if (x < cam - 400 || x > cam + GameConfig.WIDTH + 400) {

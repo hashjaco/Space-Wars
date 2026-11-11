@@ -200,7 +200,8 @@ final class GarageOverlay {
             }
             gc.setFont(selected ? valueFont : rowFont);
             gc.setFill(selected ? (focused ? BRAND : Color.WHITE) : MUTED);
-            gc.fillText(tabs[i].label().toUpperCase(), tx + tabWidth / 2, y + 6);
+            // Squeezed to its slot: four tabs share the panel, and WEAPONS is wider than a quarter of it.
+            gc.fillText(tabs[i].label().toUpperCase(), tx + tabWidth / 2, y + 6, tabWidth - 8);
         }
         if (focused) {
             gc.setFont(valueFont);

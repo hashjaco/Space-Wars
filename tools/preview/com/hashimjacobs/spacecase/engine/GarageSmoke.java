@@ -71,8 +71,6 @@ public final class GarageSmoke {
                 }
                 javax.imageio.ImageIO.write(out, "png", new java.io.File(args[0]));
                 System.out.println("rows total " + session.rows(0).size()
-                        + ", visible " + session.visibleRows(0)
-                        + ", scrolls " + session.scrolls(0)
                         + ", catalogue " + Upgrade.catalogueCost() + " CR");
                 System.out.println("wrote " + args[0]);
             } catch (Exception e) {

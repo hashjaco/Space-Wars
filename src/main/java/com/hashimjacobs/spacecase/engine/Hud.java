@@ -35,7 +35,7 @@ final class Hud {
      * {@code barY + BAR_HEIGHT + 22}, plus its own text height. Nothing else in the HUD uses the
      * bottom of the screen, so there is nothing down there to collide with.
      */
-    private static final double PANEL_HEIGHT = 105;   // +8 for the special meter
+    private static final double PANEL_HEIGHT = 118;   // +8 for the special meter, +13 for its hint row
 
     /** Inset from whichever corner a panel is anchored to. */
     private static final double PANEL_MARGIN = 16;
@@ -131,13 +131,14 @@ final class Hud {
         drawSpecialMeter(player, x, barY + BAR_HEIGHT + 5, tick);
         barY += SPECIAL_HEIGHT + 5;
 
-        drawLives(player, x, barY + BAR_HEIGHT + 7, tick);
+        // Under the special's hint row, not on it: the hint is right-aligned and long enough to reach LIVES.
+        drawLives(player, x, barY + BAR_HEIGHT + 17, tick);
 
         List<String> effects = activeEffectLabels(player);
         if (!effects.isEmpty()) {
             gc.setFont(smallFont);
             gc.setFill(BRAND);
-            gc.fillText(String.join("  ", effects), x, barY + BAR_HEIGHT + 22);
+            gc.fillText(String.join("  ", effects), x, barY + BAR_HEIGHT + 31);
         }
     }
 

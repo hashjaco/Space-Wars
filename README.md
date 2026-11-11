@@ -16,8 +16,8 @@ Originally written as *Space Wars* to get comfortable before building a game eng
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/single-player.png" alt="Single player" width="380">
-  <img src="docs/screenshots/battle.png" alt="Battle mode" width="380">
+  <img src="docs/screenshots/single-player.png" alt="Co-op through a side-on cave in Verdance, with the restyled HUD" width="380">
+  <img src="docs/screenshots/flyover.gif" alt="Flying through Verdance, Cryonis and Null" width="380">
 </p>
 
 ## Installing it
@@ -162,6 +162,22 @@ flagship; six of them are flown side-on. A run through a galaxy ends when its te
 and the Universe Map opens the next. Only Endless Run keeps going past the end, looping the fifty
 with higher spawn pressure each time round.
 
+Halfway through each level's waves a set piece breaks them up: an asteroid field to thread, a swarm,
+an ace, or a salvage drift. Every level also carries four challenges (defeat every enemy, beat par,
+find its three hidden cores, earn an S rank), which pay credits and never score.
+
+<p align="center">
+  <img src="docs/screenshots/set-piece.gif" alt="The asteroid field set piece in Verdance" width="360">
+  <img src="docs/screenshots/map.png" alt="The Universe Map, with a level's challenges" width="420">
+</p>
+
+One level in each galaxy does not end in orbit: the pilots land and finish it on foot, brawling
+through to that stage's own boss and lifting off with what they came for.
+
+<p align="center">
+  <img src="docs/screenshots/on-foot.gif" alt="The Forgeworks, on foot" width="420">
+</p>
+
 ## Enemies
 
 Scouts, fighters and cruisers arrive in authored waves that get tougher. After a level's last wave its
@@ -171,7 +187,8 @@ lance, scatter, crossfire or barrage. The set pieces are a multi-headed hydra, b
 piloted mechs you take apart limb by limb, and Aeon at the end of Null.
 
 <p align="center">
-  <img src="docs/screenshots/boss.png" alt="Boss fight, with every power-up" width="620">
+  <img src="docs/screenshots/boss.png" alt="The Frozen Empress, mid-volley" width="420">
+  <img src="docs/screenshots/flagship.gif" alt="Aeon, the Hollow Star, at the end of Null" width="420">
 </p>
 
 ## Between levels
@@ -185,6 +202,10 @@ is also when the next level's art is decoded in the background.
 Between the debrief and the warp is the **garage**: bonuses become credits, and credits buy fourteen
 upgrades across firepower, hull, handling and salvage, plus a chassis, a kit and a paint job that
 travel with the pilot.
+
+<p align="center">
+  <img src="docs/screenshots/garage.png" alt="The garage, both pilots browsing their ships" width="620">
+</p>
 
 ## Pilots and rank
 
