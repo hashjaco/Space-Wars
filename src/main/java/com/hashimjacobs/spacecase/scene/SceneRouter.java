@@ -826,7 +826,7 @@ public final class SceneRouter {
     }
 
     /** Shown on the About page. Keep in step with {@code <version>} in pom.xml. */
-    private static final String VERSION = "2.3.1";
+    private static final String VERSION = "2.4";
     private static final String VERSION_DATE = "November 11, 2026";
 
     /** What the game is and where it came from. */
