@@ -413,9 +413,13 @@ public final class ShipController {
      * firepower upgrade all behave identically -- only the art, the speed and the pierce differ.
      */
     private void fireScythe(World world) {
-        Bullet blade = bullet(Sprite.SCYTHE_BLADE, 0, GameConfig.SCYTHE_DAMAGE,
-                GameConfig.SCYTHE_SPEED);
-        world.addBullet(blade.piercing());
+        // A blade a stack, fanned like the gun's streams.
+        int blades = ship.stacks(PowerUp.Kind.SCYTHE);
+        for (int i = 0; i < blades; i++) {
+            Bullet blade = bullet(Sprite.SCYTHE_BLADE, fan(i, blades), GameConfig.SCYTHE_DAMAGE,
+                    GameConfig.SCYTHE_SPEED);
+            world.addBullet(blade.piercing());
+        }
     }
 
     /**
@@ -425,7 +429,8 @@ public final class ShipController {
      * accuracy honest -- seven rounds are seven chances to hit, not one.
      */
     private void fireFlak(World world) {
-        int pellets = GameConfig.FLAK_PELLETS
+        // One more pellet a stack past the first: the choke already buys two a level.
+        int pellets = GameConfig.FLAK_PELLETS + ship.stacks(PowerUp.Kind.FLAK) - 1
                 + ship.loadout().level(Upgrade.CHOKE) * GameConfig.UPGRADE_CHOKE_STEP;
         for (int i = 0; i < pellets; i++) {
             double spread = (i - (pellets - 1) / 2.0) * GameConfig.FLAK_SPREAD;
@@ -439,19 +444,36 @@ public final class ShipController {
     private void fireNova(World world) {
         double radius = GameConfig.NOVA_BLAST_RADIUS
                 + ship.loadout().level(Upgrade.YIELD) * GameConfig.UPGRADE_YIELD_STEP;
-        Bullet shell = bullet(Sprite.NOVA_SHELL, 0, GameConfig.NOVA_DAMAGE, GameConfig.NOVA_SPEED);
-        world.addBullet(shell.detonating(radius));
+        int shells = ship.stacks(PowerUp.Kind.NOVA);
+        for (int i = 0; i < shells; i++) {
+            Bullet shell = bullet(Sprite.NOVA_SHELL, fan(i, shells), GameConfig.NOVA_DAMAGE,
+                    GameConfig.NOVA_SPEED);
+            world.addBullet(shell.detonating(radius));
+        }
     }
 
+    /** Sideways speed of round {@code i} of {@code count}, so a stacked volley leaves side by side. */
+    private static double fan(int i, int count) {
+        return (i - (count - 1) / 2.0) * STACK_SPREAD;
+    }
+
+    private static final double STACK_SPREAD = 1.2;
+
     private void fireRocket(World world) {
-        ship.recordShot();
+        int rockets = ship.stacks(PowerUp.Kind.ROCKETS);
+        int dirX = ship.facing().xDirection();
+        int dirY = ship.facing().yDirection();
         double[] muzzle = muzzle(Sprite.ROCKET);
-        world.addBullet(new Rocket(Sprite.ROCKET, muzzle[0], muzzle[1],
-                ship.facing().xDirection() * GameConfig.PLAYER_ROCKET_SPEED,
-                ship.facing().yDirection() * GameConfig.PLAYER_ROCKET_SPEED,
-                ship, world.nearestEnemy(ship),
-                ship.damageFor(GameConfig.PLAYER_ROCKET_DAMAGE),
-                GameConfig.PLAYER_ROCKET_TURN_RATE, GameConfig.PLAYER_ROCKET_FUSE_TICKS));
+        for (int i = 0; i < rockets; i++) {
+            ship.recordShot();
+            double spread = fan(i, rockets);
+            world.addBullet(new Rocket(Sprite.ROCKET, muzzle[0], muzzle[1],
+                    dirX * GameConfig.PLAYER_ROCKET_SPEED - dirY * spread,
+                    dirY * GameConfig.PLAYER_ROCKET_SPEED + dirX * spread,
+                    ship, world.nearestEnemy(ship),
+                    ship.damageFor(GameConfig.PLAYER_ROCKET_DAMAGE),
+                    GameConfig.PLAYER_ROCKET_TURN_RATE, GameConfig.PLAYER_ROCKET_FUSE_TICKS));
+        }
     }
 
     /**

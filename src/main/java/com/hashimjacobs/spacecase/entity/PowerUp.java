@@ -80,6 +80,22 @@ public final class PowerUp extends Entity {
             return sprite;
         }
 
+        /**
+         * How many pickups of this weapon are worth holding at once; 1 means a second does nothing.
+         *
+         * Sized so no full stack out-damages a full tri-shot on one target (UpgradeBalanceTest).
+         * The beam does not stack: it already burns through every hull in the lane, and the
+         * firepower and focus upgrades multiply it.
+         */
+        public int maxStacks() {
+            return switch (this) {
+                case TRI_SHOT -> GameConfig.TRI_SHOT_MAX_STACKS;
+                case SCYTHE, FLAK -> 3;
+                case ROCKETS, NOVA -> 2;
+                default -> 1;
+            };
+        }
+
         /** One of everything an ordinary kill, or an arena with nothing to kill, can hand out. */
         public static Kind randomCommon(Random random) {
             return COMMON[random.nextInt(COMMON.length)];

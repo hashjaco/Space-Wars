@@ -309,18 +309,13 @@ public final class PlayerShip extends Entity {
             case EXTRA_LIFE -> lives++;
             // Stacks only onto itself. Coming back to the tri-shot from a rocket rack starts the fan
             // at one stream again, which is the cost of having swapped.
-            case TRI_SHOT -> {
-                holsterWeaponsExcept(PowerUp.Kind.TRI_SHOT);
-                activeEffects.merge(PowerUp.Kind.TRI_SHOT, 1,
-                        (held, one) -> Math.min(held + one, GameConfig.TRI_SHOT_MAX_STACKS));
+            case TRI_SHOT, MEGA_LASER, ROCKETS, SCYTHE, FLAK, NOVA -> {
+                holsterWeaponsExcept(kind);
+                activeEffects.merge(kind, 1, (held, one) -> Math.min(held + one, kind.maxStacks()));
             }
             // A second shield refills rather than adding: a stacked one would be an eventual
             // invulnerability, which is exactly what giving it a bar was meant to end.
             case SHIELD -> activeEffects.put(PowerUp.Kind.SHIELD, shieldCapacity());
-            case MEGA_LASER, ROCKETS, SCYTHE, FLAK, NOVA -> {
-                holsterWeaponsExcept(kind);
-                activeEffects.put(kind, 1);
-            }
             case SPEED -> activeEffects.put(kind, 1);
         }
     }
@@ -401,8 +396,12 @@ public final class PlayerShip extends Entity {
 
     /** How many tri-shot pickups are stacked, 0 to {@code GameConfig.TRI_SHOT_MAX_STACKS}. */
     public int triStacks() {
-        int stacks = activeEffects.getOrDefault(PowerUp.Kind.TRI_SHOT, 0);
-        return stacks;
+        return stacks(PowerUp.Kind.TRI_SHOT);
+    }
+
+    /** How many pickups of a weapon are stacked: 0 unarmed, up to {@code kind.maxStacks()}. */
+    public int stacks(PowerUp.Kind weapon) {
+        return activeEffects.getOrDefault(weapon, 0);
     }
 
     /** What a shield pickup is worth to this ship, capacitor included. */

@@ -267,8 +267,8 @@ final class Hud {
             if (!player.hasEffect(kind)) {
                 continue;
             }
-            boolean stacked = kind == PowerUp.Kind.TRI_SHOT && player.triStacks() > 1;
-            labels.add(stacked ? shortName(kind) + " x" + player.triStacks() : shortName(kind));
+            boolean stacked = kind.maxStacks() > 1 && player.stacks(kind) > 1;
+            labels.add(stacked ? shortName(kind) + " x" + player.stacks(kind) : shortName(kind));
         }
         return labels;
     }
