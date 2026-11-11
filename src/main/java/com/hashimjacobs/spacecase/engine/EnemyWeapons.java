@@ -40,6 +40,9 @@ final class EnemyWeapons {
      */
     private static final int MINION_HEADROOM = 6;
 
+    /** How much longer a flagship waits between primary volleys than its BossPhase says. */
+    static final double PRIMARY_COOLDOWN_SCALE = 1.35;
+
     /** Floor on a scaled boss cooldown, so a late loop cannot turn a pattern into a solid wall. */
     private static final int MIN_BOSS_COOLDOWN_TICKS = 4;
 
@@ -155,31 +158,50 @@ final class EnemyWeapons {
         if (!enemy.isAlive()) {
             return;
         }
-        // A hydra head bites and spits acid; it has no bullet pattern on top. Three heads spraying
-        // spores under the acid and the bone was what made the fight impossible to read.
-        boolean hydraHead = enemy.isBossPart() && enemy.boss() == Boss.HYDRA;
-        if (!hydraHead && enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown))) {
-            BossPhase fired = enemy.isBoss() ? enemy.firingPhase() : null;
-            fire(world, enemy, target, level, enemyCap);
-            // Ordinary enemies stay silent, as they always have; a spawner is venting escorts
-            // rather than shooting, so a machine gun over it would be describing the wrong thing.
-            if (enemy.isBoss() && fired != BossPhase.SPAWNER) {
-                sounds.play(fired != null && fired.isSpecial() ? SoundFx.BOSS_ROCKET
-                        : SoundFx.BOSS_GUN);
+        if (!enemy.isBoss()) {
+            if (enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown))) {
+                fireOrdinary(world, enemy);
             }
-            if (enemy.isBoss()) {
-                // After the shot, never before: firingPhase has to give the cooldown and the fire
-                // the same answer within one tick.
-                enemy.countVolley();
+            return;
+        }
+        boolean part = enemy.isBossPart();
+        if (!part) {
+            enemy.tickCombat();
+            // The special: a roar as it starts charging, then a barrage of its galaxy's special.
+            // Parts sit it out; the hydra's heads lunge together instead (BossHead.lunge).
+            if (enemy.specialTicks() == 0) {
+                sounds.play(SoundFx.BOSS_ROAR);
+            }
+            if (enemy.specialVolleyNow()) {
+                firePattern(world, enemy, target, level, enemyCap, enemy.boss().special());
+                sounds.play(SoundFx.BOSS_ROCKET);
+            }
+        }
+        // The primary goes out in bursts: nothing during a break or while a special is up. The
+        // timer keeps running regardless, so a burst opens on the beat rather than a reload late.
+        // A hydra head has no bullet pattern at all: it bites and spits acid.
+        boolean holding = enemy.resting() || enemy.specialTicks() >= 0;
+        boolean hydraHead = part && enemy.boss() == Boss.HYDRA;
+        if (enemy.tickWeapon(cooldownFor(enemy, difficultyCooldown)) && !holding && !hydraHead) {
+            BossPhase phase = enemy.firingPhase();
+            firePattern(world, enemy, target, level, enemyCap, phase);
+            // A spawner is venting escorts rather than shooting; a machine gun over it would be
+            // describing the wrong thing.
+            if (phase != BossPhase.SPAWNER) {
+                sounds.play(SoundFx.BOSS_GUN);
             }
         }
         int salvo = secondarySalvoFor(enemy);
         if (salvo == 0 || target == null) {
             return;
         }
-        int rocketCooldown = Math.max(MIN_ROCKET_COOLDOWN_TICKS,
-                (int) Math.round(rocketCooldownFor(enemy) / enemy.scale()));
-        if (enemy.tickRocket(rocketCooldown)) {
+        // A part keeps its own slow timer (the hydra's acid, a rig's arm). A flagship launches its
+        // rockets as each break begins, so the break is it repositioning, not more of the stream.
+        boolean launch = part
+                ? enemy.tickRocket(Math.max(MIN_ROCKET_COOLDOWN_TICKS,
+                        (int) Math.round(rocketCooldownFor(enemy) / enemy.scale())))
+                : enemy.restBegins();
+        if (launch) {
             fireRockets(world, enemy, target, salvo);
             sounds.play(SoundFx.BOSS_ROCKET);
         }
@@ -282,7 +304,7 @@ final class EnemyWeapons {
             fireOrdinary(world, enemy);
             return;
         }
-        firePattern(world, enemy, target, level, enemyCap);
+        firePattern(world, enemy, target, level, enemyCap, enemy.firingPhase());
     }
 
     /**
@@ -318,17 +340,19 @@ final class EnemyWeapons {
                     (int) Math.round(difficultyCooldown * enemy.fireFactor()));
         }
         BossPhase phase = enemy.firingPhase();
+        // The flagship's primary at three quarters of the rate it was tuned at: with the breaks
+        // between bursts that is about half the bullets a second the fights used to throw.
+        double primary = PRIMARY_COOLDOWN_SCALE;
         double share = enemy.isBossPart() ? partCooldownFactor(enemy.siblingParts()) : 1;
         // An enraged flagship reloads faster as well as strafing harder. Both come off the same
         // flag, so a fight that speeds up does it in one readable way rather than two.
         double rage = enemy.isEnraged() ? ENRAGE_COOLDOWN_SCALE : 1;
-        int scaled = (int) Math.round(phase.cooldownTicks() * share * rage / enemy.scale());
+        int scaled = (int) Math.round(phase.cooldownTicks() * primary * share * rage / enemy.scale());
         return Math.max(MIN_BOSS_COOLDOWN_TICKS, scaled);
     }
 
     private static void firePattern(World world, EnemyShip boss, PlayerShip target, Level level,
-                                    int enemyCap) {
-        BossPhase phase = boss.firingPhase();
+                                    int enemyCap, BossPhase phase) {
         if (phase == BossPhase.SPAWNER) {
             spawnMinions(world, boss, level, enemyCap);
             return;
@@ -352,7 +376,7 @@ final class EnemyWeapons {
         int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * round.damageFactor()
                 * phase.damageScale() * boss.scale());
 
-        boolean bones = phase == BossPhase.BONE_FAN;
+        boolean bones = phase == BossPhase.BONE_FAN || phase == BossPhase.BONE_RING;
         if (bones) {
             speed *= GameConfig.BONE_SPEED_SCALE;
         }

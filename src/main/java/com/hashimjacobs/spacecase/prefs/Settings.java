@@ -17,6 +17,11 @@ public final class Settings {
     private static final String KEY_REDUCED_FLASH = "reducedFlash";
     private static final String KEY_CINEMATIC = "glowEffects";
     private static final String KEY_FILM_GRAIN = "filmGrain";
+    private static final String KEY_WINDOW = "windowHeight";
+
+    /** {@link #windowHeight} values that are not a pixel height. */
+    public static final int FULLSCREEN = 0;
+    public static final int FIT_SCREEN = -1;
     /** Player one keeps the original keys, so a store written before per-player binding loads. */
     private static final String[] KEY_FIRE_BUTTON = {"gamepadFireButton", "gamepadFireButton2"};
     private static final String[] KEY_PAUSE_BUTTON = {"gamepadPauseButton", "gamepadPauseButton2"};
@@ -45,6 +50,7 @@ public final class Settings {
     private boolean reducedFlash;
     private boolean cinematic;
     private boolean filmGrain;
+    private int windowHeight;
     private final PadButton[] gamepadFireButton = new PadButton[PLAYERS];
     private final PadButton[] gamepadPauseButton = new PadButton[PLAYERS];
     private final double[] gamepadSensitivity = new double[PLAYERS];
@@ -75,6 +81,7 @@ public final class Settings {
         settings.reducedFlash = store.getBoolean(KEY_REDUCED_FLASH, false);
         settings.cinematic = store.getBoolean(KEY_CINEMATIC, true);
         settings.filmGrain = store.getBoolean(KEY_FILM_GRAIN, false);
+        settings.windowHeight = store.getInt(KEY_WINDOW, 864);
         for (int slot = 0; slot < PLAYERS; slot++) {
             settings.gamepadFireButton[slot] =
                     readPadButton(store, KEY_FIRE_BUTTON[slot], PadButton.A);
@@ -137,6 +144,7 @@ public final class Settings {
         store.putBoolean(KEY_REDUCED_FLASH, reducedFlash);
         store.putBoolean(KEY_CINEMATIC, cinematic);
         store.putBoolean(KEY_FILM_GRAIN, filmGrain);
+        store.putInt(KEY_WINDOW, windowHeight);
         for (int slot = 0; slot < PLAYERS; slot++) {
             store.put(KEY_FIRE_BUTTON[slot], gamepadFireButton[slot].name());
             store.put(KEY_PAUSE_BUTTON[slot], gamepadPauseButton[slot].name());
@@ -264,6 +272,18 @@ public final class Settings {
 
     public void setFilmGrain(boolean on) {
         this.filmGrain = on;
+    }
+
+    /**
+     * The window's content height in pixels (its width follows the arena's aspect), or
+     * {@link #FULLSCREEN}, or {@link #FIT_SCREEN} for a maximized window.
+     */
+    public int windowHeight() {
+        return windowHeight;
+    }
+
+    public void setWindowHeight(int height) {
+        this.windowHeight = height;
     }
 
     /**

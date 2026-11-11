@@ -1616,6 +1616,9 @@ public enum Sprite {
     // Garage upgrade icons, one per Upgrade in enum order. Sprixen output placed by tools/sprixen.
     /** The hangar deck behind the garage's bays (tools/openart/fx.py). */
     GARAGE_BAY("garage/bay.png", 996, 864),
+    /** The start screen's key art and wordmark, behind every menu (tools/openart/fx.py title-*). */
+    TITLE_BACKDROP("title/backdrop.png"),
+    TITLE_LOGO("title/logo.png", 520, 520, true),
     GARAGE_FIREPOWER("garage/firepower.png", 24, 24),
     GARAGE_FIRE_RATE("garage/fire_rate.png", 24, 24),
     GARAGE_SALVO("garage/salvo.png", 24, 24),

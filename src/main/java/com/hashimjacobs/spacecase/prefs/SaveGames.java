@@ -4,6 +4,7 @@ import java.util.Optional;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
+import com.hashimjacobs.spacecase.mode.Challenge;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
@@ -33,6 +34,7 @@ public final class SaveGames {
     private static final String CHECKPOINT_KEY = "checkpoint";
     private static final String SLOT_KEY_PREFIX = "slot";
     private static final String CLEARED_KEY_PREFIX = "cleared/";
+    private static final String CHALLENGES_KEY_PREFIX = "challenges/";
 
     private final Preferences store;
 
@@ -210,6 +212,47 @@ public final class SaveGames {
         }
         Level previous = Level.values()[level.ordinal() - 1];
         return isCleared(mode, previous);
+    }
+
+    // ---- Challenges --------------------------------------------------------------------------
+    //
+    // One small int per level, a bit per Challenge, shared by both modes: a core found in co-op
+    // is found. Same node as the cleared masks, so Profile syncs it and resetProgress wipes it.
+
+    /** The challenges ever met on this level, as {@code Challenge.bit()}s. */
+    public int challenges(Level level) {
+        return level == null ? 0 : store.getInt(CHALLENGES_KEY_PREFIX + level.name(), 0) & Challenge.ALL;
+    }
+
+    /** Adds {@code bits} to the level's record and returns only the ones that are new. */
+    public int recordChallenges(Level level, int bits) {
+        int held = challenges(level);
+        int fresh = bits & Challenge.ALL & ~held;
+        if (fresh != 0) {
+            store.putInt(CHALLENGES_KEY_PREFIX + level.name(), held | fresh);
+            flush();
+        }
+        return fresh;
+    }
+
+    /** One level's completion, 0-1: cleared in either mode plus each challenge, equally weighted. */
+    public double completion(Level level) {
+        boolean cleared = isCleared(GameMode.SOLO, level) || isCleared(GameMode.COOP, level);
+        int parts = (cleared ? 1 : 0) + Integer.bitCount(challenges(level));
+        return parts / (double) Challenge.PARTS_PER_LEVEL;
+    }
+
+    /** A galaxy's completion as a whole percent; {@code null} for the whole campaign. */
+    public int percent(Galaxy galaxy) {
+        double sum = 0;
+        int count = 0;
+        for (Level level : Level.values()) {
+            if (galaxy == null || level.galaxy() == galaxy) {
+                sum += completion(level);
+                count++;
+            }
+        }
+        return count == 0 ? 0 : (int) Math.floor(100 * sum / count);
     }
 
     /** How many of a galaxy's ten are done, for the map's "7/10" caption. */

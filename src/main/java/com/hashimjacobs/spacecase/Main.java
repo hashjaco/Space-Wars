@@ -33,9 +33,12 @@ public final class Main extends Application {
         stage.setMinWidth(560);
         stage.setMinHeight(500);
         stage.setFullScreenExitHint("Press F11 to leave fullscreen");
+        // F11 is the way out; Escape belongs to the game's own back and pause.
+        stage.setFullScreenExitKeyCombination(javafx.scene.input.KeyCombination.NO_MATCH);
 
         SceneRouter router = new SceneRouter(stage, settings, sounds, highScores, pilots);
-        // --onfoot or --onfoot=coop: straight onto the Undercity stage, looping, for feel-tuning.
+        // --onfoot[=<mission>][,coop], e.g. --onfoot=forgeworks,coop: straight onto that stage
+        // (the Undercity by default), looping, for feel-tuning.
         String onFoot = getParameters().getRaw().stream().filter(a -> a.startsWith("--onfoot")).findFirst().orElse(null);
         // --level=N[,boss]: solo straight into level N, optionally with its flagship already coming.
         // --garage: solo, opening in the garage. Both for looking at art, like --onfoot.
@@ -49,7 +52,14 @@ public final class Main extends Application {
         } else if (onFoot != null) {
             GameLoop.devOnFoot = true;
             GameMode mode = onFoot.endsWith("coop") ? GameMode.COOP : GameMode.SOLO;
-            router.startGame(mode, SaveSlot.forReplay(mode, Level.UNDERCITY));
+            String named = onFoot.contains("=") ? onFoot.substring(onFoot.indexOf('=') + 1).split(",")[0] : "";
+            com.hashimjacobs.spacecase.onfoot.Mission mission = com.hashimjacobs.spacecase.onfoot.Mission.UNDERCITY;
+            for (com.hashimjacobs.spacecase.onfoot.Mission m : com.hashimjacobs.spacecase.onfoot.Mission.values()) {
+                if (m.name().equalsIgnoreCase(named.replace('-', '_'))) {
+                    mission = m;
+                }
+            }
+            router.startGame(mode, SaveSlot.forReplay(mode, mission.level()));
         } else {
             router.showStartMenu();
         }
@@ -59,6 +69,8 @@ public final class Main extends Application {
             router.shutdown();
         });
         stage.show();
+        // After show, so the title bar's size is known and the window can be sized around the game.
+        SceneRouter.applyResolution(stage, settings.windowHeight());
     }
 
     public static void main(String[] args) {

@@ -17,13 +17,13 @@ import com.hashimjacobs.spacecase.mode.Galaxy;
 public enum MusicCue {
 
     /** Start screen, the submenus, and the game over screen. */
-    MENU(MusicTrack.ARCADE_WOMPS),
+    MENU(MusicTrack.ARCADE_WOMPS, MusicTrack.STARFALL_OVERTURE),
 
     /**
-     * Single player and co-op, one cue per galaxy. Each rotates four of the six gameplay tracks,
+     * Single player and co-op, one cue per galaxy. Each rotates four of the seven gameplay tracks,
      * its signature one first, and {@code SoundBank} never plays the same one twice running -- one
      * track per galaxy made ten levels in a row sound identical. Galaxies share tracks because
-     * there are only six; what keeps a galaxy its own is which four, and its signature.
+     * there are only seven; what keeps a galaxy its own is which four, and its signature.
      *
      * The heavy tracks are not here at all: metal and hard rock are saved for the bosses.
      * Resolved by {@link #forGalaxy(Galaxy)}; {@code GameMode.musicFor(Level)} is what callers use.
@@ -36,11 +36,14 @@ public enum MusicCue {
             MusicTrack.PIXEL_WOMP_RUN),
     TEMPEST(MusicTrack.GRIME_QUEST, MusicTrack.BASSLINE_RIOT, MusicTrack.GRIME_QUEST_REMIX,
             MusicTrack.STARLIGHT_CIRCUIT),
-    NULL(MusicTrack.GRIME_QUEST_REMIX, MusicTrack.BASSLINE_RIOT_VARIANT, MusicTrack.STARLIGHT_CIRCUIT,
-            MusicTrack.GRIME_QUEST),
+    NULL(MusicTrack.EVENT_HORIZON, MusicTrack.GRIME_QUEST_REMIX, MusicTrack.BASSLINE_RIOT_VARIANT,
+            MusicTrack.STARLIGHT_CIRCUIT),
 
     /** Battle mode. */
-    BATTLE(MusicTrack.BASSLINE_RIOT_VARIANT),
+    BATTLE(MusicTrack.BASSLINE_RIOT_VARIANT, MusicTrack.DOGFIGHT_PROTOCOL),
+
+    /** The on-foot Undercity stage, which used to keep whatever the level was playing. */
+    ON_FOOT(MusicTrack.UNDERCITY_BRAWL),
 
     /**
      * Swapped in while any flagship is on screen, and back out when it dies. Every boss gets metal
@@ -52,7 +55,7 @@ public enum MusicCue {
     GARAGE(MusicTrack.GARAGE_MUSIC),
 
     /** Aeon, at the end of everything, with a theme to itself like the two monsters. */
-    AEON_BOSS(MusicTrack.DEATH_METAL);
+    AEON_BOSS(MusicTrack.AEONS_END);
 
     /** The gameplay cue for a galaxy: the five constants above, in galaxy order. */
     public static MusicCue forGalaxy(Galaxy galaxy) {

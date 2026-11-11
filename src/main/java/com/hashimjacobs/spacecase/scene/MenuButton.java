@@ -47,6 +47,8 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
     private final Label value;
     private final Runnable action;
     private final HBox row;
+    private final Label chevron;
+    private final javafx.animation.TranslateTransition nudge;
     private java.util.function.IntConsumer onAdjust;
     private boolean focused;
     private boolean locked;
@@ -78,8 +80,17 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
         // The label on the left, its value hard against the right edge. These used to be one
         // string padded apart with spaces, which in a proportional face lines nothing up -- the
         // column was visibly ragged, and only got away with it while the rows were centred.
+        // Where focus is, said a third way beside the edge and the fill: a mark at the row's end.
+        chevron = line("\u203a", Tokens.SIZE_BUTTON, FontWeight.BOLD);
+        chevron.setMinWidth(Region.USE_PREF_SIZE);
+        chevron.setTextFill(HIGHLIGHT);
+        chevron.setOpacity(0);
+
         Region spacer = new Region();
-        row = new HBox(Tokens.GAP, lines, spacer, value);
+        row = new HBox(Tokens.GAP, lines, spacer, value, chevron);
+        // The focused row steps a few pixels toward its mark. Ninety milliseconds, one direction:
+        // motion, not a flash, so it is not gated on the reduced-flash setting.
+        nudge = new javafx.animation.TranslateTransition(javafx.util.Duration.millis(90), row);
         row.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(spacer, Priority.ALWAYS);
 
@@ -185,7 +196,26 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
             return;
         }
         paint(Tokens.SURFACE_1, Tokens.BRAND_DEEP, true);
+        // A wash of the brand fading out from the accent edge, over the plain focused fill.
+        setBackground(new Background(
+                new BackgroundFill(Tokens.SURFACE_1.deriveColor(0, 1, 1, 0.9), CORNERS, Insets.EMPTY),
+                new BackgroundFill(new javafx.scene.paint.LinearGradient(0, 0, 1, 0, true,
+                        javafx.scene.paint.CycleMethod.NO_CYCLE,
+                        new javafx.scene.paint.Stop(0, HIGHLIGHT.deriveColor(0, 1, 1, 0.22)),
+                        new javafx.scene.paint.Stop(0.7, HIGHLIGHT.deriveColor(0, 1, 1, 0))),
+                        CORNERS, Insets.EMPTY)));
         title.setTextFill(Color.WHITE);
+        mark(true);
+    }
+
+    private void mark(boolean on) {
+        chevron.setOpacity(on ? 1 : 0);
+        double to = on ? 4 : 0;
+        if (nudge.getToX() != to || row.getTranslateX() != to) {
+            nudge.stop();
+            nudge.setToX(to);
+            nudge.play();
+        }
     }
 
     private void paintForFocusState() {
@@ -195,6 +225,7 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
         }
         paint(IDLE_BACKGROUND, Tokens.EDGE, false);
         title.setTextFill(locked ? Tokens.TEXT_FAINT : IDLE_TEXT);
+        mark(false);
     }
 
     /**

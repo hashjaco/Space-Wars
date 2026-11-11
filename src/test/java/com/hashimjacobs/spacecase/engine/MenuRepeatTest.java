@@ -137,15 +137,31 @@ class MenuRepeatTest {
     }
 
     @Test
-    void keysThatAreNotDirectionsAreNeverThrottled() {
+    void keysThatAreNotDirectionsActOncePerPress() {
         Gate gate = new Gate();
 
         for (KeyCode code : List.of(KeyCode.ENTER, KeyCode.SPACE, KeyCode.ESCAPE, KeyCode.Q)) {
             gate.press(code);
-            gate.press(code);
+            gate.at(PAD_REPEAT_MS * 5);
+            assertTrue(gate.press(code), "a held repeat still answers consumed");
+            assertFalse(gate.passedLast(), "but never reaches the menu: one buy per press");
+            gate.release(code);
+            gate.at(0);
         }
+        assertEquals(4, gate.seen.size());
 
-        assertEquals(8, gate.seen.size(), "activation and typing are one-shot already");
+        gate.press(KeyCode.ENTER);
+        assertEquals(5, gate.seen.size(), "a release makes the next press count at once");
+    }
+
+    @Test
+    void onlyAPressThatMovedReportsPassed() {
+        Gate gate = new Gate();
+        gate.press(KeyCode.DOWN);
+        assertTrue(gate.passedLast(), "the first push moves, and is heard");
+        gate.at(PAD_REPEAT_MS);
+        gate.press(KeyCode.DOWN);
+        assertFalse(gate.passedLast(), "a swallowed repeat is silent");
     }
 
     /**
@@ -204,6 +220,10 @@ class MenuRepeatTest {
 
         boolean press(KeyCode code) {
             return gate.test(code);
+        }
+
+        boolean passedLast() {
+            return gate.passed();
         }
 
         /** Whether this press reached the menu, rather than what the menu answered. */

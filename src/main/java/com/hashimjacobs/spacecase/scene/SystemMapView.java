@@ -12,8 +12,10 @@ import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.MapArt;
+import com.hashimjacobs.spacecase.engine.SpawnDirector;
 import com.hashimjacobs.spacecase.entity.Boss;
 import com.hashimjacobs.spacecase.garage.Loadout;
+import com.hashimjacobs.spacecase.mode.Challenge;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.scene.SystemMapModel.Node;
@@ -211,6 +213,56 @@ final class SystemMapView {
         return node.state() == NodeState.CLEARED;
     }
 
+    /** A dot per challenge under a cleared node: filled once met, so a full row reads as 100%. */
+    private void drawChallengePips(Node node, double cx, double cy) {
+        Challenge[] all = Challenge.values();
+        double step = 9;
+        double x = cx - step * (all.length - 1) / 2;
+        for (Challenge challenge : all) {
+            if (challenge.in(node.challenges())) {
+                gc.setFill(accent);
+                gc.fillOval(x - 3, cy - 3, 6, 6);
+            } else {
+                gc.setStroke(Tokens.TEXT_FAINT);
+                gc.setLineWidth(1);
+                gc.strokeOval(x - 3, cy - 3, 6, 6);
+            }
+            x += step;
+        }
+    }
+
+    /** The focused level's challenges, as a checklist in the panel's middle column. */
+    private void drawChallengeList(Node node, double x) {
+        int bits = node.challenges();
+        int cores = Integer.bitCount(bits & (Challenge.CORE_1.bit() | Challenge.CORE_2.bit() | Challenge.CORE_3.bit()));
+        int par = SpawnDirector.parTicks(node.level()) / 60;
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setFill(Tokens.LABEL);
+        gc.setFont(Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION));
+        gc.fillText("CHALLENGES   " + Math.round(node.completion() * 100) + "%", x, PANEL_TOP + 30);
+        String[] rows = {
+                "Defeat every enemy",
+                "Beat par  " + par / 60 + ":" + String.format("%02d", par % 60),
+                "Hidden cores  " + cores + "/3",
+                "Earn an S rank"};
+        boolean[] met = {Challenge.ALL_DOWN.in(bits), Challenge.CLOCK.in(bits), cores == 3,
+                Challenge.S_RANK.in(bits)};
+        gc.setFont(Font.font(Tokens.BODY, FontWeight.NORMAL, Tokens.SIZE_BODY));
+        for (int i = 0; i < rows.length; i++) {
+            double y = PANEL_TOP + 62 + i * 26;
+            if (met[i]) {
+                gc.setFill(accent);
+                gc.fillOval(x, y - 10, 10, 10);
+            } else {
+                gc.setStroke(Tokens.TEXT_FAINT);
+                gc.setLineWidth(1.5);
+                gc.strokeOval(x, y - 10, 10, 10);
+            }
+            gc.setFill(met[i] ? Tokens.TEXT : Tokens.TEXT_SECONDARY);
+            gc.fillText(rows[i], x + 18, y);
+        }
+    }
+
     private void drawNode(Node node, boolean focused) {
         double cx = x(node);
         double cy = y(node);
@@ -236,8 +288,9 @@ final class SystemMapView {
                 gc.setFill(accent.deriveColor(0, 1, 1, 0.85));
                 gc.fillOval(cx - r, cy - r, r * 2, r * 2);
                 drawTick(cx, cy);
+                drawChallengePips(node, cx, cy + r + 9);
                 if (node.best() > 0) {
-                    label("best " + node.best(), cx, cy + r + 18, Tokens.TEXT_DIM,
+                    label("best " + node.best(), cx, cy + r + 26, Tokens.TEXT_DIM,
                             Tokens.SIZE_SMALL);
                 }
             }
@@ -343,6 +396,9 @@ final class SystemMapView {
         gc.setFont(Font.font(Tokens.BODY, FontWeight.NORMAL, Tokens.SIZE_CAPTION));
         gc.fillText("< > choose    Enter fly    Esc back", textX, PANEL_TOP + 178);
 
+        if (known) {
+            drawChallengeList(node, x + w * 0.46);
+        }
         drawBossPortrait(level.boss(), x + w - 150, PANEL_TOP + PANEL_HEIGHT / 2, known);
     }
 

@@ -189,6 +189,55 @@ class OnFootStageTest {
         assertTrue(s.done(), "stuck at " + s.beat() + " segment " + s.segment());
     }
 
+    private static OnFootStage play(long seed, int players, int maxTicks, Mission mission) {
+        OnFootStage s = new OnFootStage(seed, players, P, mission);
+        for (int t = 0; t < maxTicks && !s.done(); t++) {
+            s.step(bot(s));
+        }
+        return s;
+    }
+
+    @Test
+    void everyMissionIsDeterministicAndABotCanFinishIt() {
+        for (Mission mission : Mission.values()) {
+            assertEquals(play(7, 2, 3000, mission).checksum(), play(7, 2, 3000, mission).checksum(),
+                    mission + " diverged");
+            for (int players = 1; players <= 2; players++) {
+                OnFootStage s = play(11, players, 60 * 60 * 8, mission);
+                assertTrue(s.done(), mission + " with " + players + " stuck at " + s.beat() + " segment " + s.segment());
+            }
+        }
+    }
+
+    @Test
+    void eachGalaxyBossUsesItsSignature() {
+        for (Mission mission : Mission.values()) {
+            if (mission == Mission.UNDERCITY) {
+                continue;
+            }
+            OnFootStage s = new OnFootStage(11, 2, P, mission);
+            boolean bossSeen = false, signature = false;
+            for (int t = 0; t < 60 * 60 * 8 && !s.done(); t++) {
+                s.step(bot(s));
+                Fighter boss = s.boss();
+                bossSeen |= boss != null && boss.kind == mission.boss;
+                signature |= !s.hazards().isEmpty() || boss != null && boss.move() == Move.GRAVITY_WELL;
+            }
+            assertTrue(bossSeen, mission + " never fielded " + mission.boss);
+            assertTrue(signature, mission + "'s boss never used its signature");
+        }
+    }
+
+    @Test
+    void theMissionsSitOneAGalaxyAfterTheirOwnLevels() {
+        java.util.Set<com.hashimjacobs.spacecase.mode.Galaxy> galaxies = new java.util.HashSet<>();
+        for (Mission mission : Mission.values()) {
+            assertEquals(mission, OnFootStage.missionAfter(mission.level()));
+            assertTrue(galaxies.add(mission.level().galaxy()), "two in " + mission.level().galaxy());
+        }
+        assertEquals(null, OnFootStage.missionAfter(com.hashimjacobs.spacecase.mode.Level.ORBITAL_APPROACH));
+    }
+
     @Test
     void aBruteShrugsOffJabsUntilTheyPileUpButAHeavyHitLands() {
         Fighter brute = new Fighter(Fighter.Kind.BRUTE, 0, 500);
@@ -203,6 +252,35 @@ class OnFootStageTest {
         Fighter fresh = new Fighter(Fighter.Kind.BRUTE, 0, 500);
         fresh.takeHit(Move.UPPERCUT, -1, 1, Move.UPPERCUT.knockX, Move.UPPERCUT.knockY, P);
         assertTrue(fresh.state != Fighter.State.FREE, "a heavy hit gets through at once");
+    }
+
+    @Test
+    void aPilotCannotBeHitAgainUntilItsMercyRunsOut() {
+        Fighter f = pilot();
+        f.takeHit(Move.CLAW, -1, 1, Move.CLAW.knockX, Move.CLAW.knockY, P);
+        assertSame(Fighter.State.HITSTUN, f.state);
+        while (f.state != Fighter.State.FREE) {
+            tick(f, IDLE);
+        }
+        assertTrue(!f.hittable(), "protected right after the stun ends");
+        for (int t = 0; t < Fighter.MERCY_TICKS; t++) {
+            tick(f, IDLE);
+        }
+        assertTrue(f.hittable(), "and fair game again once the mercy is spent");
+    }
+
+    @Test
+    void theFloorNeverHoldsMoreThanTheCapAndTheBossFightsAlone() {
+        for (Mission mission : Mission.values()) {
+            OnFootStage s = new OnFootStage(5, 1, P, mission);
+            for (int t = 0; t < 60 * 60 * 6 && !s.done(); t++) {
+                s.step(bot(s));
+                assertTrue(s.liveEnemies() <= OnFootStage.MAX_ON_FLOOR + 1, mission + " had " + s.liveEnemies());
+                if (s.boss() != null && s.boss().alive()) {
+                    assertEquals(1, s.liveEnemies(), mission + "'s boss has company");
+                }
+            }
+        }
     }
 
     @Test

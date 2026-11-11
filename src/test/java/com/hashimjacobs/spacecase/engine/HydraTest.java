@@ -334,4 +334,36 @@ class HydraTest {
         // Only a head with bite frames shows them; the hull loop is never chosen by a lunge.
         assertEquals(BossArt.State.IDLE, BossArt.HYDRA_HEAD_CG.stateFor(0.1));
     }
+
+    /** Heads first: the body is armour until the last head is off, then it bleeds and rages. */
+    @Test
+    void theHeadsComeOffFirstAndLeaveTheirStumps() {
+        World world = withHydra();
+        EnemyShip torso = torsoOf(world);
+        List<EnemyShip> heads = headsOf(world);
+        assertTrue(torso.armoured());
+        heads.get(0).takeDamage(100_000);
+        heads.get(1).takeDamage(100_000);
+        world.sweep();
+        assertEquals(1, torso.livingParts());
+        assertEquals(3, torso.parts().size(), "a dead head stays a part, for its stump");
+        torso.takeDamage(500);
+        assertTrue(torso.armoured(), "one head left still shields the body");
+        heads.get(2).takeDamage(100_000);
+        assertTrue(!torso.armoured(), "with every head off the body is bare");
+        assertEquals(BossArt.State.RAGE, torso.artState(), "and enraged in the picture");
+    }
+
+    /** The hydra's special is a frenzy: every live head lunges at once. */
+    @Test
+    void inAFrenzyEveryHeadLunges() {
+        World world = withHydra();
+        EnemyShip torso = torsoOf(world);
+        boolean all = false;
+        for (int tick = 0; tick < 1200 && !all; tick++) {
+            torso.tickCombat();
+            all = torso.specialTicks() > 0 && headsOf(world).stream().allMatch(h -> ((BossHead) h).lunging());
+        }
+        assertTrue(all, "a frenzy should put every head out together");
+    }
 }

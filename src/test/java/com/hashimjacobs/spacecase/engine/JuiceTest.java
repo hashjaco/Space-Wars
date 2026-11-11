@@ -1,5 +1,7 @@
 package com.hashimjacobs.spacecase.engine;
 
+import com.hashimjacobs.spacecase.asset.SoundPlayer;
+
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -137,11 +139,15 @@ class JuiceTest {
         World world = new World(GameMode.SOLO);
         PlayerShip target = world.players().get(0);
         EnemyShip boss = new EnemyShip(nullOpener, 400, 90);
-        for (int volley = 0; volley < 3; volley++) {
-            boss.countVolley();
+        boolean seen = false;
+        for (int tick = 0; tick < 1200 && !seen; tick++) {
+            world.bullets().clear();
+            EnemyWeapons.driveWeapons(world, boss, target, LEVEL, 60, 8, SoundPlayer.SILENT);
+            if (boss.specialVolleyNow()) {
+                seen = true;
+                assertEquals(BossPhase.LATTICE.shots(), world.bullets().size(), "a special volley is the lattice");
+            }
         }
-        world.bullets().clear();
-        EnemyWeapons.fire(world, boss, target, LEVEL, 8);
-        assertEquals(BossPhase.LATTICE.shots(), world.bullets().size(), "the fourth volley is the special");
+        assertTrue(seen, "the special should come within twenty seconds");
     }
 }

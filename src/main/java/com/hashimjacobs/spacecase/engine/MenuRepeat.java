@@ -22,9 +22,10 @@ import javafx.scene.input.KeyCode;
  * InputState#setMenuRouter} and the scene router's key handler, so the menus, the garage and name
  * entry are all covered without any of them knowing this exists.
  *
- * Only the direction keys are throttled, and only while one is genuinely held down -- releases are
- * reported, not guessed at, so tapping as fast as you like always lands. Enter, Space, Escape and
- * letters pass through untouched: activation and typing are one-shot already.
+ * Only the direction keys (and Backspace) repeat, and only while one is genuinely held down --
+ * releases are reported, not guessed at, so tapping as fast as you like always lands. Every other key
+ * acts once per press: a held confirm is re-sent by the pad and auto-repeated by the keyboard, and
+ * before this a single press on an upgrade bought every level the pilot could afford.
  */
 public final class MenuRepeat implements Predicate<KeyCode> {
 
@@ -36,7 +37,7 @@ public final class MenuRepeat implements Predicate<KeyCode> {
 
     private static final Set<KeyCode> REPEATABLE = EnumSet.of(
             KeyCode.UP, KeyCode.DOWN, KeyCode.LEFT, KeyCode.RIGHT,
-            KeyCode.W, KeyCode.A, KeyCode.S, KeyCode.D);
+            KeyCode.W, KeyCode.A, KeyCode.S, KeyCode.D, KeyCode.BACK_SPACE);
 
     private final Predicate<KeyCode> inner;
     private final LongSupplier clock;
@@ -46,6 +47,8 @@ public final class MenuRepeat implements Predicate<KeyCode> {
     private final Set<KeyCode> down = EnumSet.noneOf(KeyCode.class);
     private final Map<KeyCode, Long> openAt = new EnumMap<>(KeyCode.class);
     private final Map<KeyCode, Boolean> consumed = new EnumMap<>(KeyCode.class);
+    /** Whether the last key tested reached the menu rather than being swallowed as a repeat. */
+    private boolean passed;
 
     /** Wraps a menu router, or returns null for the null that means "no menu is up". */
     public static MenuRepeat gate(Predicate<KeyCode> inner) {
@@ -60,13 +63,20 @@ public final class MenuRepeat implements Predicate<KeyCode> {
 
     @Override
     public boolean test(KeyCode code) {
-        if (!REPEATABLE.contains(code)) {
-            return inner.test(code);
-        }
-
         long now = clock.getAsLong();
         // add returns true the first time, which is exactly "this key was not already down".
         boolean fresh = down.add(code);
+        passed = false;
+
+        if (!REPEATABLE.contains(code)) {
+            if (!fresh) {
+                return consumed.getOrDefault(code, Boolean.FALSE);   // held: once per press
+            }
+            passed = true;
+            boolean result = inner.test(code);
+            consumed.put(code, result);
+            return result;
+        }
 
         if (!fresh && now < openAt.getOrDefault(code, 0L)) {
             // Swallowed -- but answer as the menu did when it last saw this key. Reporting a
@@ -76,9 +86,18 @@ public final class MenuRepeat implements Predicate<KeyCode> {
         }
 
         openAt.put(code, nextOpening(code, now, fresh));
+        passed = true;
         boolean result = inner.test(code);
         consumed.put(code, result);
         return result;
+    }
+
+    /**
+     * Whether the key just tested reached the menu. A swallowed repeat still answers "consumed", so
+     * that it does not leak to the ship, but it moved nothing and should make no sound.
+     */
+    public boolean passed() {
+        return passed;
     }
 
     /**

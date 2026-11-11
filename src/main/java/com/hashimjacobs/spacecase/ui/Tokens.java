@@ -32,7 +32,7 @@ public final class Tokens {
 
     /** The one accent. Focus, totals, health above half, anything the player owns. */
     public static final Color BRAND = Color.web("#0ec417");
-    /** Only the edges of a focused menu button's gradient. */
+    /** The brand's dark end: a focused row's border and pressed fill, the start of a slider's fill. */
     public static final Color BRAND_DEEP = Color.web("#0a5d12");
 
     // ---- Surfaces, back to front ----------------------------------------------------------
@@ -99,6 +99,11 @@ public final class Tokens {
     /** Health between a quarter and a half. */
     public static final Color WARN = Color.GOLD;
 
+    /** What a bar has just lost, drawn behind its fill for a beat: see {@code Meter.Lag}. */
+    public static final Color GHOST = Color.web("#f2f5ff", 0.85);
+    /** The plate behind a HUD panel, so its text reads on the brightest sky in the campaign. */
+    public static final Color PLATE = Color.web("#0c1120", 0.6);
+
     /** Health between a quarter and a half, on the bars: brighter than the brand green. */
     public static final Color HEALTH_MID = Color.web("#ffd166");
     /** Health under a quarter, on the bars: much darker than either, so the ramp reads by luminance. */
@@ -109,7 +114,7 @@ public final class Tokens {
      *
      * The old green, gold, red ramp was a hue ramp, and green against red is the pair a deutan eye
      * cannot separate. These three stops differ in luminance as much as in hue, and under a quarter
-     * the bars also hatch (see {@code Hud.stripes}), which no colour vision can miss.
+     * the bars also hatch (see {@code Meter.stripes}), which no colour vision can miss.
      */
     public static Color healthColor(double fraction) {
         return fraction > 0.5 ? BRAND : fraction > 0.25 ? HEALTH_MID : HEALTH_LOW;

@@ -40,7 +40,17 @@ public enum Move {
 
     // A Slag Brute. A heavy hook up close, and a shoulder charge from range that knocks down.
     SMASH("combo_1", 15, 4, 22, 82, 0.15, 0.6, 13, 7, -2, 20, 5, false),
-    RAM("combo_2", 22, 16, 28, 64, 0.1, 0.95, 16, 12, -5, 24, 7, true);
+    RAM("combo_2", 22, 16, 28, 64, 0.1, 0.95, 16, 12, -5, 24, 7, true),
+
+    // The signatures, one per galaxy boss. Each is the boss's one new thing to learn.
+    /** The Crucible Warden: a hammer blow that leaves slag pools burning on the floor. */
+    SLAG_SLAM("special", 24, 4, 30, 90, 0.1, 1.0, 14, 4, -8, 26, 8, true),
+    /** The Rime Matriarch: a mark blooms under each pilot, then spikes erupt from it. */
+    ICE_SPIKES("special", 20, 2, 34, 0, 0, 0, 14, 3, -12, 24, 6, true),
+    /** The Arc Tyrant: a line lights down the floor, then it dashes along it low enough to jump. */
+    ARC_DASH("special", 40, 20, 26, 60, 0.55, 1.0, 16, 12, -6, 26, 7, true),
+    /** The Null Revenant: drags the pilots in, then pounds; run against the pull, jump the shock. */
+    GRAVITY_WELL("special", 20, 100, 30, 0, 0, 0, 0, 0, 0, 0, 10, false);
 
     final String anim;
     final int startup, active, recovery;

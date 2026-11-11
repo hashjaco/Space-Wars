@@ -11,7 +11,9 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
+import com.hashimjacobs.spacecase.ui.Meter;
 import com.hashimjacobs.spacecase.ui.Tokens;
+import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
@@ -50,9 +52,17 @@ final class Hud {
 
     private final GraphicsContext gc;
     private final Settings settings;
-    private final Font labelFont = Font.font(Tokens.BODY, FontWeight.BOLD, 15);
-    private final Font valueFont = Font.font(Tokens.BODY, FontWeight.BOLD, 22);
-    private final Font smallFont = Font.font(Tokens.BODY, FontWeight.NORMAL, 11);
+    private final Font labelFont = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION);
+    private final Font chipFont = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_SMALL);
+    private final Font bannerFont = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_HEADING);
+    private final Font scoreFont = Font.font(Assets.displayFontFamily(), Tokens.SIZE_TITLE);
+    private final Font smallFont = Font.font(Tokens.BODY, FontWeight.NORMAL, Tokens.SIZE_CAPTION);
+
+    // Drawing memory, one per seat: where each bar stood a moment ago, and the score mid-roll.
+    // Never read by the simulation.
+    private final Meter.Lag[] healthLag = {new Meter.Lag(), new Meter.Lag(), new Meter.Lag(), new Meter.Lag()};
+    private final double[] shownScore = new double[4];
+    private Meter.Lag bossLag;
 
     Hud(GraphicsContext gc, Settings settings) {
         this.gc = gc;
@@ -75,10 +85,13 @@ final class Hud {
         // Battle mode has no enemies, so it has no level and no boss to progress through either.
         if (world.rules().spawnEnemies()) {
             drawLevelAndWave(director);
+            drawChallengeLine(world, director);
         }
         EnemyShip boss = world.boss();
         if (boss != null) {
             drawBossBar(boss);
+        } else {
+            bossLag = null;
         }
         if (director.bossWarning()) {
             drawFlagshipWarning(world.tick());
@@ -86,35 +99,76 @@ final class Hud {
     }
 
     private void drawPlayerPanel(PlayerShip player, double x, double y, int tick) {
+        int seat = Math.min(3, player.playerNumber() - 1);
+        gc.setFill(Tokens.PLATE);
+        gc.fillRoundRect(x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        gc.setStroke(Tokens.EDGE);
+        gc.setLineWidth(Tokens.STROKE_HAIR);
+        gc.strokeRoundRect(x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8, Tokens.RADIUS_L, Tokens.RADIUS_L);
+
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(labelFont);
         gc.setFill(Tokens.LABEL);
-        gc.fillText("PLAYER " + player.playerNumber(), x, y);
+        // The pilot's own name, as under the hull; the seat number only where there is no name.
+        String name = player.name() == null || player.name().isBlank()
+                ? "PLAYER " + player.playerNumber() : player.name().toUpperCase();
+        gc.fillText(name.length() > 24 ? name.substring(0, 23) + "\u2026" : name, x, y);
 
-        gc.setFont(valueFont);
+        // The score rolls up to its value rather than jumping, so a kill is seen to pay.
+        double gap = player.score() - shownScore[seat];
+        shownScore[seat] = Math.abs(gap) < 1 ? player.score() : shownScore[seat] + gap * 0.18;
+        gc.setFont(scoreFont);
         gc.setFill(Color.WHITE);
-        gc.fillText(String.valueOf(player.score()), x, y + 20);
+        gc.fillText(String.format("%,d", Math.round(shownScore[seat])), x, y + 13);
         if (player.combo() > 1 && tick - player.comboTick() <= PlayerShip.COMBO_WINDOW_TICKS) {
-            gc.setFont(labelFont);
-            gc.setFill(Tokens.HEALTH_MID);
-            gc.fillText(String.format("x%.1f", player.comboMultiplier()), x + 124, y + 20);
+            chip(String.format("x%.1f", player.comboMultiplier()), x + PANEL_WIDTH, y + 22, Tokens.HEALTH_MID);
         }
 
         double barY = y + 50;
-        drawHealthBar(player, x, barY, tick);
-        drawSpecialMeter(player, x, barY + BAR_HEIGHT + 3, tick);
-        barY += SPECIAL_HEIGHT + 3;
+        drawHealthBar(player, seat, x, barY, tick);
+        drawSpecialMeter(player, x, barY + BAR_HEIGHT + 5, tick);
+        barY += SPECIAL_HEIGHT + 5;
 
-        gc.setFont(smallFont);
-        gc.setFill(livesColour(player, tick));
-        gc.fillText("LIVES  " + Math.max(0, player.lives()), x, barY + BAR_HEIGHT + 6);
+        drawLives(player, x, barY + BAR_HEIGHT + 7, tick);
 
         List<String> effects = activeEffectLabels(player);
         if (!effects.isEmpty()) {
+            gc.setFont(smallFont);
             gc.setFill(BRAND);
-            String joined = String.join("  ", effects);
-            gc.fillText(joined, x, barY + BAR_HEIGHT + 22);
+            gc.fillText(String.join("  ", effects), x, barY + BAR_HEIGHT + 22);
         }
+    }
+
+    /** A small filled tag, right-aligned at {@code right}: the combo, the hydra's head count. */
+    private void chip(String text, double right, double y, Color color) {
+        double width = text.length() * 7.6 + 12;
+        gc.setFill(Tokens.veil(0.55));
+        gc.fillRoundRect(right - width, y, width, 18, Tokens.RADIUS, Tokens.RADIUS);
+        gc.setStroke(color);
+        gc.setLineWidth(Tokens.STROKE_HAIR);
+        gc.strokeRoundRect(right - width, y, width, 18, Tokens.RADIUS, Tokens.RADIUS);
+        gc.setFont(chipFont);
+        gc.setFill(color);
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.fillText(text, right - width / 2, y + 2);
+        gc.setTextAlign(TextAlignment.LEFT);
+    }
+
+    /**
+     * Lives as hulls that can be counted at a glance, with the number kept beside them for anyone
+     * who would rather read it.
+     */
+    private void drawLives(PlayerShip player, double x, double y, int tick) {
+        int lives = Math.max(0, player.lives());
+        Color color = livesColour(player, tick);
+        gc.setFill(color);
+        int pips = Math.min(lives, 6);
+        for (int i = 0; i < pips; i++) {
+            double px = x + i * 13;
+            gc.fillPolygon(new double[] {px + 5, px + 10, px + 5, px}, new double[] {y, y + 11, y + 8, y + 11}, 4);
+        }
+        gc.setFont(smallFont);
+        gc.fillText("LIVES " + lives, x + Math.max(1, pips) * 13 + 6, y);
     }
 
     /**
@@ -145,14 +199,10 @@ final class Hud {
     private void drawSpecialMeter(PlayerShip player, double x, double y, int tick) {
         double fraction = player.specialCharge() / (double) GameConfig.SPECIAL_FULL;
         Color tint = Color.web(player.loadout().chassis().specialColor());
-        gc.setFill(Tokens.TRACK);
-        gc.fillRoundRect(x, y, PANEL_WIDTH, SPECIAL_HEIGHT, 4, 4);
         boolean full = player.specialReady();
         double breath = full && !settings.reducedFlash() ? 0.65 + 0.35 * Math.sin(tick * 0.15) : 1;
-        gc.setGlobalAlpha(breath);
-        gc.setFill(tint);
-        gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, SPECIAL_HEIGHT, 4, 4);
-        gc.setGlobalAlpha(1);
+        Meter.draw(gc, x, y, PANEL_WIDTH, SPECIAL_HEIGHT, fraction, fraction,
+                tint.deriveColor(0, 1, 1, breath), Tokens.TRACK, 0, false);
         if (full) {
             gc.setFont(smallFont);
             gc.setFill(tint);
@@ -164,17 +214,10 @@ final class Hud {
         }
     }
 
-    private void drawHealthBar(PlayerShip player, double x, double y, int tick) {
+    private void drawHealthBar(PlayerShip player, int seat, double x, double y, int tick) {
         double fraction = Math.max(0, player.health()) / (double) player.maxHealth();
-
-        gc.setFill(Tokens.TRACK);
-        gc.fillRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
-
-        gc.setFill(Tokens.healthColor(fraction));
-        gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
-        if (fraction <= 0.25) {
-            stripes(gc, x, y, PANEL_WIDTH * fraction, BAR_HEIGHT);
-        }
+        Meter.draw(gc, x, y, PANEL_WIDTH, BAR_HEIGHT, fraction, healthLag[seat].follow(fraction),
+                Tokens.healthColor(fraction), Tokens.TRACK, 4, fraction <= LOW_HEALTH_FRACTION);
 
         if (fraction <= LOW_HEALTH_FRACTION && !player.isOut()) {
             drawLowHealthGlow(x, y, fraction, tick);
@@ -182,11 +225,12 @@ final class Hud {
 
         // White on impact, so a hit reads on the bar as well as on the hull. Eighteen ticks is
         // short enough to register as a flash without needing to blink.
-        boolean hit = player.justHit();
-        gc.setStroke(hit ? Color.WHITE : Tokens.EDGE_STRONG);
-        gc.setLineWidth(hit ? 2 : 1);
-        gc.strokeRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
-        gc.setLineWidth(1);
+        if (player.justHit()) {
+            gc.setStroke(Color.WHITE);
+            gc.setLineWidth(2);
+            gc.strokeRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
+            gc.setLineWidth(1);
+        }
     }
 
     /** A breathing red wash over the remaining health, additive so it reads as a glow. */
@@ -262,38 +306,64 @@ final class Hud {
             heading.append("   LOOP ").append(director.loop());
         }
 
+        // A plate between the two top panels, so the line reads over any sky.
+        double width = 500;
+        gc.setFill(Tokens.PLATE);
+        gc.fillRoundRect(GameConfig.WIDTH / 2 - width / 2, 8, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.setFont(labelFont);
+        gc.setFont(chipFont);
         gc.setFill(Color.web(level.galaxy().accent()));
-        gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 14);
+        gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 12);
     }
 
     /**
-     * Diagonal hatching over a bar's fill, the colour-blind-safe half of the low-health signal.
-     * Static on purpose: it is a state, not an alarm, and the glow already pulses.
+     * The two challenges a pilot can watch happen: the clock against par, and the level's cores.
+     * Bottom centre, the one edge no panel or boss bar claims.
      */
-    static void stripes(GraphicsContext gc, double x, double y, double width, double height) {
-        if (width <= 0) {
-            return;
+    private void drawChallengeLine(World world, SpawnDirector director) {
+        int ticks = director.ticksIntoLevel();
+        boolean overPar = ticks > director.parTicks();
+        double width = 230;
+        double x = GameConfig.WIDTH / 2 - width / 2;
+        double y = GameConfig.HEIGHT - 32;
+        gc.setFill(Tokens.PLATE);
+        gc.fillRoundRect(x, y, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        gc.setFont(chipFont);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setFill(overPar ? Tokens.TEXT_FAINT : Color.WHITE);
+        gc.fillText(clock(ticks) + " / PAR " + clock(director.parTicks()), x + 14, y + 4);
+        double cx = x + width - 62;
+        for (int i = 0; i < 3; i++) {
+            boolean taken = (world.coresTaken() & (1 << i)) != 0;
+            double cy = y + 11;
+            double[] xs = {cx, cx + 6, cx, cx - 6};
+            double[] ys = {cy - 7, cy, cy + 7, cy};
+            if (taken) {
+                gc.setFill(CORE);
+                gc.fillPolygon(xs, ys, 4);
+            } else {
+                gc.setStroke(world.coreKnown(i) ? CORE : Tokens.TEXT_FAINT);
+                gc.setLineWidth(1.5);
+                gc.strokePolygon(xs, ys, 4);
+            }
+            cx += 18;
         }
-        gc.save();
-        gc.beginPath();
-        gc.rect(x, y, width, height);
-        gc.clip();
-        gc.setStroke(Tokens.veil(0.45));
-        gc.setLineWidth(2);
-        for (double sx = x - height; sx < x + width; sx += 6) {
-            gc.strokeLine(sx, y + height, sx + height, y);
-        }
-        gc.restore();
     }
+
+    private static String clock(int ticks) {
+        int seconds = ticks / 60;
+        return seconds / 60 + ":" + String.format("%02d", seconds % 60);
+    }
+
+    /** The hidden cores' color, on the HUD and in the arena alike. */
+    static final Color CORE = Color.web("#7FE8FF");
 
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
     void drawNetBanner(String line) {
         gc.setFill(Tokens.veil(0.6));
         gc.fillRoundRect(GameConfig.WIDTH * 0.2, GameConfig.HEIGHT * 0.44, GameConfig.WIDTH * 0.6, 44, 10, 10);
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.setFont(valueFont);
+        gc.setFont(bannerFont);
         gc.setFill(Tokens.HEALTH_MID);
         gc.fillText(line, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.44 + 29);
     }
@@ -303,24 +373,32 @@ final class Hud {
             return;
         }
         gc.setTextAlign(TextAlignment.CENTER);
-        gc.setFont(valueFont);
+        gc.setFont(bannerFont);
         gc.setFill(Tokens.DANGER_SOFT);
         gc.fillText("FLAGSHIP INBOUND", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
     }
 
     private void drawBossBar(EnemyShip boss) {
-        double width = 420;
+        double width = 500;
         double x = GameConfig.WIDTH / 2 - width / 2;
         double y = 54;
+        if (bossLag == null) {
+            bossLag = new Meter.Lag();
+        }
 
-        gc.setTextAlign(TextAlignment.CENTER);
-        gc.setFont(smallFont);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setFont(labelFont);
         gc.setFill(Tokens.DANGER_SOFT);
-        gc.fillText(boss.boss().label().toUpperCase(), GameConfig.WIDTH / 2, 38);
+        gc.fillText(boss.boss().label().toUpperCase(), x, 37);
+        // A flagship its parts shield says what to shoot: the heads first, then the body.
+        if (boss.armoured() && boss.boss() == com.hashimjacobs.spacecase.entity.Boss.HYDRA) {
+            chip("SEVER THE HEADS  " + boss.livingParts() + "/" + boss.parts().size(), x + width, 33,
+                    Tokens.DANGER_SOFT);
+        }
 
-        gc.setFill(Tokens.TRACK_DANGER);
-        gc.fillRoundRect(x, y, width, 10, 5, 5);
-        gc.setFill(Tokens.DANGER_BAR);
-        gc.fillRoundRect(x, y, width * boss.remainingHealthFraction(), 10, 5, 5);
+        // Ticked in thirds because that is where a flagship changes how it fights (BossPhase).
+        double fraction = boss.remainingHealthFraction();
+        Meter.draw(gc, x, y, width, 12, fraction, bossLag.follow(fraction),
+                Tokens.DANGER_BAR, Tokens.TRACK_DANGER, 3, false);
     }
 }

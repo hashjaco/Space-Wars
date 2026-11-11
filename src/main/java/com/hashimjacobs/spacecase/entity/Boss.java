@@ -381,6 +381,9 @@ public enum Boss {
      * a fourth constructor argument and fifty rows grow a column.
      */
     public BossPhase special() {
+        if (this == HYDRA) {
+            return BossPhase.BONE_RING;
+        }
         boolean finale = indexInGalaxy() == LEVELS_PER_GALAXY;
         return switch (ordinal() / LEVELS_PER_GALAXY) {
             case 0 -> finale ? BossPhase.SCATTER : BossPhase.LANCE;

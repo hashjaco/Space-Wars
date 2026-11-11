@@ -96,6 +96,12 @@ public final class BossHead extends EnemyShip {
         stagger(index * 9, index * 70);
     }
 
+    /** A part bursts, rests and charges with the body it hangs off. */
+    @Override
+    protected EnemyShip rhythmOwner() {
+        return body;
+    }
+
     @Override
     public boolean isBossPart() {
         return true;
@@ -132,6 +138,14 @@ public final class BossHead extends EnemyShip {
         // The Frozen Empress's heads keep their stately sweep; only the hydra bites.
         if (body.boss() != Boss.HYDRA) {
             return 0;
+        }
+        // Frenzy: while the body works through its special, every head strikes at once -- out
+        // across the charge, held through the bone ring, back as it ends.
+        int frenzy = specialTicks();
+        if (frenzy >= 0) {
+            int length = CHARGE_TICKS + SPECIAL_VOLLEYS * SPECIAL_VOLLEY_GAP;
+            double p = frenzy / (double) length;
+            return p < 0.4 ? smooth(p / 0.4) : p < 0.75 ? 1 : 1 - smooth((p - 0.75) / 0.25);
         }
         int cycle = GameConfig.HYDRA_LUNGE_CYCLE_TICKS;
         double p = Math.floorMod(age + index * cycle / heads, cycle) / (double) cycle;
@@ -181,6 +195,17 @@ public final class BossHead extends EnemyShip {
         }
         age++;
         setPosition(headX() - width() / 2, headY() - height() / 2);
+    }
+
+    /** The end of a severed neck's stump, this far out from the body along where the neck last pointed. */
+    public double stumpX(double length) {
+        Orientation facing = body.orientation();
+        return neckRootX() + facing.vx(StrictMath.cos(angle()) * length, StrictMath.sin(angle()) * length);
+    }
+
+    public double stumpY(double length) {
+        Orientation facing = body.orientation();
+        return neckRootY() + facing.vy(StrictMath.cos(angle()) * length, StrictMath.sin(angle()) * length);
     }
 
     /** Where this head's neck leaves the body, in world coordinates. */

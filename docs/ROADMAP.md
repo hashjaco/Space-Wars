@@ -140,7 +140,7 @@ disagree, because the rig declares two heads and fields three targets.
 Ice and water. Seeds **4400–4490**. Galaxy accent: `#4fd0e8`. Built as described below, with two
 corrections found while building; both are folded into *Carried forward* above.
 
-**Structural identity: pacing.** Waves alternate short and long — `3,5,3,5,3,5,4,6,4,6` — so the
+**Structural identity: pacing.** Waves alternate short and long — `3,5,3,5,3,5,4,5,4,5` — so the
 galaxy feels different on the clock rather than only in the palette. It also has **two** side-on legs,
 the only galaxy that does.
 
@@ -178,7 +178,7 @@ landed, and both cost more than this entry said they would; the difference is fo
 forward* above and spelled out here.
 
 **Structural identity: no floor.** Six of ten are `ATMOSPHERE`, one is ground, and the finale arrives
-out of a cloud deck rather than flying in. Waves run `4,4,5,5,5,5,6,6,6,6` — a plain climb, because
+out of a cloud deck rather than flying in. Waves run `4,4,5,5,5,5,5,5,5,5` — a plain climb, because
 this galaxy's shape is its sky rather than its clock.
 
 | # | Level | `Backdrop` | Notes |
@@ -274,7 +274,7 @@ The level list under-specified itself: it named backdrops for five of the ten an
 `ATMOSPHERE` and `SURFACE`, which left five to choose. The choice made was to spread the galaxy
 across **five recipes**, the widest any galaxy has used, and to give the four `EVENT_HORIZON` levels
 an authored disc progression — 0.10, 0.20, 0.26, 0.32 — so they read as one fall toward the hole
-rather than as four skies with the same object in them. Waves run `6,6,6,6,5,5,5,4,4,4`, the only
+rather than as four skies with the same object in them. Waves run `5,5,5,5,5,5,5,4,4,4`, the only
 galaxy that shortens as it goes.
 
 | # | Level | `Backdrop` | Waves | Notes |

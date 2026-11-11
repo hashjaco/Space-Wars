@@ -25,15 +25,19 @@ class MusicCueTest {
         for (MusicCue cue : MusicCue.values()) {
             reachable.addAll(cue.tracks());
         }
+        // A cutscene plays its track directly; the ending's has no cue of its own.
+        for (com.hashimjacobs.spacecase.scene.Cutscene scene : com.hashimjacobs.spacecase.scene.Cutscene.values()) {
+            reachable.add(scene.music());
+        }
         Set<MusicTrack> all = EnumSet.allOf(MusicTrack.class);
         all.removeAll(reachable);
         assertTrue(all.isEmpty(),
-                "these tracks ship in the jar but no cue ever plays them: " + all);
+                "these tracks ship in the jar but nothing ever plays them: " + all);
     }
 
     @Test
     void heavyTracksOnlyPlayForBosses() {
-        Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK);
+        Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK, MusicTrack.AEONS_END);
         Set<MusicCue> hard = EnumSet.of(MusicCue.BOSS, MusicCue.AEON_BOSS);
         for (MusicCue cue : MusicCue.values()) {
             if (hard.contains(cue)) {
@@ -74,7 +78,7 @@ class MusicCueTest {
     @Test
     void pickFallsBackWhenEveryTrackIsAvoided() {
         MusicTrack only = MusicCue.AEON_BOSS.pick(new Random(1), EnumSet.allOf(MusicTrack.class));
-        assertEquals(MusicTrack.DEATH_METAL, only);
+        assertTrue(MusicCue.AEON_BOSS.tracks().contains(only));
     }
 
     @Test

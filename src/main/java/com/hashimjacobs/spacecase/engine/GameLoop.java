@@ -20,6 +20,7 @@ import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Loadout;
+import com.hashimjacobs.spacecase.mode.Challenge;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
@@ -148,12 +149,17 @@ public final class GameLoop {
     private final FixedTimestep timestep = new FixedTimestep();
     private final Map<Integer, Debrief.Tally> levelStart = new HashMap<>();
     private final List<Debrief> debriefs = new ArrayList<>();
+    /** The level's challenges met this run, and the subset met for the first time. */
+    private int challengesMet;
+    private int challengesNew;
     private final List<Standing> standings = new ArrayList<>();
 
     private AnimationTimer timer;
     private Phase phase = Phase.FIGHTING;
     private int phaseTicks;
     private boolean debriefArmed;
+    /** Set by the first press on the debrief, which finishes the reveal rather than leaving. */
+    private boolean debriefSkipped;
     private boolean paused;
     private boolean finished;
     private boolean bossMusicPlaying;
@@ -278,7 +284,7 @@ public final class GameLoop {
         restore(resume);
         snapshotLevelStart();
         snapshotSave();
-        if (devOnFoot && OnFootStage.missionAfter(director.level())) {
+        if (devOnFoot && OnFootStage.missionAfter(director.level()) != null) {
             beginOnFoot();
         }
         if (devGarage) {
@@ -486,7 +492,9 @@ public final class GameLoop {
             renderer.draw(world, director);
         }
         switch (phase) {
-            case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefArmed);
+            case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefClock(), debriefArmed,
+                    challengesMet, challengesNew, saves == null || endless || world.mode() == GameMode.BATTLE
+                            ? -1 : saves.challenges(director.level()));
             case GARAGE -> renderer.drawGarage(garage, phaseTicks);
             case WARP -> renderer.drawWarpVeil(warpOpacity());
             default -> {
@@ -674,6 +682,7 @@ public final class GameLoop {
             phase = Phase.DEBRIEF;
             phaseTicks = 0;
             debriefArmed = false;
+            debriefSkipped = false;
             input.clear();
         }
     }
@@ -685,7 +694,7 @@ public final class GameLoop {
      * run skips it rather than desync. Never in battle, which has no story to land in.
      */
     private boolean wantsOnFoot() {
-        return OnFootStage.missionAfter(director.level()) && handshake == null && intents == null
+        return OnFootStage.missionAfter(director.level()) != null && handshake == null && intents == null
                 && world.mode() != GameMode.BATTLE;
     }
 
@@ -694,7 +703,9 @@ public final class GameLoop {
         phaseTicks = 0;
         // Seeded from the tick, never from the shared Random: drawing from that would shift every
         // spawn after this level and break the replays the leaderboard verifies.
-        onFoot = new OnFootStage(world.tick() * 0x9E3779B97F4A7C15L, controllers.size(), Physics.DEFAULT);
+        onFoot = new OnFootStage(world.tick() * 0x9E3779B97F4A7C15L, controllers.size(), Physics.DEFAULT,
+                OnFootStage.missionAfter(director.level()));
+        sounds.playMusic(MusicCue.ON_FOOT);
         input.clear();
     }
 
@@ -709,11 +720,13 @@ public final class GameLoop {
         onFoot.step(pads);
         for (OnFootStage.Cue cue : onFoot.cues()) {
             switch (cue) {
-                case HIT, BLOCK -> sounds.play(SoundFx.COLLISION);
-                case HEAVY, POUND, LAND -> sounds.play(SoundFx.EXPLOSION);
+                case HIT -> sounds.play(SoundFx.PUNCH);
+                case BLOCK -> sounds.play(SoundFx.BLOCK);
+                case HEAVY, POUND -> sounds.play(SoundFx.HEAVY_HIT);
+                case LAND -> sounds.play(SoundFx.LAND);
                 case BEAM -> sounds.play(SoundFx.LASER);
                 case ROAR -> sounds.play(SoundFx.BOSS_ROAR);
-                case KEY -> sounds.play(SoundFx.LEVEL_CLEAR);
+                case KEY -> sounds.play(SoundFx.PICKUP);
             }
         }
         if (!onFoot.done()) {
@@ -727,7 +740,14 @@ public final class GameLoop {
         phase = Phase.DEBRIEF;
         phaseTicks = 0;
         debriefArmed = false;
+        debriefSkipped = false;
         input.clear();
+    }
+
+    /** The debrief's reveal clock: ticks since it opened, or past the end once skipped. */
+    private int debriefClock() {
+        // Reduced flash shows the whole report at once, as it holds every other animation still.
+        return debriefSkipped || settings.reducedFlash() ? Integer.MAX_VALUE / 2 : phaseTicks;
     }
 
     /**
@@ -740,11 +760,21 @@ public final class GameLoop {
         phaseTicks++;
         world.tickScenery();
 
+        if (debriefClock() < DebriefOverlay.revealEnd(debriefs)
+                && DebriefOverlay.bonusLandsOn(phaseTicks, debriefs)) {
+            sounds.play(SoundFx.PICKUP);
+        }
         if (!debriefArmed) {
             debriefArmed = !input.anyHeld();
             return;
         }
         if (!input.anyHeld()) {
+            return;
+        }
+        // The first press finishes the reveal; it takes a second one, after a release, to leave.
+        if (debriefClock() < DebriefOverlay.revealEnd(debriefs)) {
+            debriefSkipped = true;
+            debriefArmed = false;
             return;
         }
         openGarage();
@@ -875,6 +905,8 @@ public final class GameLoop {
 
     /** Records where each player's counters stood as a level began, for the debrief to subtract. */
     private void snapshotLevelStart() {
+        int known = saves == null ? 0 : saves.challenges(director.level()) >> Challenge.CORE_1.ordinal();
+        world.startChallenges(known);
         levelStart.clear();
         for (PlayerShip player : world.players()) {
             levelStart.put(player.playerNumber(), tally(player));
@@ -892,6 +924,7 @@ public final class GameLoop {
     private void scoreLevel() {
         debriefs.clear();
         standings.clear();
+        boolean sRank = false;
 
         for (PlayerShip player : world.players()) {
             Debrief.Tally before = levelStart.get(player.playerNumber());
@@ -924,6 +957,7 @@ public final class GameLoop {
                 // run passing through it have wildly different totals but comparable level work.
                 highScores.submit(world.mode(), director.level(), debrief.totalBonus());
             }
+            sRank |= mine && debrief.grade() == 'S';
             Rank earned = Rank.forCareerScore(career);
             standings.add(new Standing(player.name(), earned, career, earned != held));
         }
@@ -931,6 +965,37 @@ public final class GameLoop {
         // becomes "cleared". Endless runs are not campaign progress and do not unlock anything.
         if (saves != null && !endless) {
             saves.recordClear(world.mode(), director.level());
+        }
+        scoreChallenges(sRank);
+    }
+
+    /**
+     * Records the level's challenges and pays each local pilot for the ones met for the first time.
+     * Credits only, never score: score is what the leaderboard's replay check re-derives.
+     */
+    private void scoreChallenges(boolean sRank) {
+        challengesMet = 0;
+        challengesNew = 0;
+        if (saves == null || endless || world.mode() == GameMode.BATTLE) {
+            return;
+        }
+        int bits = world.coresTaken() << Challenge.CORE_1.ordinal();
+        if (world.escaped() == 0) {
+            bits |= Challenge.ALL_DOWN.bit();
+        }
+        if (director.ticksIntoLevel() <= director.parTicks()) {
+            bits |= Challenge.CLOCK.bit();
+        }
+        if (sRank) {
+            bits |= Challenge.S_RANK.bit();
+        }
+        challengesMet = bits;
+        challengesNew = saves.recordChallenges(director.level(), bits);
+        int owed = Challenge.creditsFor(challengesNew);
+        for (PlayerShip player : world.players()) {
+            if (owed > 0 && isLocal(player)) {
+                pilots.addCredits(player.name(), owed);
+            }
         }
     }
 

@@ -39,6 +39,12 @@ public final class MechPart extends EnemyShip {
         this.pattern = pattern;
     }
 
+    /** A part bursts, rests and charges with the body it hangs off. */
+    @Override
+    protected EnemyShip rhythmOwner() {
+        return body;
+    }
+
     @Override
     public boolean isBossPart() {
         return true;

@@ -47,7 +47,8 @@ public final class SystemMapModel {
      * @param x horizontal position, 0 to 1 across the map
      * @param y vertical position, 0 to 1 down the route band
      */
-    public record Node(Level level, NodeState state, int best, double x, double y) {
+    public record Node(Level level, NodeState state, int best, double x, double y,
+                       int challenges, double completion) {
     }
 
     /**
@@ -104,7 +105,9 @@ public final class SystemMapModel {
                 state = NodeState.AVAILABLE;
             }
             int best = scores == null ? 0 : scores.best(mode, level);
-            built.add(new Node(level, state, best, ROUTE[i][0], ROUTE[i][1]));
+            built.add(new Node(level, state, best, ROUTE[i][0], ROUTE[i][1],
+                    saves == null ? 0 : saves.challenges(level),
+                    saves == null ? 0 : saves.completion(level)));
         }
         return List.copyOf(built);
     }

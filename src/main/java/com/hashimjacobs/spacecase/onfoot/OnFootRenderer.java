@@ -82,7 +82,8 @@ public final class OnFootRenderer {
 
     /** On-screen height of a character's frame relative to its body height; frames include reach and air. */
     private static final double PILOT_ART = 1.102, THRALL_ART = 1.434, FOREMAN_ART = 1.141,
-            RIVETEER_ART = 1.008, BRUTE_ART = 1.033;  // canvas / standing body, printed by onfoot.py import
+            RIVETEER_ART = 1.008, BRUTE_ART = 1.033,  // canvas / standing body, printed by onfoot.py import
+            WARDEN_ART = 1.477, MATRIARCH_ART = 1.138, TYRANT_ART = 1.122, REVENANT_ART = 1.326;
 
     private static final Map<String, List<Image>> FRAMES = new HashMap<>();
     private static final Map<String, Image> STILLS = new HashMap<>();
@@ -95,7 +96,23 @@ public final class OnFootRenderer {
         this.settings = settings;
     }
 
+    /** The stage being drawn; set once per {@link #draw}. */
+    private Mission mission = Mission.UNDERCITY;
+
+    /** The mission's hue over art it borrowed from the Undercity, or null where none is needed. */
+    private ColorAdjust tint() {
+        return mission.hue() == 0 ? null : new ColorAdjust(mission.hue(), 0, 0, 0);
+    }
+
+    /** The mission's own still if it has one, otherwise the Undercity's, which then wants the tint. */
+    private Image missionStill(String name, boolean[] borrowed) {
+        Image own = still(mission.artFolder() + "/" + name);
+        borrowed[0] = own == null;
+        return own != null ? own : still(name);
+    }
+
     public void draw(OnFootStage s) {
+        mission = s.mission();
         double shake = settings.reducedFlash() ? 0 : s.shake();
         double zoom = 1 + (settings.reducedFlash() ? 0 : s.zoomKick() * 0.006);
         int tick = s.tick();
@@ -124,6 +141,10 @@ public final class OnFootRenderer {
         for (OnFootStage.Shock shock : s.shocks()) {
             drawShock(shock, tick);
         }
+        for (OnFootStage.Hazard hazard : s.hazards()) {
+            drawHazard(hazard, tick);
+        }
+        drawPull(s.boss(), tick);
         for (Fighter f : s.enemies()) {
             drawFighter(f, tick);
             drawRivetAim(f, tick);
@@ -165,9 +186,11 @@ public final class OnFootRenderer {
     private void drawCavern(double cam, int tick) {
         gc.setFill(Tokens.SPACE);
         gc.fillRect(-40, -40, GameConfig.WIDTH + 80, GameConfig.HEIGHT + 80);
-        Image back = still("backdrop");
+        boolean[] borrowed = new boolean[1];
+        Image back = missionStill("backdrop", borrowed);
         double h = FLOOR + 30;
         if (back != null) {
+            gc.setEffect(borrowed[0] ? tint() : null);
             double w = back.getWidth() * h / back.getHeight();
             double off = -(cam * 0.25) % (2 * w);
             // Every other copy mirrored, so a painting never meant to tile still has no seam.
@@ -175,6 +198,7 @@ public final class OnFootRenderer {
                 gc.drawImage(back, x, 0, w, h);
                 gc.drawImage(back, x + 2 * w, 0, -w, h);
             }
+            gc.setEffect(null);
         } else {
             gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
                     new Stop(0, Color.web("#06080d")), new Stop(1, Color.web("#1e1518"))));
@@ -199,16 +223,19 @@ public final class OnFootRenderer {
     }
 
     private void drawFloor(double cam) {
-        Image floor = still("floor");
+        boolean[] borrowed = new boolean[1];
+        Image floor = missionStill("floor", borrowed);
         double top = FLOOR - 6;
         double h = GameConfig.HEIGHT - top + 60;
         if (floor != null) {
+            gc.setEffect(borrowed[0] ? tint() : null);
             double w = floor.getWidth() * h / floor.getHeight();
             double start = Math.floor(cam / (2 * w)) * 2 * w;
             for (double x = start - 2 * w; x < cam + GameConfig.WIDTH + 2 * w; x += 2 * w) {
                 gc.drawImage(floor, x, top, w, h);
                 gc.drawImage(floor, x + 2 * w, top, -w, h);
             }
+            gc.setEffect(null);
         } else {
             gc.setFill(Color.web("#14161c"));
             gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, h);
@@ -224,7 +251,8 @@ public final class OnFootRenderer {
         gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
                 new Stop(0, Color.TRANSPARENT), new Stop(1, Color.rgb(3, 4, 7, 0.85))));
         gc.fillRect(cam - 60, top + 20, GameConfig.WIDTH + 120, h);
-        Image crate = still("crate");
+        // Untinted: a hue-shifted crate went magenta. Iron reads as iron in any galaxy.
+        Image crate = missionStill("crate", borrowed);
         if (crate != null) {
             for (double x : new double[] {420, 1180, 1960, 2700, 3560}) {
                 if (x > cam - 200 && x < cam + GameConfig.WIDTH + 200) {
@@ -365,6 +393,10 @@ public final class OnFootRenderer {
             case FOREMAN -> "foreman";
             case RIVETEER -> "riveteer";
             case BRUTE -> "brute";
+            case WARDEN -> "warden";
+            case MATRIARCH -> "matriarch";
+            case TYRANT -> "tyrant";
+            case REVENANT -> "revenant";
         };
         double art = switch (f.kind) {
             case PILOT -> PILOT_ART;
@@ -372,6 +404,10 @@ public final class OnFootRenderer {
             case FOREMAN -> FOREMAN_ART;
             case RIVETEER -> RIVETEER_ART;
             case BRUTE -> BRUTE_ART;
+            case WARDEN -> WARDEN_ART;
+            case MATRIARCH -> MATRIARCH_ART;
+            case TYRANT -> TYRANT_ART;
+            case REVENANT -> REVENANT_ART;
         };
         String[] anim = animFor(f);
         List<Image> frames = frames(who, anim[0]);
@@ -419,6 +455,11 @@ public final class OnFootRenderer {
             double w = frame.getWidth() * h / frame.getHeight();
             if (f.player == 2) {
                 gc.setEffect(SECOND_SEAT);
+            } else if (f.player == 0 && !f.kind.boss()) {
+                gc.setEffect(tint());    // the borrowed crowd, dyed to the galaxy
+            }
+            if (f.mercy() > 0 && (tick / 4) % 2 == 0) {
+                gc.setGlobalAlpha(fade * 0.45);    // protected after a hit: blinks until it can be hit again
             }
             gc.drawImage(frame, -w / 2, -h, w, h);
             if (f.hurtFlash() > 0 && !settings.reducedFlash()) {
@@ -430,7 +471,7 @@ public final class OnFootRenderer {
             }
         }
         gc.restore();
-        if (f.kind != Fighter.Kind.PILOT && f.alive() && f.healthFraction() < 1 && f.kind != Fighter.Kind.FOREMAN) {
+        if (f.kind != Fighter.Kind.PILOT && f.alive() && f.healthFraction() < 1 && !f.kind.boss()) {
             double w = 54;
             gc.setFill(Color.rgb(0, 0, 0, 0.6));
             gc.fillRect(f.x() - w / 2, f.y() - f.kind.height() - 18, w, 5);
@@ -619,6 +660,85 @@ public final class OnFootRenderer {
         gc.restore();
     }
 
+    /**
+     * A signature's footprint. While it only warns it is an outline that tightens; once it bites it
+     * fills: slag glowing on the floor, spikes standing up out of the mark, the dash line lit hot.
+     */
+    private void drawHazard(OnFootStage.Hazard h, int tick) {
+        double half = h.width() / 2;
+        double left = h.x() - half;
+        double warn = h.armed() ? 1 : 0.35 + 0.35 * Math.abs(Math.sin(tick * 0.25));
+        gc.save();
+        switch (h.kind()) {
+            case OnFootStage.Hazard.SLAG -> {
+                double fade = Math.min(1, h.live() / 30.0);
+                gc.setGlobalBlendMode(BlendMode.ADD);
+                gc.setFill(MOLTEN_HALO);
+                gc.setGlobalAlpha(warn * fade);
+                gc.fillOval(left - 30, FLOOR - 40, h.width() + 60, 70);
+                gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+                gc.setFill(Color.web("#ff5a1a", (h.armed() ? 0.85 : 0.35) * fade));
+                gc.fillOval(left, FLOOR - 8, h.width(), 16);
+                gc.setFill(Color.web("#ffd27a", 0.7 * fade));
+                gc.fillOval(left + h.width() * 0.25, FLOOR - 4, h.width() * 0.5, 7);
+            }
+            case OnFootStage.Hazard.SPIKE -> {
+                Color ice = Color.web("#bfefff");
+                if (!h.armed()) {
+                    // Dark under a bright ring: the Under-Ice floor is nearly white, so a pale mark alone vanished.
+                    double shrink = 1 - 0.5 * (1 - h.arm() / 45.0);
+                    gc.setFill(Color.web("#0b2a55", 0.75));
+                    gc.fillOval(left, FLOOR - 12, h.width(), 24);
+                    gc.setStroke(Color.WHITE.deriveColor(0, 1, 1, warn));
+                    gc.setLineWidth(3);
+                    gc.strokeOval(h.x() - half * shrink, FLOOR - 10 * shrink, h.width() * shrink, 20 * shrink);
+                } else {
+                    double rise = Math.min(1, (h.maxLive() - h.live() + 1) / 4.0);
+                    gc.setFill(ice);
+                    for (int i = 0; i < 5; i++) {
+                        double cx = left + h.width() * (i + 0.5) / 5;
+                        double tall = (60 + 30 * ((i * 37) % 3)) * rise;
+                        gc.fillPolygon(new double[] {cx - 11, cx, cx + 11},
+                                new double[] {FLOOR, FLOOR - tall, FLOOR}, 3);
+                    }
+                }
+            }
+            default -> {
+                double y = FLOOR - 50;
+                gc.setGlobalBlendMode(BlendMode.ADD);
+                gc.setStroke(Color.web("#9fd8ff", h.armed() ? 0.95 : warn));
+                gc.setLineWidth(h.armed() ? 8 : 3);
+                gc.setLineDashes(h.armed() ? null : new double[] {18, 12});
+                gc.strokeLine(left, y, left + h.width(), y);
+                gc.setLineDashes(null);
+            }
+        }
+        gc.restore();
+    }
+
+    /**
+     * The Null Revenant's pull, made visible: violet rings closing in on it for as long as it drags,
+     * so a pilot sliding toward it knows why, and which way to run.
+     */
+    private void drawPull(Fighter boss, int tick) {
+        if (boss == null || boss.move() != Move.GRAVITY_WELL || boss.state() != Fighter.State.ATTACK) {
+            return;
+        }
+        double cx = boss.x(), cy = boss.y() - boss.kind.height() * 0.55;
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.ADD);
+        gc.setLineWidth(3);
+        for (int i = 0; i < 4; i++) {
+            double phase = ((tick * 0.012 + i * 0.25) % 1.0);
+            double r = 60 + 520 * (1 - phase);
+            gc.setStroke(Color.web("#b07cff", 0.55 * phase));
+            gc.strokeOval(cx - r, cy - r * 0.45, 2 * r, r * 0.9);
+        }
+        gc.setFill(KEY_HALO);
+        gc.fillOval(cx - 70, cy - 70, 140, 140);
+        gc.restore();
+    }
+
     private void drawParticles(OnFootStage s) {
         for (OnFootStage.Particle p : s.particles()) {
             double a = p.life() / (double) p.maxLife();
@@ -665,7 +785,9 @@ public final class OnFootRenderer {
         Image key = still("rift-key");
         if (key != null) {
             double h = 64, w = key.getWidth() * h / key.getHeight();
+            gc.setEffect(tint());
             gc.drawImage(key, x - w / 2, y - h / 2, w, h);
+            gc.setEffect(null);
         } else {
             gc.setFill(VIOLET);
             gc.fillPolygon(new double[] {x, x + 16, x, x - 16}, new double[] {y - 26, y, y + 26, y}, 4);
@@ -711,7 +833,7 @@ public final class OnFootRenderer {
             gc.setFill(Tokens.TEXT);
             gc.setTextAlign(TextAlignment.CENTER);
             gc.setTextBaseline(VPos.BOTTOM);
-            gc.fillText("THE FOUNDRY FOREMAN", GameConfig.WIDTH / 2, y - 4);
+            gc.fillText(mission.bossName(), GameConfig.WIDTH / 2, y - 4);
         }
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
@@ -728,7 +850,7 @@ public final class OnFootRenderer {
         if (s.beat() == OnFootStage.Beat.KEY) {
             gc.setFont(CAPTION);
             gc.setFill(VIOLET);
-            gc.fillText("TAKE THE RIFT KEY", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
+            gc.fillText("TAKE " + mission.prize(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
         }
         gc.setTextBaseline(VPos.BASELINE);
     }
@@ -756,12 +878,12 @@ public final class OnFootRenderer {
             gc.setTextBaseline(VPos.CENTER);
             gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 54));
             gc.setFill(Color.rgb(0, 0, 0, 0.6));
-            gc.fillText("THE UNDERCITY", GameConfig.WIDTH / 2 + 3, GameConfig.HEIGHT * 0.3 + 4);
+            gc.fillText(mission.title(), GameConfig.WIDTH / 2 + 3, GameConfig.HEIGHT * 0.3 + 4);
             gc.setFill(Color.WHITE);
-            gc.fillText("THE UNDERCITY", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
+            gc.fillText(mission.title(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
             gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.NORMAL, 18));
             gc.setFill(VIOLET);
-            gc.fillText("RECOVER THE RIFT KEY", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3 + 46);
+            gc.fillText(mission.objective(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3 + 46);
             gc.setGlobalAlpha(1);
             gc.setTextBaseline(VPos.BASELINE);
         }
