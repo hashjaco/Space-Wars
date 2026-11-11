@@ -29,7 +29,9 @@ import com.hashimjacobs.spacecase.prefs.Difficulty;
  */
 public final class Replay {
 
-    private static final int VERSION = 2;   // 2: the button byte carries the ship special
+    // 2: the button byte carries the ship special. 3: same bytes, new simulation (set pieces and
+    // weapon stacks, game 2.3) -- an older recording would not reproduce, so it is refused instead.
+    private static final int VERSION = 3;
 
     public record Header(long seed, GameMode mode, Difficulty difficulty, boolean endless,
                          boolean resumed, int players) {

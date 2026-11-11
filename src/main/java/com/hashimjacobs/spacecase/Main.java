@@ -13,6 +13,7 @@ import com.hashimjacobs.spacecase.prefs.SaveSlot;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.Settings;
+import com.hashimjacobs.spacecase.scene.Cutscene;
 import com.hashimjacobs.spacecase.scene.SceneRouter;
 
 public final class Main extends Application {
@@ -22,6 +23,7 @@ public final class Main extends Application {
         // First, so a hang during asset loading is reported too.
         FreezeWatchdog.install();
         Assets.load();
+        Cutscene.fetchClips();
 
         Settings settings = Settings.load();
         SoundBank sounds = new SoundBank(settings);
