@@ -321,6 +321,7 @@ final class EnemyWeapons {
      */
     private static void fireOrdinary(World world, EnemyShip enemy) {
         int shots = Math.max(1, Math.min(MAX_ENEMY_SHOTS, enemy.shots()));
+        enemy.markFired();
         double first = -ENEMY_SPREAD_RADIANS * (shots - 1) / 2.0;
         for (int i = 0; i < shots; i++) {
             double angle = first + i * ENEMY_SPREAD_RADIANS;

@@ -6,7 +6,9 @@
     python3 tools/tripo/enemies.py pick <slug> <0|1>
     python3 tools/tripo/enemies.py model [slug...]     # Tripo image-to-model on the pick (H3.1, 30 cr, textured by default)
     python3 tools/tripo/enemies.py render [slug...]    # headless Blender, 24-frame loop, nose down
-    python3 tools/tripo/enemies.py import [slug...]    # -> sprites/enemy-cg/<slug>{,-side}/1..24.png
+    python3 tools/tripo/enemies.py import [slug...]    # -> sprites/enemy-cg/<slug>/1..24.png
+    python3 tools/tripo/enemies.py render-side [slug...]  # the true profile: idle, attack and hurt loops
+    python3 tools/tripo/enemies.py import-side [slug...]  # -> sprites/enemy-cg/<slug>-side/{,attack/,hurt/}N.png
 
 A slug is <galaxy>-<kind>, e.g. verdance-scout. State lives in the gitignored .tripo-state.json; the
 imported frames are what gets committed. With no slugs, a command runs every design that is ready for it.
@@ -101,9 +103,47 @@ def cmd_render(slugs):
              glb(slug), d, str(yaw), str(RENDER_PX[parts(slug)[1]]), str(FRAMES)])
         print(slug, "->", d, flush=True)
 
-def turned(im):
-    # Same quarter turn as tools/sprixen/cg.py: side-on levels fly right-to-left, so nose-down turns to point left.
-    return im.rotate(-90, expand=True)
+# The side-on levels' hostiles: the same model seen from the beam. pose -> (motion, frames).
+SIDE_LOOPS = {"": ("sway", 24), "attack": ("thrust", 12), "hurt": ("twitch", 12)}
+# The frame is 1.4 spans wide so a thrust stays inside it; the hull is about 2.25x its hitbox length.
+SIDE_ZOOM, SIDE_PX = 1.4, {"SCOUT": 230, "FIGHTER": 310, "CRUISER": 400}
+
+def cmd_render_side(slugs):
+    for slug in slugs or [k for k in SLUGS if glb(k)]:
+        for pose, (motion, frames) in SIDE_LOOPS.items():
+            d = os.path.join(OUT, "renders-side", slug, pose or "idle"); shutil.rmtree(d, ignore_errors=True); os.makedirs(d)
+            run([BLENDER, "-b", "--factory-startup", "-P", os.path.join(HERE, "render_blender.py"), "--",
+                 glb(slug), d, str(MAN["yaw"].get(slug, 0)), str(SIDE_PX[parts(slug)[1]]), str(frames),
+                 "side", motion, "0,0,0", str(SIDE_ZOOM)])
+        print(slug, "->", os.path.join(OUT, "renders-side", slug), flush=True)
+
+# Room left around the idle hull for a lunge or a flinch, as a fraction of the hull's LENGTH on every
+# side. Renderer.SIDE_MARGIN is the same number: it is how the game finds the hull inside the frame.
+SIDE_MARGIN = 0.16
+
+def cmd_import_side(slugs):
+    for slug in slugs or sorted(os.listdir(os.path.join(OUT, "renders-side"))):
+        # Rendered nose-right; the levels fly right-to-left, so mirrored to point left.
+        loops = {pose: [Image.open(os.path.join(OUT, "renders-side", slug, pose or "idle", f"{i:04d}.png"))
+                        .convert("RGBA").transpose(Image.Transpose.FLIP_LEFT_RIGHT) for i in range(1, n + 1)]
+                 for pose, (_, n) in SIDE_LOOPS.items()}
+        hull = None  # the idle loop's bounds: what the hitbox fits, and what every pose is framed around
+        for f in loops[""]:
+            b = f.getchannel("A").point(lambda a: 255 if a > 8 else 0).getbbox()
+            hull = b if hull is None else (min(hull[0], b[0]), min(hull[1], b[1]), max(hull[2], b[2]), max(hull[3], b[3]))
+        pad = round(SIDE_MARGIN * (hull[2] - hull[0]))
+        box = (hull[0] - pad, hull[1] - pad, hull[2] + pad, hull[3] + pad)  # crop pads with clear past the edge
+        dest = os.path.join(SPRITES, "enemy-cg", slug + "-side"); shutil.rmtree(dest, ignore_errors=True)
+        for pose, frames in loops.items():
+            os.makedirs(os.path.join(dest, pose))
+            for i, f in enumerate(frames, start=1):
+                f = f.crop(box)
+                # Snap alpha first: FASTOCTREE averages it, and a half-clear fringe reads as a halo.
+                f.putalpha(f.getchannel("A").point(lambda a: 255 if a > 127 else 0))
+                f.quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(
+                    os.path.join(dest, pose, f"{i}.png"), optimize=True)
+        w, h = hull[2] - hull[0], hull[3] - hull[1]
+        print(slug, "hull", (w, h), "aspect %.2f" % (w / h), flush=True)
 
 def cmd_import(slugs):
     for slug in slugs or sorted(os.listdir(os.path.join(OUT, "renders"))):
@@ -112,7 +152,7 @@ def cmd_import(slugs):
         for f in frames:
             b = f.getchannel("A").point(lambda a: 255 if a > 8 else 0).getbbox()
             box = b if box is None else (min(box[0], b[0]), min(box[1], b[1]), max(box[2], b[2]), max(box[3], b[3]))
-        for name, xf in ((slug, lambda im: im), (slug + "-side", turned)):
+        for name, xf in ((slug, lambda im: im),):
             dest = os.path.join(SPRITES, "enemy-cg", name); shutil.rmtree(dest, ignore_errors=True); os.makedirs(dest)
             for i, f in enumerate(frames, start=1):
                 xf(f.crop(box)).quantize(256, method=Image.Quantize.FASTOCTREE, dither=Image.Dither.NONE).save(
@@ -122,4 +162,5 @@ def cmd_import(slugs):
 if __name__ == "__main__":
     cmd, args = (sys.argv[1] if len(sys.argv) > 1 else "sheet"), sys.argv[2:]
     {"concept": cmd_concept, "sheet": cmd_sheet, "pick": cmd_pick, "model": cmd_model,
-     "render": cmd_render, "import": cmd_import}[cmd](args)
+     "render": cmd_render, "import": cmd_import, "render-side": cmd_render_side,
+     "import-side": cmd_import_side}[cmd](args)

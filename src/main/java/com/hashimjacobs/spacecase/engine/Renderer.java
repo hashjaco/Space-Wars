@@ -498,8 +498,52 @@ public final class Renderer {
             drawSprite(enemy);
             return;
         }
+        if (art.profile()) {
+            drawProfile(enemy, art, tick);
+            return;
+        }
         Image frame = Assets.enemyFrames(art).get(art.frameIndexAt(tick + enemy.weavePhase()));
         drawFitted(frame, enemy.x(), enemy.y(), enemy.width(), enemy.height());
+    }
+
+    /** tools/tripo/enemies.py SIDE_MARGIN: clear room round a profile's idle hull, in hull lengths. */
+    static final double SIDE_MARGIN = 0.16;
+
+    /**
+     * A hostile on a side-on level: a true profile, nose left. A hit takes its flinch loop, a shot
+     * its lunge, otherwise it idles; the nose follows the climb, and a hull with no plume of its
+     * own gets the player's at the stern.
+     *
+     * The frame is bigger than the hull by {@link #SIDE_MARGIN} on every side so a lunge fits in
+     * it, and it is the hull that is fitted to the box, not the frame: the box is the hitbox.
+     */
+    private void drawProfile(EnemyShip enemy, EnemyArt art, int tick) {
+        int index = enemy.flinchTicks() > 0 ? art.hurtFrameAt(enemy.flinchTicks())
+                : enemy.firedTicks() > 0 ? art.attackFrameAt(enemy.firedTicks())
+                : art.frameIndexAt(tick + enemy.weavePhase());
+        Image frame = Assets.enemyFrames(art).get(index);
+        double hullLength = frame.getWidth() / (1 + 2 * SIDE_MARGIN);
+        double hullHeight = frame.getHeight() - 2 * SIDE_MARGIN * hullLength;
+        double scale = Math.min(enemy.width() / hullLength, enemy.height() / hullHeight);
+        gc.save();
+        gc.translate(enemy.centerX(), enemy.centerY());
+        gc.rotate(enemy.pitch());
+        if (art.flame()) {
+            List<Image> plume = Assets.explosionFrames(Explosion.ENGINE_FLAME);
+            Image flame = plume.get((tick / Explosion.ENGINE_FLAME.ticksPerFrame()) % plume.size());
+            double size = hullHeight * scale * 0.55;
+            double length = size * (1.5 + 0.12 * Math.sin(tick * 0.7 + enemy.weavePhase()));
+            gc.save();
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
+            // The art is a plume pointing down from its top edge; a quarter turn streams it right, astern.
+            gc.translate(hullLength * scale * 0.46, 0);
+            gc.rotate(-90);
+            gc.drawImage(flame, -size / 2, 0, size, length);
+            gc.restore();
+        }
+        gc.drawImage(frame, -frame.getWidth() * scale / 2, -frame.getHeight() * scale / 2,
+                frame.getWidth() * scale, frame.getHeight() * scale);
+        gc.restore();
     }
 
     /** The flagship's frame for this tick in the loop its hull fraction calls for. */

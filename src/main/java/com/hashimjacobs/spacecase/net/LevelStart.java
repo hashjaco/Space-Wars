@@ -36,9 +36,9 @@ public record LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveS
     /**
      * Bumped if the field order changes incompatibly (appending a field is not a break), and when
      * the simulation changes: lockstep peers on different rules desync, and refusing to start is
-     * the kinder failure. 2: set pieces and weapon stacks (game 2.3).
+     * the kinder failure. 2: set pieces and weapon stacks (game 2.3). 3: profile hitboxes on the side-on levels.
      */
-    private static final int FORMAT_VERSION = 2;
+    private static final int FORMAT_VERSION = 3;
 
     private static final String SEPARATOR = ";";
 

@@ -1,6 +1,6 @@
 """Blender (headless) side of tools/tripo: one GLB -> a seamless loop of PNG frames.
 
-    Blender -b --factory-startup -P render_blender.py -- model.glb out_dir yaw_degrees size_px frames [view] [motion] [tilt]
+    Blender -b --factory-startup -P render_blender.py -- model.glb out_dir yaw_degrees size_px frames [view] [motion] [tilt] [zoom]
 
 yaw turns the model nose-down as seen from above (the per-model number in the manifests). tilt,
 "rx,ry,rz" in degrees, is applied to the model first, for a Tripo model that came out lying on
@@ -15,6 +15,9 @@ its side or standing on its tail. Then:
          thrust  bite: lunges toward the camera's down (or right, side-on) and back, on one sine
          none    held still (turn uses this; the turning is the motion)
 
+zoom is the orthographic frame as a multiple of the model's span (1.08): wider leaves room for a
+thrust, so a set of loops rendered at one zoom shares one scale.
+
 Key light from the upper left (the side Renderer drops hull shadows away from).
 """
 import math, sys
@@ -26,6 +29,7 @@ glb, out, yaw, size, frames = argv[:5]
 view = argv[5] if len(argv) > 5 else "top"
 motion = argv[6] if len(argv) > 6 else ("none" if view == "turn" else "sway")
 tilt = [math.radians(float(a)) for a in argv[7].split(",")] if len(argv) > 7 else [0, 0, 0]
+zoom = float(argv[8]) if len(argv) > 8 else 1.08
 yaw, size, frames = math.radians(float(yaw)), int(size), int(frames)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
@@ -67,7 +71,7 @@ if view == "top":
     look = Vector((0, 0, -1))
 elif view == "side":
     # From -X looking +X with Z up, screen-right is -Y: the nose.
-    cam.data.type = "ORTHO"; cam.data.ortho_scale = span * 1.08
+    cam.data.type = "ORTHO"; cam.data.ortho_scale = span * zoom
     cam.location = (-span * 3, 0, 0)
     look = Vector((1, 0, 0))
 else:  # turn
