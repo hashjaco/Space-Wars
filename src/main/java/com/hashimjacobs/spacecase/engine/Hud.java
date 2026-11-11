@@ -94,7 +94,9 @@ final class Hud {
             bossLag = null;
         }
         if (director.bossWarning()) {
-            drawFlagshipWarning(world.tick());
+            drawWarning("FLAGSHIP INBOUND", world.tick());
+        } else if (director.warning() != null) {
+            drawWarning(director.warning(), world.tick());
         }
     }
 
@@ -368,14 +370,14 @@ final class Hud {
         gc.fillText(line, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.44 + 29);
     }
 
-    private void drawFlagshipWarning(int tick) {
+    private void drawWarning(String text, int tick) {
         if (!settings.reducedFlash() && (tick / 14) % 2 == 0) {
             return;
         }
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(bannerFont);
         gc.setFill(Tokens.DANGER_SOFT);
-        gc.fillText("FLAGSHIP INBOUND", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
+        gc.fillText(text, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
     }
 
     private void drawBossBar(EnemyShip boss) {

@@ -9,12 +9,16 @@ import org.junit.jupiter.api.Test;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.entity.WaveShip;
+import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.mode.SetPiece;
 import com.hashimjacobs.spacecase.mode.Waves;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /** The injected Random is what makes any of this assertable. */
@@ -531,5 +535,136 @@ class SpawnDirectorTest {
             world.sweep();
         }
         assertTrue(checked > 0, "nothing spawned, so this test proved nothing");
+    }
+
+    // ------------------------------------------------------------------ set pieces
+
+    @Test
+    void everyOpenLevelPastTheFirstHasASetPieceAndParPaysForIt() {
+        java.util.Set<SetPiece> used = java.util.EnumSet.noneOf(SetPiece.class);
+        for (Level level : Level.values()) {
+            SetPiece piece = level.setPiece();
+            used.add(piece);
+            boolean plain = level == Level.values()[0] || level.template().hasRock();
+            assertEquals(plain, piece == SetPiece.NONE, level.name());
+            assertFalse(piece == SetPiece.ASTEROID_FIELD && level.template().pull() > 0,
+                    level + " drags the ship downrange and walls it in as well");
+            assertTrue(SpawnDirector.parTicks(level) > level.wavesBeforeBoss() * 1200 + piece.ticks(),
+                    level + " does not charge its set piece to par");
+            assertTrue(piece == SetPiece.NONE || level.wavesBeforeBoss() >= 2,
+                    level + " has no middle to put a set piece in");
+        }
+        assertEquals(SetPiece.values().length, used.size(), "every kind should be flown somewhere");
+    }
+
+    /** The promise an asteroid field makes: there is always a way through, next to the last one. */
+    @Test
+    void aFieldWallAlwaysLeavesAGapTheShipCanReachFromTheLastOne() {
+        for (Level level : Level.values()) {
+            int lanes = SpawnDirector.fieldLanes(level);
+            double laneWidth = level.orientation().arenaBreadth() / lanes;
+            assertTrue(laneWidth / SpawnDirector.FIELD_ROW_TICKS < GameConfig.PLAYER_SPEED / 2,
+                    "a stock ship has to make the next gap at half throttle");
+            for (int row = 0; row < SpawnDirector.FIELD_ROWS; row++) {
+                int gap = SpawnDirector.fieldGap(level, row);
+                assertTrue(gap >= 0 && gap + SpawnDirector.FIELD_GAP_LANES <= lanes, level + " row " + row);
+                if (row > 0) {
+                    assertEquals(1, Math.abs(gap - SpawnDirector.fieldGap(level, row - 1)), level + " row " + row);
+                }
+            }
+        }
+    }
+
+    @Test
+    void anAsteroidFieldIsRockAndNoShipsAndThenTheNextWave() {
+        Level level = levelWith(SetPiece.ASTEROID_FIELD);
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = directorOn(level);
+        fightToSetPiece(director, world);
+
+        assertEquals(SetPiece.ASTEROID_FIELD.banner(), director.warning());
+        int rocksBefore = world.asteroids().size();
+        for (int tick = 0; tick < SetPiece.ASTEROID_FIELD.ticks(); tick++) {
+            director.update(world);
+            assertTrue(world.enemies().isEmpty(), "nothing flies into a field, the filler included");
+        }
+        assertNull(director.warning());
+        assertFalse(director.setPieceRunning());
+        int walls = SpawnDirector.FIELD_ROWS * (SpawnDirector.fieldLanes(level) - SpawnDirector.FIELD_GAP_LANES);
+        assertTrue(world.asteroids().size() - rocksBefore >= walls, "every wall should have arrived");
+
+        for (int tick = 0; tick <= SpawnDirector.GROUP_REST_TICKS + 1; tick++) {
+            director.update(world);
+        }
+        assertEquals(level.wavesBeforeBoss() / 2 + 1, director.waveInLevel());
+        assertFalse(world.enemies().isEmpty(), "the waves pick up where they left off");
+        assertFalse(director.setPieceRunning(), "and the set piece does not come round again");
+    }
+
+    @Test
+    void aSwarmIsScoutsAndOnlyScouts() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = directorOn(levelWith(SetPiece.SWARM));
+        fightToSetPiece(director, world);
+        for (int tick = 0; tick < SetPiece.SWARM.ticks(); tick++) {
+            director.update(world);
+        }
+        assertEquals(36, world.enemies().size());
+        for (EnemyShip enemy : world.enemies()) {
+            assertEquals(EnemyShip.EnemyKind.SCOUT, enemy.kind());
+        }
+    }
+
+    @Test
+    void anAceEndsTheMomentItAndItsEscortsAreDead() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = directorOn(levelWith(SetPiece.ACE));
+        fightToSetPiece(director, world);
+        for (int tick = 0; tick <= SpawnDirector.PIECE_WARNING_TICKS; tick++) {
+            director.update(world);
+        }
+        assertEquals(3, world.enemies().size());
+        assertTrue(director.setPieceRunning());
+
+        world.enemies().forEach(EnemyShip::kill);
+        world.sweep();
+        director.update(world);
+        assertFalse(director.setPieceRunning(), "a dead ace is not worth waiting out");
+    }
+
+    @Test
+    void aSalvageDriftIsFourPickupsAndNothingToShoot() {
+        World world = new World(GameMode.SOLO);
+        SpawnDirector director = directorOn(levelWith(SetPiece.SALVAGE));
+        fightToSetPiece(director, world);
+        assertNotNull(director.warning());
+        for (int tick = 0; tick < SetPiece.SALVAGE.ticks(); tick++) {
+            director.update(world);
+            assertTrue(world.enemies().isEmpty());
+        }
+        assertEquals(4, world.powerUps().size());
+    }
+
+    private static SpawnDirector directorOn(Level level) {
+        return new SpawnDirector(new Random(5), Difficulty.NORMAL, GameMode.SOLO.rules(), level, 1, 1);
+    }
+
+    private static Level levelWith(SetPiece piece) {
+        for (Level level : Level.values()) {
+            if (level.setPiece() == piece) {
+                return level;
+            }
+        }
+        throw new AssertionError("no level flies " + piece);
+    }
+
+    /** Kills everything every tick, so the waves fall as fast as they can, until the set piece. */
+    private static void fightToSetPiece(SpawnDirector director, World world) {
+        for (int tick = 0; tick < 20_000 && !director.setPieceRunning(); tick++) {
+            director.update(world);
+            world.enemies().forEach(EnemyShip::kill);
+            world.sweep();
+        }
+        assertTrue(director.setPieceRunning(), "the set piece never began");
     }
 }

@@ -90,6 +90,7 @@ public final class GenerateAssets {
         gameOverSting();
         levelClearSting();
         lowHealthAlarm();
+        setPieceAlert();
 
         playersSprixen();
         bossRoar();
@@ -4570,6 +4571,17 @@ public final class GenerateAssets {
         addTone(mix, 0.20, 0.16, pitch(76), 0.28, Wave.SQUARE);
         addTone(mix, 0.20, 0.16, pitch(64), 0.12, Wave.TRIANGLE);
         writeWav(mix, SOUNDS.resolve("low-health.wav"));
+    }
+
+    /** A set piece on its way: a klaxon, the same rising fourth three times. */
+    private static void setPieceAlert() throws IOException {
+        double[] mix = new double[(int) (1.2 * SAMPLE_RATE)];
+        for (int blast = 0; blast < 3; blast++) {
+            addTone(mix, blast * 0.4, 0.15, pitch(69), 0.26, Wave.SQUARE);
+            addTone(mix, blast * 0.4 + 0.15, 0.2, pitch(74), 0.26, Wave.SQUARE);
+            addTone(mix, blast * 0.4, 0.35, pitch(57), 0.14, Wave.TRIANGLE);
+        }
+        writeWav(mix, SOUNDS.resolve("alert.wav"));
     }
 
     private enum Wave { SQUARE, TRIANGLE, SINE }

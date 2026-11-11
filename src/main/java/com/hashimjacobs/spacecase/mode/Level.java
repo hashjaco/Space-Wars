@@ -470,6 +470,23 @@ public enum Level {
         return template;
     }
 
+    /**
+     * What breaks this level's waves up, halfway through them.
+     *
+     * Derived rather than a fiftieth column: the belts get their rock, everything else takes turns
+     * so neighbours differ. The first level stays plain (the seeded tests are pinned to it and a
+     * new player has enough to read), tunnels have no room, and a level that already drags the
+     * ship downrange does not also get walls.
+     */
+    public SetPiece setPiece() {
+        if (ordinal() == 0 || template.hasRock()) {
+            return SetPiece.NONE;
+        }
+        SetPiece[] turns = {SetPiece.SWARM, SetPiece.ACE, SetPiece.SALVAGE, SetPiece.ASTEROID_FIELD};
+        SetPiece pick = asteroidDensity() > 1 ? SetPiece.ASTEROID_FIELD : turns[ordinal() % turns.length];
+        return pick == SetPiece.ASTEROID_FIELD && template.pull() > 0 ? SetPiece.SWARM : pick;
+    }
+
     /** Which galaxy this level belongs to. Blocks of ten, so the ordinal decides it. */
     public Galaxy galaxy() {
         return Galaxy.values()[ordinal() / Galaxy.LEVELS_PER_GALAXY];

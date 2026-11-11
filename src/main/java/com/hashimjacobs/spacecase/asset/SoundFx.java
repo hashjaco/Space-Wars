@@ -64,6 +64,8 @@ public enum SoundFx {
     LEVEL_CLEAR("level-clear.wav", 0.8),
     /** A flagship arriving. Generated: a sliding detuned bellow with a growl and a crackle. */
     BOSS_ROAR("boss-roar.wav", 0.7),
+    /** A set piece announced: asteroid field, swarm, ace, salvage. */
+    ALERT("alert.wav", 0.4),
     // Suno Sounds, each replacing a stand-in that borrowed another event's sound. Starting levels;
     // judge them by ear against the bed like the rest.
     /** A power-up collected, and the on-foot key. Was LASER and LEVEL_CLEAR. */
