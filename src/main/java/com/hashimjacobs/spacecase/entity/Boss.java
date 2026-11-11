@@ -27,7 +27,7 @@ public enum Boss {
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
     /** Level 2. Broods escorts while it is healthy, then fights for itself. */
-    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH_CG, 1080, 620,
+    HIVE_MATRIARCH("Hive Matriarch", BossArt.HIVE_MATRIARCH_SIDE, 1080, 620,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 3. Opens with a curtain and never gives a straight line to sit in. */
@@ -47,7 +47,7 @@ public enum Boss {
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
     /** Level 7. Opens at its most dangerous and calls in help on the way down. */
-    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT_CG, 2025, 1250,
+    CORE_TYRANT("Core Tyrant", BossArt.CORE_TYRANT_SIDE, 2025, 1250,
             BossPhase.RING, BossPhase.SPAWNER, BossPhase.AIMED_BURST),
 
     /** Level 8. The last thing between the run and its next loop, and armed like it. */
@@ -87,7 +87,7 @@ public enum Boss {
     CINDER_WARDEN("Cinder Warden", BossArt.CINDER_WARDEN_CG, 3090, 1950,
             BossPhase.SPREAD, BossPhase.SWEEPING_FAN, BossPhase.AIMED_BURST),
 
-    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT_CG, 3180, 2000,
+    ASH_REVENANT("Ash Revenant", BossArt.ASH_REVENANT_SIDE, 3180, 2000,
             BossPhase.RING, BossPhase.SPREAD, BossPhase.SPIRAL),
 
     SLAG_BARON("Slag Baron", BossArt.SLAG_BARON_CG, 3270, 2050,
@@ -102,13 +102,13 @@ public enum Boss {
     PYRE_SOVEREIGN("Pyre Sovereign", BossArt.PYRE_SOVEREIGN_CG, 3540, 2200,
             BossPhase.RING, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE_CG, 3630, 2250,
+    SUNWARD_LANCE("Sunward Lance", BossArt.SUNWARD_LANCE_SIDE, 3630, 2250,
             BossPhase.AIMED_BURST, BossPhase.SWEEPING_FAN, BossPhase.SPIRAL),
 
     CORONA_HERALD("Corona Herald", BossArt.CORONA_HERALD_CG, 3720, 2300,
             BossPhase.SWEEPING_FAN, BossPhase.RING, BossPhase.SPAWNER),
 
-    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN_CG, 3810, 2350,
+    EMBER_TITAN("Ember Titan", BossArt.EMBER_TITAN_SIDE, 3810, 2350,
             BossPhase.SPREAD, BossPhase.SPAWNER, BossPhase.SPIRAL),
 
     /**
@@ -132,13 +132,13 @@ public enum Boss {
     // Phase orders are picked so no two flagships in the galaxy open the same way, as Ashfall's
     // are -- and so the two side-on legs, 21 and 29, do not share an opener either.
 
-    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER_CG, 4290, 2600,
+    SHARD_CUTTER("Shard Cutter", BossArt.SHARD_CUTTER_SIDE, 4290, 2600,
             BossPhase.SPREAD, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
     FROST_HARRIER("Frost Harrier", BossArt.FROST_HARRIER_CG, 4380, 2650,
             BossPhase.SPIRAL, BossPhase.SWEEPING_FAN, BossPhase.RING),
 
-    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER_CG, 4470, 2700,
+    GLACIER_BREAKER("Glacier Breaker", BossArt.GLACIER_BREAKER_SIDE, 4470, 2700,
             BossPhase.SWEEPING_FAN, BossPhase.SPREAD, BossPhase.SPAWNER),
 
     ICE_WRAITH("Ice Wraith", BossArt.ICE_WRAITH_CG, 4560, 2750,
@@ -150,13 +150,13 @@ public enum Boss {
     TRENCH_HORROR("Trench Horror", BossArt.TRENCH_HORROR_CG, 4740, 2850,
             BossPhase.SPAWNER, BossPhase.RING, BossPhase.SPREAD),
 
-    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW_CG, 4830, 2900,
+    GEYSER_MAW("Geyser Maw", BossArt.GEYSER_MAW_SIDE, 4830, 2900,
             BossPhase.SPREAD, BossPhase.RING, BossPhase.SPAWNER),
 
     HAIL_BASTION("Hail Bastion", BossArt.HAIL_BASTION_CG, 4920, 2950,
             BossPhase.SWEEPING_FAN, BossPhase.SPIRAL, BossPhase.AIMED_BURST),
 
-    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW_CG, 5010, 3000,
+    SHATTER_PROW("Shatter Prow", BossArt.SHATTER_PROW_SIDE, 5010, 3000,
             BossPhase.SPIRAL, BossPhase.SPREAD, BossPhase.RING),
 
     /**

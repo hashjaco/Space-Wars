@@ -1,0 +1,78 @@
+{
+ "_comment": "The side-on levels' flagships in true profile. src is the sprite directory whose frame 1 Tripo models from (no concept step: the plan view is the image). yaw and tilt put each model side-on to the camera, set from `bosses.py check`; mirror flips a nose-right render to point left, and level turns the finished frames (degrees, counter-clockwise) for a hull that still sits nose-down.",
+ "bosses": {
+  "hive-matriarch": {
+   "src": "boss-hive-matriarch-cg",
+   "yaw": 90,
+   "tilt": "0,-65,0",
+   "mirror": false,
+   "level": 0
+  },
+  "core-tyrant": {
+   "src": "boss-core-tyrant-cg",
+   "yaw": 180,
+   "tilt": "0,-65,0",
+   "mirror": false,
+   "level": -15
+  },
+  "ash-revenant": {
+   "src": "boss-ash-revenant-cg",
+   "yaw": 0,
+   "tilt": "0,-65,0",
+   "mirror": true,
+   "level": 0
+  },
+  "sunward-lance": {
+   "src": "boss-sunward-lance-cg",
+   "yaw": 0,
+   "tilt": "0,-65,0",
+   "mirror": true,
+   "level": 8
+  },
+  "ember-titan": {
+   "src": "boss-ember-titan-cg",
+   "yaw": 0,
+   "tilt": "0,-65,0",
+   "mirror": true,
+   "level": -25
+  },
+  "shard-cutter": {
+   "src": "boss-shard-cutter-cg",
+   "yaw": 0,
+   "tilt": "0,0,0",
+   "mirror": true,
+   "level": 0
+  },
+  "glacier-breaker": {
+   "src": "boss-glacier-breaker-cg",
+   "yaw": 0,
+   "tilt": "0,-65,0",
+   "mirror": false,
+   "level": 0
+  },
+  "geyser-maw": {
+   "src": "boss-geyser-maw-cg",
+   "yaw": 0,
+   "tilt": "0,-65,0",
+   "mirror": true,
+   "level": 0
+  },
+  "shatter-prow": {
+   "src": "boss-shatter-prow-cg",
+   "yaw": 0,
+   "tilt": "0,0,0",
+   "mirror": true,
+   "level": 0
+  }
+ },
+ "unused": {
+  "_why": "Modelled (out/models/boss-<slug>) but not imported: flat vector art comes out of Tripo as flat extruded plates, with no profile worth drawing. These keep their turned plan views, as does photon-halo, which was never modelled.",
+  "slugs": [
+   "ring-reaver",
+   "downdraft-prow",
+   "arc-lance",
+   "tidewrack",
+   "bonepicker"
+  ]
+ }
+}

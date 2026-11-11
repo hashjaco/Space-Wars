@@ -124,7 +124,8 @@ read worse. Give every galaxy one tall-narrow outlier, the `slag-baron` slot.
 
 **A creature cannot guard a side-on level.** `CreatureProfile` has no `sideways` field, where
 `Theme`, `Faction` and `BossProfile` all do. Side-on legs field warships or a set piece. Cryonis's
-21 and 29 are warships for that reason, not by preference.
+21 and 29 are warships for that reason, not by preference. That is about the generator: a CG flagship with a
+`*_SIDE` profile in `BossArt` (rule 9) can be anything, and three of the nine that have one are creatures.
 
 **Adding a part to a flagship must not thicken its barrage.** Both the bullet cooldown and the acid
 cooldown were flat constants tuned when every multi-part boss fielded exactly three parts, so the
@@ -442,7 +443,11 @@ is charged their length.
 
 Not done yet:
 
-- Profiles for the fifteen side-on flagships (the scouts, fighters and cruisers have theirs).
+- Profiles for the last six side-on flagships: Ring Reaver, Downdraft Prow, Arc Lance, Bonepicker,
+  Tidewrack and Photon Halo. Nine have theirs (`tools/tripo/bosses.py`), modelled straight from their
+  CG plan views. These six are flat vector or flat-lit art, which Tripo turns into extruded plates
+  (five were tried; see `unused` in `tools/tripo/manifest/bosses-side.json`), so each needs a
+  three-quarter concept image first, as the hostiles had.
 - Flank and rear ambushes (spawns only enter from the far edge today).
 - A hazard for one wave rather than a whole level (`WorldTemplate` is per level).
 - A scroll speed-up through the field (terrain scroll is tick-derived and collision-relevant).

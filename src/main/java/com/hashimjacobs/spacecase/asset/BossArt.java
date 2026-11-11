@@ -239,6 +239,18 @@ public enum BossArt {
     GEYSER_MAW_CG("boss-geyser-maw-cg", 24, 24, 195, 224),  // side-on: turned nose-left, box transposed
     HAIL_BASTION_CG("boss-hail-bastion-cg", 24, 24, 269, 153),
     SHATTER_PROW_CG("boss-shatter-prow-cg", 24, 24, 220, 184),
+    // The side-on levels' flagships in true profile, nose left: a Tripo model of the plan view above,
+    // rendered from the beam with rage and death loops (tools/tripo/bosses.py). The box is the
+    // frame at nine tenths. The plan-view rows they replace stay for the levels' cards and the map.
+    HIVE_MATRIARCH_SIDE("boss-hive-matriarch-side", 24, 0, 24, 24, 24, 243, 122),
+    CORE_TYRANT_SIDE("boss-core-tyrant-side", 24, 0, 24, 24, 24, 234, 158),
+    ASH_REVENANT_SIDE("boss-ash-revenant-side", 24, 0, 24, 24, 24, 236, 187),
+    SUNWARD_LANCE_SIDE("boss-sunward-lance-side", 24, 0, 24, 24, 24, 224, 79),
+    EMBER_TITAN_SIDE("boss-ember-titan-side", 24, 0, 24, 24, 24, 266, 150),
+    SHARD_CUTTER_SIDE("boss-shard-cutter-side", 24, 0, 24, 24, 24, 231, 165),
+    GLACIER_BREAKER_SIDE("boss-glacier-breaker-side", 24, 0, 24, 24, 24, 230, 171),
+    GEYSER_MAW_SIDE("boss-geyser-maw-side", 24, 0, 24, 24, 24, 230, 186),
+    SHATTER_PROW_SIDE("boss-shatter-prow-side", 24, 0, 24, 24, 24, 228, 137),
     FROZEN_EMPRESS_CG("boss-frozen-empress-cg", 24, 24, 313, 207),
     FROZEN_EMPRESS_HEAD_CG("boss-frozen-empress-head-cg", 24, 24, 104, 104);
 
