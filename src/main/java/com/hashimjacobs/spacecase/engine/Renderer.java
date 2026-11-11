@@ -441,16 +441,28 @@ public final class Renderer {
         double backX = facing.vx(facing.arenaDepth(), 0);
         double backY = facing.vy(facing.arenaDepth(), 0);
 
+        boolean horizontal = facing.vx(1, 0) != 0;
+        double w = GameConfig.WIDTH;
+        double h = GameConfig.HEIGHT;
         List<Sprite> layers = level.skyLayers();
         for (int layer = 0; layer < layers.size(); layer++) {
             Image image = Assets.image(layers.get(layer));
             double scrolled = tick * GameConfig.BACKGROUND_SCROLL_SPEED * LAYER_SPEEDS[layer];
-            double travelled = Math.floor(scrolled % facing.arenaDepth());
+            // Most of the CG skies were painted as single frames, not tiles -- measured, a third jump
+            // at the join by over four times their own row-to-row change, and that jump scrolled down
+            // the screen as a hard line. So every other copy is mirrored along the scroll axis (as the
+            // on-foot backdrop does), which meets edge to identical edge for any painting. The period
+            // is two arenas, so the mirrored copy is always the same one and nothing flips mid-scroll.
+            double travelled = Math.floor(scrolled % (2 * facing.arenaDepth()));
             double ox = facing.vx(travelled, 0);
             double oy = facing.vy(travelled, 0);
-            // Two copies chase each other across the screen so a layer never shows a seam.
-            gc.drawImage(image, ox - backX, oy - backY, GameConfig.WIDTH, GameConfig.HEIGHT);
-            gc.drawImage(image, ox, oy, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.drawImage(image, ox - 2 * backX, oy - 2 * backY, w, h);
+            if (horizontal) {
+                gc.drawImage(image, ox - backX + w, oy - backY, -w, h);
+            } else {
+                gc.drawImage(image, ox - backX, oy - backY + h, w, -h);
+            }
+            gc.drawImage(image, ox, oy, w, h);
         }
     }
 
