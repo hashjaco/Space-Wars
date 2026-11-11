@@ -1,0 +1,52 @@
+# AFTER VERDANCE -- "The Nest". The Hydra is dead in the Hollow Womb.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx cave-drip -1.6 0.8
+@sfx comms-open -0.3
+
+@shot 1 action: Steam and spores drift through the green-lit cave; the dead beast's necks settle as the small fighter hovers, engines glowing.
+CASE (radio): Hollis. The big three-headed thing in the cave? It's handled.
+HOLLIS (radio): Was it the thing eating the light?
+
+@shot 2 talk: CASE portrait=case-cockpit
+CASE (radio): It was eating something. It wasn't picky.
+@sfx tags-jingle -0.2
+
+@shot 3 action: The gloved hand slowly lifts the dripping tangle of dog tags out of the nest; slime strings and drips, tags sway and glint.
+CASE: It was guarding a nest. Dog tags. Hundreds of them. Ours.
+
+@shot 4 talk: HOLLIS portrait=hollis-console
+@pause 1.2
+HOLLIS (radio): Read me a name.
+
+@shot 5 talk: CASE portrait=case-nest
+CASE: Hollis, there's too many to--
+
+@shot 6 talk: HOLLIS portrait=hollis-console
+HOLLIS (radio): Read me one.
+
+@shot 7 talk: CASE portrait=case-nest
+CASE: Petty Officer Dana Ruiz. Third Fleet.
+
+@shot 8 talk: HOLLIS portrait=hollis-console
+@pause 1.4
+HOLLIS (radio): She owes me twenty credits. Keep going.
+@sfx beacon-tick -0.4
+
+@shot 9 action: The pilot holds up the blinking orange beacon; its light pulses in a slow tick as she turns it in her hand, green cave light around her.
+CASE: There's something else. A beacon, still blinking. Not one of ours.
+
+@shot 10 talk: HOLLIS portrait=hollis-console
+HOLLIS (radio): Orange casing. Three fins. Ticks like a cheap watch?
+
+@shot 11 talk: CASE portrait=case-nest
+CASE: You've seen one.
+@sfx holo-flicker -0.3
+
+@shot 12 action: A flickering holographic Militia dossier of the smuggler rotates above the beacon, scan lines rolling, glitches crackling.
+HOLLIS (radio): That's Vaunt's hardware. A smuggler who calls himself a baron. He'll sell anything to anyone, and he charges extra for the anyone.
+
+@shot 13 action: Slow push toward the molten forge world as smokestacks belch ash into space and lava rivers glow.
+HOLLIS (radio): The beacon's pointing at Ashfall. His forges.
+CASE (radio): Great. I love a man with forges.

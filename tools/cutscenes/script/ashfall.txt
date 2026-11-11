@@ -1,0 +1,42 @@
+# AFTER ASHFALL -- "The Ledger". Vaunt's Forge-Rig is wrecked in the caldera; he bails.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx fire-roar -1.6
+@sfx comms-open -0.3
+
+@shot 1 action: Flames roar and lava bubbles around the wrecked mech as it sags and sparks; the escape pod streaks up and away into the ash-filled sky.
+VAUNT (radio): Bravo! Bravo, little Militia ship. Do you have any idea what that rig cost?
+
+@shot 2 talk: CASE portrait=case-cockpit
+CASE (radio): Less than it did an hour ago.
+
+@shot 3 talk: VAUNT portrait=vaunt-pod
+VAUNT (radio): You think I'm the monster. That's adorable. I'm the delivery service.
+
+@shot 4 talk: CASE portrait=case-cockpit
+CASE (radio): Delivering what?
+
+@shot 5 talk: VAUNT portrait=vaunt-pod
+VAUNT (radio): Ships. Crews. Whole colonies, bundled to go. I don't feed it, darling. I keep it fed. There's a difference, and the difference is my margin.
+
+@shot 6 talk: HOLLIS portrait=hollis-console
+HOLLIS (radio): Case, he's breaking orbit. Let him go. We need what he left behind.
+@sfx pod-burn -0.3
+
+@shot 7 action: The escape pod blasts away through the ash clouds, thruster flaring, shrinking to a spark in the sky.
+VAUNT (radio): Listen to the old man. Ta-ta!
+
+@shot 8 action: The cracked tablet's holographic ledger scrolls through shipment rows, every route line swinging to the same frozen star.
+CASE: He left his ledger in the rig. Every shipment, same destination.
+HOLLIS (radio): Where?
+CASE: The ice.
+
+@shot 9 action: Slow drift over the frozen planet's glaciers toward the crystal palace, cold mist rolling, the huge shadow shifting beneath the ice.
+HOLLIS (radio): Cryonis. Nobody goes to Cryonis. The cold out there isn't natural, and neither is the thing that rules it.
+
+@shot 10 talk: CASE portrait=case-cockpit
+CASE (radio): So that's a no.
+
+@shot 11 talk: HOLLIS portrait=hollis-console
+HOLLIS (radio): That's a "wear a sweater."

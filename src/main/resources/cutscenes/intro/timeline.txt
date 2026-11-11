@@ -1,0 +1,31 @@
+S 0.00 1
+L 1.60 5.92 HOLLIS Militia net, this is Hollis at Kestrel Station. Anyone still out there, sound off.
+S 7.52 2
+L 9.37 1.84 HOLLIS ...Anyone.
+S 11.16 3
+L 11.66 12.56 HOLLIS Five galaxies went dark in one night. Colonies. Beacons. The whole Third Fleet. They didn't scatter. Didn't call for help. They just... went out.
+S 24.17 4
+L 24.67 4.56 HOLLIS And I've got one ship left that still flies. Barely.
+S 29.18 5
+L 29.68 2.48 CASE Then it's a good thing I only need one.
+S 32.11 6
+L 32.61 5.20 HOLLIS Case. You're grounded. You are always grounded.
+S 37.76 7
+L 38.26 5.36 CASE And yet here I am, standing next to the only thing in five galaxies with its lights on.
+S 43.57 8
+L 44.07 2.56 HOLLIS That's the cargo hauler's reading lamp.
+S 46.58 9
+L 47.08 2.40 CASE Then I'll fly very carefully.
+S 49.43 10
+L 49.93 7.04 HOLLIS Whatever's eating the light is still out there, and it's still hungry. You see it, you turn around.
+S 56.92 11
+L 57.42 1.76 CASE Sure.
+S 59.13 12
+L 59.63 1.12 HOLLIS Case.
+S 60.70 13
+L 61.20 4.24 CASE I'll turn around and look at it. Very hard.
+S 65.39 14
+L 65.89 6.48 HOLLIS First stop, Verdance. Last signal came from the jungle world. Bring back answers. Bring back my ship.
+L 72.82 1.52 CASE In that order?
+L 75.59 2.88 HOLLIS Any order. Just come back.
+E 81.47

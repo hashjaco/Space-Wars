@@ -34,12 +34,13 @@ public final class MapSmoke {
                 // Everything before this galaxy, so it is unlocked, plus a few inside it.
                 for (int i = 0; i < galaxy * Galaxy.LEVELS_PER_GALAXY + cleared; i++) {
                     saves.recordClear(GameMode.SOLO, Level.values()[i]);
+                    saves.recordChallenges(Level.values()[i], i * 13 % 64);
                 }
 
                 Settings settings = Settings.load();
                 SystemMapModel model =
                         new SystemMapModel(GameMode.SOLO, Galaxy.values()[galaxy], saves, null);
-                SystemMapView view = new SystemMapView(model, settings);
+                SystemMapView view = new SystemMapView(model, settings, com.hashimjacobs.spacecase.garage.Loadout.stock(1));
                 view.draw();
                 System.out.println("focused: " + model.focused().level()
                         + " state " + model.focused().state());

@@ -75,6 +75,8 @@ Five origins appear below:
 | `garage/*.png` | Sprixen | Fourteen upgrade icons for the garage rows, one per `garage.Upgrade`, 24×24 |
 | `onfoot/*.png` | Sprixen | The Undercity on-foot stage's stills: Rift Key, crate, floor and backdrop, placed by [`tools/sprixen/onfoot.py`](tools/sprixen/onfoot.py). `onfoot/foreman.png` is the old puppet still, no longer drawn |
 | `onfoot/<pilot\|thrall\|foreman\|riveteer\|brute>/<move>/*.png` | OpenArt + Tripo3D | The on-foot cast. Each one is an OpenArt concept, a Tripo H3.1 model, a Tripo Mixamo rig with preset animations (idle, walk, run, jump, fall, shoot), and attacks keyed on the rig in Blender. All of it is rendered side-on from one fixed camera per character by [`tools/tripo/onfoot.py`](tools/tripo/onfoot.py) and `render_action.py`, and drawn by `onfoot.OnFootRenderer` |
+| `onfoot/<warden\|matriarch\|tyrant\|revenant>/<move>/*.png` | Tripo3D | The four galaxy bosses on foot (Crucible Warden, Rime Matriarch, Arc Tyrant, Null Revenant). Same pipeline as the cast above, except that the concept is Tripo text-to-image (`onfoot.py tconcept`) rather than OpenArt |
+| `onfoot/<forgeworks\|under-ice\|mag-storm\|hulk-drift>/{backdrop,floor}.png` | Tripo3D | Each later on-foot stage's backdrop and floor. Tripo text-to-image, cut to the Undercity's sizes by [`tools/tripo/stages.py`](tools/tripo/stages.py). A missing one falls back to the Undercity's, hue-shifted |
 | `boss-sentinel-sx/{1..4}.png`, `boss-cinder-warden-sx/{1..8}.png`, `boss-shard-cutter-sx/{1..8}.png`, `boss-squall-warden-sx/{1..8}.png`, `boss-bonepicker-sx/{1..8}.png` | Sprixen | Showcase flagships, one per galaxy opener: a base hull generated to the project's style lock, then an idle loop generated from it at 512 px. The Sentinel keeps the four frames of its loop in which the hull held together; the Shard Cutter's loop was turned a quarter turn to put its nose down. `asset.BossArt` draws these in the originals' boxes, fitted rather than stretched; the generated originals stay on disk |
 | `boss-sentinel-cg/`, `boss-hive-matriarch-cg/`, `boss-bloom-colossus-cg/`, `boss-scrap-hive-cg/`, `boss-foundry-warden-cg/`, `boss-void-weaver-cg/`, `boss-core-tyrant-cg/`, `boss-exodus-dreadnought-cg/`, `boss-dune-leviathan-cg/`, `boss-cinder-warden-cg/`, `boss-ash-revenant-cg/`, `boss-slag-baron-cg/`, `boss-vent-crawler-cg/`, `boss-forge-overseer-cg/`, `boss-pyre-sovereign-cg/`, `boss-sunward-lance-cg/`, `boss-corona-herald-cg/`, `boss-ember-titan-cg/`, `boss-forge-rig-cg/`, `boss-forge-rig-cockpit-cg/`, `boss-forge-rig-arm-cg/`, `boss-shard-cutter-cg/`, `boss-frost-harrier-cg/`, `boss-glacier-breaker-cg/`, `boss-ice-wraith-cg/`, `boss-cryo-marshal-cg/`, `boss-trench-horror-cg/`, `boss-geyser-maw-cg/`, `boss-hail-bastion-cg/`, `boss-shatter-prow-cg/`, `boss-frozen-empress-cg/`, `boss-frozen-empress-head-cg/` (`1..24.png` each) | Sprixen | CG flagships (the N64-era overhaul): a 512 px still from the "Space Case CG" project, animated as a premium idle loop and sampled to 24 frames at 320 px, 256 colours, by `tools/sprixen/cg.py`. `asset.BossArt` `*_CG` rows draw them in the boxes of the rows they replace; the generated and `-sx` originals stay on disk | `boss-hive-matriarch-cg`, `boss-core-tyrant-cg`, `boss-ash-revenant-cg`, `boss-ember-titan-cg`, `boss-glacier-breaker-cg` and `boss-geyser-maw-cg` (and `boss-bonepicker-sx`) guard levels turned side-on (`Level.TURNED`): their frames are rotated -90 degrees in place, nose left, and their boxes transposed |
 | `boss-hydra-cg/{1..24,rage/1..24,death/1..24}.png`, `boss-hydra-head-cg/{1..24,bite/1..12}.png` | Tripo3D + OpenArt | The hydra: an OpenArt nano-banana-pro concept per part (torso, head, the same head with its jaws open), modelled by Tripo H3.1 and rendered headless in Blender by `tools/tripo/models.py`: the torso's idle sway, rage twitch (red key light) and death sink; the head's idle and its lunging bite |
@@ -89,6 +91,7 @@ Five origins appear below:
 | `fx-boss-shockwave/{1..47}.png` | Sprixen | The ring a flagship pushes out as it dies, 47 frames at 256 px, from the `shockwave` effect preset |
 | `fx-acid-vomit/{1..8}.png`, `fx-acid-splash/{1..12}.png`, `fx-bone-skull/1.png`, `fx-bone-rib/1.png`, `fx-bone-femur/1.png`, `fx-blood-splat/{1..12}.png`, `fx-engine-flame/{1..8}.png` | OpenArt | The hydra's acid spit and its splash, the bloody bone its torso vomits (`asset.Round` ACID, SKULL, RIB, FEMUR), the blood a shot raises on it (`Explosion.BLOOD_SPLAT`), and the player's engine flame. One nano-banana-pro still each, keyed and animated on import by `tools/openart/fx.py` (a wobble, a burst, a flicker); bones are one frame and tumble in flight |
 | `garage/bay.png` | OpenArt | The garage's hangar deck behind the bays, 996x864, dimmed to 70% (`tools/openart/fx.py import hangar`) |
+| `title/backdrop.png`, `title/logo.png` | OpenArt | The start screen's key art (behind every menu, 996x864, dimmed to 70%) and the SPACE CASE wordmark, keyed off magenta (`tools/openart/fx.py import title-backdrop title-logo`) |
 | `fx-round-spike/`, `fx-round-web/`, `fx-round-stinger/`, `fx-round-stardust/`, `fx-round-egg/`, `fx-round-fang/` (`{1..N}.png`) | Sprixen | The creature flagships' own rounds (`asset.Round`): the crab's spike, the spider's web, the hornet's stinger, the worm's radioactive stardust, the brood's egg, the maw's fang. One AI VFX each (`create_ai_vfx`, 8 frames at 256 px), cut to the frames that stay nose-up and loop, trimmed and scaled to 64 px by `tools/sprixen/import.py vfx round-<name> 64 --frames … --trim`. The stinger runs off the sheet's edge, so its bottom quarter is faded out by hand |
 | `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
 | `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
@@ -110,10 +113,16 @@ metadata. All instrumental.
 Which track plays when is decided by `asset/MusicCue`, not by the file names — a cue holds several
 suitable tracks and picks one per round so replaying a mode does not always sound the same.
 
-Nine of the ten are encoded at about 128 kbps to keep the download reasonable; the soundtrack would
+All but one are encoded at about 128 kbps to keep the download reasonable; the soundtrack would
 otherwise be most of it. `starlight-circuit.mp3` is the exception at 200 kbps -- it never went
-through the same encode pass, which is also why it is the loudest of the ten and half again the
-size of its neighbours.
+through the same encode pass, which is also why it is the loudest of the originals and half again
+the size of its neighbors.
+
+The eleven added on 2026-11-09 and 11-10 (five for cues, six scored for the cutscenes) were generated through the Suno MCP, the better of each pair of takes
+kept, and encoded at 128 kbps from Suno's 48 kHz WAV export with a 1.5 s fade on the tail so the
+loop seam does not click. The WAVs were not committed; the songs stay in the Suno library.
+
+Every track can be played from Extras → Soundtrack.
 
 Only three have a higher-bitrate export in git history: `death-metal.wav`, `death-punk.wav` and
 `garage-music.wav`. The other seven were committed as the shipped MP3 and nothing else, so for
@@ -132,6 +141,17 @@ rather than a remaster.
 | `garage-music.mp3` | Hashim Jacobs (Suno) | `GARAGE` |
 | `death-metal.mp3` | Hashim Jacobs | `BOSS` and `AEON_BOSS`: every flagship. Transcoded at 128 kbps from a 166 s stereo wav |
 | `death-punk.mp3` | Hashim Jacobs | `BOSS`: every flagship but Aeon. Transcoded at 128 kbps from an 81 s stereo wav |
+| `undercity-brawl.mp3` | Hashim Jacobs (Suno) | `ON_FOOT`, the Undercity brawler stage |
+| `starfall-overture.mp3` | Hashim Jacobs (Suno) | `MENU`, alongside `arcade-womps.mp3` |
+| `dogfight-protocol.mp3` | Hashim Jacobs (Suno) | `BATTLE`, alongside the riot variant |
+| `event-horizon.mp3` | Hashim Jacobs (Suno) | `NULL`'s signature |
+| `aeons-end.mp3` | Hashim Jacobs (Suno) | `AEON_BOSS`: Aeon's own theme, orchestral metal with a wordless choir |
+| `morning-after-the-dark.mp3` | Hashim Jacobs (Suno) | The ending cutscene's theme (`scene.Cutscene.ENDING`), no cue: orchestral synthwave from a quiet piano opening to a sunrise swell |
+| `kestrel-station.mp3` | Hashim Jacobs (Suno) | The intro's score, no cue: radio static and lonely piano building to the launch |
+| `the-nest.mp3` | Hashim Jacobs (Suno) | Scored for the scene after Verdance: wet jungle ambience, a mournful middle, a smuggler's bassline |
+| `the-ledger.mp3` | Hashim Jacobs (Suno) | Scored for the scene after Ashfall: Vaunt's swaggering forge tango |
+| `the-wall.mp3` | Hashim Jacobs (Suno) | Scored for the scene after Cryonis: glass bells and strings for the dying Empress, thunder at the end |
+| `the-storm-breaks.mp3` | Hashim Jacobs (Suno) | Scored for the scene after Tempest: storm drums dropping into the void drone of Null |
 
 ## Sound effects
 
@@ -147,7 +167,28 @@ rather than a remaster.
 | `low-health.wav` | Generated | Two-note square warble. No longer played: a nearly dead ship shows it (arcing, smoke, a red-lit bar) instead of saying it. The file stays because the generator writes it |
 | `game-over.wav` | Generated | Descending four-note arpeggio |
 | `level-clear.wav` | Generated | Ascending arpeggio over a held top note |
+| `pickup.wav` | Hashim Jacobs (Suno Sounds) | `PICKUP`: power-ups and the on-foot key |
+| `player-hit.wav` | Hashim Jacobs (Suno Sounds) | `PLAYER_HIT`: enemy fire landing on a player. Cut to 1.0 s from a 2.8 s zap tail |
+| `special-charge.wav` | Hashim Jacobs (Suno Sounds) | `SPECIAL_CHARGE`: the special's 1.1 s windup; the rise peaks at 0.85 s |
+| `special-release.wav` | Hashim Jacobs (Suno Sounds) | `SPECIAL_RELEASE`: the special firing |
+| `punch.wav`, `block.wav`, `heavy-hit.wav`, `land.wav` | Hashim Jacobs (Suno Sounds) | On foot: `PUNCH`, `BLOCK`, `HEAVY_HIT` (heavies and pounds; the first of the take's two slams, cut before the second), `LAND` |
+| `menu-move.wav`, `menu-select.wav` | Hashim Jacobs (Suno Sounds) | `MENU_MOVE` and `MENU_SELECT`, on every handled key in a menu |
+
+All ten Suno Sounds effects were exported as WAV, then converted with ffmpeg to 48 kHz mono 16-bit PCM:
+leading silence stripped, cut to length with a fade over the last 30%, and peaked at −1 dBFS. `SoundFx`
+levels do the mixing. Extras → Sound Effects plays every effect.
+
 | `laser.wav` | Generated | Downward pitch sweep. The default weapon before `punchy-laser.wav`; still produced by the generator and kept as the licence-clean fallback |
+
+## Cutscenes
+
+| Files | Origin | Notes |
+|---|---|---|
+| `cutscenes/{intro,verdance,ashfall,cryonis,tempest,ending}/scene.mp3`, `timeline.txt` | Hashim Jacobs (ElevenLabs + Suno) | Each scene's voiced dialogue and sound effects over its ducked score, and when each shot and line starts. Effects are ElevenLabs Sound Effects v2 (`@sfx` cues; source files in `tools/cutscenes/out/sfx/`, not committed). Built by [`tools/cutscenes/mix.py`](tools/cutscenes/mix.py) from the screenplay in `tools/cutscenes/script/`, one ElevenLabs eleven_v4 take per line (cast and voice IDs in `tools/cutscenes/voices.json`: library voices on the Starter plan, which grants commercial use) and the scene's score above. Radio lines are band-passed and Aeon is pitched down under an echo, offline |
+| `cutscenes/{intro,verdance,ashfall,cryonis,tempest,ending}/N.jpg` | Hashim Jacobs (OpenArt) | The story stills, one per shot in the screenplay: OpenArt nano-banana-pro image2image at 4:3, referenced on the stock hull concept, the pilot concept, the Hydra, Forge-Rig and Frozen Empress stills, the title sky and the hangar bay so the cast stays on model. Letterbox bars trimmed, then cropped to 16:9 at 1280x720 (JPEG q86). A galaxy's folder is the scene played when that galaxy is cleared |
+| `cutscenes/<scene>/N.mp4` (72 shots across the six scenes) | Hashim Jacobs (OpenArt + ElevenLabs) | One clip per shot of the screenplay's shot list (`@shot N action|talk` in `tools/cutscenes/script/`), each cut to its shot's exact length so nothing runs out under the dialogue. Action shots: PixVerse V6 image2video at 720p from the shot's still (a few reuse earlier Wan 2.7 clips). Talk shots: a segment of the speaking character's 720p PixVerse "living portrait", generated once per character and setting; four hero lines are lip-synced instead with ElevenLabs MiniMax H3 Max Lip Sync from the portrait and the line's own audio. All silent, H.264 Main, re-encoded by the assembly step |
+
+Extras → Story replays any scene already reached. OpenArt's terms grant paid accounts commercial rights to their outputs, as for the skies and hostiles above.
 
 ## Controller mappings
 

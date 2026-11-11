@@ -1,0 +1,54 @@
+# INTRO -- "Lights Out". Kestrel Station, the night the galaxies went dark.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx galaxy-hum -1.6 0.9
+
+@shot 1 action: Slow push in as the five galaxies gutter out one by one, the nearest fading to black.
+@sfx comms-open -0.3
+HOLLIS (radio): Militia net, this is Hollis at Kestrel Station. Anyone still out there, sound off.
+
+@shot 2 talk: HOLLIS portrait=hollis-console
+@pause 1.4
+HOLLIS (radio): ...Anyone.
+
+@shot 3 action: Slow drift past the frozen derelict fleet tumbling in the dark; the faint violet ring pulses far behind.
+HOLLIS (radio): Five galaxies went dark in one night. Colonies. Beacons. The whole Third Fleet. They didn't scatter. Didn't call for help. They just... went out.
+@sfx hangar-amb -0.5 0.8
+
+@shot 4 action: Slow dolly across the dim hangar toward the last green fighter on its lit pad; lamps sway, dust drifts.
+HOLLIS: And I've got one ship left that still flies. Barely.
+
+@shot 5 talk: CASE portrait=case-hangar
+CASE: Then it's a good thing I only need one.
+
+@shot 6 talk: HOLLIS portrait=hollis-hangar
+HOLLIS: Case. You're grounded. You are always grounded.
+
+@shot 7 talk: CASE portrait=case-hangar
+CASE: And yet here I am, standing next to the only thing in five galaxies with its lights on.
+
+@shot 8 talk: HOLLIS portrait=hollis-hangar
+HOLLIS: That's the cargo hauler's reading lamp.
+
+@shot 9 talk: CASE portrait=case-hangar
+CASE: Then I'll fly very carefully.
+
+@shot 10 talk: HOLLIS portrait=hollis-hangar
+HOLLIS: Whatever's eating the light is still out there, and it's still hungry. You see it, you turn around.
+
+@shot 11 talk: CASE portrait=case-hangar
+CASE: Sure.
+
+@shot 12 talk: HOLLIS portrait=hollis-hangar
+HOLLIS: Case.
+
+@shot 13 talk: CASE portrait=case-cockpit
+CASE: I'll turn around and look at it. Very hard.
+@sfx engine-launch -0.8
+
+@shot 14 action: The fighter's engines flare bright blue and it accelerates away toward the green planet, shrinking into the distance.
+HOLLIS (radio): First stop, Verdance. Last signal came from the jungle world. Bring back answers. Bring back my ship.
+CASE (radio): In that order?
+@pause 0.8
+HOLLIS (radio): Any order. Just come back.

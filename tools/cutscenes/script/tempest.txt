@@ -1,0 +1,45 @@
+# AFTER TEMPEST -- "The Storm Breaks". Vaunt's Storm-Rig is down; the Serpent falls; Null opens.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx storm-rain -1.6 0.8
+@sfx thunder -0.8
+
+@shot 1 action: Lightning flashes as the wrecked mech sparks and smokes; the man climbs out of the hatch into the driving rain.
+VAUNT (radio): All right. All right! Stop shooting. I'm out of rigs.
+
+@shot 2 talk: CASE portrait=case-cockpit
+CASE (radio): You came back.
+
+@shot 3 talk: VAUNT portrait=vaunt-rain
+VAUNT (radio): I came back because there's nowhere left to run, darling. You broke the wall. Do you understand what's coming?
+@sfx void-drone -0.5 0.8
+
+@shot 4 action: A dying star collapses inward into a hollow black sphere, its light and its planets spiraling in and vanishing into it.
+VAUNT: Aeon. It was a star, once. Then it learned to eat. Light first. Then everything the light touched.
+
+@shot 5 talk: VAUNT portrait=vaunt-rain
+VAUNT: I fed it so it would never come for me. That was the whole plan. It was a very good plan.
+
+@shot 6 talk: CASE portrait=case-cockpit
+CASE: It was a terrible plan.
+
+@shot 7 talk: VAUNT portrait=vaunt-rain
+VAUNT: It was a terrible plan with excellent margins.
+@sfx serpent-fall -0.6
+@sfx comms-open -0.2
+
+@shot 8 action: The storm clouds tear open and bright light floods through as the dead serpent falls away; the fighter climbs up into the light.
+HOLLIS (radio): Case, the storm's breaking up. The Serpent went down and took the cloud deck with it.
+@sfx void-drone -0.4 0.7
+
+@shot 9 action: Slow push toward the black hole as its thin blazing ring curls and shimmers around the perfect black disk.
+CASE (radio): Hollis... there's nothing behind it. No stars. Just a ring.
+HOLLIS (radio): That's Null.
+@sfx aeon-rumble -0.6
+
+@shot 10 action: The colossal black sphere's violet corona churns and its four eyes flare brighter as it slowly looms toward the tiny fighter.
+AEON: Little light. You came so far to be eaten.
+
+@shot 11 talk: CASE portrait=case-cockpit
+CASE (radio): Funny. I came all this way to tell you you're grounded.

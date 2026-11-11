@@ -1,0 +1,43 @@
+# AFTER CRYONIS -- "The Wall". The Frozen Empress is dying, and the ice with her.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx ice-shatter -0.4
+
+@shot 1 action: The ice queen shatters outward into thousands of glittering shards in slow motion as cracks race across the cavern walls.
+EMPRESS: So. The little light has teeth.
+
+@shot 2 talk: CASE portrait=case-cockpit
+CASE: You're the one Vaunt was shipping people to.
+
+@shot 3 talk: EMPRESS portrait=empress
+EMPRESS: To me? No, child. Through me. I was the wall.
+@sfx ice-crack -0.5 0.7
+
+@shot 4 action: Slow push down through the ice toward the colossal four-headed shadow sleeping beneath it; the ice groans and hairline cracks spread.
+EMPRESS: For ten thousand years I held the hunger behind this ice. It gnawed, and I held. Your smuggler paid it in ships to be let through.
+
+@shot 5 talk: CASE portrait=case-cockpit
+CASE: Then why fight me?
+
+@shot 6 talk: EMPRESS portrait=empress
+EMPRESS: Because you were going to break the wall. And you have.
+@sfx ice-crack -0.6
+@sfx comms-open -0.2
+
+@shot 7 action: The colossal ice wall cracks open and collapses into tumbling blocks while inky darkness pours out; the tiny fighter banks away.
+@pause 1.2
+CASE (radio): Hollis. I think I just let it out.
+HOLLIS (radio): You didn't know.
+
+@shot 8 talk: CASE portrait=case-cockpit
+CASE (radio): That doesn't un-let it out.
+
+@shot 9 talk: HOLLIS portrait=hollis-console
+@pause 1.0
+HOLLIS (radio): No. So we finish it.
+@sfx thunder -0.5 0.7
+
+@shot 10 action: Lightning flashes across the planet-sized storm, the serpent shape coils through the clouds and the mech's silhouette is lit for an instant.
+HOLLIS (radio): It's moving through Tempest. And so is somebody else. Vaunt's signal just lit up inside the storm.
+CASE (radio): Of course it did.

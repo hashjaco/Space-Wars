@@ -2,6 +2,7 @@
 """The on-foot cast as CG: an OpenArt concept, a Tripo model, rig and preset animations, a Blender side view.
 
     python3 tools/tripo/onfoot.py concept [slug...]   # 2 OpenArt variants each (nano-banana-pro, ~40 cr each)
+    python3 tools/tripo/onfoot.py tconcept [slug...]  # 1 Tripo text-to-image each (5 cr), picked as 0; no reference image
     python3 tools/tripo/onfoot.py sheet                # out/onfoot-concepts.png to pick from
     python3 tools/tripo/onfoot.py pick <slug> <0|1>
     python3 tools/tripo/onfoot.py model [slug...]      # Tripo image-to-model on the pick (H3.1, 30 cr)
@@ -63,6 +64,22 @@ def cmd_concept(slugs):
             got = sorted(glob.glob(tmp + "/*"))
             Image.open(got[0]).convert("RGB").save(dest); shutil.rmtree(tmp)
             print(slug, v, "->", dest, flush=True)
+
+
+def cmd_tconcept(slugs):
+    """Tripo text-to-image: far cheaper than OpenArt, but it cannot match a reference image."""
+    for slug in slugs:
+        c = CHARS[slug]
+        d = os.path.join(OUT, "concepts", slug); os.makedirs(d, exist_ok=True)
+        dest = os.path.join(d, "0.png")
+        if not os.path.exists(dest):
+            tmp = os.path.join(d, "tmp"); os.makedirs(tmp, exist_ok=True)
+            run(["tripo", "generate", "text-to-image", c["prompt"] + " " + MAN["concept_style"].split(" Match the")[0],
+                 "-o", tmp, "--yes", "--json", "--no-open"], ENV)
+            Image.open(newest(os.path.join(tmp, "**", "generated_image.png"))).convert("RGB").save(dest)
+            shutil.rmtree(tmp)
+        s = load(); s.setdefault(key(slug), {})["pick"] = 0; save(s)
+        print(slug, "->", dest, flush=True)
 
 
 def cmd_sheet(_):
@@ -199,5 +216,5 @@ def cmd_import(args):
 
 if __name__ == "__main__":
     cmd, args = (sys.argv[1] if len(sys.argv) > 1 else "sheet"), sys.argv[2:]
-    {"concept": cmd_concept, "sheet": cmd_sheet, "pick": cmd_pick, "model": cmd_model, "rig": cmd_rig,
+    {"concept": cmd_concept, "tconcept": cmd_tconcept, "sheet": cmd_sheet, "pick": cmd_pick, "model": cmd_model, "rig": cmd_rig,
      "render": cmd_render, "import": cmd_import}[cmd](args)

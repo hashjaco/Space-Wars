@@ -1,0 +1,29 @@
+S 0.00 1
+L 1.60 3.76 CASE Hollis. The big three-headed thing in the cave? It's handled.
+L 5.81 2.08 HOLLIS Was it the thing eating the light?
+S 7.84 2
+L 8.34 4.08 CASE It was eating something. It wasn't picky.
+S 12.37 3
+L 12.87 6.00 CASE It was guarding a nest. Dog tags. Hundreds of them. Ours.
+S 18.87 4
+L 20.52 1.60 HOLLIS Read me a name.
+S 22.07 5
+L 22.57 2.64 CASE Hollis, there's too many to--
+S 25.16 6
+L 25.66 1.28 HOLLIS Read me one.
+S 26.89 7
+L 27.39 3.44 CASE Petty Officer Dana Ruiz. Third Fleet.
+S 30.83 8
+L 32.68 3.52 HOLLIS She owes me twenty credits. Keep going.
+S 36.15 9
+L 36.65 5.12 CASE There's something else. A beacon, still blinking. Not one of ours.
+S 41.72 10
+L 42.22 6.24 HOLLIS Orange casing. Three fins. Ticks like a cheap watch?
+S 48.41 11
+L 48.91 1.52 CASE You've seen one.
+S 50.38 12
+L 50.88 9.36 HOLLIS That's Vaunt's hardware. A smuggler who calls himself a baron. He'll sell anything to anyone, and he charges extra for the anyone.
+S 60.19 13
+L 60.69 3.36 HOLLIS The beacon's pointing at Ashfall. His forges.
+L 64.50 3.44 CASE Great. I love a man with forges.
+E 70.94

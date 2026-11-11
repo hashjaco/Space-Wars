@@ -1313,6 +1313,1058 @@
      }
     }
    }
+  },
+  {
+   "slug": "warden",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "The Crucible Warden: a towering armored foundry overseer, heavy riveted bronze-and-black plate armor glowing with molten orange seams, a huge two-handed forge hammer with a glowing head, a narrow visored helm with furnace-light eyes, broad shoulders, alien and menacing.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 384,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -95
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.68,
+        {
+         "RightArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "Spine": [
+          0,
+          0,
+          -35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          18
+         ]
+        }
+       ],
+       [
+        0.72,
+        {
+         "RightArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          -50
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -35
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          40
+         ],
+         "RightLeg": [
+          0,
+          0,
+          35
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          -40
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "matriarch",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "The Rime Matriarch: a tall gaunt alien queen of ice, pale blue translucent crystalline armor over a dark body, a crown of jagged icicle spines, long clawed hands rimed with frost, glowing cold-white eyes, a frayed cloak of frozen mist, regal and menacing.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 384,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -95
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.68,
+        {
+         "RightArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "Spine": [
+          0,
+          0,
+          -35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -150
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -150
+         ],
+         "Spine": [
+          0,
+          0,
+          20
+         ],
+         "Neck": [
+          0,
+          0,
+          20
+         ]
+        }
+       ],
+       [
+        0.75,
+        {
+         "RightArm": [
+          0,
+          0,
+          -30
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -30
+         ],
+         "Spine": [
+          0,
+          0,
+          -25
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          -30
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -30
+         ],
+         "Spine": [
+          0,
+          0,
+          -20
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "tyrant",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "The Arc Tyrant: a lean wiry alien storm warlord in dark segmented armor crackling with blue-white lightning, copper coils wound around both forearms, a tall finned helm with a glowing visor slit, sharp angular silhouette, fast and dangerous.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 384,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -95
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.68,
+        {
+         "RightArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "Spine": [
+          0,
+          0,
+          -35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "Spine": [
+          0,
+          0,
+          -40
+         ],
+         "RightArm": [
+          0,
+          0,
+          60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -30
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          45
+         ],
+         "RightUpLeg": [
+          0,
+          0,
+          25
+         ],
+         "RightLeg": [
+          0,
+          0,
+          40
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "Spine": [
+          0,
+          0,
+          -45
+         ],
+         "RightArm": [
+          0,
+          0,
+          70
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -70
+         ],
+         "LeftUpLeg": [
+          0,
+          0,
+          -30
+         ],
+         "LeftLeg": [
+          0,
+          0,
+          45
+         ],
+         "RightUpLeg": [
+          0,
+          0,
+          25
+         ],
+         "RightLeg": [
+          0,
+          0,
+          40
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
+  },
+  {
+   "slug": "revenant",
+   "ref": "onfoot/foreman/combat_idle/1.png",
+   "prompt": "The Null Revenant: a towering gaunt armored husk from a derelict starship, one solid connected body of cracked black void-metal armor, a violet singularity glowing through a hole in its chest, a cracked faceless helm, long heavy arms with clawed gauntlets, unsettling and menacing.",
+   "anims": {
+    "combat_idle": "idle",
+    "walk": "walk",
+    "hurt": "fall@0,0.3",
+    "death": "fall"
+   },
+   "size": 384,
+   "poses": {
+    "stance": {
+     "RightArm": [
+      0,
+      0,
+      -25
+     ],
+     "RightForeArm": [
+      0,
+      0,
+      -45
+     ],
+     "LeftArm": [
+      0,
+      0,
+      -20
+     ],
+     "LeftForeArm": [
+      0,
+      0,
+      -40
+     ],
+     "Spine": [
+      0,
+      0,
+      -10
+     ],
+     "RightUpLeg": [
+      0,
+      0,
+      10
+     ],
+     "RightLeg": [
+      0,
+      0,
+      12
+     ],
+     "LeftUpLeg": [
+      0,
+      0,
+      -14
+     ],
+     "LeftLeg": [
+      0,
+      0,
+      10
+     ]
+    },
+    "moves": {
+     "combo_1": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.4,
+        {
+         "RightArm": [
+          0,
+          0,
+          40
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -95
+         ],
+         "Spine": [
+          0,
+          0,
+          10
+         ]
+        }
+       ],
+       [
+        0.55,
+        {
+         "RightArm": [
+          0,
+          0,
+          -88
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -4
+         ],
+         "Spine": [
+          0,
+          0,
+          -18
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "combo_2": {
+      "frames": 10,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -170
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -170
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          -20
+         ],
+         "Spine": [
+          0,
+          0,
+          15
+         ]
+        }
+       ],
+       [
+        0.68,
+        {
+         "RightArm": [
+          0,
+          0,
+          -60
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -60
+         ],
+         "Spine": [
+          0,
+          0,
+          -35
+         ]
+        }
+       ],
+       [
+        1,
+        {}
+       ]
+      ]
+     },
+     "special": {
+      "frames": 12,
+      "keys": [
+       [
+        0,
+        {}
+       ],
+       [
+        0.5,
+        {
+         "RightArm": [
+          0,
+          0,
+          -90
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -90
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          10
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          10
+         ],
+         "Spine": [
+          0,
+          0,
+          22
+         ],
+         "Neck": [
+          0,
+          0,
+          25
+         ]
+        }
+       ],
+       [
+        1,
+        {
+         "RightArm": [
+          0,
+          0,
+          -95
+         ],
+         "LeftArm": [
+          0,
+          0,
+          -95
+         ],
+         "RightForeArm": [
+          0,
+          0,
+          10
+         ],
+         "LeftForeArm": [
+          0,
+          0,
+          10
+         ],
+         "Spine": [
+          0,
+          0,
+          24
+         ],
+         "Neck": [
+          0,
+          0,
+          25
+         ]
+        }
+       ]
+      ]
+     }
+    }
+   }
   }
  ],
  "note_anims": "anims: game move -> Tripo preset, optionally '@from,to' as fractions of the clip. 'hurt' is the opening stagger of 'fall': the 'hurt' preset is a seated knee-hold, not a flinch.",

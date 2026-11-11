@@ -1,0 +1,27 @@
+S 0.00 1
+L 1.60 3.70 AEON I... was... a star...
+S 5.25 2
+L 5.75 2.00 CASE Then go be one again.
+S 7.70 3
+L 8.20 8.40 HOLLIS Case? Case, talk to me. Every board just lit up. Beacons. Colonies. Third Fleet transponders. All of it.
+S 16.60 4
+L 17.65 2.16 HOLLIS It's giving it all back.
+L 20.26 3.36 HOLLIS Case. Ruiz's transponder just pinged.
+S 23.57 5
+L 24.07 3.28 CASE Guess she owes you twenty credits.
+S 27.35 6
+L 28.80 3.52 HOLLIS Guess she does.
+S 32.32 7
+S 36.32 8
+S 39.27 9
+L 39.77 4.24 HOLLIS They'll want a name for the report. Who flew the last ship.
+S 43.96 10
+L 44.46 2.56 CASE Tell them it was a space case.
+S 46.97 11
+L 47.47 1.76 HOLLIS That's not a name.
+S 49.18 12
+L 49.68 1.44 CASE It is now.
+S 51.07 13
+L 51.57 1.68 HOLLIS You're grounded.
+L 53.70 1.76 CASE I know.
+E 58.46

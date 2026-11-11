@@ -63,9 +63,11 @@ java  -cp "/tmp/preview:$CP" com.hashimjacobs.spacecase.scene.MapSmoke /tmp/map.
 `MapSmoke` takes `<out.png> [galaxyIndex] [levelsCleared]` and writes into a throwaway Preferences
 node, so it never touches real progress. `GarageSmoke` takes `<out.png>`.
 
-`MenuSmoke` takes `<out.png>` and draws the start screen -- backdrop, title, buttons. Written for
-the pass that moved the menu off `L1_MID`, the level-one layer with nothing in it, onto `L1_FAR`,
-which has the planet: the menus had been reading as a plain black field for want of one constant.
+`MenuSmoke` takes `<out.png> menu|results`: a worst-case scrolling list (a two-line save row, a
+locked row, a focused row), or the game-over card as `SceneRouter.showResults` composes it.
+
+`DebriefSmoke` takes `<out.png> <pilots> <tick>` and draws the end-of-level report for one to four
+pilots at that reveal tick. Four pilots is the case to look at; a large tick shows it finished.
 
 `KeyboardSmoke` takes `<outDir>` and writes two: the Pilots screen, and the same screen with the
 on-screen keyboard open over it. Written for the pass that took free typing off the name and code
