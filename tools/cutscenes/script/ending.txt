@@ -1,0 +1,51 @@
+# ENDING -- "Morning". Aeon breaks at the edge of its own horizon.
+# @shot N action: <motion>  |  @shot N talk: SPEAKER portrait=<name>  |  @shot N still
+# @pause S, @sfx name [+/-offset] [gain], SPEAKER[ (radio)]: line  -- see mix.py
+
+@sfx light-bloom -0.8
+
+@shot 1 action: Cracks spread across the black sphere and blinding gold-white light bursts out of them as the violet corona collapses inward.
+AEON: I... was... a star...
+
+@shot 2 talk: CASE portrait=case-cockpit
+CASE (radio): Then go be one again.
+@sfx comms-open -0.3
+
+@shot 3 action: Light floods outward from the center and lost starships and blinking beacons stream out of it, drifting past the camera.
+HOLLIS (radio): Case? Case, talk to me. Every board just lit up. Beacons. Colonies. Third Fleet transponders. All of it.
+
+@shot 4 talk: HOLLIS portrait=hollis-console
+@pause 0.6
+HOLLIS (radio): It's giving it all back.
+HOLLIS (radio): Case. Ruiz's transponder just pinged.
+
+@shot 5 talk: CASE portrait=case-cockpit
+CASE (radio): Guess she owes you twenty credits.
+
+@shot 6 talk: HOLLIS portrait=hollis-console
+@pause 1.0
+HOLLIS (radio): Guess she does.
+
+@shot 7 action: The fighter glides slowly toward the green planet as the sun rises over the horizon and golden light blooms across the atmosphere.
+@sfx dawn-wind +0.5 0.7
+@pause 4.0
+@sfx hangar-door -2.5 0.7
+
+@shot 8 action: Golden morning light spreads across the hangar as the pilot sits on the fighter's nose, helmet beside her, and smiles; dust drifts in the light.
+@pause 3.0
+
+@shot 9 talk: HOLLIS portrait=hollis-dawn
+HOLLIS: They'll want a name for the report. Who flew the last ship.
+
+@shot 10 talk: CASE portrait=case-dawn
+CASE: Tell them it was a space case.
+
+@shot 11 talk: HOLLIS portrait=hollis-dawn
+HOLLIS: That's not a name.
+
+@shot 12 talk: CASE portrait=case-dawn
+CASE: It is now.
+
+@shot 13 action: Golden dawn light slowly brightens across the hangar as dust drifts; the two figures stand still, the old man's hand on her shoulder.
+HOLLIS: You're grounded.
+CASE: I know.

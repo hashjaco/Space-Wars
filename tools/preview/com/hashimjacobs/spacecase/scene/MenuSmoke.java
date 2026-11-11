@@ -1,98 +1,88 @@
 package com.hashimjacobs.spacecase.scene;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import javafx.application.Platform;
 import javafx.scene.Scene;
 import javafx.scene.SnapshotParameters;
 import javafx.scene.image.WritableImage;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
+import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
-import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.ui.Tokens;
 
 /**
- * Snapshots the start menu, backdrop and title and all.
+ * Snapshots the menu chrome: {@code <out.png> menu|results}.
  *
- * Written for the pass that swapped the menu backdrop off {@code L1_MID} -- the level-one layer
- * with nothing in it -- and dropped the box from around the heading. Both are changes you can only
- * judge by looking, which is what this directory is for.
- *
- * The rows are the real start menu's, at their worst case rather than a short sample: a Continue
- * row carrying the longest save line the game can produce, and a locked row. A five-row stub of
- * made-up short labels was what let a row that could never fit its own text ship in the first
- * place, so the point of this harness is that the hard case is the one in the picture.
+ * "menu" is a worst-case list -- a two-line row carrying the longest save line the game can
+ * produce, a locked row, a focused row, and enough rows to scroll -- because a stub of short labels
+ * is what once let a row that could not fit its own text ship. "results" is the game-over card as
+ * {@code SceneRouter.showResults} composes it, from the same shared pieces.
  */
 public final class MenuSmoke {
     public static void main(String[] args) throws Exception {
+        boolean results = args.length > 1 && args[1].equals("results");
         Platform.startup(() -> { });
-        final Exception[] failure = new Exception[1];
-        final java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
+        java.util.concurrent.CountDownLatch done = new java.util.concurrent.CountDownLatch(1);
         Platform.runLater(() -> {
             try {
                 Assets.load();
-
-                // The longest line SaveSlot.describe() can build: widest mode, last level, the
-                // longest level label in the game, a loop count and an eight-digit score.
-                MenuButton resume = new MenuButton("Continue",
-                        "Single Player \u00b7 Lv50 Mag-Storm Caverns \u00b7 loop 9 \u00b7 12,345,678",
-                        () -> { });
-                MenuButton locked = new MenuButton("Endless Run",
-                        "locked -- clear the campaign first", () -> { });
-                locked.setLocked(true);
-
-                MenuPanel panel = new MenuPanel(
-                        resume,
-                        new MenuButton("Universe Map", () -> { }),
-                        new MenuButton("Single Player", () -> { }),
-                        locked,
-                        new MenuButton("Multiplayer", () -> { }),
-                        new MenuButton("Load Game", () -> { }),
-                        new MenuButton("Pilots", () -> { }),
-                        new MenuButton("Settings", () -> { }),
-                        new MenuButton("Help", () -> { }),
-                        new MenuButton("Exit", () -> { }));
-                // Focused, so the render also shows the selection cue rather than ten idle rows.
-                resume.setHighlighted(true);
-
-                StackPane root = MenuScreen.build("SPACE CASE",
-                        MenuScreen.decal(Sprite.P1_STRAIGHT, 54),
-                        panel,
-                        MenuScreen.caption("Best solo run: 0", Tokens.SIZE_BODY, Tokens.TEXT_DIM));
+                StackPane root;
+                if (results) {
+                    Text score = new Text("1,284,650");
+                    score.setFont(Font.font(Assets.displayFontFamily(), 64));
+                    score.setFill(Tokens.BRAND);
+                    VBox card = MenuScreen.card(
+                            MenuScreen.caption("SINGLE PLAYER", Tokens.SIZE_SMALL, Tokens.LABEL), score,
+                            MenuScreen.caption("★  NEW BEST", Tokens.SIZE_ROW, Tokens.WARN),
+                            MenuScreen.caption("Level 30   The Frozen Heart   ·   41 waves", Tokens.SIZE_BODY, Tokens.TEXT_DIM));
+                    MenuButton onward = new MenuButton("On to Tempest", () -> { });
+                    onward.setHighlighted(true);
+                    root = MenuScreen.build("GALAXY CLEARED", card,
+                            new MenuPanel(onward, new MenuButton("Main Menu", () -> { })));
+                } else {
+                    List<MenuButton> rows = new ArrayList<>();
+                    rows.add(new MenuButton("Continue",
+                            "Single Player - Lv50 Mag-Storm Caverns - loop 9 - 12,345,678", () -> { }));
+                    rows.add(new MenuButton("Play", () -> { }));
+                    MenuButton locked = new MenuButton("IV   Tempest", () -> { });
+                    locked.setLocked(true);
+                    rows.add(locked);
+                    for (int i = 0; i < 12; i++) {
+                        rows.add(new MenuButton("Row " + (i + 4), () -> { }));
+                    }
+                    rows.get(1).setHighlighted(true);
+                    root = MenuScreen.build("EXTRAS", new MenuPanel(rows.toArray(new MenuButton[0])));
+                }
                 new Scene(root, GameConfig.WIDTH, GameConfig.HEIGHT, Tokens.SPACE);
                 root.applyCss();
                 root.layout();
-
                 SnapshotParameters params = new SnapshotParameters();
                 params.setFill(Tokens.SPACE);
                 WritableImage shot = root.snapshot(params, null);
-                // Copied out by hand for the same reason MapSmoke does it: javafx-swing is not a
-                // dependency and adding one just to save a screenshot would be the worse trade.
-                int w = (int) shot.getWidth();
-                int h = (int) shot.getHeight();
-                java.awt.image.BufferedImage out =
-                        new java.awt.image.BufferedImage(w, h,
-                                java.awt.image.BufferedImage.TYPE_INT_ARGB);
-                javafx.scene.image.PixelReader pixels = shot.getPixelReader();
-                for (int py = 0; py < h; py++) {
-                    for (int px = 0; px < w; px++) {
-                        out.setRGB(px, py, pixels.getArgb(px, py));
+                int w = (int) shot.getWidth(), h = (int) shot.getHeight();
+                java.awt.image.BufferedImage out = new java.awt.image.BufferedImage(w, h,
+                        java.awt.image.BufferedImage.TYPE_INT_ARGB);
+                for (int y = 0; y < h; y++) {
+                    for (int x = 0; x < w; x++) {
+                        out.setRGB(x, y, shot.getPixelReader().getArgb(x, y));
                     }
                 }
                 javax.imageio.ImageIO.write(out, "png", new java.io.File(args[0]));
                 System.out.println("wrote " + args[0] + "  " + w + "x" + h);
             } catch (Exception e) {
-                failure[0] = e;
+                e.printStackTrace();
             } finally {
                 done.countDown();
             }
         });
         done.await();
         Platform.exit();
-        if (failure[0] != null) {
-            failure[0].printStackTrace();
-            System.exit(1);
-        }
     }
 }

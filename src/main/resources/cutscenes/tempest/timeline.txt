@@ -1,0 +1,24 @@
+S 0.00 1
+L 1.60 3.92 VAUNT All right. All right! Stop shooting. I'm out of rigs.
+S 5.47 2
+L 5.97 1.44 CASE You came back.
+S 7.36 3
+L 7.86 6.72 VAUNT I came back because there's nowhere left to run, darling. You broke the wall. Do you understand what's coming?
+S 14.53 4
+L 15.03 9.84 VAUNT Aeon. It was a star, once. Then it learned to eat. Light first. Then everything the light touched.
+S 24.82 5
+L 25.32 6.88 VAUNT I fed it so it would never come for me. That was the whole plan. It was a very good plan.
+S 32.15 6
+L 32.65 1.84 CASE It was a terrible plan.
+S 34.44 7
+L 34.94 4.88 VAUNT It was a terrible plan with excellent margins.
+S 39.77 8
+L 40.27 5.04 HOLLIS Case, the storm's breaking up. The Serpent went down and took the cloud deck with it.
+S 45.26 9
+L 45.76 5.92 CASE Hollis... there's nothing behind it. No stars. Just a ring.
+L 52.13 1.76 HOLLIS That's Null.
+S 53.84 10
+L 54.34 7.69 AEON Little light. You came so far to be eaten.
+S 61.98 11
+L 62.48 3.92 CASE Funny. I came all this way to tell you you're grounded.
+E 69.40

@@ -1,0 +1,23 @@
+S 0.00 1
+L 1.60 3.58 EMPRESS So. The little light has teeth.
+S 5.13 2
+L 5.63 2.56 CASE You're the one Vaunt was shipping people to.
+S 8.14 3
+L 8.64 6.62 EMPRESS To me? No, child. Through me. I was the wall.
+S 15.21 4
+L 15.71 11.98 EMPRESS For ten thousand years I held the hunger behind this ice. It gnawed, and I held. Your smuggler paid it in ships to be let through.
+S 27.64 5
+L 28.14 2.16 CASE Then why fight me?
+S 30.25 6
+L 30.75 4.78 EMPRESS Because you were going to break the wall. And you have.
+S 35.53 7
+L 37.18 2.88 CASE Hollis. I think I just let it out.
+L 40.51 1.76 HOLLIS You didn't know.
+S 42.22 8
+L 42.72 2.16 CASE That doesn't un-let it out.
+S 44.88 9
+L 46.33 2.64 HOLLIS No. So we finish it.
+S 48.92 10
+L 49.42 7.12 HOLLIS It's moving through Tempest. And so is somebody else. Vaunt's signal just lit up inside the storm.
+L 56.99 2.48 CASE Of course it did.
+E 62.47

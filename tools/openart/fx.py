@@ -49,6 +49,18 @@ ITEMS = {
             "crane and lamps casting pools of light, tool racks, hoses and cable runs along the walls, scorch marks, "
             "low contrast and dark so menu text reads on it, no ships, no people, no text, no logos, cinematic.",
             "opaque", "backdrop", "garage/bay.png", 0),
+ "title-backdrop": ("Cinematic key art for a space shooter title screen: deep space seen from high orbit, the curved "
+                    "night-side horizon of a dark green-black alien planet sweeping across the lower right with a thin "
+                    "glowing militia-green atmosphere rim, a sickly green and violet nebula and sparse stars filling the "
+                    "upper right, a distant pale moon. One continuous seamless image with no panels, bars or borders: the "
+                    "composition is weighted to the right and the left side fades naturally into dark, nearly empty "
+                    "space with sparse dim stars. Low contrast overall, moody, no ships, no people, no text, no logos.",
+                    "opaque", "backdrop", "title/backdrop.png", 0),
+ "title-logo": ("A video game logo wordmark reading exactly \"SPACE CASE\" in two words on one line, heavy condensed "
+                "futuristic capital letters, brushed chrome bevelled faces with a militia-green (#0ec417) glowing inner "
+                "edge, slightly italic for speed, crisp and legible, every letter spelled correctly. The logo only, no "
+                "tagline, no ships, no other text." + KEY,
+                "key", "logo", "title/logo.png", 600),
 }
 FRAMES = {"wobble": 8, "burst": 12, "flicker": 8}
 
@@ -159,9 +171,18 @@ def cmd_import(names):
             from PIL import ImageOps
             img = ImageOps.fit(src.convert("RGB"), (996, 864), Image.LANCZOS)
             img = Image.eval(img, lambda v: int(v * 0.7))
+            os.makedirs(os.path.dirname(os.path.join(SPRITES, dest)), exist_ok=True)
             img.save(os.path.join(SPRITES, dest), optimize=True)
             print(name, "->", dest); continue
         cut = cutout(src, mode)
+        if recipe == "logo":  # one png, size px wide
+            # Faint keyed-out speckle far from the letters would otherwise set the crop box.
+            cut.putalpha(cut.getchannel("A").point(lambda v: 0 if v < 48 else v))
+            cut = cut.crop(cut.getchannel("A").getbbox())
+            cut = cut.resize((size, round(cut.height * size / cut.width)), Image.LANCZOS)
+            os.makedirs(os.path.dirname(os.path.join(SPRITES, dest)), exist_ok=True)
+            cut.save(os.path.join(SPRITES, dest), optimize=True)
+            print(name, cut.size, "->", dest); continue
         frames = ([square(cut, size)] if recipe == "still" else
                   {"wobble": wobble, "burst": burst, "flicker": flicker}[recipe](cut, size, FRAMES[recipe]))
         d = os.path.join(SPRITES, dest); shutil.rmtree(d, ignore_errors=True); os.makedirs(d)

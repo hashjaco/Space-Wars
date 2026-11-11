@@ -1,0 +1,8 @@
+{
+  "_note": "ElevenLabs library voices, spoken with eleven_v4. Treatments are applied by mix.py.",
+  "CASE":    {"voice_id": "vGfq3y2g8QTWjuUhrNYc", "name": "Yuria - Expressive, Playful, Witty"},
+  "HOLLIS":  {"voice_id": "O4uxPTtvgxrA0QCLHI1J", "name": "Arkadius - Old Storyteller"},
+  "VAUNT":   {"voice_id": "qkG6pQFWpZTnYnoQZGFs", "name": "Timothy Pemberton Smythe - British Posh"},
+  "EMPRESS": {"voice_id": "Qbw4VpyUrHEG7NigKzty", "name": "Kristen - Cold Evil Queen Villain"},
+  "AEON":    {"voice_id": "bFrjFL4nlpeYNwNRhXxq", "name": "Mossbeard - The God of the Wild"}
+}

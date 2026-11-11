@@ -1,0 +1,25 @@
+S 0.00 1
+L 1.60 7.76 VAUNT Bravo! Bravo, little Militia ship. Do you have any idea what that rig cost?
+S 9.31 2
+L 9.81 2.32 CASE Less than it did an hour ago.
+S 12.08 3
+L 12.58 6.48 VAUNT You think I'm the monster. That's adorable. I'm the delivery service.
+S 19.01 4
+L 19.51 1.68 CASE Delivering what?
+S 21.14 5
+L 21.64 11.84 VAUNT Ships. Crews. Whole colonies, bundled to go. I don't feed it, darling. I keep it fed. There's a difference, and the difference is my margin.
+S 33.43 6
+L 33.93 4.40 HOLLIS Case, he's breaking orbit. Let him go. We need what he left behind.
+S 38.28 7
+L 38.78 3.28 VAUNT Listen to the old man. Ta-ta!
+S 42.01 8
+L 42.51 4.48 CASE He left his ledger in the rig. Every shipment, same destination.
+L 47.44 1.12 HOLLIS Where?
+L 49.01 1.52 CASE The ice.
+S 50.48 9
+L 50.98 8.64 HOLLIS Cryonis. Nobody goes to Cryonis. The cold out there isn't natural, and neither is the thing that rules it.
+S 59.57 10
+L 60.07 2.08 CASE So that's a no.
+S 62.10 11
+L 62.60 2.56 HOLLIS That's a "wear a sweater."
+E 68.16

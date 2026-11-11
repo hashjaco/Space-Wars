@@ -51,3 +51,9 @@ tools/openart/.sky-state.json
 .tripo/
 tools/tripo/.models-state.json
 tools/openart/.fx-state.json
+
+# Raw ElevenLabs takes; mix.py builds the shipped scene audio from them.
+tools/cutscenes/out/
+
+# Cutscene clips are fetched at run time from the media-1 release, not shipped (74 MB).
+src/main/resources/cutscenes/**/*.mp4
