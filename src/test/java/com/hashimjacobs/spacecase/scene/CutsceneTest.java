@@ -42,6 +42,20 @@ class CutsceneTest {
         }
     }
 
+    /** A shipped build has no clips in the jar: a shot plays the fetched one, or none at all. */
+    @Test
+    void aClipComesFromTheCacheWhenItIsNotBundled(@org.junit.jupiter.api.io.TempDir java.nio.file.Path cache)
+            throws java.io.IOException {
+        System.setProperty("cutscenes.cache", cache.toString());
+        try {
+            assertNull(Cutscene.INTRO.clip(999), "no clip anywhere is a still, not a crash");
+            java.nio.file.Files.write(cache.resolve("intro-999.mp4"), new byte[] {0});
+            assertEquals("file", Cutscene.INTRO.clip(999).getProtocol());
+        } finally {
+            System.clearProperty("cutscenes.cache");
+        }
+    }
+
     @Test
     void eachGalaxyBorderHasItsSceneAndTheLastIsTheEnding() {
         for (Galaxy galaxy : Galaxy.values()) {

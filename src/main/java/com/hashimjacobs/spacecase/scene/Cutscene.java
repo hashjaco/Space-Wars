@@ -4,7 +4,16 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.UncheckedIOException;
+import java.net.MalformedURLException;
+import java.net.URI;
 import java.net.URL;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.concurrent.CompletableFuture;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -126,6 +135,86 @@ public enum Cutscene {
 
     URL resource(int shot, String extension) {
         return resource(shot + "." + extension);
+    }
+
+    /**
+     * Where the clips live when they are not in the jar, which is every shipped build: 74 MB of
+     * video is most of an installer, so only the stills, the audio and the timeline ship, and the
+     * clips are fetched once into {@link #cacheDir()}. A scene with no clip yet plays its stills.
+     */
+    private static final String CLIPS_BASE = System.getProperty("cutscenes.base",
+            "https://github.com/hashjaco/Space-Wars/releases/download/media-1/");
+
+    /** Per-user and outside the install, so an update does not fetch them again. */
+    static Path cacheDir() {
+        String override = System.getProperty("cutscenes.cache");
+        if (override != null) {
+            return Path.of(override);
+        }
+        String os = System.getProperty("os.name", "").toLowerCase(Locale.ROOT);
+        Path home = Path.of(System.getProperty("user.home"));
+        if (os.contains("mac")) {
+            return home.resolve("Library/Application Support/SpaceCase/cutscenes");
+        }
+        String local = System.getenv("LOCALAPPDATA");
+        if (os.contains("win") && local != null) {
+            return Path.of(local, "SpaceCase", "cutscenes");
+        }
+        return home.resolve(".cache/spacecase/cutscenes");
+    }
+
+    /** The clip's name in the cache and on the release, which are both flat: {@code intro-3.mp4}. */
+    private String clipName(int shot) {
+        return name().toLowerCase(Locale.ROOT) + "-" + shot + ".mp4";
+    }
+
+    /** A shot's clip: bundled in a development tree, otherwise the fetched copy, otherwise null. */
+    URL clip(int shot) {
+        URL bundled = resource(shot, "mp4");
+        Path cached = cacheDir().resolve(clipName(shot));
+        if (bundled != null || !Files.isRegularFile(cached)) {
+            return bundled;
+        }
+        try {
+            return cached.toUri().toURL();
+        } catch (MalformedURLException e) {
+            return null;
+        }
+    }
+
+    /**
+     * Fetches every clip this machine does not have yet, in story order, off the game's threads.
+     *
+     * Quiet on purpose: offline, or the host down, means stills this session and another try on
+     * the next launch. Written to a temporary name and moved, so a half-fetched clip is never played.
+     */
+    public static void fetchClips() {
+        CompletableFuture.runAsync(() -> {
+            try (HttpClient http = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL).build()) {
+                Path dir = Files.createDirectories(cacheDir());
+                for (Cutscene scene : values()) {
+                    for (int shot : scene.timeline().shots().stream().map(Shot::number).distinct().toList()) {
+                        Path target = dir.resolve(scene.clipName(shot));
+                        if (scene.resource(shot, "mp4") != null || Files.exists(target)) {
+                            continue;
+                        }
+                        Path partial = dir.resolve(scene.clipName(shot) + ".part");
+                        HttpRequest request = HttpRequest.newBuilder(URI.create(CLIPS_BASE + scene.clipName(shot)))
+                                .timeout(java.time.Duration.ofMinutes(5)).build();
+                        if (http.send(request, HttpResponse.BodyHandlers.ofFile(partial)).statusCode() == 200) {
+                            Files.move(partial, target, StandardCopyOption.ATOMIC_MOVE);
+                        } else {
+                            Files.deleteIfExists(partial);
+                        }
+                    }
+                }
+            } catch (IOException | RuntimeException e) {
+                // Stills this session; the next launch tries again.
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        });
     }
 
     record Shot(double start, int number) {
@@ -331,7 +420,7 @@ public enum Cutscene {
             fadeIn(band, 500);
             double length = shotLength(number);
             drift(number, length);
-            URL movie = resource(number, "mp4");
+            URL movie = clip(number);
             if (movie == null) {
                 return;
             }
