@@ -432,3 +432,21 @@ Working order, one galaxy at a time:
 PNGs do not delta-compress. Any future change to a shared draw method rewrites every frame that used
 it — several megabytes of new history per commit. The working rule is the same as rule 2 for a
 different reason: once art has landed, add per-row parameters, never edit the method.
+
+## Set pieces (2.3) and what is next
+
+Every open level past the first breaks its waves in the middle with one `mode.SetPiece`: an asteroid
+field, a swarm, an ace, or a salvage drift (`Level.setPiece()`, run by `SpawnDirector.runSetPiece`).
+They take no draw from the generator (rule 8): every lane is a hash of the level and a counter. Par
+is charged their length.
+
+Not done yet:
+
+- **Side views and animations for enemies on side-scrolling levels.**
+- Flank and rear ambushes (spawns only enter from the far edge today).
+- A hazard for one wave rather than a whole level (`WorldTemplate` is per level).
+- A scroll speed-up through the field (terrain scroll is tick-derived and collision-relevant).
+
+Cutscene clips (`*.mp4`) are not in the repo or the installers: `Cutscene.fetchClips` pulls them
+from the `media-1` GitHub release into a per-user cache. New or changed clips are uploaded there
+as `<scene>-<shot>.mp4` (`gh release upload media-1 ... --clobber`).
