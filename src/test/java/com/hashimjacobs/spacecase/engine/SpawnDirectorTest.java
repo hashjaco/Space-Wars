@@ -601,6 +601,25 @@ class SpawnDirectorTest {
         assertFalse(director.setPieceRunning(), "and the set piece does not come round again");
     }
 
+    /** With the world actually running: the walls must cross the arena, not be culled at the door. */
+    @Test
+    void aFieldsWallsSurviveTheWorldLongEnoughToBeFlown() {
+        Level level = levelWith(SetPiece.ASTEROID_FIELD);
+        World world = new World(GameMode.SOLO);
+        world.setOrientation(level.orientation());
+        SpawnDirector director = directorOn(level);
+        fightToSetPiece(director, world);
+        int wall = SpawnDirector.fieldLanes(level) - SpawnDirector.FIELD_GAP_LANES;
+        int most = 0;
+        for (int tick = 0; tick < SetPiece.ASTEROID_FIELD.ticks(); tick++) {
+            world.update();
+            director.update(world);
+            world.sweep();
+            most = Math.max(most, world.asteroids().size());
+        }
+        assertTrue(most >= 4 * wall, "only " + most + " rocks were ever up at once");
+    }
+
     @Test
     void aSwarmIsScoutsAndOnlyScouts() {
         World world = new World(GameMode.SOLO);
