@@ -178,9 +178,49 @@
              whether native-image can compile the project at all before any device is involved. -->
         <gluonfx.target>host</gluonfx.target>
         <gluonfx.mainClass>com.hashimjacobs.spacecase.Launcher</gluonfx.mainClass>
+        <attach.version>4.0.26</attach.version>
       </properties>
+      <!-- Android audio. Java Sound and JavaFX media cannot run there; Gluon Attach plays through
+           Android's own SoundPool and MediaPlayer. Profile-only, so the desktop never ships it. -->
+      <dependencies>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>audio</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>storage</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>util</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+      </dependencies>
       <build>
         <plugins>
+          <!-- src/android/java: the code that compiles only against the Attach libraries above. -->
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.0</version>
+            <executions>
+              <execution>
+                <id>android-sources</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/android/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
           <plugin>
             <groupId>com.gluonhq</groupId>
             <artifactId>gluonfx-maven-plugin</artifactId>
@@ -195,7 +235,14 @@
                 ClassNotFoundException on our own entry point. Nothing else in the game needs
                 registering, which is why this list is one line rather than a file.
               -->
+              <!-- Attach services the game calls; the plugin adds each one's Android half. -->
+              <attachList>
+                <list>audio</list>
+                <list>storage</list>
+              </attachList>
               <reflectionList>
+                <!-- PlatformAudio finds the Android audio by name. -->
+                <list>com.hashimjacobs.spacecase.asset.AttachAudio</list>
                 <list>com.hashimjacobs.spacecase.Main</list>
                 <!-- JavaFX finds the renderer for every effect and canvas blend mode by class
                      name, and its own native-image config lists only a handful. Each one missing
