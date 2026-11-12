@@ -12,6 +12,8 @@ public final class Probe {
     public static volatile boolean noText;
     /** Draw only the first this-many stages of the arena. */
     public static volatile int stages = 99;
+    /** Stop the simulation but keep drawing the same moment, so stages are compared on one scene. */
+    public static volatile boolean freeze;
 
     private static volatile String phase = "startup";
     private static long grown;

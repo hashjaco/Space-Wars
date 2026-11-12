@@ -244,8 +244,6 @@
                    whether the 100 ms hitches every few seconds are the garbage collector. -->
               <nativeImageArgs>
                 <arg>-R:+PrintGC</arg>
-                <!-- TEMPORARY: count allocations per site and print the table when the VM exits. -->
-                <arg>-H:+AllocationProfiling</arg>
                 <!-- Measured on a Shield: about 20 MB a second of garbage against a young
                      generation of about 40 MB, so a collection every two seconds and a full one,
                      60 to 90 ms, every eight or so. A larger young generation makes both rarer,
