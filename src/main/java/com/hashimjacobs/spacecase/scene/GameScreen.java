@@ -206,25 +206,25 @@ final class GameScreen {
 
     /** TEMPORARY: steps the level through {@link com.hashimjacobs.spacecase.Probe}'s switches. */
     private void probe(Canvas canvas, Group barGroup) {
-        String[] names = {"level as played", "no drawing at all", "drawing, no HUD", "drawing, no side bars",
-            "drawing, canvases hidden", "level as played again"};
-        Runnable[] steps = {
-            () -> { },
-            () -> com.hashimjacobs.spacecase.Probe.noDraw = true,
-            () -> { com.hashimjacobs.spacecase.Probe.noDraw = false; com.hashimjacobs.spacecase.Probe.noHud = true; },
-            () -> { com.hashimjacobs.spacecase.Probe.noHud = false; com.hashimjacobs.spacecase.Probe.noBars = true; },
-            () -> { com.hashimjacobs.spacecase.Probe.noBars = false; canvas.setVisible(false); barGroup.setVisible(false); },
-            () -> { canvas.setVisible(true); barGroup.setVisible(true); },
-        };
+        String[] names = {"1 sky only", "2 + terrain", "3 + rocks, pickups, cores", "4 + enemies", "5 + bullets",
+            "6 + players", "7 + explosions, particles", "8 + vignette (all but HUD)", "9 + HUD (as played)"};
+        Runnable[] steps = new Runnable[names.length];
+        for (int i = 0; i < steps.length; i++) {
+            int stage = i + 1;
+            steps[i] = () -> {
+                com.hashimjacobs.spacecase.Probe.stages = stage;
+                com.hashimjacobs.spacecase.Probe.noHud = stage < 9;
+            };
+        }
         javafx.animation.Timeline timeline = new javafx.animation.Timeline();
         for (int i = 0; i < steps.length; i++) {
             int step = i;
-            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(6 + 7 * i), event -> {
+            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3 + 3.5 * i), event -> {
                 steps[step].run();
                 com.hashimjacobs.spacecase.Probe.phase(names[step]);
             }));
         }
-        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(6 + 7 * steps.length),
+        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3 + 3.5 * steps.length),
                 event -> com.hashimjacobs.spacecase.Probe.phase("after the probe")));
         timeline.play();
     }

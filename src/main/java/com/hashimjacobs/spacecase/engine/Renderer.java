@@ -275,22 +275,22 @@ public final class Renderer {
         }
         // After the sky and before everything solid, so rock sits behind the fight but in front of
         // the parallax. Inside the shake, so it is thrown with the arena rather than against it.
-        drawTerrain(world);
+        if (com.hashimjacobs.spacecase.Probe.stages >= 2) drawTerrain(world);
 
-        for (Asteroid asteroid : world.asteroids()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (Asteroid asteroid : world.asteroids()) {
             drawTumble(asteroid, world.tick());
         }
-        for (PowerUp powerUp : world.powerUps()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
         }
-        for (Core core : world.cores()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (Core core : world.cores()) {
             drawCore(core, world.tick(), world.coreKnown(core.index()));
         }
-        for (World.Wreck wreck : world.wrecks()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (World.Wreck wreck : world.wrecks()) {
             Image frame = Assets.bossFrames(wreck.art(), BossArt.State.DEATH).get(wreck.frameAt(world.tick()));
             drawFitted(frame, wreck.x(), wreck.y(), wreck.width(), wreck.height());
         }
-        for (EnemyShip enemy : world.enemies()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 4) for (EnemyShip enemy : world.enemies()) {
             if (enemy.isBoss()) {
                 drawBoss(enemy, world.tick());
             } else {
@@ -301,22 +301,22 @@ public final class Renderer {
             }
             drawHitBar(enemy);
         }
-        for (Bullet bullet : world.bullets()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 5) for (Bullet bullet : world.bullets()) {
             drawBullet(bullet, world.tick());
         }
         // Between the bullets and the hulls, so a ship is drawn over its own muzzle rather than
         // sitting behind the beam it is firing.
-        for (PlayerShip player : world.players()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 6) for (PlayerShip player : world.players()) {
             drawBeam(player, world.tick());
         }
-        for (PlayerShip player : world.players()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 6) for (PlayerShip player : world.players()) {
             drawPlayer(player, world.tick());
         }
-        for (ActiveExplosion explosion : world.explosions()) {
+        if (com.hashimjacobs.spacecase.Probe.stages >= 7) for (ActiveExplosion explosion : world.explosions()) {
             Image frame = explosion.currentFrame();
             gc.drawImage(frame, explosion.drawX(), explosion.drawY(), explosion.size(), explosion.size());
         }
-        drawParticles(world);
+        if (com.hashimjacobs.spacecase.Probe.stages >= 7) drawParticles(world);
         if (windup >= 0) {
             drawSpecialCharge(caster, windup, world.tick());
         }
@@ -328,7 +328,7 @@ public final class Renderer {
             gc.setFill(Color.color(1, 1, 1, flash * 0.75));
             gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
         }
-        drawVignette();
+        if (com.hashimjacobs.spacecase.Probe.stages >= 8) drawVignette();
         if (mood > 0 && !settings.reducedFlash()) {
             gc.setGlobalAlpha(mood);
             gc.setFill(VIGNETTE);
