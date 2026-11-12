@@ -149,14 +149,6 @@ public final class SoundBank implements SoundPlayer {
     private PlatformAudio platform;
 
     /**
-     * How long Android audio waits before it starts. Gluon Attach's native setup races the
-     * activity's own lifecycle events: started during launch, alongside the activity resuming, the
-     * two initialised the same handles at once and the app died in native code. Once launch has
-     * settled the race has nothing to race. Everything queued meanwhile waits behind it, in order.
-     */
-    private static final long ANDROID_AUDIO_DELAY_MS = 3000;
-
-    /**
      * Silence flags, written on the JavaFX thread and read by {@link #play} there and below.
      * Paused holds the music where it is; muted keeps it running at zero, so unmuting is seamless.
      */
@@ -179,15 +171,7 @@ public final class SoundBank implements SoundPlayer {
      * reads. Same bargain the gamepad reader makes when SDL will not start.
      */
     private void loadClips() {
-        if (com.hashimjacobs.spacecase.OnAndroid.ACTIVE) {
-            try {
-                Thread.sleep(ANDROID_AUDIO_DELAY_MS);
-            } catch (InterruptedException closing) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-            platform = PlatformAudio.forThisPlatform();
-        }
+        platform = PlatformAudio.forThisPlatform();
         if (platform != null) {
             for (SoundFx effect : SoundFx.values()) {
                 URL source = SoundBank.class.getResource(effect.resourcePath());

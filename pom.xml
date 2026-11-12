@@ -240,6 +240,11 @@
                 ClassNotFoundException on our own entry point. Nothing else in the game needs
                 registering, which is why this list is one line rather than a file.
               -->
+              <!-- TEMPORARY while the Shield build is tuned: every collection to the log, to see
+                   whether the 100 ms hitches every few seconds are the garbage collector. -->
+              <nativeImageArgs>
+                <arg>-R:+PrintGC</arg>
+              </nativeImageArgs>
               <!-- Attach services the game calls; the plugin adds each one's Android half. -->
               <attachList>
                 <list>audio</list>

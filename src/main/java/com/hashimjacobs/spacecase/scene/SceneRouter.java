@@ -145,12 +145,7 @@ public final class SceneRouter {
         shell.setAlignment(Pos.CENTER);
         shell.getChildren().add(stage2d);
 
-        if (OnAndroid.ACTIVE) {
-            // After launch has settled, for the reason PlatformLifecycle.start gives.
-            javafx.animation.PauseTransition settled = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(5));
-            settled.setOnFinished(event -> com.hashimjacobs.spacecase.PlatformLifecycle.start(this::onBackground, this::onForeground));
-            settled.play();
-        }
+        com.hashimjacobs.spacecase.PlatformLifecycle.start(this::onBackground, this::onForeground);
     }
 
     /** Whether going to the background paused a level, which then stays paused on the way back. */
