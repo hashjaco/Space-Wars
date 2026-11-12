@@ -10,6 +10,8 @@ public final class Probe {
     public static volatile boolean noHud;
     public static volatile boolean noBars;
     public static volatile boolean noText;
+    /** Draw only the first this-many stages of the arena. */
+    public static volatile int stages = 99;
 
     private static volatile String phase = "startup";
     private static long grown;
