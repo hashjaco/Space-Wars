@@ -197,14 +197,46 @@
               -->
               <reflectionList>
                 <list>com.hashimjacobs.spacecase.Main</list>
-                <!-- JavaFX creates the peer for a canvas blend mode by class name, and its own
-                     native-image config only lists the SRC_ ones. Without these every frame that
-                     sets a blend mode throws on the render thread and the screen stays black. One
-                     per BlendMode the game uses; a new mode in the code needs a line here. -->
-                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SCREENPeer</list>
+                <!-- JavaFX finds the renderer for every effect and canvas blend mode by class
+                     name, and its own native-image config lists only a handful. Each one missing
+                     threw on the render thread: SCREEN left the whole screen black, Crop drew the
+                     arena shrunk into a corner. All of them, so the next effect someone adds is not
+                     the next crash on a TV. -->
                 <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_ADDPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_BLUEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_COLOR_BURNPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_COLOR_DODGEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_DARKENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_DIFFERENCEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_EXCLUSIONPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_GREENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_HARD_LIGHTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_LIGHTENPeer</list>
                 <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_MULTIPLYPeer</list>
                 <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_OVERLAYPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_REDPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SCREENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SOFT_LIGHTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_ATOPPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_INPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_OUTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_OVERPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBrightpassPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSColorAdjustPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSDisplacementMapPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSInvertMaskPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSLinearConvolvePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSLinearConvolveShadowPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPerspectiveTransformPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_DISTANTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_POINTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_SPOTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSSepiaTonePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPStoPSWDisplacementMapPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrCropPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrFloodPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrMergePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrReflectionPeer</list>
               </reflectionList>
               <!--
                 GraalVM keeps only the resources it is told to. Gluon's defaults cover images,
