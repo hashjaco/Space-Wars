@@ -154,6 +154,11 @@ public final class SpawnDirector {
     private boolean awaitingBossKill;
     private boolean levelCleared;
 
+    /** The preset this run is being fought on, for the HUD and the board to name. */
+    public Difficulty difficulty() {
+        return difficulty;
+    }
+
     public SpawnDirector(Random random, Difficulty difficulty, ModeRules rules) {
         this.random = random;
         this.difficulty = difficulty;

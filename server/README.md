@@ -33,8 +33,8 @@ Plain text in, plain text out, everywhere. The Java client has no JSON parser an
 
 | | |
 |---|---|
-| `POST /score` body `player,mode,name,score` | records it; answers with the place, counting from one |
-| `GET /top/{mode}` | up to ten `name,score` lines, best first |
+| `POST /score` body `player,mode,name,score[,difficulty]` | records it; answers with the place, counting from one |
+| `GET /top/{mode}` | up to ten `name,score,verified` lines, best first; `?v=2` adds the difficulty the score was set on as a fourth field |
 
 `player` is the account's **public id**, never its sync code. One row per player per mode, and it
 only ever moves up: a bad run does not cost somebody the good one they already posted.

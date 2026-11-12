@@ -46,6 +46,7 @@ import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Account;
 import com.hashimjacobs.spacecase.prefs.ControlAction;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
 import com.hashimjacobs.spacecase.prefs.SaveGames;
@@ -585,8 +586,12 @@ public final class SceneRouter {
             // A tick for a run the relay replayed and agreed with; nothing for one it has not yet;
             // a cross for one it could not reproduce.
             String mark = entry == null ? "" : entry.verified() > 0 ? "  \u2713" : entry.verified() < 0 ? "  \u2717" : "";
+            // The preset the score was set on, so a Normal run is never read as a Suffer one. Blank
+            // for rows posted before the board kept it.
+            String preset = entry == null ? "" : Difficulty.labelOf(entry.difficulty());
             String value = entry != null
                     ? entry.name() + "   " + String.format("%,d", entry.score()) + mark
+                            + (preset.isEmpty() ? "" : "   \u00b7   " + preset)
                     : board.isEmpty() ? "" : "-";
             entries[at].setRow(String.valueOf(at + 1), value);
         }
@@ -1128,7 +1133,8 @@ public final class SceneRouter {
         GameMode mode = result.mode();
         URI base = RelayClient.defaultBase();
         byte[] replay = result.replay();
-        CompletableFuture.runAsync(() -> Cloud.submit(base, player, mode, name, score, replay));
+        Difficulty difficulty = result.difficulty();
+        CompletableFuture.runAsync(() -> Cloud.submit(base, player, mode, difficulty, name, score, replay));
     }
 
     public void exit() {

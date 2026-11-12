@@ -335,6 +335,9 @@ final class Hud {
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFill(overPar ? Tokens.TEXT_FAINT : Color.WHITE);
         gc.fillText(clock(ticks) + " / PAR " + clock(director.parTicks()), x + 14, y + 4);
+        // The preset, named on every frame: a screenshot or a clip of a run says what it was run on.
+        String preset = director.difficulty().label().toUpperCase();
+        chip(preset, GameConfig.WIDTH / 2 + (preset.length() * 7.6 + 12) / 2, y - 24, Color.WHITE);
         double cx = x + width - 62;
         for (int i = 0; i < 3; i++) {
             boolean taken = (world.coresTaken() & (1 << i)) != 0;
