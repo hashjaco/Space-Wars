@@ -911,9 +911,10 @@ public enum Sprite {
      */
     BOSS("boss-sentinel/1.png", 210, 162),
 
-    ASTEROID_SMALL("asteroid-small.png", 36, 36),
-    ASTEROID_BIG("asteroid-big.png", 58, 58),
-    ASTEROID_HUGE("asteroid-huge.png", 92, 92),
+    /** Frame one of each rock's 3D tumble; the renderer plays {@code Assets.tumbleFrames} instead. */
+    ASTEROID_SMALL("asteroid-small/1.png", 36, 36),
+    ASTEROID_BIG("asteroid-big/1.png", 58, 58),
+    ASTEROID_HUGE("asteroid-huge/1.png", 92, 92),
 
     PLAYER_BULLET("PlayProjectile.png", 16, 22),
     ENEMY_BULLET("EnemyProjectile1.png", 16, 22),

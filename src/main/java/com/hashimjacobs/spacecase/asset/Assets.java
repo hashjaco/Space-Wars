@@ -95,8 +95,26 @@ public final class Assets {
             Sprite still = round.sprite();
             ROUND_FRAMES.put(round, decodeFrames(round.frameCount(), round::framePath, still.width(), still.height()));
         }
+        for (Sprite rock : ROCKS) {
+            TUMBLES.put(rock, decodeFrames(TUMBLE_FRAMES,
+                    i -> rock.resourcePath().replace("/1.png", "/" + i + ".png"), rock.width() * 2, rock.height() * 2));
+        }
         displayFontFamily = loadDisplayFont();
         loaded = true;
+    }
+
+    /** Frames in an asteroid's tumble loop, one full turn, rendered by {@code tools/blender/asteroids.py}. */
+    public static final int TUMBLE_FRAMES = 32;
+    private static final List<Sprite> ROCKS = List.of(Sprite.ASTEROID_SMALL, Sprite.ASTEROID_BIG, Sprite.ASTEROID_HUGE);
+    private static final Map<Sprite, List<Image>> TUMBLES = new EnumMap<>(Sprite.class);
+
+    /** An asteroid's 3D tumble, decoded up front at twice its box: rocks arrive mid-fight, so no hitch on the first. */
+    public static List<Image> tumbleFrames(Sprite rock) {
+        List<Image> frames = TUMBLES.get(rock);
+        if (frames == null) {
+            throw new IllegalStateException("Assets.load() must run before requesting " + rock);
+        }
+        return frames;
     }
 
     public static Image image(Sprite sprite) {

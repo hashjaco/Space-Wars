@@ -58,7 +58,7 @@ Five origins appear below:
 | `boss-void-weaver/1..8.png` | Generated | Level 6 boss; long-limbed and narrow |
 | `boss-core-tyrant/1..8.png` | Generated | Level 7 boss; heaviest hull, most turrets |
 | `boss-exodus-dreadnought/1..8.png` | Generated | Level 8 boss; longest hull, most pods |
-| `asteroid-small.png`, `asteroid-big.png`, `asteroid-huge.png` | Generated | Procedural cratered rock |
+| `asteroid-small/1..32.png`, `asteroid-big/1..32.png`, `asteroid-huge/1..32.png` | Generated | Procedural 3D rocks (noise-lumped, cratered), rendered in Blender as a seamless 32-frame tumble by `tools/blender/asteroids.py` |
 | `level-1/{far,mid,near}.png` | Generated | Orbital Approach; starfield with the target world hanging in it |
 | `level-2/{far,mid,near}.png` | Generated | Verdant Airspace; banded sky with cloud decks |
 | `level-3/{far,mid,near}.png` | Generated | Canopy Descent; jungle floor and treetops |
