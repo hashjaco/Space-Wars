@@ -17,7 +17,9 @@ import com.hashimjacobs.spacecase.net.Replay;
  *   VERIFY_SECRET=... java -cp target/classes:$(cat target/cp.txt) tools/verify/ReplayVerifier.java [relay base]
  *
  * A row is "ok" when the replay reaches the posted score for some seat, in the posted mode; "bad"
- * otherwise, including a recording that will not parse. Workers cannot run a JVM, which is why this
+ * otherwise, including a recording that will not parse. A run resumed from a checkpoint is "skip":
+ * it cannot be replayed from its seed, which makes it unverifiable rather than wrong, and the board
+ * leaves it unmarked. Workers cannot run a JVM, which is why this
  * lives here rather than in server/.
  */
 public final class ReplayVerifier {
@@ -46,10 +48,15 @@ public final class ReplayVerifier {
             String verdict;
             try {
                 Replay.Parsed parsed = Replay.read(blob.body());
-                Replayer.Outcome outcome = Replayer.run(parsed);
-                List<Integer> scores = outcome.scores();
-                verdict = parsed.header().mode().name().equals(mode) && scores.contains(score) ? "ok" : "bad";
-                System.out.println(player + " " + mode + " posted " + score + ", replay reached " + scores + " -> " + verdict);
+                if (parsed.header().resumed()) {
+                    verdict = "skip";
+                    System.out.println(player + " " + mode + " posted " + score + ", resumed from a checkpoint -> skip");
+                } else {
+                    Replayer.Outcome outcome = Replayer.run(parsed);
+                    List<Integer> scores = outcome.scores();
+                    verdict = parsed.header().mode().name().equals(mode) && scores.contains(score) ? "ok" : "bad";
+                    System.out.println(player + " " + mode + " posted " + score + ", replay reached " + scores + " -> " + verdict);
+                }
             } catch (IOException | RuntimeException unreadable) {
                 verdict = "bad";
                 System.out.println(player + " " + mode + " unreadable: " + unreadable.getMessage() + " -> bad");
@@ -59,7 +66,7 @@ public final class ReplayVerifier {
                     .POST(HttpRequest.BodyPublishers.ofString(verdict)).build(), HttpResponse.BodyHandlers.discarding());
             if (verdict.equals("ok")) {
                 ok++;
-            } else {
+            } else if (verdict.equals("bad")) {
                 bad++;
             }
         }

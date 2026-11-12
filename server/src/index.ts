@@ -398,6 +398,17 @@ export class Board extends DurableObject<Env> {
       `UPDATE scores SET verified = ?, replay = NULL WHERE player = ? AND mode = ? AND replay IS NOT NULL`,
       ok ? 1 : -1, player, mode);
   }
+
+  /**
+   * A recording that cannot be judged -- a run resumed from a checkpoint has no seed to replay from.
+   * Unmarked, not rejected. Also lifts a cross a row was given for that reason before this existed;
+   * it never takes a tick away.
+   */
+  unverifiable(player: string, mode: string): void {
+    this.ctx.storage.sql.exec(
+      `UPDATE scores SET verified = 0, replay = NULL WHERE player = ? AND mode = ? AND verified <= 0`,
+      player, mode);
+  }
 }
 
 /**
@@ -513,8 +524,12 @@ export default {
       const verdictMatch = url.pathname.match(/^\/verify\/([a-f0-9-]{8,40})\/([A-Z]{1,16})$/);
       if (verdictMatch && request.method === "POST") {
         const verdict = (await request.text()).trim();
-        if (verdict !== "ok" && verdict !== "bad") {
-          return new Response("ok or bad", { status: 400 });
+        if (verdict !== "ok" && verdict !== "bad" && verdict !== "skip") {
+          return new Response("ok, bad or skip", { status: 400 });
+        }
+        if (verdict === "skip") {
+          await env.BOARD.getByName("global").unverifiable(verdictMatch[1], verdictMatch[2]);
+          return text(verdict);
         }
         await env.BOARD.getByName("global").verdict(verdictMatch[1], verdictMatch[2], verdict === "ok");
         return text(verdict);
