@@ -19,6 +19,7 @@ import javafx.scene.transform.Scale;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.engine.GameLoop;
 import com.hashimjacobs.spacecase.engine.InputState;
@@ -134,6 +135,12 @@ final class GameScreen {
         Scale shrink = new Scale(1, 1);
         canvas.getTransforms().add(shrink);
         Group group = new Group(canvas);
+        if (OnAndroid.ACTIVE) {
+            // On the Shield a canvas resized this way was drawn at five eighths of its size, in the
+            // top-left corner, while every other node scaled correctly. Left at arena size there,
+            // it is scaled like any other node: softer on a large screen, but the right size.
+            return group;
+        }
         group.localToSceneTransformProperty().addListener((observable, old, transform) -> {
             double factor = transform.getMxx();     // the router scales uniformly and never rotates
             if (factor <= 0 || !Double.isFinite(factor) || factor == 1 / shrink.getX()) {
@@ -156,8 +163,8 @@ final class GameScreen {
      */
     private void fitBars(Canvas bars, Scale shrink, Group group, Renderer renderer) {
         double factor = group.getLocalToSceneTransform().getMxx();
-        if (factor <= 0 || !Double.isFinite(factor)) {
-            factor = 1;
+        if (factor <= 0 || !Double.isFinite(factor) || OnAndroid.ACTIVE) {
+            factor = 1;     // see sharp() for why Android draws at arena size
         }
         double side = Math.max(0, Math.floor((root.getWidth() - GameConfig.WIDTH) / 2));
         double width = side < 1 ? 0 : (GameConfig.WIDTH + 2 * side) * factor;

@@ -32,6 +32,7 @@ import javafx.util.Duration;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.MapArt;
 import com.hashimjacobs.spacecase.asset.MusicCue;
@@ -1231,6 +1232,9 @@ public final class SceneRouter {
             scene = new Scene(shell, GameConfig.WIDTH, GameConfig.HEIGHT, Color.BLACK);
             stage.setScene(scene);
             installFullscreenShortcut(scene);
+            if (OnAndroid.ACTIVE) {
+                installAndroidController(scene);
+            }
             trackWindowSize(scene);
             // Feeds this Scene rather than any one screen, so it needs no re-attaching between
             // rounds -- unlike InputState, whose handlers the screens swap.
@@ -1272,6 +1276,34 @@ public final class SceneRouter {
             }
             stage.setFullScreen(!stage.isFullScreen());
             event.consume();
+        });
+    }
+
+    /**
+     * The Android TV controller, as the keys the desktop gamepad already produces.
+     *
+     * Android hands JavaFX the D-pad (and the left stick, which Android turns into D-pad presses)
+     * as the arrows and the Back button as Escape, which the game already answers to. The face
+     * buttons arrive as JavaFX's GAME_ codes, which nothing reads, so they are re-sent here as what
+     * {@code engine.GamepadMapping} sends on the desktop: A fires and selects, B backs out of a
+     * menu, X is the special. Y, the shoulders and Start reach JavaFX as no key at all, so there is
+     * nothing here to map them from.
+     */
+    private static void installAndroidController(Scene scene) {
+        java.util.Map<KeyCode, List<KeyCode>> buttons = java.util.Map.of(
+                KeyCode.GAME_A, List.of(KeyCode.SHIFT, KeyCode.SPACE),
+                KeyCode.GAME_B, List.of(com.hashimjacobs.spacecase.engine.GamepadMapping.MENU_CANCEL),
+                KeyCode.GAME_D, List.of(com.hashimjacobs.spacecase.prefs.ControlAction.SPECIAL.defaultKey(1)));
+        scene.addEventFilter(KeyEvent.ANY, event -> {
+            List<KeyCode> sent = buttons.get(event.getCode());
+            if (sent == null || event.getEventType() == KeyEvent.KEY_TYPED) {
+                return;
+            }
+            event.consume();
+            for (KeyCode code : sent) {
+                javafx.event.Event.fireEvent(scene, new KeyEvent(event.getEventType(), "", "", code,
+                        false, false, false, false));
+            }
         });
     }
 
