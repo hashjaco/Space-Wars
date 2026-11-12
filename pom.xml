@@ -246,7 +246,7 @@
                 <arg>-R:+PrintGC</arg>
                 <!-- Measured on a Shield: about 20 MB a second of garbage against a young
                      generation of about 40 MB, so a collection every two seconds and a full one,
-                     60 to 90 ms, every eight or so. A larger young generation makes both rarer --
+                     60 to 90 ms, every eight or so. A larger young generation makes both rarer,
                      but the Shield has 3 GB, the game is already around 650 MB of it, and at 160 MB
                      Android killed it within seconds of Home. 96 is the compromise until the game
                      makes less garbage. -->
