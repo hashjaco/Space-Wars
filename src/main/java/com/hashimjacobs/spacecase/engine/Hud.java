@@ -50,7 +50,11 @@ final class Hud {
     private static final Color DANGER = Tokens.DANGER;
     private static final Color LIVES_NORMAL = Tokens.TEXT_SECONDARY;
 
-    private final GraphicsContext gc;
+    /** Not final: the seat panels are drawn through it onto the side bars when there are any. */
+    private GraphicsContext gc;
+    /** The side-bar canvas and its reach each side of the arena; see {@code Renderer.setBars}. */
+    private GraphicsContext bars;
+    private double side;
     private final Settings settings;
     private final Font labelFont = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_CAPTION);
     private final Font chipFont = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_SMALL);
@@ -69,17 +73,36 @@ final class Hud {
         this.settings = settings;
     }
 
+    void setBars(GraphicsContext bars, double side) {
+        this.bars = bars;
+        this.side = side;
+    }
+
     void draw(World world, SpawnDirector director) {
         gc.setTextBaseline(VPos.TOP);
         List<PlayerShip> players = world.players();
 
         // A corner each, filling across before down: one and two keep the top-left and top-right
         // they have always had, and an online room's third and fourth take the bottom corners.
-        for (PlayerShip player : players) {
-            int seat = player.playerNumber() - 1;
-            double x = seat % 2 == 1 ? GameConfig.WIDTH - PANEL_WIDTH - PANEL_MARGIN : PANEL_MARGIN;
-            double y = seat >= 2 ? GameConfig.HEIGHT - PANEL_HEIGHT - PANEL_MARGIN : 14;
-            drawPlayerPanel(player, x, y, world.tick());
+        // On a screen wider than the arena the panels move out into the bars, as far as there is
+        // room, and the arena's corners are left to the fight.
+        double out = bars == null ? 0 : Math.min(side, PANEL_WIDTH + 2 * PANEL_MARGIN);
+        GraphicsContext arena = gc;
+        if (bars != null) {
+            gc = bars;
+            gc.setTextBaseline(VPos.TOP);
+            gc.setTextAlign(TextAlignment.LEFT);
+        }
+        try {
+            for (PlayerShip player : players) {
+                int seat = player.playerNumber() - 1;
+                double x = seat % 2 == 1 ? GameConfig.WIDTH - PANEL_WIDTH - PANEL_MARGIN + out
+                        : PANEL_MARGIN - out;
+                double y = seat >= 2 ? GameConfig.HEIGHT - PANEL_HEIGHT - PANEL_MARGIN : 14;
+                drawPlayerPanel(player, x, y, world.tick());
+            }
+        } finally {
+            gc = arena;
         }
 
         // Battle mode has no enemies, so it has no level and no boss to progress through either.
