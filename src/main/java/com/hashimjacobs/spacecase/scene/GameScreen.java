@@ -102,9 +102,21 @@ final class GameScreen {
         this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();
 
-        root = new StackPane(sharp(canvas), pauseLayer, settingsLayer, saveLayer);
+        // Over the arena and transparent across it: the room either side of the arena on a screen
+        // wider than it. Empty, and the renderer told there are none, at the arena's own shape.
+        Canvas bars = new Canvas(0, 0);
+        bars.setMouseTransparent(true);
+        Scale barShrink = new Scale(1, 1);
+        bars.getTransforms().add(barShrink);
+        Group barGroup = new Group(bars);
+
+        root = new StackPane(sharp(canvas), barGroup, pauseLayer, settingsLayer, saveLayer);
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
+
+        Runnable fitBars = () -> fitBars(bars, barShrink, barGroup, renderer);
+        root.widthProperty().addListener((observable, old, width) -> fitBars.run());
+        barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fitBars.run());
 
         input.setOnPausePressed(this::togglePause);
     }
@@ -134,6 +146,32 @@ final class GameScreen {
             canvas.getGraphicsContext2D().setTransform(factor, 0, 0, factor, 0, 0);
         });
         return group;
+    }
+
+    /**
+     * Sizes the side-bar canvas to the room the router gave this screen beyond the arena, at the
+     * scale the screen is shown at -- the same sharpness bargain {@link #sharp} makes. Its origin
+     * is moved to the arena's top-left corner, so the renderer draws the bars in arena units with
+     * the left one at negative x.
+     */
+    private void fitBars(Canvas bars, Scale shrink, Group group, Renderer renderer) {
+        double factor = group.getLocalToSceneTransform().getMxx();
+        if (factor <= 0 || !Double.isFinite(factor)) {
+            factor = 1;
+        }
+        double side = Math.max(0, Math.floor((root.getWidth() - GameConfig.WIDTH) / 2));
+        double width = side < 1 ? 0 : (GameConfig.WIDTH + 2 * side) * factor;
+        double height = side < 1 ? 0 : GameConfig.HEIGHT * factor;
+        if (bars.getWidth() == width && bars.getHeight() == height) {
+            return;
+        }
+        bars.setWidth(width);
+        bars.setHeight(height);
+        shrink.setX(1 / factor);
+        shrink.setY(1 / factor);
+        GraphicsContext gc = bars.getGraphicsContext2D();
+        gc.setTransform(factor, 0, 0, factor, side * factor, 0);
+        renderer.setBars(side < 1 ? null : gc, side);
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {

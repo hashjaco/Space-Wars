@@ -21,6 +21,7 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.StackPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
@@ -287,6 +288,8 @@ public final class SceneRouter {
     /** Plays a scene full screen, then runs {@code then}. */
     private void playCutscene(Cutscene scene, Runnable then) {
         Cutscene.Screen screen = scene.play(sounds, then);
+        // A scene lays its film band out against the arena's width, so it keeps it.
+        screen.root().setUserData(FIXED_WIDTH);
         show(screen.root(), screen.keys());
     }
 
@@ -1214,6 +1217,7 @@ public final class SceneRouter {
             screenPulse = null;
         }
         stage2d.getChildren().setAll(root);
+        widen();
 
         Scene scene = stage.getScene();
         if (scene == null) {
@@ -1327,5 +1331,30 @@ public final class SceneRouter {
         }
         stage2d.setScaleX(factor);
         stage2d.setScaleY(factor);
+        widen();
+    }
+
+    /** Marks a screen that must stay the arena's own width; see {@link #widen}. */
+    private static final Object FIXED_WIDTH = new Object();
+
+    /**
+     * Gives the screen on show the window's whole width, in arena units.
+     *
+     * The arena is nearly square and a television is not. Scaling 996x864 to fit leaves a bar each
+     * side, so on a wider window the screen is told it is that much wider instead: a menu spreads
+     * its backdrop to the edges and keeps its column in the middle, and the game screen keeps its
+     * arena in the middle and gives the room either side to its side bars. Height never changes, so
+     * nothing a screen lays out vertically moves, and at the arena's own shape this does nothing.
+     */
+    private void widen() {
+        Scene scene = stage.getScene();
+        double factor = stage2d.getScaleX();
+        if (scene == null || factor <= 0 || stage2d.getChildren().isEmpty()) {
+            return;
+        }
+        if (stage2d.getChildren().get(0) instanceof Region screen && screen.getUserData() != FIXED_WIDTH) {
+            screen.setPrefSize(Math.max(GameConfig.WIDTH, Math.floor(scene.getWidth() / factor)),
+                    GameConfig.HEIGHT);
+        }
     }
 }

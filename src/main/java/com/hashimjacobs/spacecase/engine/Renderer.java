@@ -139,7 +139,18 @@ public final class Renderer {
     /** How far past the canvas the sky is painted, so a camera throw never runs off the paint. */
     private static final double SHAKE_MARGIN = 16;
 
-    private final GraphicsContext gc;
+    /**
+     * Not final for one reason: {@link #drawBars} points it at the side-bar canvas for the length of
+     * a sky draw, so the bars are painted by the same code that paints the arena's sky.
+     */
+    private GraphicsContext gc;
+
+    /** The side-bar canvas, or null when the window is the arena's own shape and there are no bars. */
+    private GraphicsContext bars;
+    /** Arena units of bar on each side of the arena. */
+    private double side;
+    /** Over the bars' sky, so they read as the frame around the fight and not as more of it. */
+    private static final Color BAR_VEIL = Color.color(0, 0, 0, 0.62);
     private final Settings settings;
     private final Hud hud;
     private final DebriefOverlay debriefOverlay;
@@ -177,7 +188,65 @@ public final class Renderer {
         this.onFoot = new OnFootRenderer(gc, settings);
     }
 
+    /**
+     * Where to paint the room either side of the arena on a screen wider than it.
+     *
+     * @param bars a canvas whose origin is the arena's top-left corner and which reaches
+     *             {@code side} arena units past each edge; null for none
+     */
+    public void setBars(GraphicsContext bars, double side) {
+        this.bars = side > 0 ? bars : null;
+        this.side = this.bars == null ? 0 : side;
+        hud.setBars(this.bars, this.side);
+    }
+
+    /**
+     * Fills the bars: the level's sky mirrored about each edge of the arena, so it meets the arena
+     * edge to identical edge, under a veil. Presentation only -- nothing here reads or moves the
+     * simulation, and the arena itself is drawn exactly as it is without bars.
+     *
+     * @param level the level whose sky to continue, or null for plain space (the on-foot stages)
+     */
+    private void drawBars(Level level, int tick) {
+        if (bars == null) {
+            return;
+        }
+        GraphicsContext arena = gc;
+        gc = bars;
+        try {
+            double w = GameConfig.WIDTH;
+            double h = GameConfig.HEIGHT;
+            gc.clearRect(-side, 0, w + 2 * side, h);
+            if (level != null) {
+                for (double mirror : new double[] {0, 2 * w}) {
+                    gc.save();
+                    gc.translate(mirror, 0);
+                    gc.scale(-1, 1);
+                    drawScrollingBackground(level, tick);
+                    gc.restore();
+                }
+            } else {
+                gc.setFill(Tokens.SPACE);
+                gc.fillRect(-side, 0, side, h);
+                gc.fillRect(w, 0, side, h);
+            }
+            gc.setFill(BAR_VEIL);
+            gc.fillRect(-side, 0, side, h);
+            gc.fillRect(w, 0, side, h);
+            // The sky draws overrun their own arena by the shake margin; this canvas lies over the
+            // real arena, so the middle is opened again rather than clipped on every draw.
+            gc.clearRect(0, 0, w, h);
+            gc.setStroke(Tokens.EDGE_STRONG);
+            gc.setLineWidth(Tokens.STROKE_HAIR);
+            gc.strokeLine(-0.5, 0, -0.5, h);
+            gc.strokeLine(w + 0.5, 0, w + 0.5, h);
+        } finally {
+            gc = arena;
+        }
+    }
+
     public void draw(World world, SpawnDirector director) {
+        drawBars(director.level(), world.tick());
         // The arena is thrown about; the HUD is not, so it stays readable through a hit. Popped
         // before hud.draw and therefore before the debrief, garage and warp veil the game loop
         // draws after this method returns.
@@ -300,6 +369,7 @@ public final class Renderer {
 
     /** The on-foot stage in place of the arena, finished with the same vignette and grain. */
     public void drawOnFoot(OnFootStage stage) {
+        drawBars(null, 0);
         onFoot.draw(stage);
         drawVignette();
         drawGrain(stage.tick());
