@@ -209,7 +209,7 @@ public final class Renderer {
         drawTerrain(world);
 
         for (Asteroid asteroid : world.asteroids()) {
-            drawSprite(asteroid);
+            drawTumble(asteroid, world.tick());
         }
         for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
@@ -1169,6 +1169,20 @@ public final class Renderer {
 
     private void drawSprite(Entity entity) {
         drawSprite(entity.sprite(), entity, 0);
+    }
+
+    /**
+     * A rock's pre-rendered 3D tumble. Bigger rocks turn slower, as mass would have it; each starts
+     * at its own point in the loop and half turn the other way, so a field never spins in lockstep.
+     * Render-only, so the identity hash cannot reach the simulation or a replay.
+     */
+    private void drawTumble(Asteroid asteroid, int tick) {
+        List<Image> frames = Assets.tumbleFrames(asteroid.sprite());
+        int seed = System.identityHashCode(asteroid);
+        int step = tick / Math.max(2, (int) (asteroid.width() / 18)) + seed;
+        int n = frames.size();
+        int index = Math.floorMod((seed & 1) == 0 ? step : -step, n);
+        drawImage(frames.get(index), asteroid, 0);
     }
 
     /**
