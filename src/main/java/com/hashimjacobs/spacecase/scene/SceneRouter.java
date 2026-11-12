@@ -12,6 +12,7 @@ import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.TranslateTransition;
+import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -286,6 +287,12 @@ public final class SceneRouter {
 
     /** Plays a scene full screen, then runs {@code then}. */
     private void playCutscene(Cutscene scene, Runnable then) {
+        // A scene is video and a mixed soundtrack, both through javafx.media. Where that module does
+        // not exist -- the Android build -- there is nothing to show, so the story is skipped.
+        if (!Platform.isSupported(ConditionalFeature.MEDIA)) {
+            then.run();
+            return;
+        }
         Cutscene.Screen screen = scene.play(sounds, then);
         show(screen.root(), screen.keys());
     }
