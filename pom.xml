@@ -170,9 +170,10 @@
       <id>mobile</id>
       <properties>
         <javafx.version>21.0.6</javafx.version>
-        <!-- 21, not 17: the net code uses virtual threads and a closeable HttpClient. Gluon's
-             GraalVM comes as java17 or java23 and nothing between, so this needs the java23 one. -->
-        <maven.compiler.release>21</maven.compiler.release>
+        <!-- 17, because Android needs it: Gluon's java23 GraalVM lacks an option its own Android
+             build passes (gluonfx-maven-plugin issue 539), which leaves the java17 one. net.Http
+             is what keeps the source compiling here while the desktop keeps its JDK 21 calls. -->
+        <maven.compiler.release>17</maven.compiler.release>
         <!-- host builds a native binary for this machine, which is the cheapest way to find out
              whether native-image can compile the project at all before any device is involved. -->
         <gluonfx.target>host</gluonfx.target>

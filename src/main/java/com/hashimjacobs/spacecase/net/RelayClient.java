@@ -128,7 +128,8 @@ public final class RelayClient implements AutoCloseable {
 
     /** Asks the relay for an unused room code. The host does this, then reads it out. */
     public static String newRoom(URI base) throws IOException, InterruptedException {
-        try (HttpClient http = HttpClient.newHttpClient()) {
+        HttpClient http = HttpClient.newHttpClient();
+        try {
             HttpRequest request = HttpRequest.newBuilder(base.resolve("/new"))
                     .timeout(JOIN_TIMEOUT)
                     .POST(HttpRequest.BodyPublishers.noBody())
@@ -139,6 +140,8 @@ public final class RelayClient implements AutoCloseable {
                         "the relay would not issue a room code: " + response.statusCode());
             }
             return response.body().trim();
+        } finally {
+            Http.close(http);
         }
     }
 
@@ -225,7 +228,7 @@ public final class RelayClient implements AutoCloseable {
     @Override
     public void close() {
         socket.sendClose(WebSocket.NORMAL_CLOSURE, "done");
-        http.shutdownNow();
+        Http.shutdownNow(http);
     }
 
     private static String socketUri(URI base, String room) {
