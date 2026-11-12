@@ -65,6 +65,9 @@ public final class GameLoop {
      */
     private static final int WARP_MINIMUM_TICKS = 78;
 
+    /** How long the level-start title card stays up, at 60 steps a second. */
+    private static final int LEVEL_CARD_TICKS = 150;
+
     /**
      * Health at or below which the alarm sounds, and how often it repeats.
      *
@@ -157,6 +160,11 @@ public final class GameLoop {
     private AnimationTimer timer;
     private Phase phase = Phase.FIGHTING;
     private int phaseTicks;
+    /**
+     * Steps left on the level-start title card. Presentation only: it reads nothing the simulation
+     * owns and draws no random numbers, so a replay or a peer that never shows it stays in step.
+     */
+    private int levelCardTicks = LEVEL_CARD_TICKS;
     private boolean debriefArmed;
     /** Set by the first press on the debrief, which finishes the reveal rather than leaving. */
     private boolean debriefSkipped;
@@ -490,6 +498,9 @@ public final class GameLoop {
             renderer.drawOnFoot(onFoot);
         } else {
             renderer.draw(world, director);
+            if (phase == Phase.FIGHTING && levelCardTicks > 0) {
+                renderer.drawLevelCard(director.level(), 1 - levelCardTicks / (double) LEVEL_CARD_TICKS);
+            }
         }
         switch (phase) {
             case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefClock(), debriefArmed,
@@ -594,6 +605,9 @@ public final class GameLoop {
     }
 
     private void stepFight() {
+        if (levelCardTicks > 0) {
+            levelCardTicks--;
+        }
         // Read before the world moves. tickScenery advances the clock inside update(), so by the
         // bottom of this method world.tick() names the *next* tick, not the one that just ran.
         int tick = world.tick();
@@ -897,6 +911,7 @@ public final class GameLoop {
         bossMusicPlaying = false;
         phase = Phase.FIGHTING;
         phaseTicks = 0;
+        levelCardTicks = LEVEL_CARD_TICKS;
         timestep.reset();
     }
 

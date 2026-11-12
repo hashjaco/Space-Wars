@@ -1082,7 +1082,13 @@ public final class SceneRouter {
                         String.format("Player %d   %,d", i + 1, result.scores().get(i)), Tokens.SIZE_ROW, Color.WHITE));
             }
         }
-        String progress = "Level " + result.level().number() + "   " + result.level().label()
+        Galaxy reached = result.level().galaxy();
+        Text levelName = MenuScreen.caption(result.level().label().toUpperCase(), Tokens.SIZE_HEADING,
+                Color.web(reached.accent()));
+        levelName.setFont(Assets.fitted(reached.titleFace(), Tokens.SIZE_HEADING,
+                levelName.getText(), 420));
+        summary.getChildren().add(levelName);
+        String progress = "Level " + result.level().number()
                 + "   \u00b7   " + result.wavesSurvived() + " waves"
                 + (result.loop() > 1 ? "   \u00b7   loop " + result.loop() : "");
         summary.getChildren().add(MenuScreen.caption(progress, Tokens.SIZE_BODY, Tokens.TEXT_DIM));
