@@ -117,10 +117,11 @@ final class DebriefOverlay {
         gc.setFill(BRAND);
         gc.fillText("LEVEL " + level.number() + " CLEARED", GameConfig.WIDTH / 2, 56 - (1 - ease) * 24);
         gc.setGlobalAlpha(1);
-        gc.setFont(headingFont);
-        gc.setFill(MUTED);
-        gc.fillText(level.galaxy().label().toUpperCase() + "   \u00b7   " + level.label().toUpperCase(),
-                GameConfig.WIDTH / 2, 112);
+        // The level's own name in its galaxy's face, the one the level-start card used.
+        gc.setFont(Assets.fitted(level.galaxy().titleFace(), Tokens.SIZE_HEADING + 4,
+                level.label().toUpperCase(), GameConfig.WIDTH - 80));
+        gc.setFill(Color.web(level.galaxy().accent()));
+        gc.fillText(level.label().toUpperCase(), GameConfig.WIDTH / 2, 108);
 
         // One column per pilot, centred as a group so a solo run does not sit off to one side, and
         // narrowed to fit: four at full width ran 600 pixels off the stage.

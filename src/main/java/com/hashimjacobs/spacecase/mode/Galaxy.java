@@ -24,11 +24,11 @@ import java.util.List;
  */
 public enum Galaxy {
 
-    VERDANCE("Verdance", "#0ec417"),
-    ASHFALL("Ashfall", "#e8641c"),
-    CRYONIS("Cryonis", "#4fd0e8"),
-    TEMPEST("Tempest", "#7ea8ff"),
-    NULL("Null", "#9a6bff");
+    VERDANCE("Verdance", "#0ec417", "Creepster"),
+    ASHFALL("Ashfall", "#e8641c", "Black Ops One"),
+    CRYONIS("Cryonis", "#4fd0e8", "Iceberg"),
+    TEMPEST("Tempest", "#7ea8ff", "Audiowide"),
+    NULL("Null", "#9a6bff", "Nosifer");
 
     /**
      * Levels in a galaxy. Not a suggestion -- the block arithmetic below assumes it exactly, and
@@ -38,10 +38,12 @@ public enum Galaxy {
 
     private final String label;
     private final String accent;
+    private final String titleFace;
 
-    Galaxy(String label, String accent) {
+    Galaxy(String label, String accent, String titleFace) {
         this.label = label;
         this.accent = accent;
+        this.titleFace = titleFace;
     }
 
     public String label() {
@@ -61,6 +63,15 @@ public enum Galaxy {
      */
     public String accent() {
         return accent;
+    }
+
+    /**
+     * Font family its level titles are set in: the level-start card, the debrief, the map and the
+     * flagship's arrival. A family name for the same reason {@link #accent()} is a string; the face is
+     * bundled and registered by {@code Assets.load()}.
+     */
+    public String titleFace() {
+        return titleFace;
     }
 
     /** The first level of this galaxy -- where a player who has just unlocked it starts. */

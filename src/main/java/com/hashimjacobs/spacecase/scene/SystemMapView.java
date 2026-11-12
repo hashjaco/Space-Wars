@@ -379,9 +379,12 @@ final class SystemMapView {
         gc.fillText("LEVEL " + level.indexInGalaxy() + " OF " + model.nodes().size(),
                 textX, PANEL_TOP + 30);
 
-        gc.setFill(Tokens.TEXT);
-        gc.setFont(Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_HEADING));
-        gc.fillText(known ? level.label() : "Uncharted", textX, PANEL_TOP + 62);
+        // A charted level shows its name the way its title card will: the galaxy's face and accent.
+        gc.setFill(known ? Color.web(level.galaxy().accent()) : Tokens.TEXT);
+        gc.setFont(known
+                ? Assets.fitted(level.galaxy().titleFace(), Tokens.SIZE_HEADING, level.label().toUpperCase(), w * 0.55)
+                : Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_HEADING));
+        gc.fillText(known ? level.label().toUpperCase() : "Uncharted", textX, PANEL_TOP + 62);
 
         gc.setFont(Font.font(Tokens.BODY, FontWeight.NORMAL, Tokens.SIZE_BODY));
         gc.setFill(Tokens.TEXT_SECONDARY);
