@@ -911,9 +911,10 @@ public enum Sprite {
      */
     BOSS("boss-sentinel/1.png", 210, 162),
 
-    ASTEROID_SMALL("asteroid-small.png", 36, 36),
-    ASTEROID_BIG("asteroid-big.png", 58, 58),
-    ASTEROID_HUGE("asteroid-huge.png", 92, 92),
+    /** Frame one of each rock's 3D tumble; the renderer plays {@code Assets.tumbleFrames} instead. */
+    ASTEROID_SMALL("asteroid-small/1.png", 36, 36),
+    ASTEROID_BIG("asteroid-big/1.png", 58, 58),
+    ASTEROID_HUGE("asteroid-huge/1.png", 92, 92),
 
     PLAYER_BULLET("PlayProjectile.png", 16, 22),
     ENEMY_BULLET("EnemyProjectile1.png", 16, 22),
@@ -1632,7 +1633,39 @@ public enum Sprite {
     GARAGE_REPAIR("garage/repair.png", 24, 24),
     GARAGE_SPEED("garage/speed.png", 24, 24),
     GARAGE_EJECT("garage/eject.png", 24, 24),
-    GARAGE_COLLECTOR("garage/collector.png", 24, 24);
+    GARAGE_COLLECTOR("garage/collector.png", 24, 24),
+
+    // Painted menu headings and galaxy wordmarks (tools/openart/fx.py header-*), found by title
+    // through header(). The box is the largest a heading draws at; the files are cut at 2x it.
+    HEADER_ABOUT("header/about.png", 640, 64, true),
+    HEADER_ASHFALL("header/ashfall.png", 640, 64, true),
+    HEADER_BATTLE_BOARD("header/battle-board.png", 640, 64, true),
+    HEADER_CLOUD_SAVE("header/cloud-save.png", 640, 64, true),
+    HEADER_CO_OP_BOARD("header/co-op-board.png", 640, 64, true),
+    HEADER_CRYONIS("header/cryonis.png", 640, 64, true),
+    HEADER_EXTRAS("header/extras.png", 640, 64, true),
+    HEADER_GALAXY_CLEARED("header/galaxy-cleared.png", 640, 64, true),
+    HEADER_GAME_OVER("header/game-over.png", 640, 64, true),
+    HEADER_HELP("header/help.png", 640, 64, true),
+    HEADER_HOST("header/host.png", 640, 64, true),
+    HEADER_JOIN("header/join.png", 640, 64, true),
+    HEADER_KEYBOARD("header/keyboard.png", 640, 64, true),
+    HEADER_LOAD_GAME("header/load-game.png", 640, 64, true),
+    HEADER_MULTIPLAYER("header/multiplayer.png", 640, 64, true),
+    HEADER_NULL("header/null.png", 640, 64, true),
+    HEADER_PAUSED("header/paused.png", 640, 64, true),
+    HEADER_PILOTS("header/pilots.png", 640, 64, true),
+    HEADER_REPLACE_PROGRESS("header/replace-progress.png", 640, 64, true),
+    HEADER_RESET_PROGRESS("header/reset-progress.png", 640, 64, true),
+    HEADER_SAVE_GAME("header/save-game.png", 640, 64, true),
+    HEADER_SETTINGS("header/settings.png", 640, 64, true),
+    HEADER_SINGLE_PLAYER_BOARD("header/single-player-board.png", 640, 64, true),
+    HEADER_SOUND_EFFECTS("header/sound-effects.png", 640, 64, true),
+    HEADER_SOUNDTRACK("header/soundtrack.png", 640, 64, true),
+    HEADER_STORY("header/story.png", 640, 64, true),
+    HEADER_TEMPEST("header/tempest.png", 640, 64, true),
+    HEADER_UNIVERSE("header/universe.png", 640, 64, true),
+    HEADER_VERDANCE("header/verdance.png", 640, 64, true);
 
     /**
      * Draw sizes shared by a whole family of sprites, so a hull is the same target in every level.
@@ -1706,6 +1739,15 @@ public enum Sprite {
         } catch (IllegalArgumentException noSuchFrame) {
             return null;
         }
+    }
+
+    /**
+     * The painted wordmark for a heading, or null where there is none -- a title built at run time,
+     * "PLAYER 2 WINS", or one whose painting never came out spelled right -- and the heading is set
+     * in type instead.
+     */
+    public static Sprite header(String title) {
+        return named("HEADER_" + title.toUpperCase(java.util.Locale.ROOT).replaceAll("[^A-Z0-9]+", "_"));
     }
 
     /** This frame as cut for a level flown side-on, or this frame where there is no turned cut. */

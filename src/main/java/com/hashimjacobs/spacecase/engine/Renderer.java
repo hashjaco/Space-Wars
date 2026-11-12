@@ -209,7 +209,7 @@ public final class Renderer {
         drawTerrain(world);
 
         for (Asteroid asteroid : world.asteroids()) {
-            drawSprite(asteroid);
+            drawTumble(asteroid, world.tick());
         }
         for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
@@ -800,6 +800,53 @@ public final class Renderer {
         gc.setTextBaseline(VPos.BASELINE);
     }
 
+    /**
+     * The level's title as it begins, in the boss arrival's grammar but entering from the other
+     * side: letterbox bars, the galaxy and number small, the level's name large in its galaxy's face.
+     *
+     * @param done 0 as the level begins, 1 when the card has gone
+     */
+    public void drawLevelCard(Level level, double done) {
+        double in = Math.min(1, done / 0.12);
+        double out = Math.min(1, (1 - done) / 0.2);
+        double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
+        double bar = 72 * bars;
+        gc.setFill(Color.BLACK);
+        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+
+        Color accent = Color.web(level.galaxy().accent());
+        String name = level.label().toUpperCase();
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * GameConfig.WIDTH * 0.4;
+        double cx = GameConfig.WIDTH / 2 + slide;
+        double cy = GameConfig.HEIGHT * 0.4;
+        gc.setGlobalAlpha(Math.min(in, out));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        // The galaxy's painted wordmark over the level number; the plain name where there is none.
+        Sprite wordmark = Sprite.header(level.galaxy().label());
+        String number = "LEVEL " + level.indexInGalaxy();
+        if (wordmark != null) {
+            Image mark = Assets.image(wordmark);
+            double h = 58;
+            double w = mark.getWidth() * h / mark.getHeight();
+            gc.drawImage(mark, cx - w / 2, cy - 136, w, h);
+        } else {
+            number = level.galaxy().label().toUpperCase() + "   ·   " + number;
+        }
+        gc.setFont(Font.font(Assets.displayFontFamily(), 20));
+        gc.setFill(Color.WHITE);
+        gc.fillText(number, cx, cy - 52);
+        gc.setFont(Assets.fitted(level.galaxy().titleFace(), 58, name, GameConfig.WIDTH - 80));
+        gc.setFill(Color.rgb(0, 0, 0, 0.6));
+        gc.fillText(name, cx + 3, cy + 4);
+        gc.setFill(accent);
+        gc.fillText(name, cx, cy);
+        gc.fillRect(cx - 180, cy + 40, 360, 3);
+        gc.setGlobalAlpha(1);
+        gc.setTextBaseline(VPos.BASELINE);
+    }
+
     private void drawArrival(EnemyShip boss, SpawnDirector director) {
         double left = director.bossWarningFraction();       // 1 -> 0 across the arrival
         double done = 1 - left;
@@ -819,7 +866,7 @@ public final class Renderer {
         gc.setGlobalAlpha(Math.min(in, out));
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
-        gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 54));
+        gc.setFont(Assets.fitted(director.level().galaxy().titleFace(), 54, name, GameConfig.WIDTH - 80));
         gc.setFill(Color.rgb(0, 0, 0, 0.6));
         gc.fillText(name, cx + 3, cy + 4);
         gc.setFill(Color.WHITE);
@@ -1169,6 +1216,20 @@ public final class Renderer {
 
     private void drawSprite(Entity entity) {
         drawSprite(entity.sprite(), entity, 0);
+    }
+
+    /**
+     * A rock's pre-rendered 3D tumble. Bigger rocks turn slower, as mass would have it; each starts
+     * at its own point in the loop and half turn the other way, so a field never spins in lockstep.
+     * Render-only, so the identity hash cannot reach the simulation or a replay.
+     */
+    private void drawTumble(Asteroid asteroid, int tick) {
+        List<Image> frames = Assets.tumbleFrames(asteroid.sprite());
+        int seed = System.identityHashCode(asteroid);
+        int step = tick / Math.max(2, (int) (asteroid.width() / 18)) + seed;
+        int n = frames.size();
+        int index = Math.floorMod((seed & 1) == 0 ? step : -step, n);
+        drawImage(frames.get(index), asteroid, 0);
     }
 
     /**

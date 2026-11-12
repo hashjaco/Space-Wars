@@ -73,7 +73,6 @@ public final class GenerateAssets {
         Files.createDirectories(SOUNDS);
 
         players();
-        asteroids();
         enemies();
         bosses();
         monsters();
@@ -739,61 +738,6 @@ public final class GenerateAssets {
     }
 
     // ---------------------------------------------------------------- sprites
-
-    /** Procedural cratered rock, lit from the upper left. Replaces a watermarked download. */
-    private static void asteroids() throws IOException {
-        int[] sizes = {128, 128, 128};
-        String[] names = {"asteroid-small", "asteroid-big", "asteroid-huge"};
-        for (int variant = 0; variant < names.length; variant++) {
-            int size = sizes[variant];
-            BufferedImage image = blank(size, size);
-            Graphics2D g = paint(image);
-            Random random = new Random(1000 + variant);
-
-            // Irregular silhouette: a circle perturbed per vertex.
-            Path2D outline = new Path2D.Double();
-            int points = 15 + variant * 3;
-            double radius = size * 0.42;
-            for (int i = 0; i < points; i++) {
-                double angle = 2 * Math.PI * i / points;
-                double wobble = radius * (0.76 + random.nextDouble() * 0.3);
-                double x = size / 2.0 + StrictMath.cos(angle) * wobble;
-                double y = size / 2.0 + StrictMath.sin(angle) * wobble;
-                if (i == 0) {
-                    outline.moveTo(x, y);
-                } else {
-                    outline.lineTo(x, y);
-                }
-            }
-            outline.closePath();
-
-            g.setClip(outline);
-            g.setPaint(new RadialGradientPaint(
-                    (float) (size * 0.34), (float) (size * 0.3), (float) (size * 0.72),
-                    new float[]{0f, 0.55f, 1f},
-                    new Color[]{new Color(0xb9c0cc), new Color(0x6f7783), new Color(0x24272e)}));
-            g.fillRect(0, 0, size, size);
-
-            // Craters, darker with a lit lower rim.
-            int craters = 9 + variant * 4;
-            for (int i = 0; i < craters; i++) {
-                double cx = size * (0.2 + random.nextDouble() * 0.6);
-                double cy = size * (0.2 + random.nextDouble() * 0.6);
-                double cr = size * (0.035 + random.nextDouble() * 0.075);
-                g.setColor(new Color(0, 0, 0, 70));
-                g.fill(new Ellipse2D.Double(cx - cr, cy - cr, cr * 2, cr * 2));
-                g.setColor(new Color(255, 255, 255, 34));
-                g.fill(new Ellipse2D.Double(cx - cr * 0.8, cy - cr * 0.55, cr * 1.6, cr * 1.3));
-            }
-            g.setClip(null);
-
-            g.setColor(new Color(0x15171c));
-            g.setStroke(new BasicStroke(2f));
-            g.draw(outline);
-            g.dispose();
-            write(image, SPRITES.resolve(names[variant] + ".png"));
-        }
-    }
 
     /**
      * A level's inhabitants: the palette and build of the ships that defend it.

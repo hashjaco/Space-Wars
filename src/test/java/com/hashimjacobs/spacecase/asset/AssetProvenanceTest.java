@@ -13,7 +13,6 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
@@ -159,17 +158,36 @@ class AssetProvenanceTest {
         assertTrue(missing.isEmpty(), "boss animation frames are missing: " + missing);
     }
 
+    /**
+     * Bundling a font redistributes it, which only the Open Font License reliably permits -- and it
+     * requires the licence to travel with the file. So every font lives in fonts/ as
+     * {@code Family-Style.ttf} with {@code Family-OFL.txt} beside it.
+     */
     @Test
-    void noFontIsBundled() throws IOException {
-        List<String> fonts = new ArrayList<>();
+    void everyBundledFontShipsItsOpenFontLicence() throws IOException {
+        List<String> unlicensed = new ArrayList<>();
         for (Path file : bundledFiles()) {
-            String name = file.getFileName().toString().toLowerCase();
-            if (name.endsWith(".ttf") || name.endsWith(".otf") || name.endsWith(".woff2")) {
-                fonts.add(file.getFileName().toString());
+            String name = file.getFileName().toString();
+            String lower = name.toLowerCase();
+            if (!(lower.endsWith(".ttf") || lower.endsWith(".otf") || lower.endsWith(".woff2"))) {
+                continue;
+            }
+            Path licence = file.resolveSibling(name.substring(0, name.indexOf('-') + 1) + "OFL.txt");
+            boolean ok = file.getParent().equals(RESOURCES.resolve("fonts")) && name.indexOf('-') > 0
+                    && Files.exists(licence) && Files.readString(licence).contains("SIL Open Font License");
+            if (!ok) {
+                unlicensed.add(name);
             }
         }
-        assertFalse(Files.exists(RESOURCES.resolve("fonts")) && !fonts.isEmpty(),
-                "bundling a font redistributes it; reference an installed family instead: " + fonts);
+        assertTrue(unlicensed.isEmpty(), "fonts without an OFL licence file beside them in fonts/: " + unlicensed);
+    }
+
+    @Test
+    void everyRegisteredFontIsBundled() {
+        List<String> missing = Assets.FONTS.stream()
+                .filter(font -> !Files.exists(RESOURCES.resolve("fonts").resolve(font)))
+                .toList();
+        assertTrue(missing.isEmpty(), "Assets.FONTS names files that are not in fonts/: " + missing);
     }
 
     private static List<Path> bundledFiles() throws IOException {
