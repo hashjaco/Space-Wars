@@ -61,4 +61,30 @@ class HullPaintTest {
         int[] out = HullPaint.derive(new int[] {0xff000000}, 1, 1, HullPaint.GREEN, 1f, 2, true, false);
         assertEquals(0xff8c3b32, out[0]);
     }
+
+    /**
+     * The two conversions HullPaint carries are AWT's, bit for bit.
+     *
+     * AWT is fine in a desktop test and is the reference; the game itself must not touch it, because
+     * Android has no AWT toolkit to load.
+     */
+    @Test
+    void theColorConversionsMatchAwtExactly() {
+        float[] ours = new float[3];
+        float[] awt = new float[3];
+        for (int r = 0; r < 256; r += 5) {
+            for (int g = 0; g < 256; g += 3) {
+                for (int b = 0; b < 256; b += 7) {
+                    HullPaint.rgbToHsb(r, g, b, ours);
+                    java.awt.Color.RGBtoHSB(r, g, b, awt);
+                    org.junit.jupiter.api.Assertions.assertArrayEquals(awt, ours, 0f, r + "," + g + "," + b);
+                    for (float shift = -1.5f; shift <= 1.5f; shift += 0.37f) {
+                        float h = ours[0] + shift, sat = Math.min(1f, ours[1] * 1.3f);
+                        org.junit.jupiter.api.Assertions.assertEquals(java.awt.Color.HSBtoRGB(h, sat, ours[2]),
+                                HullPaint.hsbToRgb(h, sat, ours[2]), r + "," + g + "," + b + " shifted " + shift);
+                    }
+                }
+            }
+        }
+    }
 }
