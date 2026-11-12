@@ -17,6 +17,7 @@ public final class Settings {
     private static final String KEY_REDUCED_FLASH = "reducedFlash";
     private static final String KEY_CINEMATIC = "glowEffects";
     private static final String KEY_FILM_GRAIN = "filmGrain";
+    private static final String KEY_MIRRORED_SIDES = "mirroredSides";
     private static final String KEY_WINDOW = "windowHeight";
 
     /** {@link #windowHeight} values that are not a pixel height. */
@@ -50,6 +51,7 @@ public final class Settings {
     private boolean reducedFlash;
     private boolean cinematic;
     private boolean filmGrain;
+    private boolean mirroredSides;
     private int windowHeight;
     private final PadButton[] gamepadFireButton = new PadButton[PLAYERS];
     private final PadButton[] gamepadPauseButton = new PadButton[PLAYERS];
@@ -81,6 +83,7 @@ public final class Settings {
         settings.reducedFlash = store.getBoolean(KEY_REDUCED_FLASH, false);
         settings.cinematic = store.getBoolean(KEY_CINEMATIC, true);
         settings.filmGrain = store.getBoolean(KEY_FILM_GRAIN, false);
+        settings.mirroredSides = store.getBoolean(KEY_MIRRORED_SIDES, true);
         settings.windowHeight = store.getInt(KEY_WINDOW, 864);
         for (int slot = 0; slot < PLAYERS; slot++) {
             settings.gamepadFireButton[slot] =
@@ -144,6 +147,7 @@ public final class Settings {
         store.putBoolean(KEY_REDUCED_FLASH, reducedFlash);
         store.putBoolean(KEY_CINEMATIC, cinematic);
         store.putBoolean(KEY_FILM_GRAIN, filmGrain);
+        store.putBoolean(KEY_MIRRORED_SIDES, mirroredSides);
         store.putInt(KEY_WINDOW, windowHeight);
         for (int slot = 0; slot < PLAYERS; slot++) {
             store.put(KEY_FIRE_BUTTON[slot], gamepadFireButton[slot].name());
@@ -272,6 +276,19 @@ public final class Settings {
 
     public void setFilmGrain(boolean on) {
         this.filmGrain = on;
+    }
+
+    /**
+     * Whether the bars either side of the arena, on a screen wider than it, carry the level's sky
+     * mirrored about each edge. Off leaves them plain dark; the seat panels sit in them either way.
+     * On by default.
+     */
+    public boolean mirroredSides() {
+        return mirroredSides;
+    }
+
+    public void setMirroredSides(boolean on) {
+        this.mirroredSides = on;
     }
 
     /**

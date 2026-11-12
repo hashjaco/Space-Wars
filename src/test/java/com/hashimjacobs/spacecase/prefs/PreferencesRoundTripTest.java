@@ -51,12 +51,15 @@ class PreferencesRoundTripTest {
         Settings fresh = Settings.load(scratch);
         assertTrue(fresh.cinematic(), "cinematic lighting is on by default");
         assertFalse(fresh.filmGrain(), "film grain is off by default");
+        assertTrue(fresh.mirroredSides(), "mirrored sides are on by default");
+        fresh.setMirroredSides(false);
         fresh.setCinematic(false);
         fresh.setFilmGrain(true);
         fresh.save();
         Settings reloaded = Settings.load(scratch);
         assertFalse(reloaded.cinematic());
         assertTrue(reloaded.filmGrain());
+        assertFalse(reloaded.mirroredSides());
     }
 
     @Test
