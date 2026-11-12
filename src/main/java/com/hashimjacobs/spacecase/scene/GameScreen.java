@@ -185,51 +185,57 @@ final class GameScreen {
     }
 
     /**
-     * TEMPORARY, Android only: number keys that take the game screen apart on the device, to find
-     * out why it is drawn at five eighths size there. 1 hides the bars, 2 hides the arena, 3 draws
-     * the arena at half resolution, 4 prints every size and transform involved.
+     * TEMPORARY, Android only: takes the game screen apart on the device, a step every four seconds,
+     * to find out why it is drawn at five eighths size there. Each step is logged as it is taken, so
+     * a screenshot can be matched to it. On a timer because a number key from adb opens the TV's
+     * on-screen keyboard instead of reaching the game.
      */
     private void probe(Canvas canvas, Canvas bars, Group barGroup) {
         Scale half = new Scale(1, 1);
         canvas.getTransforms().add(half);
-        root.sceneProperty().addListener((observable, old, scene) -> {
+        Runnable report = () -> {
+            javafx.scene.Scene scene = root.getScene();
             if (scene == null) {
                 return;
             }
-            scene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
-                if (root.getScene() == null) {
-                    return;
-                }
-                switch (event.getCode()) {
-                    case DIGIT1 -> barGroup.setVisible(!barGroup.isVisible());
-                    case DIGIT2 -> canvas.setVisible(!canvas.isVisible());
-                    case DIGIT3 -> {
-                        boolean halve = half.getX() == 1;
-                        canvas.setWidth(halve ? GameConfig.WIDTH / 2 : GameConfig.WIDTH);
-                        canvas.setHeight(halve ? GameConfig.HEIGHT / 2 : GameConfig.HEIGHT);
-                        half.setX(halve ? 2 : 1);
-                        half.setY(halve ? 2 : 1);
-                        double draw = halve ? 0.5 : 1;
-                        canvas.getGraphicsContext2D().setTransform(draw, 0, 0, draw, 0, 0);
-                    }
-                    case DIGIT4 -> {
-                        javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
-                        System.err.println("[probe] screen " + screen.getBounds() + " scale "
-                                + screen.getOutputScaleX() + "x" + screen.getOutputScaleY());
-                        System.err.println("[probe] scene " + scene.getWidth() + "x" + scene.getHeight()
-                                + " window " + scene.getWindow().getWidth() + "x" + scene.getWindow().getHeight()
-                                + " renderScale " + scene.getWindow().getRenderScaleX());
-                        System.err.println("[probe] root " + root.getWidth() + "x" + root.getHeight()
-                                + " toScene " + root.getLocalToSceneTransform());
-                        System.err.println("[probe] canvas " + canvas.getWidth() + "x" + canvas.getHeight()
-                                + " visible " + canvas.isVisible() + " toScene " + canvas.getLocalToSceneTransform());
-                        System.err.println("[probe] bars " + bars.getWidth() + "x" + bars.getHeight()
-                                + " visible " + barGroup.isVisible() + " toScene " + bars.getLocalToSceneTransform());
-                    }
-                    default -> { }
-                }
-            });
-        });
+            javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
+            System.err.println("[probe] screen " + screen.getBounds() + " scale " + screen.getOutputScaleX());
+            System.err.println("[probe] scene " + scene.getWidth() + "x" + scene.getHeight()
+                    + " renderScale " + scene.getWindow().getRenderScaleX());
+            System.err.println("[probe] root " + root.getWidth() + "x" + root.getHeight()
+                    + " toScene " + root.getLocalToSceneTransform());
+            System.err.println("[probe] canvas " + canvas.getWidth() + "x" + canvas.getHeight()
+                    + " visible " + canvas.isVisible() + " toScene " + canvas.getLocalToSceneTransform());
+            System.err.println("[probe] bars " + bars.getWidth() + "x" + bars.getHeight()
+                    + " visible " + barGroup.isVisible() + " toScene " + bars.getLocalToSceneTransform());
+        };
+        Runnable[] steps = {
+            () -> { },
+            () -> barGroup.setVisible(false),
+            () -> { barGroup.setVisible(true); canvas.setVisible(false); },
+            () -> {
+                canvas.setVisible(true);
+                barGroup.setVisible(false);
+                canvas.setWidth(GameConfig.WIDTH / 2);
+                canvas.setHeight(GameConfig.HEIGHT / 2);
+                half.setX(2);
+                half.setY(2);
+                canvas.getGraphicsContext2D().setTransform(0.5, 0, 0, 0.5, 0, 0);
+            },
+            () -> barGroup.setVisible(true),
+        };
+        String[] names = {"as built", "bars hidden", "arena hidden", "arena at half resolution, bars hidden",
+            "arena at half resolution, bars shown"};
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline();
+        for (int i = 0; i < steps.length; i++) {
+            int step = i;
+            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3 + 4 * i), event -> {
+                steps[step].run();
+                System.err.println("[probe] STEP " + step + ": " + names[step]);
+                report.run();
+            }));
+        }
+        timeline.play();
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
