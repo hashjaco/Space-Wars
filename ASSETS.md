@@ -58,7 +58,7 @@ Five origins appear below:
 | `boss-void-weaver/1..8.png` | Generated | Level 6 boss; long-limbed and narrow |
 | `boss-core-tyrant/1..8.png` | Generated | Level 7 boss; heaviest hull, most turrets |
 | `boss-exodus-dreadnought/1..8.png` | Generated | Level 8 boss; longest hull, most pods |
-| `asteroid-small.png`, `asteroid-big.png`, `asteroid-huge.png` | Generated | Procedural cratered rock |
+| `asteroid-small/1..32.png`, `asteroid-big/1..32.png`, `asteroid-huge/1..32.png` | Generated | Procedural 3D rocks (noise-lumped, cratered), rendered in Blender as a seamless 32-frame tumble by `tools/blender/asteroids.py` |
 | `level-1/{far,mid,near}.png` | Generated | Orbital Approach; starfield with the target world hanging in it |
 | `level-2/{far,mid,near}.png` | Generated | Verdant Airspace; banded sky with cloud decks |
 | `level-3/{far,mid,near}.png` | Generated | Canopy Descent; jungle floor and treetops |
@@ -93,6 +93,7 @@ Five origins appear below:
 | `fx-acid-vomit/{1..8}.png`, `fx-acid-splash/{1..12}.png`, `fx-bone-skull/1.png`, `fx-bone-rib/1.png`, `fx-bone-femur/1.png`, `fx-blood-splat/{1..12}.png`, `fx-engine-flame/{1..8}.png` | OpenArt | The hydra's acid spit and its splash, the bloody bone its torso vomits (`asset.Round` ACID, SKULL, RIB, FEMUR), the blood a shot raises on it (`Explosion.BLOOD_SPLAT`), and the player's engine flame. One nano-banana-pro still each, keyed and animated on import by `tools/openart/fx.py` (a wobble, a burst, a flicker); bones are one frame and tumble in flight |
 | `garage/bay.png` | OpenArt | The garage's hangar deck behind the bays, 996x864, dimmed to 70% (`tools/openart/fx.py import hangar`) |
 | `title/backdrop.png`, `title/logo.png` | OpenArt | The start screen's key art (behind every menu, 996x864, dimmed to 70%) and the SPACE CASE wordmark, keyed off magenta (`tools/openart/fx.py import title-backdrop title-logo`) |
+| `header/*.png` (29) | FLUX.2 dev on Workers AI | Painted menu headings in the logo's chrome-and-green and one wordmark per galaxy in its own material, 128 px tall, keyed off the sampled background (`tools/openart/fx.py gen` / `import` `header-*`; prompts in `HEADERS`). Every one proofread for spelling before import; `MenuTitle` sets any title without one in type |
 | `fx-round-spike/`, `fx-round-web/`, `fx-round-stinger/`, `fx-round-stardust/`, `fx-round-egg/`, `fx-round-fang/` (`{1..N}.png`) | Sprixen | The creature flagships' own rounds (`asset.Round`): the crab's spike, the spider's web, the hornet's stinger, the worm's radioactive stardust, the brood's egg, the maw's fang. One AI VFX each (`create_ai_vfx`, 8 frames at 256 px), cut to the frames that stay nose-up and loop, trimmed and scaled to 64 px by `tools/sprixen/import.py vfx round-<name> 64 --frames … --trim`. The stinger runs off the sheet's edge, so its bottom quarter is faded out by hand |
 | `boss-ember.png`, `boss-shard.png`, `boss-bolt.png`, `boss-void.png` | Generated | What the flagships fire, one round per galaxy from Ashfall onward. Verdance keeps the hand-drawn `EnemyProjectile1.png`, so the first fight anybody meets is the one it always was |
 | `scythe-blade.png`, `flak-pellet.png`, `nova-shell.png` | Generated | The rounds those three fire. The only generated projectiles; the rest are the author's own |
@@ -210,10 +211,22 @@ waiting for a release.
 
 ## Fonts
 
-None are bundled. Menu headings ask for the first available of `Impact`, `Haettenschweiler`,
-`Arial Black`, `Franklin Gothic Heavy` or `DejaVu Sans Condensed`, falling back to a generic serif —
-see `Assets.loadDisplayFont`. Referencing a font the host already has is not redistribution, which
-bundling a font file would be.
+Bundled under `fonts/`, all under the [SIL Open Font License 1.1](https://openfontlicense.org), which
+permits redistribution inside other software as long as the licence travels with the font. Each
+family's licence file sits beside it, and `AssetProvenanceTest` fails the build on any font without
+one. The static files were taken from Google Fonts; the licence was confirmed against each family's
+`ofl/` directory in [google/fonts](https://github.com/google/fonts). `Assets.load()` registers them.
+
+| File | Family | Used for |
+|---|---|---|
+| `Exo2-Regular.ttf`, `Exo2-Bold.ttf` | Exo 2 — © The Exo 2 Project Authors | Body text everywhere (`Tokens.BODY`) |
+| `Exo2-ExtraBoldItalic.ttf` | Exo 2 ExtraBold Italic | Display: menu headings without a wordmark, scores, cards |
+| `Creepster-Regular.ttf` | Creepster — © Font Diner, Inc | Verdance level titles |
+| `BlackOpsOne-Regular.ttf` | Black Ops One — © The Black-Ops Project Authors | Ashfall level titles |
+| `Iceberg-Regular.ttf` | Iceberg — © Cyreal | Cryonis level titles |
+| `Audiowide-Regular.ttf` | Audiowide — © Brian J. Bonislawsky (Astigmatic) | Tempest level titles |
+| `Nosifer-Regular.ttf` | Nosifer — © Typomondo | Null level titles |
+| `Exo2-OFL.txt`, `Creepster-OFL.txt`, `BlackOpsOne-OFL.txt`, `Iceberg-OFL.txt`, `Audiowide-OFL.txt`, `Nosifer-OFL.txt` | — | The licence for each family above, verbatim from google/fonts |
 
 ### Galaxy 2 — Ashfall (levels 11–20)
 

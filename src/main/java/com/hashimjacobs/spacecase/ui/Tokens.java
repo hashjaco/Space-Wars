@@ -22,9 +22,9 @@ import javafx.scene.paint.Color;
  * still writes {@code Font.font(Tokens.BODY, Tokens.SIZE_ROW)}. {@link Color#web} is safe; it does
  * no toolkit initialisation, which {@code TokensTest} exists to keep true.
  *
- * Display headings are the exception to the family name: they use whichever condensed face the host
- * turns out to have, so they go through {@code Assets.displayFontFamily()} instead. Pulling that in
- * here would drag the toolkit-dependent Assets class along behind it.
+ * Every family named here is bundled under {@code /fonts/} and registered by {@code Assets.load()},
+ * which must run before the first Font is built. Display headings go through
+ * {@code Assets.displayFontFamily()} and level titles through {@code Galaxy.titleFace()}.
  */
 public final class Tokens {
 
@@ -132,8 +132,8 @@ public final class Tokens {
 
     // ---- Type -------------------------------------------------------------------------------
 
-    /** Body face. Present on every platform the game ships to, which is why it was chosen. */
-    public static final String BODY = "Verdana";
+    /** Body face, Exo 2: bundled with Regular and Bold, so it is the same on every platform. */
+    public static final String BODY = "Exo 2";
 
     public static final double SIZE_CAPTION = 11;
     public static final double SIZE_SMALL = 12;

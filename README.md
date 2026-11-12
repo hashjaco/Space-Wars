@@ -275,11 +275,12 @@ drifts. The music is composed by the author; the art is either hand-drawn by the
 by `tools/GenerateAssets.java`, which is committed and deterministic — `java tools/GenerateAssets.java`
 reproduces it byte for byte, and CI checks that it still does.
 
-No fonts are bundled; menu headings use whichever display face the host already has.
+The fonts in `fonts/` (Exo 2 for text, one display face per galaxy for level titles) are third-party
+under the SIL Open Font License, each with its licence file beside it; see ASSETS.md.
 
 ## Licence
 
-[MIT](LICENSE) — code and assets alike.
+[MIT](LICENSE) — code and assets alike, except the bundled fonts, which are SIL Open Font License (see ASSETS.md).
 
 The release jars carry two third-party runtimes: JavaFX ([GPLv2 with the Classpath
 Exception](https://openjdk.org/legal/gplv2+ce.html)) and, for controller support,

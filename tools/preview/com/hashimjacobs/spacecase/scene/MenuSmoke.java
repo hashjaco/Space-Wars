@@ -38,10 +38,14 @@ public final class MenuSmoke {
                     Text score = new Text("1,284,650");
                     score.setFont(Font.font(Assets.displayFontFamily(), 64));
                     score.setFill(Tokens.BRAND);
+                    com.hashimjacobs.spacecase.mode.Galaxy cryonis = com.hashimjacobs.spacecase.mode.Galaxy.CRYONIS;
+                    Text levelName = MenuScreen.caption("THE FROZEN HEART", Tokens.SIZE_HEADING,
+                            javafx.scene.paint.Color.web(cryonis.accent()));
+                    levelName.setFont(Assets.fitted(cryonis.titleFace(), Tokens.SIZE_HEADING, levelName.getText(), 420));
                     VBox card = MenuScreen.card(
                             MenuScreen.caption("SINGLE PLAYER", Tokens.SIZE_SMALL, Tokens.LABEL), score,
-                            MenuScreen.caption("★  NEW BEST", Tokens.SIZE_ROW, Tokens.WARN),
-                            MenuScreen.caption("Level 30   The Frozen Heart   ·   41 waves", Tokens.SIZE_BODY, Tokens.TEXT_DIM));
+                            MenuScreen.caption("★  NEW BEST", Tokens.SIZE_ROW, Tokens.WARN), levelName,
+                            MenuScreen.caption("Level 30   ·   41 waves", Tokens.SIZE_BODY, Tokens.TEXT_DIM));
                     MenuButton onward = new MenuButton("On to Tempest", () -> { });
                     onward.setHighlighted(true);
                     root = MenuScreen.build("GALAXY CLEARED", card,

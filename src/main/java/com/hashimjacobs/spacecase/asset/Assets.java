@@ -16,6 +16,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.PixelFormat;
 import javafx.scene.image.WritableImage;
 import javafx.scene.text.Font;
+import javafx.scene.text.Text;
 
 import com.hashimjacobs.spacecase.GameConfig;
 
@@ -59,17 +60,23 @@ public final class Assets {
     private static final List<Image> WARMING = new ArrayList<>();
 
     /**
-     * Display faces for menu headings, most wanted first.
-     *
-     * These are referenced from whatever the host already has rather than bundled: a font file is an
-     * asset like any other, and most freely downloadable faces are not licensed for redistribution.
+     * Every bundled face, under {@code /fonts/}. All SIL Open Font License, each with its licence
+     * file beside it -- {@code AssetProvenanceTest} holds both to that. Registering them is what makes
+     * the family names in {@code Tokens.BODY}, {@link #DISPLAY_FAMILY} and {@code Galaxy.titleFace()}
+     * resolve; nothing holds the returned Font.
      */
-    private static final List<String> DISPLAY_FONTS =
-            List.of("Impact", "Haettenschweiler", "Arial Black", "Franklin Gothic Heavy",
-                    "DejaVu Sans Condensed", "Verdana");
+    static final List<String> FONTS = List.of(
+            "Exo2-Regular.ttf", "Exo2-Bold.ttf", "Exo2-ExtraBoldItalic.ttf",
+            "Creepster-Regular.ttf", "BlackOpsOne-Regular.ttf", "Iceberg-Regular.ttf",
+            "Audiowide-Regular.ttf", "Nosifer-Regular.ttf");
+
+    /**
+     * Exo 2 ExtraBold Italic. The file names its family "Exo 2 ExtraBold", and that is the name
+     * JavaFX registers it under; asking for it bold still lands on this one face.
+     */
+    private static final String DISPLAY_FAMILY = "Exo 2 ExtraBold";
 
     private static boolean loaded;
-    private static String displayFontFamily = "Serif";
 
     private Assets() {
     }
@@ -95,8 +102,28 @@ public final class Assets {
             Sprite still = round.sprite();
             ROUND_FRAMES.put(round, decodeFrames(round.frameCount(), round::framePath, still.width(), still.height()));
         }
-        displayFontFamily = loadDisplayFont();
+        for (Sprite rock : ROCKS) {
+            TUMBLES.put(rock, decodeFrames(TUMBLE_FRAMES,
+                    i -> rock.resourcePath().replace("/1.png", "/" + i + ".png"), rock.width() * 2, rock.height() * 2));
+        }
+        for (String font : FONTS) {
+            loadFont("/fonts/" + font);
+        }
         loaded = true;
+    }
+
+    /** Frames in an asteroid's tumble loop, one full turn, rendered by {@code tools/blender/asteroids.py}. */
+    public static final int TUMBLE_FRAMES = 32;
+    private static final List<Sprite> ROCKS = List.of(Sprite.ASTEROID_SMALL, Sprite.ASTEROID_BIG, Sprite.ASTEROID_HUGE);
+    private static final Map<Sprite, List<Image>> TUMBLES = new EnumMap<>(Sprite.class);
+
+    /** An asteroid's 3D tumble, decoded up front at twice its box: rocks arrive mid-fight, so no hitch on the first. */
+    public static List<Image> tumbleFrames(Sprite rock) {
+        List<Image> frames = TUMBLES.get(rock);
+        if (frames == null) {
+            throw new IllegalStateException("Assets.load() must run before requesting " + rock);
+        }
+        return frames;
     }
 
     public static Image image(Sprite sprite) {
@@ -269,9 +296,22 @@ public final class Assets {
         }
     }
 
-    /** Family name of the bundled display font, or a serif fallback if it could not be registered. */
+    /**
+     * The family at {@code size}, or scaled down so {@code text} fits in {@code maxWidth}. The galaxy
+     * faces run up to twice the width of Exo 2, so a long level name in Nosifer would otherwise leave
+     * the stage.
+     */
+    public static Font fitted(String family, double size, String text, double maxWidth) {
+        Font font = Font.font(family, size);
+        Text probe = new Text(text);
+        probe.setFont(font);
+        double width = probe.getLayoutBounds().getWidth();
+        return width <= maxWidth ? font : Font.font(family, size * maxWidth / width);
+    }
+
+    /** Family name of the bundled display face, for headings, scores and cards. */
     public static String displayFontFamily() {
-        return displayFontFamily;
+        return DISPLAY_FAMILY;
     }
 
     /** Decodes a numbered frame sequence, shared by explosions and boss animations. */
@@ -327,14 +367,22 @@ public final class Assets {
         return image;
     }
 
-    /** First preferred display face the host actually has, else a generic serif. */
-    private static String loadDisplayFont() {
-        List<String> installed = Font.getFamilies();
-        for (String candidate : DISPLAY_FONTS) {
-            if (installed.contains(candidate)) {
-                return candidate;
+    /**
+     * Registers one bundled face. A file that is missing is a packaging bug and fails like a missing
+     * sprite; one that is present but will not parse leaves JavaFX on its default face, which is
+     * ugly but playable.
+     */
+    private static void loadFont(String resourcePath) {
+        try (InputStream stream = Assets.class.getResourceAsStream(resourcePath)) {
+            if (stream == null) {
+                throw new IllegalStateException("Missing bundled resource: " + resourcePath);
             }
+            // The size only applies to the Font returned, which is dropped; the family is what sticks.
+            if (Font.loadFont(stream, 12) == null) {
+                System.err.println("Could not register font " + resourcePath);
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("Could not read font " + resourcePath + ": " + e.getMessage());
         }
-        return "Serif";
     }
 }
