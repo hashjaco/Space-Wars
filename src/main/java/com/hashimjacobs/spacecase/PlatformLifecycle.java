@@ -12,10 +12,7 @@ public interface PlatformLifecycle {
     /** Both callbacks arrive on the JavaFX thread. */
     void listen(Runnable onBackground, Runnable onForeground);
 
-    /**
-     * Starts listening. Call it once launch has settled, not during it: Attach's native setup and
-     * the activity's own first resume crash each other if they overlap (see SoundBank).
-     */
+    /** Starts listening. Attach itself is already up: see {@code PlatformAudio.startEarly}. */
     static void start(Runnable onBackground, Runnable onForeground) {
         if (!OnAndroid.ACTIVE) {
             return;

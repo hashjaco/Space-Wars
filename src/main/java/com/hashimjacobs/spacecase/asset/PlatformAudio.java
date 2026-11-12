@@ -14,6 +14,7 @@ import com.hashimjacobs.spacecase.OnAndroid;
  */
 public interface PlatformAudio {
 
+
     /** Decodes an effect ahead of its first play. A failure leaves that effect silent. */
     void load(SoundFx effect, URL source);
 
@@ -42,6 +43,31 @@ public interface PlatformAudio {
         if (!OnAndroid.ACTIVE) {
             return null;
         }
+        return Holder.ANDROID;
+    }
+
+    /**
+     * Starts the Android audio service now. Called first thing in {@code Launcher.main}.
+     *
+     * Creating any Gluon Attach service is what initialises Attach's native side. Until that has
+     * happened, an Android lifecycle event -- Home pressed, another activity over this one -- is
+     * handed to native code that dereferences a pointer nobody has set, and the app dies. Measured
+     * on a Shield: Home four seconds after launch, with the service not yet created, crashed it.
+     * So the service is created before JavaFX starts, not when the first sound is wanted.
+     */
+    static void startEarly() {
+        forThisPlatform();
+    }
+
+    /** Created once, on first use. */
+    final class Holder {
+        private static final PlatformAudio ANDROID = create();
+
+        private Holder() {
+        }
+    }
+
+    private static PlatformAudio create() {
         try {
             return (PlatformAudio) Class.forName("com.hashimjacobs.spacecase.asset.AttachAudio")
                     .getDeclaredConstructor().newInstance();
