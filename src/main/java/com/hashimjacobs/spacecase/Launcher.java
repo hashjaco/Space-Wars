@@ -13,6 +13,13 @@ public final class Launcher {
     }
 
     public static void main(String[] args) {
+        if (OnAndroid.ACTIVE) {
+            // On the Shield the game canvas, the one thing redrawn every frame, was shown at five
+            // eighths size in the top-left corner while the menus around it scaled correctly. That
+            // is the shape of a dirty-region redraw losing the screen's scale, so Android repaints
+            // the whole frame instead of only what changed.
+            System.setProperty("prism.dirtyopts", "false");
+        }
         Main.main(args);
     }
 }
