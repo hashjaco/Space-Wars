@@ -149,9 +149,6 @@ check("a room code is not a sync code", (await fetch(`${BASE}/save/${room}`)).st
 check("an oversized profile is refused", (await vault("x".repeat(70000))).status === 413);
 check("the profile survived the refused upload", (await held()) === replacement);
 
-console.log(failures ? `\n${failures} FAILED` : "\nall relay checks passed");
-process.exit(failures ? 1 : 0);
-
 // ---- Recordings ------------------------------------------------------------------------------
 //
 // Runs against `wrangler dev` with VERIFY_SECRET=dev-secret in server/.dev.vars.
@@ -177,6 +174,22 @@ check("a verified row is no longer pending",
   !(await (await fetch(`${BASE}/replays/pending`, { headers: VERIFY })).text()).includes(runner));
 await fetch(`${BASE}/score`, { method: "POST", body: `${runner},${REPLAY_MODE},REC,6000` });
 check("a new best drops the old verdict", (await (await fetch(`${BASE}/top/${REPLAY_MODE}`)).text()).trim() === "REC,6000,0");
+
+const replayBoard = async () => (await (await fetch(`${BASE}/top/${REPLAY_MODE}`)).text()).trim();
+const judge = (body) => fetch(`${BASE}/verify/${runner}/${REPLAY_MODE}`, { method: "POST", headers: VERIFY, body });
+await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}?score=6000`, { method: "PUT", body: bytes });
+await judge("skip");
+check("an unverifiable recording leaves the row unmarked", (await replayBoard()) === "REC,6000,0", await replayBoard());
+check("and is no longer pending",
+  !(await (await fetch(`${BASE}/replays/pending`, { headers: VERIFY })).text()).includes(runner));
+await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}?score=6000`, { method: "PUT", body: bytes });
+await judge("bad");
+await judge("skip");
+check("skip lifts a cross", (await replayBoard()) === "REC,6000,0", await replayBoard());
+await fetch(`${BASE}/replay/${runner}/${REPLAY_MODE}?score=6000`, { method: "PUT", body: bytes });
+await judge("ok");
+await judge("skip");
+check("skip never takes a tick away", (await replayBoard()) === "REC,6000,1", await replayBoard());
 
 console.log(failures ? `${failures} FAILED` : "all relay checks passed");
 process.exit(failures ? 1 : 0);
