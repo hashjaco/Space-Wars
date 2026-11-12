@@ -20,7 +20,6 @@ import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Settings;
-import com.hashimjacobs.spacecase.ui.CanvasFx;
 
 /** Score, lives, health and active power-ups for each player, plus the wave and boss bars. */
 final class Hud {
@@ -266,7 +265,7 @@ final class Hud {
         // as critical without the oscillation.
         double pulse = settings.reducedFlash() ? 0.35 : 0.35 + 0.35 * Math.sin(tick * 0.22);
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         // A halo spilling past the bar's edge: with the alarm sound gone, this is the warning.
         for (int ring = 3; ring >= 1; ring--) {
             gc.setGlobalAlpha(pulse * 0.22);
