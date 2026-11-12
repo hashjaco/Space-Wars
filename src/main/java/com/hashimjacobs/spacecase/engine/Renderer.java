@@ -217,7 +217,7 @@ public final class Renderer {
             double w = GameConfig.WIDTH;
             double h = GameConfig.HEIGHT;
             gc.clearRect(-side, 0, w + 2 * side, h);
-            if (level != null) {
+            if (level != null && settings.mirroredSides()) {
                 for (double mirror : new double[] {0, 2 * w}) {
                     gc.save();
                     gc.translate(mirror, 0);

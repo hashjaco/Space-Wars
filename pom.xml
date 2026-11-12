@@ -190,6 +190,11 @@
         </dependency>
         <dependency>
           <groupId>com.gluonhq.attach</groupId>
+          <artifactId>lifecycle</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
           <artifactId>storage</artifactId>
           <version>${attach.version}</version>
         </dependency>
@@ -238,11 +243,13 @@
               <!-- Attach services the game calls; the plugin adds each one's Android half. -->
               <attachList>
                 <list>audio</list>
+                <list>lifecycle</list>
                 <list>storage</list>
               </attachList>
               <reflectionList>
                 <!-- PlatformAudio finds the Android audio by name. -->
                 <list>com.hashimjacobs.spacecase.asset.AttachAudio</list>
+                <list>com.hashimjacobs.spacecase.AttachLifecycle</list>
                 <list>com.hashimjacobs.spacecase.Main</list>
                 <!-- JavaFX finds the renderer for every effect and canvas blend mode by class
                      name, and its own native-image config lists only a handful. Each one missing

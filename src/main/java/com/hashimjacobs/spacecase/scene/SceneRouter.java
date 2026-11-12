@@ -144,6 +144,36 @@ public final class SceneRouter {
         shell.setStyle("-fx-background-color: black;");
         shell.setAlignment(Pos.CENTER);
         shell.getChildren().add(stage2d);
+
+        if (OnAndroid.ACTIVE) {
+            // After launch has settled, for the reason PlatformLifecycle.start gives.
+            javafx.animation.PauseTransition settled = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(5));
+            settled.setOnFinished(event -> com.hashimjacobs.spacecase.PlatformLifecycle.start(this::onBackground, this::onForeground));
+            settled.play();
+        }
+    }
+
+    /** Whether going to the background paused a level, which then stays paused on the way back. */
+    private boolean pausedALevel;
+
+    /**
+     * The app has left the screen but its process has not stopped: an Android TV's Home button.
+     * A level pauses exactly as if the player had paused it; anything else just goes quiet.
+     */
+    private void onBackground() {
+        pausedALevel = activeGame != null && activeGame.pauseForBackground();
+        if (!pausedALevel) {
+            sounds.setPaused(true);
+        }
+        settings.save();
+    }
+
+    private void onForeground() {
+        // A paused level waits on its pause menu for the player; its sound comes back with it.
+        if (!pausedALevel) {
+            sounds.setPaused(false);
+        }
+        pausedALevel = false;
     }
 
     /**

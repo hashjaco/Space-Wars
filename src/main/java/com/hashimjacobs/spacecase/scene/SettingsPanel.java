@@ -35,6 +35,7 @@ final class SettingsPanel extends VBox {
     private final MenuButton reducedFlashRow;
     private final MenuButton cinematicRow;
     private final MenuButton grainRow;
+    private final MenuButton sidesRow;
     private final MenuButton resolutionRow;
     private final MenuButton controlsRow;
     private final MenuButton[] fireButtonRow = new MenuButton[PLAYERS];
@@ -78,6 +79,7 @@ final class SettingsPanel extends VBox {
         reducedFlashRow = new MenuButton("", this::toggleReducedFlash);
         cinematicRow = new MenuButton("", this::toggleCinematic);
         grainRow = new MenuButton("", this::toggleGrain);
+        sidesRow = new MenuButton("", this::toggleSides);
         resolutionRow = new MenuButton("", this::cycleResolution);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
@@ -104,7 +106,7 @@ final class SettingsPanel extends VBox {
         refreshLabels();
 
         List<MenuButton> panelRows = new ArrayList<>(List.of(
-                musicRow, sfxRow, difficultyRow, resolutionRow, reducedFlashRow, cinematicRow, grainRow,
+                musicRow, sfxRow, difficultyRow, resolutionRow, reducedFlashRow, cinematicRow, grainRow, sidesRow,
                 controllerRow, analogRow,
                 fireButtonRow[0], pauseButtonRow[0], sensitivityRow[0],
                 fireButtonRow[1], pauseButtonRow[1], sensitivityRow[1],
@@ -174,6 +176,11 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void toggleSides() {
+        settings.setMirroredSides(!settings.mirroredSides());
+        refreshLabels();
+    }
+
     private void toggleGrain() {
         settings.setFilmGrain(!settings.filmGrain());
         refreshLabels();
@@ -222,6 +229,7 @@ final class SettingsPanel extends VBox {
         cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
         resolutionRow.setRow("Resolution", SceneRouter.resolutionLabel(settings.windowHeight()));
         grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
+        sidesRow.setRow("Mirrored sides", settings.mirroredSides() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");
         analogRow.setRow("Stick mode", settings.gamepadAnalog() ? "Analog" : "Digital");
         for (int slot = 0; slot < PLAYERS; slot++) {

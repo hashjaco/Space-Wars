@@ -178,8 +178,13 @@ final class GameScreen {
      */
     private void fitBars(Canvas bars, Scale shrink, Group group, Renderer renderer) {
         double factor = group.getLocalToSceneTransform().getMxx();
-        if (factor <= 0 || !Double.isFinite(factor) || OnAndroid.ACTIVE) {
-            factor = 1;     // see sharp() for why Android draws at arena size
+        if (factor <= 0 || !Double.isFinite(factor)) {
+            factor = 1;
+        }
+        if (OnAndroid.ACTIVE) {
+            // Half size, like the arena canvas: at full size this one is a 3072x1728 texture on a
+            // 1920x1080 surface, redrawn every frame.
+            factor = 0.5;
         }
         double side = Math.max(0, Math.floor((root.getWidth() - GameConfig.WIDTH) / 2));
         double width = side < 1 ? 0 : (GameConfig.WIDTH + 2 * side) * factor;
@@ -312,6 +317,23 @@ final class GameScreen {
     private void pause() {
         loop.setPaused(true);
         showPauseMenu();
+    }
+
+    /**
+     * The app has been sent to the background: pause as if the player had, and stay paused. Coming
+     * back finds the pause menu up, so nobody returns to a ship already under fire.
+     *
+     * @return false between levels, where the loop is running its own sequence and cannot be paused
+     */
+    boolean pauseForBackground() {
+        if (loop.isPaused()) {
+            return true;
+        }
+        if (!loop.isPausable()) {
+            return false;
+        }
+        pause();
+        return true;
     }
 
     private void resume() {
