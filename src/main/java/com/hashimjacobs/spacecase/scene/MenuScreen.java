@@ -57,6 +57,10 @@ final class MenuScreen {
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setAlignment(Pos.CENTER);
         root.setBackground(starfield());
+        // Wider than the arena -- a TV, a maximised window -- the art's dark left third would run
+        // in a band beside a centred column, so a centred screen takes the mirrored art instead.
+        root.widthProperty().addListener((observable, old, width) -> root.setBackground(
+                width.doubleValue() > GameConfig.WIDTH + 1 ? wideStarfield(width.doubleValue()) : starfield()));
         return root;
     }
 
@@ -67,6 +71,45 @@ final class MenuScreen {
      */
     private static Background starfield() {
         return backdrop(Assets.image(Sprite.TITLE_BACKDROP));
+    }
+
+    private static Background wideStarfield;
+    private static int wideStarfieldWidth;
+
+    /**
+     * The key art beside its own mirror image, dark edges meeting in the middle, for a centred
+     * screen wider than the arena.
+     *
+     * The art is dark across its left third by design, to sit behind the title screen's
+     * left-aligned menu. Stretched to a television that third became a near-black band beside the
+     * centred card, which read as the screen cut off. Mirrored, the planet frames both edges and the
+     * card sits on the dark seam. The title screen keeps the original.
+     *
+     * Cut to the screen's own width about the seam rather than left to the background's centring:
+     * a cover-sized image wider than its region was drawn from its left edge, seam off to one side.
+     * Only the last width is kept, which is every width but the ones passed through while a window
+     * is dragged.
+     */
+    private static Background wideStarfield(double screenWidth) {
+        Image art = Assets.image(Sprite.TITLE_BACKDROP);
+        int artWidth = (int) art.getWidth();
+        int height = (int) art.getHeight();
+        int half = Math.min(artWidth, (int) Math.ceil(screenWidth / 2));
+        if (wideStarfield == null || wideStarfieldWidth != half) {
+            javafx.scene.image.PixelReader source = art.getPixelReader();
+            javafx.scene.image.WritableImage both = new javafx.scene.image.WritableImage(half * 2, height);
+            javafx.scene.image.PixelWriter out = both.getPixelWriter();
+            for (int y = 0; y < height; y++) {
+                for (int x = 0; x < half; x++) {
+                    int argb = source.getArgb(x, y);
+                    out.setArgb(half + x, y, argb);
+                    out.setArgb(half - 1 - x, y, argb);
+                }
+            }
+            wideStarfield = backdrop(both);
+            wideStarfieldWidth = half;
+        }
+        return wideStarfield;
     }
 
     /**

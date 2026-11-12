@@ -115,6 +115,9 @@ final class GameScreen {
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
+        if (OnAndroid.ACTIVE) {
+            probe(canvas, bars, barGroup);
+        }
         Runnable fitBars = () -> fitBars(bars, barShrink, barGroup, renderer);
         root.widthProperty().addListener((observable, old, width) -> fitBars.run());
         barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fitBars.run());
@@ -179,6 +182,54 @@ final class GameScreen {
         GraphicsContext gc = bars.getGraphicsContext2D();
         gc.setTransform(factor, 0, 0, factor, side * factor, 0);
         renderer.setBars(side < 1 ? null : gc, side);
+    }
+
+    /**
+     * TEMPORARY, Android only: number keys that take the game screen apart on the device, to find
+     * out why it is drawn at five eighths size there. 1 hides the bars, 2 hides the arena, 3 draws
+     * the arena at half resolution, 4 prints every size and transform involved.
+     */
+    private void probe(Canvas canvas, Canvas bars, Group barGroup) {
+        Scale half = new Scale(1, 1);
+        canvas.getTransforms().add(half);
+        root.sceneProperty().addListener((observable, old, scene) -> {
+            if (scene == null) {
+                return;
+            }
+            scene.addEventFilter(javafx.scene.input.KeyEvent.KEY_PRESSED, event -> {
+                if (root.getScene() == null) {
+                    return;
+                }
+                switch (event.getCode()) {
+                    case DIGIT1 -> barGroup.setVisible(!barGroup.isVisible());
+                    case DIGIT2 -> canvas.setVisible(!canvas.isVisible());
+                    case DIGIT3 -> {
+                        boolean halve = half.getX() == 1;
+                        canvas.setWidth(halve ? GameConfig.WIDTH / 2 : GameConfig.WIDTH);
+                        canvas.setHeight(halve ? GameConfig.HEIGHT / 2 : GameConfig.HEIGHT);
+                        half.setX(halve ? 2 : 1);
+                        half.setY(halve ? 2 : 1);
+                        double draw = halve ? 0.5 : 1;
+                        canvas.getGraphicsContext2D().setTransform(draw, 0, 0, draw, 0, 0);
+                    }
+                    case DIGIT4 -> {
+                        javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
+                        System.err.println("[probe] screen " + screen.getBounds() + " scale "
+                                + screen.getOutputScaleX() + "x" + screen.getOutputScaleY());
+                        System.err.println("[probe] scene " + scene.getWidth() + "x" + scene.getHeight()
+                                + " window " + scene.getWindow().getWidth() + "x" + scene.getWindow().getHeight()
+                                + " renderScale " + scene.getWindow().getRenderScaleX());
+                        System.err.println("[probe] root " + root.getWidth() + "x" + root.getHeight()
+                                + " toScene " + root.getLocalToSceneTransform());
+                        System.err.println("[probe] canvas " + canvas.getWidth() + "x" + canvas.getHeight()
+                                + " visible " + canvas.isVisible() + " toScene " + canvas.getLocalToSceneTransform());
+                        System.err.println("[probe] bars " + bars.getWidth() + "x" + bars.getHeight()
+                                + " visible " + barGroup.isVisible() + " toScene " + bars.getLocalToSceneTransform());
+                    }
+                    default -> { }
+                }
+            });
+        });
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
