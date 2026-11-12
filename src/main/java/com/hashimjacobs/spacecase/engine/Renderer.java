@@ -52,7 +52,6 @@ import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.prefs.Standing;
 import com.hashimjacobs.spacecase.ui.Meter;
 import com.hashimjacobs.spacecase.ui.Tokens;
-import com.hashimjacobs.spacecase.ui.CanvasFx;
 
 /**
  * Draws the arena onto a single full-window canvas.
@@ -268,7 +267,7 @@ public final class Renderer {
         if (mood > 0) {
             // A flagship darkens the sky and cools it: the fight reads as something going wrong.
             gc.save();
-            CanvasFx.blend(gc, BlendMode.MULTIPLY);
+            gc.setGlobalBlendMode(BlendMode.MULTIPLY);
             gc.setGlobalAlpha(0.55 * mood);
             gc.setFill(MOOD);
             gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN, GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
@@ -361,7 +360,7 @@ public final class Renderer {
             return;
         }
         gc.save();
-        CanvasFx.blend(gc, BlendMode.OVERLAY);
+        gc.setGlobalBlendMode(BlendMode.OVERLAY);
         gc.setGlobalAlpha(0.08);
         gc.setFill(new ImagePattern(grain, (tick * 37) % 128, (tick * 53) % 128, 128, 128, false));
         gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
@@ -549,7 +548,7 @@ public final class Renderer {
      */
     private void drawHitFlash(EnemyShip enemy, Level level, int tick) {
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         gc.setGlobalAlpha(0.65);
         if (enemy.isBoss()) {
             drawFitted(bossFrame(enemy, tick), enemy.x(), enemy.y(), enemy.width(), enemy.height());
@@ -605,7 +604,7 @@ public final class Renderer {
             double size = hullHeight * scale * 0.55;
             double length = size * (1.5 + 0.12 * Math.sin(tick * 0.7 + enemy.weavePhase()));
             gc.save();
-            CanvasFx.blend(gc, BlendMode.SCREEN);
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
             // The art is a plume pointing down from its top edge; a quarter turn streams it right, astern.
             gc.translate(hullLength * scale * 0.46, 0);
             gc.rotate(-90);
@@ -636,7 +635,7 @@ public final class Renderer {
                 case SMOKE -> SMOKE;
             };
             gc.setGlobalAlpha(particle.kind() == Particle.Kind.SMOKE ? life * 0.5 : life);
-            CanvasFx.blend(gc, particle.kind() == Particle.Kind.ARC ? BlendMode.SCREEN : BlendMode.SRC_OVER);
+            gc.setGlobalBlendMode(particle.kind() == Particle.Kind.ARC ? BlendMode.SCREEN : BlendMode.SRC_OVER);
             gc.setFill(color);
             double radius = switch (particle.kind()) {
                 case MUZZLE -> 5 * (0.4 + 0.6 * life);
@@ -647,7 +646,7 @@ public final class Renderer {
             gc.fillOval(particle.x() - radius, particle.y() - radius, radius * 2, radius * 2);
         }
         gc.setGlobalAlpha(1);
-        CanvasFx.blend(gc, BlendMode.SRC_OVER);
+        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
     }
 
     private static final Color SPARK = Color.web("#ffb347");
@@ -681,7 +680,7 @@ public final class Renderer {
         double y = boss.y() + (body ? 2 * Math.sin(tick * 0.03 + 1.3) : 0);
         if (settings.cinematic()) {
             castShadow(frame, x, y, boss.width(), boss.height(), 14);
-            CanvasFx.effect(gc, GLOW);
+            gc.setEffect(GLOW);
         }
         drawFitted(frame, x, y, boss.width(), boss.height());
         // A slow loop (the rendered ones hold each frame for a fraction of a second) cross-fades
@@ -697,7 +696,7 @@ public final class Renderer {
             drawFitted(next, x, y, boss.width(), boss.height());
             gc.setGlobalAlpha(alpha);
         }
-        CanvasFx.effect(gc, null);
+        gc.setEffect(null);
         if (turned) {
             gc.restore();
         }
@@ -716,7 +715,7 @@ public final class Renderer {
     private void drawCharge(EnemyShip boss, double charge) {
         double size = Math.max(boss.width(), boss.height()) * (0.7 + 0.8 * charge);
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setGlobalAlpha(0.25 + 0.55 * charge);
         gc.setFill(CHARGE_GLOW);
         gc.fillOval(boss.centerX() - size / 2, boss.centerY() - size / 2, size, size);
@@ -754,7 +753,7 @@ public final class Renderer {
     /** The image's silhouette dropped down-right onto the sky, as if lit from above-left. */
     private void castShadow(Image frame, double x, double y, double width, double height, double drop) {
         gc.save();
-        CanvasFx.effect(gc, SILHOUETTE);
+        gc.setEffect(SILHOUETTE);
         gc.setGlobalAlpha(0.45);
         drawFitted(frame, x + drop * 0.6, y + drop, width, height);
         gc.restore();
@@ -824,7 +823,7 @@ public final class Renderer {
         double noseY = ship.centerY() + ship.facing().yDirection() * ship.height() / 2;
         double grow = Math.min(1, windup / 0.8);
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         double glow = 30 + 150 * grow;
         gc.setFill(halo(tint));
         gc.fillOval(noseX - glow / 2, noseY - glow / 2, glow, glow);
@@ -1032,7 +1031,7 @@ public final class Renderer {
         boolean vertical = !player.facing().horizontal();
 
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         drawBeamCore(beam, vertical, 1.9 * pulse, BEAM_OUTER, 0.5);
         drawBeamCore(beam, vertical, 1.0 * pulse, BEAM_INNER, 0.75);
         drawBeamCore(beam, vertical, 0.35 * pulse, Color.WHITE, 0.95);
@@ -1088,7 +1087,7 @@ public final class Renderer {
     private void drawPowerUp(PowerUp powerUp) {
         double glow = Math.max(powerUp.width(), powerUp.height()) * 2.1;
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setFill(PICKUP_HALO);
         gc.fillOval(powerUp.centerX() - glow / 2, powerUp.centerY() - glow / 2, glow, glow);
         gc.restore();
@@ -1106,11 +1105,11 @@ public final class Renderer {
         double pulse = settings.reducedFlash() ? 1 : 0.85 + 0.15 * Math.sin(tick * 0.12);
         gc.save();
         gc.setGlobalAlpha(known ? 0.4 : 1);
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setFill(PICKUP_HALO);
         double glow = r * 4.2 * pulse;
         gc.fillOval(cx - glow / 2, cy - glow / 2, glow, glow);
-        CanvasFx.blend(gc, BlendMode.SRC_OVER);
+        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
         double[] xs = new double[6];
         double[] ys = new double[6];
         for (int i = 0; i < 6; i++) {
@@ -1156,7 +1155,7 @@ public final class Renderer {
         if (player.justHit() && !settings.reducedFlash()) {
             double flash = Math.max(player.width(), player.height()) * 1.6;
             gc.save();
-            CanvasFx.blend(gc, BlendMode.SCREEN);
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
             gc.setFill(HIT_HALO);
             gc.fillOval(player.centerX() - flash / 2, player.centerY() - flash / 2, flash, flash);
             gc.restore();
@@ -1186,15 +1185,15 @@ public final class Renderer {
         if (settings.cinematic()) {
             // The hull's shadow on the sky, then the hull lit.
             gc.save();
-            CanvasFx.effect(gc, SILHOUETTE);
+            gc.setEffect(SILHOUETTE);
             gc.setGlobalAlpha(gc.getGlobalAlpha() * 0.28);
             gc.translate(12, 20);
             drawImage(frame, player, hullDegrees);
             gc.restore();
-            CanvasFx.effect(gc, GLOW);
+            gc.setEffect(GLOW);
         }
         drawImage(frame, player, hullDegrees);
-        CanvasFx.effect(gc, null);
+        gc.setEffect(null);
         // A CG hull wears its kit in its own frames; only the drawn fallback hulls take the decal.
         Sprite kit = player.kitOverlay();
         if (kit != null && hull == null) {
@@ -1224,7 +1223,7 @@ public final class Renderer {
         gc.save();
         gc.translate(player.centerX(), player.centerY());
         gc.rotate(hullDegrees);
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         if (sideOn) {
             // Nozzles at the left end, sideTailY down the profile; the plume streams left.
             double ax = -w / 2 + w * 0.06, ay = (hull.sideTailY() - 0.5) * h;
@@ -1270,7 +1269,7 @@ public final class Renderer {
         double size = Math.max(bullet.width(), bullet.height()) * 1.35;
 
         gc.save();
-        CanvasFx.blend(gc, BlendMode.SCREEN);
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setFill(halo);
         gc.fillOval(bullet.centerX() - size / 2, bullet.centerY() - size / 2, size, size);
         gc.restore();

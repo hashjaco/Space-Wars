@@ -29,7 +29,6 @@ import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.engine.Renderer;
 import com.hashimjacobs.spacecase.prefs.Settings;
 import com.hashimjacobs.spacecase.ui.Tokens;
-import com.hashimjacobs.spacecase.ui.CanvasFx;
 
 /**
  * Draws the on-foot stage: a lit, layered undercity with the fight in it.
@@ -191,7 +190,7 @@ public final class OnFootRenderer {
         Image back = missionStill("backdrop", borrowed);
         double h = FLOOR + 30;
         if (back != null) {
-            CanvasFx.effect(gc, borrowed[0] ? tint() : null);
+            gc.setEffect(borrowed[0] ? tint() : null);
             double w = back.getWidth() * h / back.getHeight();
             double off = -(cam * 0.25) % (2 * w);
             // Every other copy mirrored, so a painting never meant to tile still has no seam.
@@ -199,7 +198,7 @@ public final class OnFootRenderer {
                 gc.drawImage(back, x, 0, w, h);
                 gc.drawImage(back, x + 2 * w, 0, -w, h);
             }
-            CanvasFx.effect(gc, null);
+            gc.setEffect(null);
         } else {
             gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
                     new Stop(0, Color.web("#06080d")), new Stop(1, Color.web("#1e1518"))));
@@ -207,7 +206,7 @@ public final class OnFootRenderer {
         }
         // Cold light shafts from the city above, slowly breathing.
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         for (int i = 0; i < 4; i++) {
             double x = ((i * 410 - cam * 0.32) % 1640 + 1640) % 1640 - 200;
             gc.setGlobalAlpha(0.05 + 0.025 * Math.sin(tick * 0.013 + i));
@@ -229,14 +228,14 @@ public final class OnFootRenderer {
         double top = FLOOR - 6;
         double h = GameConfig.HEIGHT - top + 60;
         if (floor != null) {
-            CanvasFx.effect(gc, borrowed[0] ? tint() : null);
+            gc.setEffect(borrowed[0] ? tint() : null);
             double w = floor.getWidth() * h / floor.getHeight();
             double start = Math.floor(cam / (2 * w)) * 2 * w;
             for (double x = start - 2 * w; x < cam + GameConfig.WIDTH + 2 * w; x += 2 * w) {
                 gc.drawImage(floor, x, top, w, h);
                 gc.drawImage(floor, x + 2 * w, top, -w, h);
             }
-            CanvasFx.effect(gc, null);
+            gc.setEffect(null);
         } else {
             gc.setFill(Color.web("#14161c"));
             gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, h);
@@ -311,7 +310,7 @@ public final class OnFootRenderer {
             return;
         }
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         for (double x : new double[] {s.wallLeft(), s.wallRight()}) {
             double pulse = 0.5 + 0.2 * Math.sin(tick * 0.2);
             gc.setGlobalAlpha(pulse);
@@ -340,7 +339,7 @@ public final class OnFootRenderer {
                 || s.beat() == OnFootStage.Beat.LIFTOFF;
         if (burning) {
             gc.save();
-            CanvasFx.blend(gc, BlendMode.ADD);
+            gc.setGlobalBlendMode(BlendMode.ADD);
             double flame = 70 + 20 * Math.sin(tick * 0.9);
             gc.setFill(TEAL_HALO);
             gc.fillOval(x - flame, y + 10, flame * 2, flame * 1.6);
@@ -461,9 +460,9 @@ public final class OnFootRenderer {
             double h = f.kind.height() * art;
             double w = frame.getWidth() * h / frame.getHeight();
             if (f.player == 2) {
-                CanvasFx.effect(gc, SECOND_SEAT);
+                gc.setEffect(SECOND_SEAT);
             } else if (f.player == 0 && !f.kind.boss()) {
-                CanvasFx.effect(gc, tint());    // the borrowed crowd, dyed to the galaxy
+                gc.setEffect(tint());    // the borrowed crowd, dyed to the galaxy
             }
             if (f.mercy() > 0 && (tick / 4) % 2 == 0) {
                 gc.setGlobalAlpha(fade * 0.45);    // protected after a hit: blinks until it can be hit again
@@ -472,7 +471,7 @@ public final class OnFootRenderer {
             if (f.hurtFlash() > 0 && !settings.reducedFlash()) {
                 // Plain alpha, not ADD: an image drawn with ADD lightens its whole rectangle here, clear
                 // pixels included, which is the box that used to flash around a struck enemy.
-                CanvasFx.effect(gc, null);
+                gc.setEffect(null);
                 gc.setGlobalAlpha(fade * f.hurtFlash() / 12.0);
                 gc.drawImage(whiteOf(frame), -w / 2, -h, w, h);
             }
@@ -613,7 +612,7 @@ public final class OnFootRenderer {
         double wobble = settings.reducedFlash() ? 1 : 1 + 0.1 * Math.sin(tick * 1.3);
         double t = b.thickness() * Math.max(0.15, swell) * wobble;
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         for (double[] layer : new double[][] {{2.4, 0.25}, {1.4, 0.5}, {0.8, 0.85}, {0.3, 1}}) {
             gc.setGlobalAlpha(layer[1]);
             gc.setFill(layer[0] < 0.5 ? Color.WHITE : core);
@@ -636,7 +635,7 @@ public final class OnFootRenderer {
 
     private void drawCharge(OnFootStage s, int tick) {
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         for (Fighter f : s.pilots()) {
             if (f.state() != Fighter.State.CHARGE) {
                 continue;
@@ -658,7 +657,7 @@ public final class OnFootRenderer {
 
     private void drawShock(OnFootStage.Shock s, int tick) {
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         gc.setFill(MOLTEN_HALO);
         gc.fillOval(s.x() - 50, FLOOR - 70, 100, 90);
         gc.setFill(MOLTEN);
@@ -679,11 +678,11 @@ public final class OnFootRenderer {
         switch (h.kind()) {
             case OnFootStage.Hazard.SLAG -> {
                 double fade = Math.min(1, h.live() / 30.0);
-                CanvasFx.blend(gc, BlendMode.ADD);
+                gc.setGlobalBlendMode(BlendMode.ADD);
                 gc.setFill(MOLTEN_HALO);
                 gc.setGlobalAlpha(warn * fade);
                 gc.fillOval(left - 30, FLOOR - 40, h.width() + 60, 70);
-                CanvasFx.blend(gc, BlendMode.SRC_OVER);
+                gc.setGlobalBlendMode(BlendMode.SRC_OVER);
                 gc.setFill(Color.web("#ff5a1a", (h.armed() ? 0.85 : 0.35) * fade));
                 gc.fillOval(left, FLOOR - 8, h.width(), 16);
                 gc.setFill(Color.web("#ffd27a", 0.7 * fade));
@@ -712,7 +711,7 @@ public final class OnFootRenderer {
             }
             default -> {
                 double y = FLOOR - 50;
-                CanvasFx.blend(gc, BlendMode.ADD);
+                gc.setGlobalBlendMode(BlendMode.ADD);
                 gc.setStroke(Color.web("#9fd8ff", h.armed() ? 0.95 : warn));
                 gc.setLineWidth(h.armed() ? 8 : 3);
                 gc.setLineDashes(h.armed() ? null : new double[] {18, 12});
@@ -733,7 +732,7 @@ public final class OnFootRenderer {
         }
         double cx = boss.x(), cy = boss.y() - boss.kind.height() * 0.55;
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         gc.setLineWidth(3);
         for (int i = 0; i < 4; i++) {
             double phase = ((tick * 0.012 + i * 0.25) % 1.0);
@@ -752,7 +751,7 @@ public final class OnFootRenderer {
             switch (p.kind()) {
                 case OnFootStage.Particle.SPARK -> {
                     gc.save();
-                    CanvasFx.blend(gc, BlendMode.ADD);
+                    gc.setGlobalBlendMode(BlendMode.ADD);
                     gc.setStroke(Color.web("#ffd27a", a));
                     gc.setLineWidth(2.5);
                     gc.strokeLine(p.x(), p.y(), p.x() - p.vx() * 2.2, p.y() - p.vy() * 2.2);
@@ -771,7 +770,7 @@ public final class OnFootRenderer {
                 }
                 default -> {
                     gc.save();
-                    CanvasFx.blend(gc, BlendMode.ADD);
+                    gc.setGlobalBlendMode(BlendMode.ADD);
                     gc.setFill(Color.web("#9ffcff", a));
                     gc.fillOval(p.x() - 2.5, p.y() - 2.5, 5, 5);
                     gc.restore();
@@ -784,7 +783,7 @@ public final class OnFootRenderer {
         double bob = Math.sin(tick * 0.08) * 6;
         double x = s.keyX(), y = s.keyY() + bob;
         gc.save();
-        CanvasFx.blend(gc, BlendMode.ADD);
+        gc.setGlobalBlendMode(BlendMode.ADD);
         double r = 80 + 10 * Math.sin(tick * 0.15);
         gc.setFill(KEY_HALO);
         gc.fillOval(x - r, y - r, 2 * r, 2 * r);
@@ -792,9 +791,9 @@ public final class OnFootRenderer {
         Image key = still("rift-key");
         if (key != null) {
             double h = 64, w = key.getWidth() * h / key.getHeight();
-            CanvasFx.effect(gc, tint());
+            gc.setEffect(tint());
             gc.drawImage(key, x - w / 2, y - h / 2, w, h);
-            CanvasFx.effect(gc, null);
+            gc.setEffect(null);
         } else {
             gc.setFill(VIOLET);
             gc.fillPolygon(new double[] {x, x + 16, x, x - 16}, new double[] {y - 26, y, y + 26, y}, 4);
