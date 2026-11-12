@@ -118,7 +118,9 @@ public final class NetworkedGame implements AutoCloseable {
             return;
         }
         reconnecting = true;
-        Thread.ofVirtual().start(() -> {
+        // A daemon platform thread rather than a virtual one, which needs JDK 21: it sleeps a few
+        // seconds and makes one connection, so there is nothing for a virtual thread to save.
+        Thread retry = new Thread(() -> {
             try {
                 Thread.sleep(Math.min(8000L, 1000L << Math.min(3, reconnectAttempts)));
                 relay.reconnect();
@@ -131,7 +133,9 @@ public final class NetworkedGame implements AutoCloseable {
             } finally {
                 reconnecting = false;
             }
-        });
+        }, "relay-reconnect");
+        retry.setDaemon(true);
+        retry.start();
     }
 
     public IntentSource intents() {
