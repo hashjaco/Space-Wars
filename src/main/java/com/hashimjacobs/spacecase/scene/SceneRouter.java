@@ -161,9 +161,18 @@ public final class SceneRouter {
             sounds.setPaused(true);
         }
         settings.save();
+        // Android destroys the drawing surface about a second from now, and a JavaFX draw against a
+        // destroyed surface never returns: measured on a Shield, the app could not take its surface
+        // back and was killed for not responding. JavaFX only draws what has changed, so the whole
+        // screen is taken out of the scene and nothing in it can change. Timers keep ticking against
+        // nodes that are no longer shown, which costs nothing and draws nothing.
+        shell.getChildren().remove(stage2d);
     }
 
     private void onForeground() {
+        if (!shell.getChildren().contains(stage2d)) {
+            shell.getChildren().add(stage2d);
+        }
         // A paused level waits on its pause menu for the player; its sound comes back with it.
         if (!pausedALevel) {
             sounds.setPaused(false);
