@@ -5,6 +5,7 @@ import java.util.List;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 /**
  * How a round ended.
@@ -15,6 +16,7 @@ import com.hashimjacobs.spacecase.mode.Level;
  * @param wavesSurvived       waves cleared across the whole run before it ended
  * @param level               level being fought when the round ended
  * @param loop                pass through the run it ended on, counting from one
+ * @param difficulty          the preset it was fought on, which the board prints beside the score
  * @param galaxyCleared       true when the run ended by finishing its galaxy rather than by running
  *                            out of lives -- the difference between a win and a loss, and the only
  *                            thing separating the two screens the router shows afterwards
@@ -26,6 +28,7 @@ public record RoundResult(
         int wavesSurvived,
         Level level,
         int loop,
+        Difficulty difficulty,
         boolean galaxyCleared,
         byte[] replay) {
 
@@ -34,7 +37,8 @@ public record RoundResult(
         int winner = resolveWinner(world, players);
         List<Integer> scores = players.stream().map(PlayerShip::score).toList();
         RoundResult result = new RoundResult(world.mode(), winner, scores,
-                director.wavesSurvived(), director.level(), director.loop(), galaxyCleared, null);
+                director.wavesSurvived(), director.level(), director.loop(), director.difficulty(),
+                galaxyCleared, null);
         return result;
     }
 
@@ -58,7 +62,8 @@ public record RoundResult(
     /** Highest score across the players, which is what a co-op or solo run is judged on. */
     /** The same result with the run's recording attached, for the leaderboard to verify. */
     public RoundResult withReplay(byte[] packed) {
-        return new RoundResult(mode, winningPlayerNumber, scores, wavesSurvived, level, loop, galaxyCleared, packed);
+        return new RoundResult(mode, winningPlayerNumber, scores, wavesSurvived, level, loop, difficulty,
+                galaxyCleared, packed);
     }
 
     public int bestScore() {

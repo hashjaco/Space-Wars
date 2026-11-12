@@ -92,6 +92,16 @@ public enum Difficulty {
         return label;
     }
 
+    /** The label for a preset's {@link #name()} as the board sends it; empty for one this build does not know. */
+    public static String labelOf(String name) {
+        for (Difficulty preset : values()) {
+            if (preset.name().equals(name)) {
+                return preset.label;
+            }
+        }
+        return "";
+    }
+
     public int asteroidChance() {
         return asteroidChance;
     }
@@ -156,11 +166,12 @@ public enum Difficulty {
     }
 
     /**
-     * {@link #enemyScale()} with the galaxy's own climb on top: eight percent of hull per galaxy.
+     * {@link #enemyScale()} with the galaxy's own climb on top: fifteen percent per galaxy.
      *
      * Before this, nothing raised the pressure between Verdance and Null on a first play.
      * {@code SpawnDirector.escalated} only grows once per pass through the whole campaign, so the
-     * flagships' authored health was the only thing that got harder across fifty levels. Hull only:
+     * flagships' authored health was the only thing that got harder across fifty levels. Hull, and
+     * the damage of an ordinary shot ({@code EnemyWeapons.fireOrdinary}):
      * speed is capped in {@code EnemyShip} anyway, and score stays authored for the reason
      * {@link #enemyScale()} gives.
      */
@@ -168,8 +179,8 @@ public enum Difficulty {
         return enemyScale * (1 + GALAXY_HULL_STEP * galaxy.ordinal());
     }
 
-    /** Hull added per galaxy by {@link #enemyScale(Galaxy)}: Null's hostiles carry a third more. */
-    static final double GALAXY_HULL_STEP = 0.08;
+    /** Hull added per galaxy by {@link #enemyScale(Galaxy)}: Null's hostiles carry three fifths more. */
+    static final double GALAXY_HULL_STEP = 0.15;
 
     /**
      * Percentage points added to the roll that picks the heavy archetype over the light one.

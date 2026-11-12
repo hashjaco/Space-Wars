@@ -323,12 +323,15 @@ final class EnemyWeapons {
         int shots = Math.max(1, Math.min(MAX_ENEMY_SHOTS, enemy.shots()));
         enemy.markFired();
         double first = -ENEMY_SPREAD_RADIANS * (shots - 1) / 2.0;
+        // Scaled like the hull is, by the same Difficulty.enemyScale(galaxy) the ship was built with.
+        // A flat six against four points of maxed plating left two a hit on every preset.
+        int damage = (int) Math.round(GameConfig.ENEMY_BULLET_DAMAGE * enemy.scale());
         for (int i = 0; i < shots; i++) {
             double angle = first + i * ENEMY_SPREAD_RADIANS;
             addBullet(world, enemy,
                     StrictMath.cos(angle) * GameConfig.ENEMY_BULLET_SPEED,
                     StrictMath.sin(angle) * GameConfig.ENEMY_BULLET_SPEED,
-                    GameConfig.ENEMY_BULLET_DAMAGE, world.enemyRound());
+                    damage, world.enemyRound());
         }
     }
 

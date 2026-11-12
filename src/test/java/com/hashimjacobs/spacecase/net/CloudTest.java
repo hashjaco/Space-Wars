@@ -27,6 +27,15 @@ class CloudTest {
     }
 
     @Test
+    void aRowCarriesThePresetItWasSetOnWhenTheBoardSendsOne() {
+        List<Cloud.Entry> board = Cloud.parse("NOVA,9000,1,SUFFER\nACE,5000,0,\nPIP,100,0");
+
+        assertEquals(new Cloud.Entry("NOVA", 9000, 1, "SUFFER"), board.get(0));
+        assertEquals("", board.get(1).difficulty(), "a row from before the board kept a preset");
+        assertEquals("", board.get(2).difficulty());
+    }
+
+    @Test
     void anEmptyBoardIsAnEmptyList() {
         assertTrue(Cloud.parse("").isEmpty());
         assertTrue(Cloud.parse("\n\n").isEmpty());

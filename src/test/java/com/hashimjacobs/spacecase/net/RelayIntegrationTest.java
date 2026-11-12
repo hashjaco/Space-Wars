@@ -73,7 +73,7 @@ class RelayIntegrationTest {
         Cloud.push(BASE, syncCode, replacement);
         assertEquals(replacement, Cloud.pull(BASE, syncCode), "an upload replaces, never appends");
 
-        assertTrue(Cloud.submit(BASE, UUID.randomUUID().toString(), GameMode.SOLO, "NOVA", 12_400) >= 1,
+        assertTrue(Cloud.submit(BASE, UUID.randomUUID().toString(), GameMode.SOLO, Difficulty.HARD, "NOVA", 12_400) >= 1,
                 "a posted score comes back with a place on the board");
         assertTrue(Cloud.top(BASE, GameMode.SOLO).stream()
                         .anyMatch(entry -> entry.name().equals("NOVA")),

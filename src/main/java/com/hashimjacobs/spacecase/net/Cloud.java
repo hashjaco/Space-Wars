@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.prefs.Difficulty;
 
 /**
  * The other half of the relay: the score board, and the shelf a profile is kept on.
@@ -21,7 +22,7 @@ import com.hashimjacobs.spacecase.mode.GameMode;
  *
  * <h2>No JSON, again</h2>
  *
- * A submitted score is four comma-separated fields and a board is ten {@code name,score} lines,
+ * A submitted score is five comma-separated fields and a board is ten {@code name,score,...} lines,
  * which is the encoding {@code SaveSlot}, {@code Loadout} and the relay's control frames all
  * already use. The game still has no JSON parser in it and still does not need one.
  *
@@ -37,9 +38,10 @@ public final class Cloud {
 
     /** One row of the board. */
     /** {@code verified} is 1 once the relay has replayed the run and agreed, 0 while it waits, -1 if it disagreed. */
-    public record Entry(String name, int score, int verified) {
+    /** {@code difficulty} is the preset's enum name, or empty for a row posted before the board kept one. */
+    public record Entry(String name, int score, int verified, String difficulty) {
         public Entry(String name, int score) {
-            this(name, score, 0);
+            this(name, score, 0, "");
         }
     }
 
@@ -59,16 +61,18 @@ public final class Cloud {
      * @return the rank, or 0 if the board could not be reached; a score is not worth an error
      *         screen, and the run has already been recorded locally by {@code prefs.HighScores}
      */
-    public static int submit(URI base, String player, GameMode mode, String name, int score) {
-        return submit(base, player, mode, name, score, null);
+    public static int submit(URI base, String player, GameMode mode, Difficulty difficulty,
+                             String name, int score) {
+        return submit(base, player, mode, difficulty, name, score, null);
     }
 
     /**
      * Posts a score, then the recording that backs it, so the relay can replay the run and mark the
      * row verified. A row without a recording stays unverified; it is still on the board.
      */
-    public static int submit(URI base, String player, GameMode mode, String name, int score, byte[] replay) {
-        String body = player + "," + mode.name() + "," + name + "," + score;
+    public static int submit(URI base, String player, GameMode mode, Difficulty difficulty,
+                             String name, int score, byte[] replay) {
+        String body = player + "," + mode.name() + "," + name + "," + score + "," + difficulty.name();
         try {
             HttpResponse<String> response = send(HttpRequest.newBuilder(base.resolve("/score"))
                     .POST(HttpRequest.BodyPublishers.ofString(body)));
@@ -96,7 +100,7 @@ public final class Cloud {
     public static List<Entry> top(URI base, GameMode mode) {
         try {
             HttpResponse<String> response =
-                    send(HttpRequest.newBuilder(base.resolve("/top/" + mode.name())).GET());
+                    send(HttpRequest.newBuilder(base.resolve("/top/" + mode.name() + "?v=2")).GET());
             return response.statusCode() == 200 ? parse(response.body()) : List.of();
         } catch (IOException unreachable) {
             return List.of();
@@ -135,7 +139,7 @@ public final class Cloud {
     }
 
     /**
-     * Reads {@code name,score} lines into rows, skipping any it cannot.
+     * Reads {@code name,score[,verified[,difficulty]]} lines into rows, skipping any it cannot.
      *
      * Package-private and pure, which is the whole of what {@code CloudTest} needs: the parsing is
      * the only part of this class with a decision in it, and it can be checked without a server.
@@ -144,12 +148,13 @@ public final class Cloud {
         List<Entry> board = new ArrayList<>();
         for (String line : body.split("\n")) {
             String[] fields = line.trim().split(",");
-            if (fields.length < 2 || fields.length > 3) {
+            if (fields.length < 2 || fields.length > 4) {
                 continue;
             }
             try {
-                int verified = fields.length == 3 ? Integer.parseInt(fields[2].trim()) : 0;
-                board.add(new Entry(fields[0], Integer.parseInt(fields[1].trim()), verified));
+                int verified = fields.length >= 3 ? Integer.parseInt(fields[2].trim()) : 0;
+                String difficulty = fields.length == 4 ? fields[3].trim() : "";
+                board.add(new Entry(fields[0], Integer.parseInt(fields[1].trim()), verified, difficulty));
             } catch (NumberFormatException notARow) {
                 // One unreadable row costs that row, not the board. Same bargain the relay's
                 // control frames make with a line an older build does not recognise.

@@ -106,6 +106,18 @@ check("a bad run does not cost a good one",
   (await board(MODE)).split("\n")[0] === "NOVA,9000,0", await board(MODE));
 
 check("a mode keeps its own table", (await board(EMPTY_MODE)) === "");
+
+const boardV2 = async (mode) => (await (await fetch(`${BASE}/top/${mode}?v=2`)).text()).trim();
+await post(`${players[4]},${MODE},DIFF,7000,SUFFER`);
+check("v2 rows carry the difficulty, blank for rows posted without one",
+  (await boardV2(MODE)).split("\n").slice(0, 2).join("|") === "NOVA,9000,0,|DIFF,7000,0,SUFFER", await boardV2(MODE));
+check("the old board shape is unchanged for old clients",
+  (await board(MODE)).split("\n")[1] === "DIFF,7000,0", await board(MODE));
+await post(`${players[4]},${MODE},DIFF,50,EASY`);
+check("a worse run does not relabel the best one",
+  (await boardV2(MODE)).split("\n")[1] === "DIFF,7000,0,SUFFER", await boardV2(MODE));
+check("a difficulty that is not a preset name is refused",
+  (await post(`${players[4]},${MODE},DIFF,8000,<b>`)).status === 400);
 check("an absurd score is refused",
   (await post(`${players[3]},${MODE},CHEAT,999999999999`)).status === 400);
 check("a negative score is refused", (await post(`${players[3]},${MODE},CHEAT,-5`)).status === 400);

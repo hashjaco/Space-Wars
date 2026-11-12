@@ -318,7 +318,9 @@ export class Board extends DurableObject<Env> {
       `CREATE INDEX IF NOT EXISTS scores_by_rank ON scores (mode, score DESC)`);
     // Added after the table shipped, so ALTER rather than a wider CREATE; each one fails harmlessly
     // once it has run. verified: 0 waiting, 1 the replay reproduced the score, -1 it did not.
-    for (const column of ["verified INTEGER NOT NULL DEFAULT 0", "replay BLOB", "replay_score INTEGER"]) {
+    for (const column of ["verified INTEGER NOT NULL DEFAULT 0", "replay BLOB", "replay_score INTEGER",
+      // The preset the row's best was set on, as the client's enum name; '' for rows older than this.
+      "difficulty TEXT NOT NULL DEFAULT ''"]) {
       try {
         this.ctx.storage.sql.exec(`ALTER TABLE scores ADD COLUMN ${column}`);
       } catch {
@@ -333,29 +335,35 @@ export class Board extends DurableObject<Env> {
    * One row per player per mode, and it only ever moves up: a bad run does not cost somebody the
    * good one they already posted, which is the same bargain `prefs.HighScores` makes locally.
    */
-  submit(player: string, mode: string, name: string, score: number): number {
+  submit(player: string, mode: string, name: string, score: number, difficulty: string): number {
     // A new best is unverified until its own recording arrives and is replayed; the old recording
     // backed the old score and is dropped with it.
     this.ctx.storage.sql.exec(
-      `INSERT INTO scores (player, mode, name, score, verified, replay, replay_score) VALUES (?, ?, ?, ?, 0, NULL, NULL)
+      `INSERT INTO scores (player, mode, name, score, difficulty, verified, replay, replay_score) VALUES (?, ?, ?, ?, ?, 0, NULL, NULL)
          ON CONFLICT (player, mode) DO UPDATE
          SET name = excluded.name,
+             difficulty = CASE WHEN excluded.score > scores.score THEN excluded.difficulty ELSE scores.difficulty END,
              verified = CASE WHEN excluded.score > scores.score THEN 0 ELSE scores.verified END,
              replay = CASE WHEN excluded.score > scores.score THEN NULL ELSE scores.replay END,
              replay_score = CASE WHEN excluded.score > scores.score THEN NULL ELSE scores.replay_score END,
              score = max(scores.score, excluded.score)`,
-      player, mode, name, score);
+      player, mode, name, score, difficulty);
     const [ahead] = [...this.ctx.storage.sql.exec<{ ahead: number }>(
       `SELECT COUNT(*) AS ahead FROM scores WHERE mode = ? AND score > ?`, mode, score)];
     return (ahead?.ahead ?? 0) + 1;
   }
 
-  /** The top of one mode's table as `name,score,verified` lines -- the same comma idiom as everything else. */
-  top(mode: string): string {
-    const rows = [...this.ctx.storage.sql.exec<{ name: string; score: number; verified: number }>(
-      `SELECT name, score, verified FROM scores WHERE mode = ? ORDER BY score DESC, name ASC LIMIT ?`,
+  /**
+   * The top of one mode's table as `name,score,verified` lines -- the same comma idiom as everything else.
+   *
+   * `withDifficulty` adds a fourth field. Opt-in, because clients up to 2.4 skip any row that is
+   * not two or three fields and would show an empty board.
+   */
+  top(mode: string, withDifficulty: boolean): string {
+    const rows = [...this.ctx.storage.sql.exec<{ name: string; score: number; verified: number; difficulty: string }>(
+      `SELECT name, score, verified, difficulty FROM scores WHERE mode = ? ORDER BY score DESC, name ASC LIMIT ?`,
       mode, TOP_ROWS)];
-    return rows.map((row) => `${row.name},${row.score},${row.verified}`).join("\n");
+    return rows.map((row) => `${row.name},${row.score},${row.verified}` + (withDifficulty ? `,${row.difficulty}` : "")).join("\n");
   }
 
   /** Attaches a recording to the row it backs. Refused unless the score is the row's current best. */
@@ -422,26 +430,29 @@ export default {
     // no JSON parser in it, and these bodies are four fields and ten lines.
 
     if (url.pathname === "/score" && request.method === "POST") {
-      // player,mode,name,score
+      // player,mode,name,score[,difficulty] -- the fifth field is absent from clients up to 2.4.
       const fields = (await request.text()).trim().split(",");
-      if (fields.length !== 4) {
-        return new Response("expected player,mode,name,score", { status: 400 });
+      if (fields.length !== 4 && fields.length !== 5) {
+        return new Response("expected player,mode,name,score,difficulty", { status: 400 });
       }
-      const [player, mode, name, score] = fields;
+      const [player, mode, name, score, difficulty = ""] = fields;
       if (!PLAYER_ID.test(player) || !isMode(mode)) {
         return new Response("bad player or mode", { status: 400 });
+      }
+      if (!/^[A-Z]{0,16}$/.test(difficulty)) {
+        return new Response("bad difficulty", { status: 400 });
       }
       const points = Number(score);
       if (!Number.isInteger(points) || points < 0 || points > MAX_SCORE) {
         return new Response("bad score", { status: 400 });
       }
-      const rank = await env.BOARD.getByName("global").submit(player, mode, clean(name), points);
+      const rank = await env.BOARD.getByName("global").submit(player, mode, clean(name), points, difficulty);
       return text(String(rank));
     }
 
     const board = url.pathname.match(/^\/top\/([A-Z]{1,16})$/);
     if (board) {
-      return text(await env.BOARD.getByName("global").top(board[1]));
+      return text(await env.BOARD.getByName("global").top(board[1], url.searchParams.get("v") === "2"));
     }
 
     // ---- Profiles --------------------------------------------------------------------------
@@ -531,7 +542,7 @@ export default {
     if (!match) {
       return new Response(
         "POST /new for a room code, then GET /room/{code} with Upgrade: websocket\n"
-        + "POST /score with player,mode,name,score  |  GET /top/{mode}\n"
+        + "POST /score with player,mode,name,score,difficulty  |  GET /top/{mode}?v=2\n"
         + "PUT or GET /save/{sync code}\n",
         { status: 404 });
     }
