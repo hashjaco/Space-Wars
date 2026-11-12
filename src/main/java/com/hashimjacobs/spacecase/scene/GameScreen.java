@@ -115,7 +115,14 @@ final class GameScreen {
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
-        Runnable fitBars = () -> fitBars(bars, barShrink, barGroup, renderer);
+        // Deferred, never run inside the listener: both properties change in the middle of a layout
+        // pass, and resizing a canvas there changes bounds the pass has already read. On the Shield
+        // that left the whole game screen drawn at five eighths size until something else -- hiding
+        // and showing a node was enough -- forced a clean layout.
+        Runnable fitBars = () -> javafx.application.Platform.runLater(() -> {
+            fitBars(bars, barShrink, barGroup, renderer);
+            root.requestLayout();
+        });
         root.widthProperty().addListener((observable, old, width) -> fitBars.run());
         barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fitBars.run());
 
