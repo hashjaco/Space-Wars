@@ -115,9 +115,6 @@ final class GameScreen {
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
-        if (OnAndroid.ACTIVE) {
-            probe(canvas, bars, barGroup);
-        }
         Runnable fitBars = () -> fitBars(bars, barShrink, barGroup, renderer);
         root.widthProperty().addListener((observable, old, width) -> fitBars.run());
         barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fitBars.run());
@@ -139,9 +136,17 @@ final class GameScreen {
         canvas.getTransforms().add(shrink);
         Group group = new Group(canvas);
         if (OnAndroid.ACTIVE) {
-            // On the Shield a canvas resized this way was drawn at five eighths of its size, in the
-            // top-left corner, while every other node scaled correctly. Left at arena size there,
-            // it is scaled like any other node: softer on a large screen, but the right size.
+            // Measured on a Shield with an on-device probe: with the arena canvas at its full
+            // 996x864, which JavaFX backs with a 1992x1728 texture on that 2x-density screen, the
+            // whole game screen was drawn at five eighths size in the top-left corner. With the
+            // canvas at half that, drawn into at half scale and shown at double, everything was the
+            // right size -- and nothing else tried changed it. So Android gets the half-size canvas:
+            // 996x864 real pixels shown across 1245x1080 of a 1080p surface, a little soft.
+            canvas.setWidth(GameConfig.WIDTH / 2);
+            canvas.setHeight(GameConfig.HEIGHT / 2);
+            shrink.setX(2);
+            shrink.setY(2);
+            canvas.getGraphicsContext2D().setTransform(0.5, 0, 0, 0.5, 0, 0);
             return group;
         }
         group.localToSceneTransformProperty().addListener((observable, old, transform) -> {
@@ -182,60 +187,6 @@ final class GameScreen {
         GraphicsContext gc = bars.getGraphicsContext2D();
         gc.setTransform(factor, 0, 0, factor, side * factor, 0);
         renderer.setBars(side < 1 ? null : gc, side);
-    }
-
-    /**
-     * TEMPORARY, Android only: takes the game screen apart on the device, a step every four seconds,
-     * to find out why it is drawn at five eighths size there. Each step is logged as it is taken, so
-     * a screenshot can be matched to it. On a timer because a number key from adb opens the TV's
-     * on-screen keyboard instead of reaching the game.
-     */
-    private void probe(Canvas canvas, Canvas bars, Group barGroup) {
-        Scale half = new Scale(1, 1);
-        canvas.getTransforms().add(half);
-        Runnable report = () -> {
-            javafx.scene.Scene scene = root.getScene();
-            if (scene == null) {
-                return;
-            }
-            javafx.stage.Screen screen = javafx.stage.Screen.getPrimary();
-            System.err.println("[probe] screen " + screen.getBounds() + " scale " + screen.getOutputScaleX());
-            System.err.println("[probe] scene " + scene.getWidth() + "x" + scene.getHeight()
-                    + " renderScale " + scene.getWindow().getRenderScaleX());
-            System.err.println("[probe] root " + root.getWidth() + "x" + root.getHeight()
-                    + " toScene " + root.getLocalToSceneTransform());
-            System.err.println("[probe] canvas " + canvas.getWidth() + "x" + canvas.getHeight()
-                    + " visible " + canvas.isVisible() + " toScene " + canvas.getLocalToSceneTransform());
-            System.err.println("[probe] bars " + bars.getWidth() + "x" + bars.getHeight()
-                    + " visible " + barGroup.isVisible() + " toScene " + bars.getLocalToSceneTransform());
-        };
-        Runnable[] steps = {
-            () -> { },
-            () -> barGroup.setVisible(false),
-            () -> { barGroup.setVisible(true); canvas.setVisible(false); },
-            () -> {
-                canvas.setVisible(true);
-                barGroup.setVisible(false);
-                canvas.setWidth(GameConfig.WIDTH / 2);
-                canvas.setHeight(GameConfig.HEIGHT / 2);
-                half.setX(2);
-                half.setY(2);
-                canvas.getGraphicsContext2D().setTransform(0.5, 0, 0, 0.5, 0, 0);
-            },
-            () -> barGroup.setVisible(true),
-        };
-        String[] names = {"as built", "bars hidden", "arena hidden", "arena at half resolution, bars hidden",
-            "arena at half resolution, bars shown"};
-        javafx.animation.Timeline timeline = new javafx.animation.Timeline();
-        for (int i = 0; i < steps.length; i++) {
-            int step = i;
-            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(3 + 4 * i), event -> {
-                steps[step].run();
-                System.err.println("[probe] STEP " + step + ": " + names[step]);
-                report.run();
-            }));
-        }
-        timeline.play();
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
