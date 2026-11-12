@@ -206,14 +206,26 @@ final class GameScreen {
 
     /** TEMPORARY: steps the level through {@link com.hashimjacobs.spacecase.Probe}'s switches. */
     private void probe(Canvas canvas, Group barGroup) {
-        // Thirty-five seconds of a level as played, then exit, which is what makes the VM print its
-        // allocation table.
-        javafx.animation.PauseTransition played = new javafx.animation.PauseTransition(javafx.util.Duration.seconds(35));
-        played.setOnFinished(event -> {
-            com.hashimjacobs.spacecase.Probe.phase("exiting");
-            System.exit(0);
-        });
-        played.play();
+        // Fifteen seconds of play to fill the arena, then the world is frozen and the same moment
+        // is drawn every frame with one more stage each time, six seconds apiece.
+        String[] names = {"frozen, everything", "1 sky only", "2 + terrain", "3 + rocks, pickups, cores", "4 + enemies",
+            "5 + bullets", "6 + players", "7 + explosions, particles", "8 + vignette (all but HUD)", "9 + HUD (everything again)"};
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline();
+        for (int i = 0; i < names.length; i++) {
+            int stage = i;
+            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 6 * i), event -> {
+                com.hashimjacobs.spacecase.Probe.freeze = true;
+                com.hashimjacobs.spacecase.Probe.stages = stage == 0 ? 99 : stage;
+                com.hashimjacobs.spacecase.Probe.noHud = stage != 0 && stage < 9;
+                com.hashimjacobs.spacecase.Probe.phase(names[stage]);
+            }));
+        }
+        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 6 * names.length), event -> {
+            com.hashimjacobs.spacecase.Probe.freeze = false;
+            com.hashimjacobs.spacecase.Probe.stages = 99;
+            com.hashimjacobs.spacecase.Probe.phase("unfrozen");
+        }));
+        timeline.play();
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
