@@ -208,7 +208,7 @@ public final class Renderer {
      * @param level the level whose sky to continue, or null for plain space (the on-foot stages)
      */
     private void drawBars(Level level, int tick) {
-        if (bars == null) {
+        if (bars == null || com.hashimjacobs.spacecase.Probe.noBars) {
             return;
         }
         GraphicsContext arena = gc;
@@ -342,7 +342,9 @@ public final class Renderer {
         if (windup >= 0 && settings.cinematic()) {
             drawSpecialCard(caster, windup);
         }
-        hud.draw(world, director);
+        if (!com.hashimjacobs.spacecase.Probe.noHud) {
+            hud.draw(world, director);
+        }
     }
 
     /**

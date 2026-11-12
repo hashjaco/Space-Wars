@@ -498,7 +498,9 @@ public final class GameLoop {
         if (phase == Phase.ON_FOOT) {
             renderer.drawOnFoot(onFoot);
         } else {
-            renderer.draw(world, director);
+            if (!com.hashimjacobs.spacecase.Probe.noDraw) {
+                renderer.draw(world, director);
+            }
             if (phase == Phase.FIGHTING && levelCardTicks > 0) {
                 renderer.drawLevelCard(director.level(), 1 - levelCardTicks / (double) LEVEL_CARD_TICKS);
             }

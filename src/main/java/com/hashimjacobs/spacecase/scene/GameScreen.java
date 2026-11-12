@@ -119,6 +119,9 @@ final class GameScreen {
         // pass, and resizing a canvas there changes bounds the pass has already read. On the Shield
         // that left the whole game screen drawn at five eighths size until something else -- hiding
         // and showing a node was enough -- forced a clean layout.
+        if (OnAndroid.ACTIVE) {
+            probe(canvas, barGroup);
+        }
         Runnable fitBars = () -> javafx.application.Platform.runLater(() -> {
             fitBars(bars, barShrink, barGroup, renderer);
             root.requestLayout();
@@ -199,6 +202,31 @@ final class GameScreen {
         GraphicsContext gc = bars.getGraphicsContext2D();
         gc.setTransform(factor, 0, 0, factor, side * factor, 0);
         renderer.setBars(side < 1 ? null : gc, side);
+    }
+
+    /** TEMPORARY: steps the level through {@link com.hashimjacobs.spacecase.Probe}'s switches. */
+    private void probe(Canvas canvas, Group barGroup) {
+        String[] names = {"level as played", "no drawing at all", "drawing, no HUD", "drawing, no side bars",
+            "drawing, canvases hidden", "level as played again"};
+        Runnable[] steps = {
+            () -> { },
+            () -> com.hashimjacobs.spacecase.Probe.noDraw = true,
+            () -> { com.hashimjacobs.spacecase.Probe.noDraw = false; com.hashimjacobs.spacecase.Probe.noHud = true; },
+            () -> { com.hashimjacobs.spacecase.Probe.noHud = false; com.hashimjacobs.spacecase.Probe.noBars = true; },
+            () -> { com.hashimjacobs.spacecase.Probe.noBars = false; canvas.setVisible(false); barGroup.setVisible(false); },
+            () -> { canvas.setVisible(true); barGroup.setVisible(true); },
+        };
+        javafx.animation.Timeline timeline = new javafx.animation.Timeline();
+        for (int i = 0; i < steps.length; i++) {
+            int step = i;
+            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(6 + 7 * i), event -> {
+                steps[step].run();
+                com.hashimjacobs.spacecase.Probe.phase(names[step]);
+            }));
+        }
+        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(6 + 7 * steps.length),
+                event -> com.hashimjacobs.spacecase.Probe.phase("after the probe")));
+        timeline.play();
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
