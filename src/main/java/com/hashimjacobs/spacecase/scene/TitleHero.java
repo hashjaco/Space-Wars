@@ -10,6 +10,7 @@ import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.garage.Loadout;
 import com.hashimjacobs.spacecase.ui.Tokens;
+import com.hashimjacobs.spacecase.ui.CanvasFx;
 
 /**
  * What moves on the start screen: the pilot's own ship turning on a lit pad.
@@ -51,7 +52,7 @@ final class TitleHero {
 
         // The pad, as GarageOverlay.drawShowcase lights it, minus the hangar's gantry cone.
         gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        CanvasFx.blend(gc, BlendMode.SCREEN);
         gc.setGlobalAlpha(0.30);
         gc.setFill(Tokens.BRAND);
         gc.fillOval(c - ship * 0.62, c + ship * 0.12, ship * 1.24, ship * 0.22);

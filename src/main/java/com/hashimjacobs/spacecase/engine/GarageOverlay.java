@@ -18,6 +18,7 @@ import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Upgrade;
+import com.hashimjacobs.spacecase.ui.CanvasFx;
 
 /**
  * The between-levels garage: a hangar deck, and a bay per pilot with their ship turning on a lift
@@ -217,7 +218,7 @@ final class GarageOverlay {
     private void drawShowcase(GarageSession.Look look, double centreX, double centreY, double size, int tick) {
         // The pad: a lit ring on the deck, and a cone of light from the gantry above it.
         gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        CanvasFx.blend(gc, BlendMode.SCREEN);
         gc.setGlobalAlpha(0.10);
         gc.setFill(Color.web("#ffd9a0"));
         gc.fillPolygon(new double[] {centreX - 26, centreX + 26, centreX + size * 0.62, centreX - size * 0.62},
