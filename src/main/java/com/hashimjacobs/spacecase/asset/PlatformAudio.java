@@ -46,8 +46,22 @@ public interface PlatformAudio {
             return (PlatformAudio) Class.forName("com.hashimjacobs.spacecase.asset.AttachAudio")
                     .getDeclaredConstructor().newInstance();
         } catch (ReflectiveOperationException | RuntimeException | LinkageError unavailable) {
+            // Silent rather than null: null means "use the desktop backends", which on Android
+            // throw on every sound.
             System.err.println("[audio] no Android audio, the game will be silent: " + unavailable);
-            return null;
+            return SILENT;
         }
     }
+
+    /** Plays nothing. */
+    PlatformAudio SILENT = new PlatformAudio() {
+        @Override public void load(SoundFx effect, URL source) { }
+        @Override public void play(SoundFx effect, double volume) { }
+        @Override public void stopEffects() { }
+        @Override public void playMusic(MusicTrack track, URL source, double volume) { }
+        @Override public void pauseMusic() { }
+        @Override public void resumeMusic() { }
+        @Override public void stopMusic() { }
+        @Override public void setMusicVolume(double volume) { }
+    };
 }
