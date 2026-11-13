@@ -1,22 +1,27 @@
-# Builds an experimental Android APK (arm64) through GluonFX, for sideloading onto an Android TV box
-# such as the Nvidia Shield. Run by hand; nothing here is part of a release.
-#
-# What the APK is not, yet: it has no sound (the desktop audio code cannot run in a native image),
-# no gamepad support (the SDL library is desktop-only) and no Android TV launcher entry. It exists to
-# find out whether the game starts and holds a frame rate on the device before any of that is built.
+# Builds the Android TV build (arm64 APK) through GluonFX, for an Android TV box such as the Nvidia
+# Shield. Run by hand for a test build, and called by release.yml so every release carries one.
 #
 # The steps follow Gluon's own reference build, gluonhq/hello-gluon-ci. Gluon only builds Android
-# targets on Linux. Signed with a fixed key held in repository secrets, so each build installs over the last.
-name: Android (experimental)
+# targets on Linux. Signed with a fixed key held in repository secrets, so each build installs over
+# the last.
+name: Android TV
 
 on:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: What to build; the caller's own ref when empty
+        type: string
+        required: false
 
 jobs:
   apk:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       # Sets GRAALVM_HOME. The java17 Final build, not the newer java23 one: that one rejects an
       # option Gluon's Android target passes (gluonfx-maven-plugin issue 539).
@@ -62,7 +67,8 @@ jobs:
         run: |
           export ANDROID_SDK=$ANDROID_HOME
           export GLUON_ANDROID_KEYSTOREPATH="$RUNNER_TEMP/space-case.keystore"
-          ./mvnw -B --no-transfer-progress -Pmobile -Dgluonfx.target=android -DskipTests gluonfx:build gluonfx:package
+          # Minutes since 1970: rises with every build, whichever workflow made it.
+          ./mvnw -B --no-transfer-progress -Pmobile -Dgluonfx.target=android -Dandroid.version.code=$(( $(date +%s) / 60 )) -DskipTests gluonfx:build gluonfx:package
         env:
           ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
           GLUON_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
@@ -71,14 +77,26 @@ jobs:
 
       # The generated manifest rides along so the Android TV launcher entry can be written against
       # what Gluon actually produces. Logs too, on a failure, since native-image's are long.
-      - name: Upload the APK
+      - name: Upload the build output, for debugging
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: space-case-android
+          name: android-build-output
           if-no-files-found: warn
           path: |
             target/gluonfx/aarch64-android/gvm/*.apk
             target/gluonfx/aarch64-android/gensrc/android/AndroidManifest.xml
             target/gluonfx/aarch64-android/gvm/log/*.log
             target/gluonfx/log/*.log
+
+      # The one file a player wants, named like the other installers, for the release to attach.
+      - name: Name the APK
+        run: |
+          version=$(./mvnw -q -DforceStdout help:evaluate -Dexpression=project.version)
+          mkdir -p dist
+          cp target/gluonfx/aarch64-android/gvm/*.apk "dist/SpaceCase-${version}-androidtv.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: space-case-androidtv
+          path: dist/*.apk

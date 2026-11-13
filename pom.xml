@@ -179,6 +179,9 @@
         <gluonfx.target>host</gluonfx.target>
         <gluonfx.mainClass>com.hashimjacobs.spacecase.Launcher</gluonfx.mainClass>
         <attach.version>4.0.26</attach.version>
+        <!-- Android refuses to install a build over one with a higher code. The workflow passes
+             a code that only ever rises; a build by hand gets this. -->
+        <android.version.code>1</android.version.code>
       </properties>
       <!-- Android audio. Java Sound and JavaFX media cannot run there; Gluon Attach plays through
            Android's own SoundPool and MediaPlayer. Profile-only, so the desktop never ships it. -->
@@ -240,10 +243,7 @@
                 ClassNotFoundException on our own entry point. Nothing else in the game needs
                 registering, which is why this list is one line rather than a file.
               -->
-              <!-- TEMPORARY while the Shield build is tuned: every collection to the log, to see
-                   whether the 100 ms hitches every few seconds are the garbage collector. -->
               <nativeImageArgs>
-                <arg>-R:+PrintGC</arg>
                 <!-- Measured on a Shield: about 20 MB a second of garbage against a young
                      generation of about 40 MB, so a collection every two seconds and a full one,
                      60 to 90 ms, every eight or so. A larger young generation makes both rarer,
@@ -252,6 +252,12 @@
                      makes less garbage. -->
                 <arg>-R:MaxNewSize=96m</arg>
               </nativeImageArgs>
+              <!-- Written into src/android/AndroidManifest.xml at build time, so the app reports
+                   the game's own version rather than 1.0. -->
+              <releaseConfiguration>
+                <versionCode>${android.version.code}</versionCode>
+                <versionName>${project.version}</versionName>
+              </releaseConfiguration>
               <!-- Attach services the game calls; the plugin adds each one's Android half. -->
               <attachList>
                 <list>audio</list>
