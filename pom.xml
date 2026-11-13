@@ -227,6 +227,22 @@
                   </sources>
                 </configuration>
               </execution>
+              <!-- src/android/resources: TvActivity, compiled for Android's own VM. Gluon gathers
+                   anything under META-INF/substrate/dalvik/precompiled/classes into the APK. -->
+              <execution>
+                <id>android-resources</id>
+                <phase>generate-resources</phase>
+                <goals>
+                  <goal>add-resource</goal>
+                </goals>
+                <configuration>
+                  <resources>
+                    <resource>
+                      <directory>src/android/resources</directory>
+                    </resource>
+                  </resources>
+                </configuration>
+              </execution>
             </executions>
           </plugin>
           <plugin>
