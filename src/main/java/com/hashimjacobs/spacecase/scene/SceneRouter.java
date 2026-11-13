@@ -162,6 +162,14 @@ public final class SceneRouter {
             sounds.setPaused(true);
         }
         settings.save();
+        // Everything else the game stores -- the level checkpoint, slots, scores, pilots -- flushes
+        // as it is written, so this should find nothing to do. It is here because Android may kill
+        // a backgrounded app without another word, and this is the last moment the game is sure of.
+        try {
+            java.util.prefs.Preferences.userRoot().flush();
+        } catch (java.util.prefs.BackingStoreException | RuntimeException unwritable) {
+            System.err.println("[save] could not flush on the way to the background: " + unwritable);
+        }
         // Android destroys the drawing surface about a second from now, and a JavaFX draw against a
         // destroyed surface never returns: measured on a Shield, the app could not take its surface
         // back and was killed for not responding. JavaFX only draws what has changed, so the whole
