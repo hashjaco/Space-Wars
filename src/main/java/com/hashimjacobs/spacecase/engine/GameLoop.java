@@ -485,7 +485,7 @@ public final class GameLoop {
         if (paused || finished) {
             return;
         }
-        int steps = com.hashimjacobs.spacecase.Probe.freeze ? 0 : timestep.stepsFor(frameNanos);
+        int steps = timestep.stepsFor(frameNanos);
         for (int i = 0; i < steps && !finished; i++) {
             // The accumulator has already been drained for these steps, so a tick we decline here
             // is time lost rather than banked. That is the same trade MAX_STEPS_PER_FRAME makes,
@@ -498,9 +498,7 @@ public final class GameLoop {
         if (phase == Phase.ON_FOOT) {
             renderer.drawOnFoot(onFoot);
         } else {
-            if (!com.hashimjacobs.spacecase.Probe.noDraw) {
-                renderer.draw(world, director);
-            }
+            renderer.draw(world, director);
             if (phase == Phase.FIGHTING && levelCardTicks > 0) {
                 renderer.drawLevelCard(director.level(), 1 - levelCardTicks / (double) LEVEL_CARD_TICKS);
             }
