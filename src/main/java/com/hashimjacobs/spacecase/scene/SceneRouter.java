@@ -41,6 +41,7 @@ import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.asset.SoundFx;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.engine.Gamepad;
+import com.hashimjacobs.spacecase.engine.PadState;
 import com.hashimjacobs.spacecase.engine.MenuRepeat;
 import com.hashimjacobs.spacecase.engine.RoundResult;
 import com.hashimjacobs.spacecase.garage.Loadout;
@@ -50,6 +51,7 @@ import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Account;
 import com.hashimjacobs.spacecase.prefs.ControlAction;
 import com.hashimjacobs.spacecase.prefs.PadAction;
+import com.hashimjacobs.spacecase.prefs.PadButton;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
@@ -1352,30 +1354,50 @@ public final class SceneRouter {
     }
 
     /**
-     * The Android TV controller, as the keys the desktop gamepad already produces.
+     * The Android TV controller, handed to the same pad reader the desktop polls.
      *
-     * Android hands JavaFX the D-pad (and the left stick, which Android turns into D-pad presses)
-     * as the arrows and the Back button as Escape, which the game already answers to. The face
-     * buttons arrive as JavaFX's GAME_ codes, which nothing reads, so they are re-sent here as what
-     * {@code engine.GamepadMapping} sends on the desktop: A fires and selects, B backs out of a
-     * menu, X is the special. Y, the shoulders and Start reach JavaFX as no key at all, so there is
-     * nothing here to map them from.
+     * Android gives JavaFX the D-pad (and the left stick, which Android turns into D-pad presses)
+     * as the arrows, which the game already answers to. The buttons arrive as key codes instead:
+     * A, B and X as JavaFX's GAME_ codes, and the rest -- which JavaFX has no code for and used to
+     * drop, Start among them -- as the function keys {@code TvActivity} re-sends them as. Each is
+     * turned back into its button here and offered to {@link Gamepad}, so the bindings, pause and
+     * the controller screen behave as they do on the desktop.
+     *
+     * ponytail: every pad is player one's -- JavaFX key events carry no device. Give TvActivity a
+     * second set of codes per device if two pads on one television ever matter. The right stick
+     * and analog travel do not arrive at all.
      */
-    private static void installAndroidController(Scene scene) {
-        java.util.Map<KeyCode, List<KeyCode>> buttons = java.util.Map.of(
-                KeyCode.GAME_A, List.of(KeyCode.SHIFT, KeyCode.SPACE),
-                KeyCode.GAME_B, List.of(com.hashimjacobs.spacecase.engine.GamepadMapping.MENU_CANCEL),
-                KeyCode.GAME_D, List.of(com.hashimjacobs.spacecase.prefs.ControlAction.SPECIAL.defaultKey(1)));
+    private void installAndroidController(Scene scene) {
+        java.util.Map<KeyCode, PadButton> buttons = java.util.Map.ofEntries(
+                java.util.Map.entry(KeyCode.GAME_A, PadButton.A),
+                java.util.Map.entry(KeyCode.GAME_B, PadButton.B),
+                java.util.Map.entry(KeyCode.GAME_D, PadButton.X),
+                // The same table, the other way round, is in src/android/dalvik TvActivity.java.
+                java.util.Map.entry(KeyCode.F1, PadButton.Y),
+                java.util.Map.entry(KeyCode.F2, PadButton.LEFT_BUMPER),
+                java.util.Map.entry(KeyCode.F4, PadButton.RIGHT_BUMPER),
+                java.util.Map.entry(KeyCode.F5, PadButton.START),
+                java.util.Map.entry(KeyCode.F6, PadButton.BACK),
+                java.util.Map.entry(KeyCode.F7, PadButton.LEFT_TRIGGER),
+                java.util.Map.entry(KeyCode.F8, PadButton.RIGHT_TRIGGER),
+                java.util.Map.entry(KeyCode.F9, PadButton.LEFT_STICK),
+                java.util.Map.entry(KeyCode.F10, PadButton.RIGHT_STICK));
+        java.util.Set<PadButton> down = java.util.EnumSet.noneOf(PadButton.class);
         scene.addEventFilter(KeyEvent.ANY, event -> {
-            List<KeyCode> sent = buttons.get(event.getCode());
-            if (sent == null || event.getEventType() == KeyEvent.KEY_TYPED) {
+            PadButton button = buttons.get(event.getCode());
+            if (button == null || event.getEventType() == KeyEvent.KEY_TYPED) {
                 return;
             }
             event.consume();
-            for (KeyCode code : sent) {
-                javafx.event.Event.fireEvent(scene, new KeyEvent(event.getEventType(), "", "", code,
-                        false, false, false, false));
+            if (event.getEventType() == KeyEvent.KEY_PRESSED) {
+                down.add(button);
+            } else {
+                down.remove(button);
             }
+            // Android repeats a held button, and each repeat lands here: that is what stands in
+            // for the desktop's per-frame poll and its re-sending of held keys.
+            gamepad.offer(0, new PadState(
+                    true, 0, 0, false, false, false, false, down));
         });
     }
 

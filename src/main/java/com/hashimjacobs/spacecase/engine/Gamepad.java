@@ -135,28 +135,45 @@ public final class Gamepad {
         wasEnabled = true;
         reportPads();
 
-        double deadzone = settings.gamepadDeadzone();
         for (int slot = 0; slot < SUPPORTED_PADS; slot++) {
-            // Read inside the poll: each pad carries its own bindings, and they can change
-            // between one frame and the next.
-            int player = slot + 1;
             ControllerState reading = controllers.getState(slot);
             PadState state = snapshot(reading);
             latest[slot] = state;
             names[slot] = reading.isConnected ? reading.controllerType : null;
-            Consumer<PadButton> capture = captures.get(slot);
-            if (capture != null) {
-                PadButton fresh = mappings[slot].capture(state);
-                if (fresh != null) {
-                    capture.accept(fresh);
-                }
-                continue;
-            }
-            List<GamepadMapping.KeyChange> changes = mappings[slot].poll(state, deadzone,
-                    action -> settings.padButton(player, action),
-                    action -> settings.key(player, action));
-            apply(changes);
+            drive(slot, state);
         }
+    }
+
+    /**
+     * One pad's state from a platform that pushes it rather than being polled: Android, where SDL
+     * does not run and the buttons arrive as key events (see SceneRouter.installAndroidController).
+     * From here on that pad is the same as a desktop one -- same bindings, same controller screen.
+     *
+     * ponytail: ignores the Controller on/off setting, since on a television the pad is the only
+     * way back to the switch.
+     */
+    public void offer(int slot, PadState state) {
+        recognizedPads = Math.max(recognizedPads, slot + 1);
+        latest[slot] = state;
+        names[slot] = "Controller";
+        drive(slot, state);
+    }
+
+    private void drive(int slot, PadState state) {
+        int player = slot + 1;
+        Consumer<PadButton> capture = captures.get(slot);
+        if (capture != null) {
+            PadButton fresh = mappings[slot].capture(state);
+            if (fresh != null) {
+                capture.accept(fresh);
+            }
+            return;
+        }
+        // The bindings are read here, per poll: each pad carries its own, and they can change
+        // between one frame and the next.
+        apply(mappings[slot].poll(state, settings.gamepadDeadzone(),
+                action -> settings.padButton(player, action),
+                action -> settings.key(player, action)));
     }
 
     /**
@@ -258,7 +275,7 @@ public final class Gamepad {
 
     /** How many pads SDL has a mapping for, or zero on a build with no controller support. */
     public int recognizedPads() {
-        return controllers == null ? 0 : Math.max(recognizedPads, 0);
+        return Math.max(recognizedPads, 0);
     }
 
     /** This slot's pad name, or null when nothing is recognized there. */

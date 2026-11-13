@@ -9,6 +9,8 @@
     android:banner              the 320x180 tile the TV home screen shows (res/drawable-xhdpi)
     LEANBACK_LAUNCHER           what puts that tile on the TV home screen at all
     sensorLandscape             the arena is wider than it is tall on every screen it has met
+    TvActivity                  Gluon's MainActivity plus the controller buttons it drops; see
+                                src/android/dalvik
 -->
 <manifest xmlns:android='http://schemas.android.com/apk/res/android' android:versionCode='1' android:versionName='1.0'>
     <supports-screens android:xlargeScreens="true"/>
@@ -17,7 +19,7 @@
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
 
     <application android:label='Space Case' android:icon="@mipmap/ic_launcher" android:banner="@drawable/banner" android:isGame="true">
-        <activity android:name='com.gluonhq.helloandroid.MainActivity'
+        <activity android:name='com.hashimjacobs.spacecase.TvActivity'
                   android:exported="true"
                   android:screenOrientation="sensorLandscape"
                   android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
