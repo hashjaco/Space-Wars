@@ -14,6 +14,9 @@ public final class Probe {
     public static volatile int stages = 99;
     /** Stop the simulation but keep drawing the same moment, so stages are compared on one scene. */
     public static volatile boolean freeze;
+    /** Candidate fixes, switched on and off against the same frozen scene. */
+    public static volatile boolean leanHalos;
+    public static volatile boolean leanHull;
 
     private static volatile String phase = "startup";
     private static long grown;

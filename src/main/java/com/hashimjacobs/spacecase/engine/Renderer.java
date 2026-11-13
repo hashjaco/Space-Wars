@@ -118,6 +118,60 @@ public final class Renderer {
         return gradient;
     }
 
+    /** Each halo paint as a picture of itself, made the first time it is wanted. */
+    private static final Map<Paint, Image> HALO_SPRITES = new java.util.IdentityHashMap<>();
+
+    /**
+     * A {@link #halo} drawn as an image instead of filled as a gradient under a blend mode.
+     *
+     * Measured on the Android build with the scene frozen: a save, a blend mode, a gradient fill
+     * and a restore for every bullet cost about 1.6 KB of garbage each, close to 3 MB a second in
+     * an ordinary fight, where drawing an image costs nothing measurable. Plain alpha over the
+     * arena rather than SCREEN, which on a soft glow this faint is the same picture.
+     */
+    private static Image haloSprite(Paint halo) {
+        return HALO_SPRITES.computeIfAbsent(halo, paint -> {
+            List<Stop> stops = ((RadialGradient) paint).getStops();
+            int size = 64;
+            WritableImage image = new WritableImage(size, size);
+            PixelWriter out = image.getPixelWriter();
+            for (int y = 0; y < size; y++) {
+                for (int x = 0; x < size; x++) {
+                    double d = Math.hypot(x + 0.5 - size / 2.0, y + 0.5 - size / 2.0) / (size / 2.0);
+                    Color colour = Color.TRANSPARENT;
+                    for (int i = 0; i + 1 < stops.size() && d < 1; i++) {
+                        Stop from = stops.get(i);
+                        Stop to = stops.get(i + 1);
+                        if (d >= from.getOffset() && d <= to.getOffset()) {
+                            double t = (d - from.getOffset()) / Math.max(1e-9, to.getOffset() - from.getOffset());
+                            // Towards transparent the colour holds and only the alpha falls, as a
+                            // premultiplied gradient does; interpolating to transparent black greys it.
+                            Color a = from.getColor();
+                            Color b = to.getColor().getOpacity() == 0 ? a.deriveColor(0, 1, 1, 0) : to.getColor();
+                            colour = a.interpolate(b, t);
+                            break;
+                        }
+                    }
+                    out.setColor(x, y, colour);
+                }
+            }
+            return image;
+        });
+    }
+
+    /** One soft glow under something. The cheap path on Android; the original everywhere else. */
+    private void drawHalo(Paint halo, double x, double y, double size) {
+        if (com.hashimjacobs.spacecase.Probe.leanHalos) {
+            gc.drawImage(haloSprite(halo), x, y, size, size);
+            return;
+        }
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        gc.setFill(halo);
+        gc.fillOval(x, y, size, size);
+        gc.restore();
+    }
+
     /**
      * The corner falloff, built once because it never changes.
      *
@@ -1088,11 +1142,7 @@ public final class Renderer {
     /** A pickup, with a soft wash behind it so it reads as powered rather than as flat clip-art. */
     private void drawPowerUp(PowerUp powerUp) {
         double glow = Math.max(powerUp.width(), powerUp.height()) * 2.1;
-        gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setFill(PICKUP_HALO);
-        gc.fillOval(powerUp.centerX() - glow / 2, powerUp.centerY() - glow / 2, glow, glow);
-        gc.restore();
+        drawHalo(PICKUP_HALO, powerUp.centerX() - glow / 2, powerUp.centerY() - glow / 2, glow);
         drawSprite(powerUp);
     }
 
@@ -1156,11 +1206,7 @@ public final class Renderer {
         // CollisionSystem reads, so the timer keeps running whatever this setting says.
         if (player.justHit() && !settings.reducedFlash()) {
             double flash = Math.max(player.width(), player.height()) * 1.6;
-            gc.save();
-            gc.setGlobalBlendMode(BlendMode.SCREEN);
-            gc.setFill(HIT_HALO);
-            gc.fillOval(player.centerX() - flash / 2, player.centerY() - flash / 2, flash, flash);
-            gc.restore();
+            drawHalo(HIT_HALO, player.centerX() - flash / 2, player.centerY() - flash / 2, flash);
         }
         // After the aura, which sets its own alpha and puts it back.
         if (faded) {
@@ -1184,7 +1230,7 @@ public final class Renderer {
             // Behind the hull, so the nozzles sit over the root of the flame.
             drawFlame(player, hull, sideOn, hullDegrees, tick);
         }
-        if (settings.cinematic()) {
+        if (settings.cinematic() && !com.hashimjacobs.spacecase.Probe.leanHull) {
             // The hull's shadow on the sky, then the hull lit.
             gc.save();
             gc.setEffect(SILHOUETTE);
@@ -1270,11 +1316,7 @@ public final class Renderer {
                 : ENEMY_HALO;
         double size = Math.max(bullet.width(), bullet.height()) * 1.35;
 
-        gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setFill(halo);
-        gc.fillOval(bullet.centerX() - size / 2, bullet.centerY() - size / 2, size, size);
-        gc.restore();
+        drawHalo(halo, bullet.centerX() - size / 2, bullet.centerY() - size / 2, size);
 
         if (round == null) {
             drawSprite(bullet.sprite(), bullet, bullet.headingDegrees());
