@@ -1080,9 +1080,12 @@ public final class GameLoop {
         onRoundOver.accept(result);
     }
 
-    /** Pausing is only offered during the fight; the celebration is short and runs itself. */
+    /**
+     * Pausing is offered during the fight and on foot; the celebration is short and runs itself.
+     * On foot was left out at first, which on a television left no way to the menu at all.
+     */
     public boolean isPausable() {
-        boolean pausable = phase == Phase.FIGHTING;
+        boolean pausable = phase == Phase.FIGHTING || phase == Phase.ON_FOOT;
         return pausable;
     }
 
