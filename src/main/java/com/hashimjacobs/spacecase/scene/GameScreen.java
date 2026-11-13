@@ -208,22 +208,28 @@ final class GameScreen {
     private void probe(Canvas canvas, Group barGroup) {
         // Fifteen seconds of play to fill the arena, then the world is frozen and the same moment
         // is drawn every frame with one more stage each time, six seconds apiece.
-        String[] names = {"frozen, everything", "1 sky only", "2 + terrain", "3 + rocks, pickups, cores", "4 + enemies",
-            "5 + bullets", "6 + players", "7 + explosions, particles", "8 + vignette (all but HUD)", "9 + HUD (everything again)"};
+        String[] names = {"A  as it was", "B  halos as images", "C  + hull without shadow and glow", "D  + no HUD",
+            "E  as it was, again", "F  both fixes, HUD on"};
+        Runnable[] steps = {
+            () -> { },
+            () -> com.hashimjacobs.spacecase.Probe.leanHalos = true,
+            () -> com.hashimjacobs.spacecase.Probe.leanHull = true,
+            () -> com.hashimjacobs.spacecase.Probe.noHud = true,
+            () -> { com.hashimjacobs.spacecase.Probe.leanHalos = false; com.hashimjacobs.spacecase.Probe.leanHull = false; com.hashimjacobs.spacecase.Probe.noHud = false; },
+            () -> { com.hashimjacobs.spacecase.Probe.leanHalos = true; com.hashimjacobs.spacecase.Probe.leanHull = true; },
+        };
         javafx.animation.Timeline timeline = new javafx.animation.Timeline();
         for (int i = 0; i < names.length; i++) {
             int stage = i;
-            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 6 * i), event -> {
+            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 8 * i), event -> {
                 com.hashimjacobs.spacecase.Probe.freeze = true;
-                com.hashimjacobs.spacecase.Probe.stages = stage == 0 ? 99 : stage;
-                com.hashimjacobs.spacecase.Probe.noHud = stage != 0 && stage < 9;
+                steps[stage].run();
                 com.hashimjacobs.spacecase.Probe.phase(names[stage]);
             }));
         }
-        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 6 * names.length), event -> {
+        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 8 * names.length), event -> {
             com.hashimjacobs.spacecase.Probe.freeze = false;
-            com.hashimjacobs.spacecase.Probe.stages = 99;
-            com.hashimjacobs.spacecase.Probe.phase("unfrozen");
+            com.hashimjacobs.spacecase.Probe.phase("unfrozen, both fixes on");
         }));
         timeline.play();
     }
