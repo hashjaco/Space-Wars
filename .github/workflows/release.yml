@@ -26,21 +26,21 @@ jobs:
           - os: macos-latest
             label: macos
             installer: dmg
-            installerArgs: ""
+            installerArgs: "--icon src/desktop/icon.icns"
           # macos-latest is Apple Silicon only. GitHub's last Intel image; drop this entry when
           # GitHub retires it.
           - os: macos-15-intel
             label: macos-intel
             installer: dmg
-            installerArgs: ""
+            installerArgs: "--icon src/desktop/icon.icns"
           - os: ubuntu-latest
             label: linux
             installer: deb
-            installerArgs: "--linux-shortcut"
+            installerArgs: "--linux-shortcut --icon src/desktop/icon.png"
           - os: windows-latest
             label: windows
             installer: msi
-            installerArgs: "--win-shortcut --win-menu"
+            installerArgs: "--win-shortcut --win-menu --icon src/desktop/icon.ico"
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
