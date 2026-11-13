@@ -13,6 +13,9 @@ public final class Launcher {
     }
 
     public static void main(String[] args) {
+        if (OnAndroid.ACTIVE) {
+            com.hashimjacobs.spacecase.asset.PlatformAudio.startEarly();
+        }
         Main.main(args);
     }
 }

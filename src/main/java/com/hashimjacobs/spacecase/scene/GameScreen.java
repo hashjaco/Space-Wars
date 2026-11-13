@@ -303,6 +303,23 @@ final class GameScreen {
         showPauseMenu();
     }
 
+    /**
+     * The app has been sent to the background: pause as if the player had, and stay paused. Coming
+     * back finds the pause menu up, so nobody returns to a ship already under fire.
+     *
+     * @return false between levels, where the loop is running its own sequence and cannot be paused
+     */
+    boolean pauseForBackground() {
+        if (loop.isPaused()) {
+            return true;
+        }
+        if (!loop.isPausable()) {
+            return false;
+        }
+        pause();
+        return true;
+    }
+
     private void resume() {
         pauseLayer.setVisible(false);
         settingsLayer.setVisible(false);

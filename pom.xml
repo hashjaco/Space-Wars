@@ -170,16 +170,65 @@
       <id>mobile</id>
       <properties>
         <javafx.version>21.0.6</javafx.version>
-        <!-- 21, not 17: the net code uses virtual threads and a closeable HttpClient. Gluon's
-             GraalVM comes as java17 or java23 and nothing between, so this needs the java23 one. -->
-        <maven.compiler.release>21</maven.compiler.release>
+        <!-- 17, because Android needs it: Gluon's java23 GraalVM lacks an option its own Android
+             build passes (gluonfx-maven-plugin issue 539), which leaves the java17 one. net.Http
+             is what keeps the source compiling here while the desktop keeps its JDK 21 calls. -->
+        <maven.compiler.release>17</maven.compiler.release>
         <!-- host builds a native binary for this machine, which is the cheapest way to find out
              whether native-image can compile the project at all before any device is involved. -->
         <gluonfx.target>host</gluonfx.target>
         <gluonfx.mainClass>com.hashimjacobs.spacecase.Launcher</gluonfx.mainClass>
+        <attach.version>4.0.26</attach.version>
+        <!-- Android refuses to install a build over one with a higher code. The workflow passes
+             a code that only ever rises; a build by hand gets this. -->
+        <android.version.code>1</android.version.code>
       </properties>
+      <!-- Android audio. Java Sound and JavaFX media cannot run there; Gluon Attach plays through
+           Android's own SoundPool and MediaPlayer. Profile-only, so the desktop never ships it. -->
+      <dependencies>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>audio</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>lifecycle</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>storage</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+        <dependency>
+          <groupId>com.gluonhq.attach</groupId>
+          <artifactId>util</artifactId>
+          <version>${attach.version}</version>
+        </dependency>
+      </dependencies>
       <build>
         <plugins>
+          <!-- src/android/java: the code that compiles only against the Attach libraries above. -->
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.6.0</version>
+            <executions>
+              <execution>
+                <id>android-sources</id>
+                <phase>generate-sources</phase>
+                <goals>
+                  <goal>add-source</goal>
+                </goals>
+                <configuration>
+                  <sources>
+                    <source>src/android/java</source>
+                  </sources>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
           <plugin>
             <groupId>com.gluonhq</groupId>
             <artifactId>gluonfx-maven-plugin</artifactId>
@@ -194,8 +243,72 @@
                 ClassNotFoundException on our own entry point. Nothing else in the game needs
                 registering, which is why this list is one line rather than a file.
               -->
+              <nativeImageArgs>
+                <!-- Measured on a Shield: about 20 MB a second of garbage against a young
+                     generation of about 40 MB, so a collection every two seconds and a full one,
+                     60 to 90 ms, every eight or so. A larger young generation makes both rarer,
+                     but the Shield has 3 GB, the game is already around 650 MB of it, and at 160 MB
+                     Android killed it within seconds of Home. 96 is the compromise until the game
+                     makes less garbage. -->
+                <arg>-R:MaxNewSize=96m</arg>
+              </nativeImageArgs>
+              <!-- Written into src/android/AndroidManifest.xml at build time, so the app reports
+                   the game's own version rather than 1.0. -->
+              <releaseConfiguration>
+                <versionCode>${android.version.code}</versionCode>
+                <versionName>${project.version}</versionName>
+              </releaseConfiguration>
+              <!-- Attach services the game calls; the plugin adds each one's Android half. -->
+              <attachList>
+                <list>audio</list>
+                <list>lifecycle</list>
+                <list>storage</list>
+              </attachList>
               <reflectionList>
+                <!-- PlatformAudio finds the Android audio by name. -->
+                <list>com.hashimjacobs.spacecase.asset.AttachAudio</list>
+                <list>com.hashimjacobs.spacecase.AttachLifecycle</list>
                 <list>com.hashimjacobs.spacecase.Main</list>
+                <!-- JavaFX finds the renderer for every effect and canvas blend mode by class
+                     name, and its own native-image config lists only a handful. Each one missing
+                     threw on the render thread: SCREEN left the whole screen black, Crop drew the
+                     arena shrunk into a corner. All of them, so the next effect someone adds is not
+                     the next crash on a TV. -->
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_ADDPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_BLUEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_COLOR_BURNPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_COLOR_DODGEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_DARKENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_DIFFERENCEPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_EXCLUSIONPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_GREENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_HARD_LIGHTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_LIGHTENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_MULTIPLYPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_OVERLAYPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_REDPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SCREENPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SOFT_LIGHTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_ATOPPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_INPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_OUTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBlend_SRC_OVERPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSBrightpassPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSColorAdjustPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSDisplacementMapPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSInvertMaskPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSLinearConvolvePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSLinearConvolveShadowPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPerspectiveTransformPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_DISTANTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_POINTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSPhongLighting_SPOTPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPSSepiaTonePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.ps.PPStoPSWDisplacementMapPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrCropPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrFloodPeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrMergePeer</list>
+                <list>com.sun.scenario.effect.impl.prism.PrReflectionPeer</list>
               </reflectionList>
               <!--
                 GraalVM keeps only the resources it is told to. Gluon's defaults cover images,
@@ -214,6 +327,40 @@
                 <list>.*\\.mp3$</list>
                 <list>.*\\.txt$</list>
               </resourcesList>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <!--
+      Signs the Android build with a fixed key, when one is supplied.
+
+      Without it Gluon signs each build with a throwaway debug key, and Android refuses to install a
+      build over one signed differently: every update meant uninstalling first, which wipes saves
+      and takes the tile off the TV's home row. Active only when the keystore's path is in the
+      environment, which is what .github/workflows/android.yml does from repository secrets; a
+      build without it is signed as before. The key itself is never in this repository.
+    -->
+    <profile>
+      <id>android-signed</id>
+      <activation>
+        <property>
+          <name>env.GLUON_ANDROID_KEYSTOREPATH</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.gluonhq</groupId>
+            <artifactId>gluonfx-maven-plugin</artifactId>
+            <version>1.0.29</version>
+            <configuration>
+              <releaseConfiguration>
+                <providedKeyStorePath>${env.GLUON_ANDROID_KEYSTOREPATH}</providedKeyStorePath>
+                <providedKeyStorePassword>${env.GLUON_ANDROID_KEYSTORE_PASSWORD}</providedKeyStorePassword>
+                <providedKeyAlias>${env.GLUON_ANDROID_KEYALIAS}</providedKeyAlias>
+                <providedKeyAliasPassword>${env.GLUON_ANDROID_KEYALIAS_PASSWORD}</providedKeyAliasPassword>
+              </releaseConfiguration>
             </configuration>
           </plugin>
         </plugins>

@@ -1,6 +1,5 @@
 package com.hashimjacobs.spacecase.asset;
 
-import java.awt.Color;
 
 /**
  * Everything a CG hull is flown in, from its green loops on disk: the paint, the bank and the hit
@@ -50,10 +49,10 @@ public final class HullPaint {
                     continue;
                 }
                 int r = (p >> 16) & 0xff, g = (p >> 8) & 0xff, b = p & 0xff;
-                Color.RGBtoHSB(r, g, b, hsb);
+                rgbToHsb(r, g, b, hsb);
                 if (hsb[1] > 0.15f && Math.abs(hsb[0] - GREEN) < BAND) {
                     float h = ((hsb[0] - GREEN + hue) % 1 + 1) % 1;
-                    int rgb = Color.HSBtoRGB(h, Math.min(1f, hsb[1] * saturation), hsb[2]);
+                    int rgb = hsbToRgb(h, Math.min(1f, hsb[1] * saturation), hsb[2]);
                     r = (rgb >> 16) & 0xff; g = (rgb >> 8) & 0xff; b = rgb & 0xff;
                 }
                 // The wing dipping away from the light darkens toward its tip.
@@ -69,6 +68,67 @@ public final class HullPaint {
             }
         }
         return side && pose != 2 ? pitch(out, width, height, (pose - 2) * PITCH_PER_LEAN) : out;
+    }
+
+    /**
+     * {@code java.awt.Color.RGBtoHSB}, step for step, so a repainted hull is the same pixels it
+     * always was. Here rather than called there because touching any AWT class loads the AWT
+     * toolkit, and Android has none: the first hull painted on a Shield killed the game at the menu.
+     * {@code HullPaintTest} holds both conversions to AWT's answers.
+     */
+    static void rgbToHsb(int r, int g, int b, float[] hsb) {
+        int cmax = Math.max(r, Math.max(g, b));
+        int cmin = Math.min(r, Math.min(g, b));
+        float brightness = cmax / 255.0f;
+        float saturation = cmax != 0 ? (float) (cmax - cmin) / (float) cmax : 0;
+        float hue = 0;
+        if (saturation != 0) {
+            float redc = (float) (cmax - r) / (float) (cmax - cmin);
+            float greenc = (float) (cmax - g) / (float) (cmax - cmin);
+            float bluec = (float) (cmax - b) / (float) (cmax - cmin);
+            if (r == cmax) {
+                hue = bluec - greenc;
+            } else if (g == cmax) {
+                hue = 2.0f + redc - bluec;
+            } else {
+                hue = 4.0f + greenc - redc;
+            }
+            hue = hue / 6.0f;
+            if (hue < 0) {
+                hue = hue + 1.0f;
+            }
+        }
+        hsb[0] = hue;
+        hsb[1] = saturation;
+        hsb[2] = brightness;
+    }
+
+    /** {@code java.awt.Color.HSBtoRGB}, step for step; see {@link #rgbToHsb}. */
+    static int hsbToRgb(float hue, float saturation, float brightness) {
+        int r = 0, g = 0, b = 0;
+        if (saturation == 0) {
+            r = g = b = (int) (brightness * 255.0f + 0.5f);
+        } else {
+            float h = (hue - (float) Math.floor(hue)) * 6.0f;
+            float f = h - (float) Math.floor(h);
+            float p = brightness * (1.0f - saturation);
+            float q = brightness * (1.0f - saturation * f);
+            float t = brightness * (1.0f - (saturation * (1.0f - f)));
+            float v = brightness;
+            float[] rgb = switch ((int) h) {
+                case 0 -> new float[] {v, t, p};
+                case 1 -> new float[] {q, v, p};
+                case 2 -> new float[] {p, v, t};
+                case 3 -> new float[] {p, q, v};
+                case 4 -> new float[] {t, p, v};
+                case 5 -> new float[] {v, p, q};
+                default -> new float[] {0, 0, 0};
+            };
+            r = (int) (rgb[0] * 255.0f + 0.5f);
+            g = (int) (rgb[1] * 255.0f + 0.5f);
+            b = (int) (rgb[2] * 255.0f + 0.5f);
+        }
+        return 0xff000000 | (r << 16) | (g << 8) | b;
     }
 
     /**

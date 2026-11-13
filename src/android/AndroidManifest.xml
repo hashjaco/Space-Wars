@@ -1,0 +1,33 @@
+<?xml version='1.0'?>
+<!--
+  Gluon uses this file as it stands instead of generating one, so everything the generated manifest
+  carried is repeated here: the INTERNET permission the relay and the board need, both activities,
+  and the configChanges list. What is added is what makes this an Android TV app:
+
+    leanback, not required      it installs on a phone or tablet too
+    touchscreen, not required   a television has none, and without this line TV stores hide the app
+    android:banner              the 320x180 tile the TV home screen shows (res/drawable-xhdpi)
+    LEANBACK_LAUNCHER           what puts that tile on the TV home screen at all
+    sensorLandscape             the arena is wider than it is tall on every screen it has met
+-->
+<manifest xmlns:android='http://schemas.android.com/apk/res/android' android:versionCode='1' android:versionName='1.0'>
+    <supports-screens android:xlargeScreens="true"/>
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-feature android:name="android.software.leanback" android:required="false"/>
+    <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
+
+    <application android:label='Space Case' android:icon="@mipmap/ic_launcher" android:banner="@drawable/banner" android:isGame="true">
+        <activity android:name='com.gluonhq.helloandroid.MainActivity'
+                  android:exported="true"
+                  android:screenOrientation="sensorLandscape"
+                  android:configChanges="orientation|screenSize|screenLayout|keyboardHidden">
+             <intent-filter>
+                <category android:name='android.intent.category.LAUNCHER'/>
+                <category android:name='android.intent.category.LEANBACK_LAUNCHER'/>
+                <action android:name='android.intent.action.MAIN'/>
+             </intent-filter>
+        </activity>
+        <activity android:name='com.gluonhq.helloandroid.PermissionRequestActivity'
+                  android:exported="true"/>
+    </application>
+</manifest>
