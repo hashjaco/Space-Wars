@@ -326,5 +326,39 @@
         </plugins>
       </build>
     </profile>
+    <!--
+      Signs the Android build with a fixed key, when one is supplied.
+
+      Without it Gluon signs each build with a throwaway debug key, and Android refuses to install a
+      build over one signed differently: every update meant uninstalling first, which wipes saves
+      and takes the tile off the TV's home row. Active only when the keystore's path is in the
+      environment, which is what .github/workflows/android.yml does from repository secrets; a
+      build without it is signed as before. The key itself is never in this repository.
+    -->
+    <profile>
+      <id>android-signed</id>
+      <activation>
+        <property>
+          <name>env.GLUON_ANDROID_KEYSTOREPATH</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>com.gluonhq</groupId>
+            <artifactId>gluonfx-maven-plugin</artifactId>
+            <version>1.0.29</version>
+            <configuration>
+              <releaseConfiguration>
+                <providedKeyStorePath>${env.GLUON_ANDROID_KEYSTOREPATH}</providedKeyStorePath>
+                <providedKeyStorePassword>${env.GLUON_ANDROID_KEYSTORE_PASSWORD}</providedKeyStorePassword>
+                <providedKeyAlias>${env.GLUON_ANDROID_KEYALIAS}</providedKeyAlias>
+                <providedKeyAliasPassword>${env.GLUON_ANDROID_KEYALIAS_PASSWORD}</providedKeyAliasPassword>
+              </releaseConfiguration>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
   </profiles>
 </project>

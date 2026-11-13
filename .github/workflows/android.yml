@@ -6,7 +6,7 @@
 # find out whether the game starts and holds a frame rate on the device before any of that is built.
 #
 # The steps follow Gluon's own reference build, gluonhq/hello-gluon-ci. Gluon only builds Android
-# targets on Linux. Without a keystore the APK is signed with a debug key, which is all adb needs.
+# targets on Linux. Signed with a fixed key held in repository secrets, so each build installs over the last.
 name: Android (experimental)
 
 on:
@@ -49,12 +49,25 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libgl-dev libgtk-3-dev libpango1.0-dev libxtst-dev
 
+      # The fixed signing key, from repository secrets, so one build installs over the last. Written
+      # outside the workspace so it cannot be swept into an artifact.
+      - name: Write the signing keystore
+        run: |
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/space-case.keystore"
+          test -s "$RUNNER_TEMP/space-case.keystore"
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+
       - name: Build the APK
         run: |
           export ANDROID_SDK=$ANDROID_HOME
+          export GLUON_ANDROID_KEYSTOREPATH="$RUNNER_TEMP/space-case.keystore"
           ./mvnw -B --no-transfer-progress -Pmobile -Dgluonfx.target=android -DskipTests gluonfx:build gluonfx:package
         env:
           ANDROID_NDK: ${{ steps.ndk.outputs.ndk-path }}
+          GLUON_ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          GLUON_ANDROID_KEYALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          GLUON_ANDROID_KEYALIAS_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
 
       # The generated manifest rides along so the Android TV launcher entry can be written against
       # what Gluon actually produces. Logs too, on a failure, since native-image's are long.
