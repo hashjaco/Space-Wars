@@ -140,6 +140,15 @@ public final class SoundBank implements SoundPlayer {
     private final Random random = new Random();
 
     /**
+     * The Android build's playback, or null on the desktop, where everything below runs exactly as
+     * it always has. Where it is set, each audio-thread task hands the sound to it instead of to a
+     * Clip or a MediaPlayer; the queue, the cue choosing, pause and mute are shared.
+     *
+     * Set by {@link #loadClips}, on the audio thread, and read only there.
+     */
+    private PlatformAudio platform;
+
+    /**
      * Silence flags, written on the JavaFX thread and read by {@link #play} there and below.
      * Paused holds the music where it is; muted keeps it running at zero, so unmuting is seamless.
      */
@@ -162,6 +171,16 @@ public final class SoundBank implements SoundPlayer {
      * reads. Same bargain the gamepad reader makes when SDL will not start.
      */
     private void loadClips() {
+        platform = PlatformAudio.forThisPlatform();
+        if (platform != null) {
+            for (SoundFx effect : SoundFx.values()) {
+                URL source = SoundBank.class.getResource(effect.resourcePath());
+                if (source != null) {
+                    platform.load(effect, source);
+                }
+            }
+            return;
+        }
         for (SoundFx effect : SoundFx.values()) {
             try {
                 clips.put(effect, openVoices(effect));
@@ -213,6 +232,11 @@ public final class SoundBank implements SoundPlayer {
         double volume = effect.baseVolume() * settings.sfxVolume();
         requests.increment();
         audio.execute(() -> {
+            if (platform != null) {
+                platform.play(effect, volume);
+                started.increment();
+                return;
+            }
             Clip[] pool = clips.get(effect);
             if (pool == null) {
                 return;
@@ -296,7 +320,11 @@ public final class SoundBank implements SoundPlayer {
 
     private void playMusicNow(MusicCue cue, double volume) {
         if (currentCue == cue && currentTrack != null) {
-            playerFor(currentTrack, volume).play();
+            if (platform != null) {
+                platform.resumeMusic();
+            } else {
+                playerFor(currentTrack, volume).play();
+            }
             return;
         }
         // Neither the cue's own last song nor the one playing now -- a boss swap that landed on the
@@ -312,6 +340,10 @@ public final class SoundBank implements SoundPlayer {
         currentCue = cue;
         currentTrack = cue.pick(random, avoid);
         lastPicked.put(cue, currentTrack);
+        if (platform != null) {
+            platform.playMusic(currentTrack, SoundBank.class.getResource(currentTrack.resourcePath()), volume);
+            return;
+        }
         MediaPlayer player = playerFor(currentTrack, volume);
         // Reused players carry their old position, so a cue that comes back around starts over
         // rather than resuming mid-phrase.
@@ -330,6 +362,10 @@ public final class SoundBank implements SoundPlayer {
         audio.execute(() -> {
             stopMusicNow();
             currentTrack = track;
+            if (platform != null) {
+                platform.playMusic(track, SoundBank.class.getResource(track.resourcePath()), volume);
+                return;
+            }
             MediaPlayer player = playerFor(track, volume);
             player.seek(player.getStartTime());
             player.setVolume(volume);
@@ -345,6 +381,11 @@ public final class SoundBank implements SoundPlayer {
     private void stopMusicNow() {
         currentCue = null;
         if (currentTrack == null) {
+            return;
+        }
+        if (platform != null) {
+            platform.stopMusic();
+            currentTrack = null;
             return;
         }
         // Stopped, never disposed. Disposing would mean rebuilding on the way back, and building
@@ -391,6 +432,15 @@ public final class SoundBank implements SoundPlayer {
     public void setPaused(boolean pause) {
         paused = pause;
         audio.execute(() -> {
+            if (platform != null) {
+                if (pause) {
+                    platform.stopEffects();
+                    platform.pauseMusic();
+                } else if (currentTrack != null) {
+                    platform.resumeMusic();
+                }
+                return;
+            }
             if (pause) {
                 for (Clip[] pool : clips.values()) {
                     for (Clip clip : pool) {
@@ -427,6 +477,10 @@ public final class SoundBank implements SoundPlayer {
     public void applyVolumes() {
         double volume = musicLevel();
         audio.execute(() -> {
+            if (platform != null) {
+                platform.setMusicVolume(volume);
+                return;
+            }
             for (MediaPlayer player : music.values()) {
                 player.setVolume(volume);
             }

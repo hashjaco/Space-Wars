@@ -46,6 +46,7 @@ import javafx.scene.text.TextAlignment;
 import javafx.util.Duration;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.net.Http;
 import com.hashimjacobs.spacecase.asset.MusicTrack;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.mode.Galaxy;
@@ -190,8 +191,9 @@ public enum Cutscene {
      */
     public static void fetchClips() {
         CompletableFuture.runAsync(() -> {
-            try (HttpClient http = HttpClient.newBuilder()
-                    .followRedirects(HttpClient.Redirect.NORMAL).build()) {
+            HttpClient http = HttpClient.newBuilder()
+                    .followRedirects(HttpClient.Redirect.NORMAL).build();
+            try {
                 Path dir = Files.createDirectories(cacheDir());
                 for (Cutscene scene : values()) {
                     for (int shot : scene.timeline().shots().stream().map(Shot::number).distinct().toList()) {
@@ -213,6 +215,8 @@ public enum Cutscene {
                 // Stills this session; the next launch tries again.
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } finally {
+                Http.close(http);
             }
         });
     }

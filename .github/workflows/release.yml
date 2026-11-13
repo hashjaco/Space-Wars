@@ -98,13 +98,25 @@ jobs:
             dist/*.deb
             dist/*.msi
 
+  # The Android TV build, by the same workflow that makes the test builds.
+  androidtv:
+    uses: ./.github/workflows/android.yml
+    with:
+      ref: ${{ inputs.tag || github.ref }}
+    secrets: inherit
+
+  # A failed Android build must not hold back the desktop installers: it is the newest and least
+  # proven of the five, so the release goes out with whatever did build.
   publish:
-    needs: jars
+    needs: [jars, androidtv]
+    if: ${{ !cancelled() && needs.jars.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
+      # By name, not everything: the Android job also uploads its logs and generated manifest.
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
+          pattern: space-case-*
           merge-multiple: true
 
       - name: Attach installers and jars to the release
@@ -116,6 +128,7 @@ jobs:
             artifacts/*.deb
             artifacts/*.msi
             artifacts/*.jar
+            artifacts/*.apk
           generate_release_notes: true
           body: |
             ## Install
@@ -128,6 +141,7 @@ jobs:
             | macOS (Intel) | `SpaceCase-*-intel.dmg` |
             | Windows | `SpaceCase-*.msi` |
             | Linux | `spacecase_*.deb` |
+            | Android TV (Nvidia Shield and others) | `SpaceCase-*-androidtv.apk` |
 
             The builds are unsigned. macOS will refuse the first launch: right-click the app and
             choose **Open**, then confirm. Windows may show a SmartScreen notice — **More info**,

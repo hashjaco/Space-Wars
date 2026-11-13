@@ -178,8 +178,11 @@ public final class Cloud {
      */
     private static HttpResponse<String> send(HttpRequest.Builder request)
             throws IOException, InterruptedException {
-        try (HttpClient http = HttpClient.newHttpClient()) {
+        HttpClient http = HttpClient.newHttpClient();
+        try {
             return http.send(request.timeout(TIMEOUT).build(), HttpResponse.BodyHandlers.ofString());
+        } finally {
+            Http.close(http);
         }
     }
 }

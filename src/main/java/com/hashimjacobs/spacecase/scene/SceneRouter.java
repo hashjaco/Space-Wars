@@ -12,6 +12,7 @@ import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;
 import javafx.animation.ParallelTransition;
 import javafx.animation.TranslateTransition;
+import javafx.application.ConditionalFeature;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Group;
@@ -31,6 +32,7 @@ import javafx.util.Duration;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.MapArt;
 import com.hashimjacobs.spacecase.asset.MusicCue;
@@ -143,6 +145,40 @@ public final class SceneRouter {
         shell.setStyle("-fx-background-color: black;");
         shell.setAlignment(Pos.CENTER);
         shell.getChildren().add(stage2d);
+
+        com.hashimjacobs.spacecase.PlatformLifecycle.start(this::onBackground, this::onForeground);
+    }
+
+    /** Whether going to the background paused a level, which then stays paused on the way back. */
+    private boolean pausedALevel;
+
+    /**
+     * The app has left the screen but its process has not stopped: an Android TV's Home button.
+     * A level pauses exactly as if the player had paused it; anything else just goes quiet.
+     */
+    private void onBackground() {
+        pausedALevel = activeGame != null && activeGame.pauseForBackground();
+        if (!pausedALevel) {
+            sounds.setPaused(true);
+        }
+        settings.save();
+        // Android destroys the drawing surface about a second from now, and a JavaFX draw against a
+        // destroyed surface never returns: measured on a Shield, the app could not take its surface
+        // back and was killed for not responding. JavaFX only draws what has changed, so the whole
+        // screen is taken out of the scene and nothing in it can change. Timers keep ticking against
+        // nodes that are no longer shown, which costs nothing and draws nothing.
+        shell.getChildren().remove(stage2d);
+    }
+
+    private void onForeground() {
+        if (!shell.getChildren().contains(stage2d)) {
+            shell.getChildren().add(stage2d);
+        }
+        // A paused level waits on its pause menu for the player; its sound comes back with it.
+        if (!pausedALevel) {
+            sounds.setPaused(false);
+        }
+        pausedALevel = false;
     }
 
     /**
@@ -288,6 +324,12 @@ public final class SceneRouter {
 
     /** Plays a scene full screen, then runs {@code then}. */
     private void playCutscene(Cutscene scene, Runnable then) {
+        // A scene is video and a mixed soundtrack, both through javafx.media. Where that module does
+        // not exist -- the Android build -- there is nothing to show, so the story is skipped.
+        if (!Platform.isSupported(ConditionalFeature.MEDIA)) {
+            then.run();
+            return;
+        }
         Cutscene.Screen screen = scene.play(sounds, then);
         // A scene lays its film band out against the arena's width, so it keeps it.
         screen.root().setUserData(FIXED_WIDTH);
@@ -1254,6 +1296,9 @@ public final class SceneRouter {
             scene = new Scene(shell, GameConfig.WIDTH, GameConfig.HEIGHT, Color.BLACK);
             stage.setScene(scene);
             installFullscreenShortcut(scene);
+            if (OnAndroid.ACTIVE) {
+                installAndroidController(scene);
+            }
             trackWindowSize(scene);
             // Feeds this Scene rather than any one screen, so it needs no re-attaching between
             // rounds -- unlike InputState, whose handlers the screens swap.
@@ -1295,6 +1340,34 @@ public final class SceneRouter {
             }
             stage.setFullScreen(!stage.isFullScreen());
             event.consume();
+        });
+    }
+
+    /**
+     * The Android TV controller, as the keys the desktop gamepad already produces.
+     *
+     * Android hands JavaFX the D-pad (and the left stick, which Android turns into D-pad presses)
+     * as the arrows and the Back button as Escape, which the game already answers to. The face
+     * buttons arrive as JavaFX's GAME_ codes, which nothing reads, so they are re-sent here as what
+     * {@code engine.GamepadMapping} sends on the desktop: A fires and selects, B backs out of a
+     * menu, X is the special. Y, the shoulders and Start reach JavaFX as no key at all, so there is
+     * nothing here to map them from.
+     */
+    private static void installAndroidController(Scene scene) {
+        java.util.Map<KeyCode, List<KeyCode>> buttons = java.util.Map.of(
+                KeyCode.GAME_A, List.of(KeyCode.SHIFT, KeyCode.SPACE),
+                KeyCode.GAME_B, List.of(com.hashimjacobs.spacecase.engine.GamepadMapping.MENU_CANCEL),
+                KeyCode.GAME_D, List.of(com.hashimjacobs.spacecase.prefs.ControlAction.SPECIAL.defaultKey(1)));
+        scene.addEventFilter(KeyEvent.ANY, event -> {
+            List<KeyCode> sent = buttons.get(event.getCode());
+            if (sent == null || event.getEventType() == KeyEvent.KEY_TYPED) {
+                return;
+            }
+            event.consume();
+            for (KeyCode code : sent) {
+                javafx.event.Event.fireEvent(scene, new KeyEvent(event.getEventType(), "", "", code,
+                        false, false, false, false));
+            }
         });
     }
 
