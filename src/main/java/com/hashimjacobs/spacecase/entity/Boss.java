@@ -344,8 +344,16 @@ public enum Boss {
         if (this == AEON) {
             return MusicCue.AEON_BOSS;
         }
-        return MusicCue.BOSS;
+        return HORRORS.contains(this) ? MusicCue.HORROR_BOSS : MusicCue.BOSS;
     }
+
+    /**
+     * The creatures, which get the horror cue; everything else is a ship and gets the metal.
+     * The one list to edit if a flagship sounds wrong for what it is.
+     */
+    private static final java.util.Set<Boss> HORRORS = java.util.EnumSet.of(
+            DUNE_LEVIATHAN, HYDRA, TRENCH_HORROR, GEYSER_MAW, MAGNETAR_MAW, STORM_SERPENT,
+            BONEPICKER, HULK_CHOIR, SHROUDMAW, TIDEWRACK, SHELLBORN, GULLET);
 
     /**
      * The art for one arm pod of a piloted rig, or null for a flagship that has no arms.

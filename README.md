@@ -119,8 +119,7 @@ keys. Both pads drive the menu cursor, the same way two people on one keyboard w
 
 Anywhere the game wants a name or a code -- Pilots, Cloud Save, a room code -- choosing the field
 opens an on-screen keyboard you walk with the d-pad. Nothing types letters straight off a keypress
-any more: player one's pad speaks the same `W A S D` the ship does, so a field that read letters had
-no way to tell a d-pad push from a typed W.
+any more, so a field never has to tell a d-pad push from a typed letter.
 
 The left stick is analog: the ship flies at the speed you push it, and the hull banks harder the
 further you lean. Switch `Stick mode` to `Digital` in Settings for the older all-or-nothing feel.
@@ -135,8 +134,18 @@ Holding a direction in a menu moves one row, pauses, then walks at about two and
 second, so you can stop where you meant to. Tapping always moves exactly one. This covers the
 keyboard and the garage as well as the pad.
 
-Settings also carries the fire and pause buttons **per player**, the stick deadzone (raise it if a
-worn stick drifts on its own), an off switch, and a row naming the pads currently recognised. A pad
+**Settings, Controller, Pad buttons** draws your controller and lets you put fire, pause, special,
+punch, kick and guard on any button, **per player**: choose an action, then hold the button you want
+for a full second while the wheel fills, or click it on the drawing. You have eight seconds to pick
+one before the prompt closes with nothing changed. Buttons light up as you press them, so you can find one by feel. Triggers, stick
+clicks and the right stick's four directions (the C-buttons on an N64 pad) all count as buttons;
+the left stick and d-pad always move. The drawing follows the pad's own name -- Xbox, PlayStation
+3/4/5, Switch Pro, N64, GameCube or SNES-style -- and `Layout` picks another if it guesses wrong.
+The layout only changes the picture and the button names, never what a button does. Rebinding the
+keyboard does not disturb the pad, or the other way round.
+
+Settings also carries the stick deadzone (raise it if a worn stick drifts on its own), an off
+switch, and a row naming the pads currently recognised. A pad
 going flat mid-game drops back to the keyboard rather than leaving your ship drifting.
 
 **If your controller does nothing**, check that last row. Recognition comes from a bundled copy of

@@ -19,7 +19,18 @@ public enum PadButton {
     LEFT_BUMPER("Left bumper"),
     RIGHT_BUMPER("Right bumper"),
     START("Start"),
-    BACK("Select");
+    BACK("Select"),
+    // Appended, never reordered: a stored binding is a name, and these arrived after the eight above.
+    LEFT_TRIGGER("Left trigger"),
+    RIGHT_TRIGGER("Right trigger"),
+    LEFT_STICK("Left stick click"),
+    RIGHT_STICK("Right stick click"),
+    // The right stick pushed one way, read as a button. On an N64 pad these are the C-buttons,
+    // which is how SDL reports them.
+    C_UP("Right stick up"),
+    C_DOWN("Right stick down"),
+    C_LEFT("Right stick left"),
+    C_RIGHT("Right stick right");
 
     private final String label;
 
@@ -29,11 +40,5 @@ public enum PadButton {
 
     public String label() {
         return label;
-    }
-
-    public PadButton next() {
-        PadButton[] all = values();
-        PadButton following = all[(ordinal() + 1) % all.length];
-        return following;
     }
 }

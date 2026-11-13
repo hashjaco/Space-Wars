@@ -3,6 +3,7 @@ package com.hashimjacobs.spacecase.engine;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 import com.studiohartman.jamepad.ControllerManager;
 import com.studiohartman.jamepad.ControllerState;
@@ -37,6 +38,12 @@ public final class Gamepad {
      */
     private static final int SUPPORTED_PADS = 2;
 
+    /**
+     * How far a trigger or the right stick travels before it counts as a pressed button. Halfway:
+     * past any resting drift, and well short of the end stop a worn trigger no longer reaches.
+     */
+    private static final float AXIS_PRESS = 0.5f;
+
     private final Scene scene;
     private final Settings settings;
     /**
@@ -52,6 +59,9 @@ public final class Gamepad {
 
     private final PadState[] latest = new PadState[SUPPORTED_PADS];
     private final String[] names = new String[SUPPORTED_PADS];
+    /** Per slot: who is waiting for that pad's next button, or null when it drives the game. */
+    private final List<Consumer<PadButton>> captures = new java.util.ArrayList<>(
+            java.util.Collections.nCopies(SUPPORTED_PADS, null));
 
     private AnimationTimer timer;
     private boolean wasEnabled = true;
@@ -127,16 +137,38 @@ public final class Gamepad {
 
         double deadzone = settings.gamepadDeadzone();
         for (int slot = 0; slot < SUPPORTED_PADS; slot++) {
-            // Read inside the loop: each pad carries its own fire and pause bindings.
-            PadButton fireButton = settings.gamepadFireButton(slot + 1);
-            PadButton pauseButton = settings.gamepadPauseButton(slot + 1);
+            // Read inside the poll: each pad carries its own bindings, and they can change
+            // between one frame and the next.
+            int player = slot + 1;
             ControllerState reading = controllers.getState(slot);
             PadState state = snapshot(reading);
             latest[slot] = state;
             names[slot] = reading.isConnected ? reading.controllerType : null;
-            List<GamepadMapping.KeyChange> changes =
-                    mappings[slot].poll(state, deadzone, fireButton, pauseButton);
+            Consumer<PadButton> capture = captures.get(slot);
+            if (capture != null) {
+                PadButton fresh = mappings[slot].capture(state);
+                if (fresh != null) {
+                    capture.accept(fresh);
+                }
+                continue;
+            }
+            List<GamepadMapping.KeyChange> changes = mappings[slot].poll(state, deadzone,
+                    action -> settings.padButton(player, action),
+                    action -> settings.key(player, action));
             apply(changes);
+        }
+    }
+
+    /**
+     * Hands one pad's next button press to a listener instead of the game, or back with null.
+     *
+     * For the controller screen while a row waits to be bound. That pad sends no keys until it is
+     * handed back; the keyboard and the other pad carry on, so Escape still backs out.
+     */
+    public void setCapture(int slot, Consumer<PadButton> onButton) {
+        captures.set(slot, onButton);
+        if (onButton != null) {
+            apply(mappings[slot].releaseKeys());
         }
     }
 
@@ -158,6 +190,15 @@ public final class Gamepad {
         addIf(reading.rb, PadButton.RIGHT_BUMPER);
         addIf(reading.start, PadButton.START);
         addIf(reading.back, PadButton.BACK);
+        addIf(reading.leftTrigger > AXIS_PRESS, PadButton.LEFT_TRIGGER);
+        addIf(reading.rightTrigger > AXIS_PRESS, PadButton.RIGHT_TRIGGER);
+        addIf(reading.leftStickClick, PadButton.LEFT_STICK);
+        addIf(reading.rightStickClick, PadButton.RIGHT_STICK);
+        // Same sign convention as the left stick, which GamepadMapping reads as negative-is-up.
+        addIf(reading.rightStickY < -AXIS_PRESS, PadButton.C_UP);
+        addIf(reading.rightStickY > AXIS_PRESS, PadButton.C_DOWN);
+        addIf(reading.rightStickX < -AXIS_PRESS, PadButton.C_LEFT);
+        addIf(reading.rightStickX > AXIS_PRESS, PadButton.C_RIGHT);
 
         PadState state = new PadState(true, reading.leftStickX, reading.leftStickY,
                 reading.dpadUp, reading.dpadDown, reading.dpadLeft, reading.dpadRight, buttonsDown);

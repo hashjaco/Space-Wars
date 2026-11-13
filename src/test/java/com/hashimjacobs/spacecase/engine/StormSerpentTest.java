@@ -103,8 +103,8 @@ class StormSerpentTest {
             highY = Math.max(highY, leviathan.y());
         }
 
-        assertTrue(Math.abs((highX - lowX) - 527.52) < 3,
-                "level 9's lunge is 996 x 0.62 less the 90 burrow depth, so 527.5; measured "
+        assertTrue(Math.abs((highX - lowX) - 1067.5) < 3,
+                "level 9's lunge is its 1157.5 reach less the 90 burrow depth, so 1067.5; measured "
                         + (highX - lowX));
         assertTrue(highY - lowY > 400, "and it should still be drifting across the lane, not held");
     }
@@ -148,8 +148,11 @@ class StormSerpentTest {
                 worm(sideOn, Boss.DUNE_LEVIATHAN, Orientation.RIGHT_TO_LEFT),
                 Orientation.RIGHT_TO_LEFT);
 
-        assertTrue(Math.abs(deepest - 831.5) < 1.5,
-                "level 9's strike used to finish at 831.5 and now finishes at " + deepest);
+        // 831.5 on the 996 arena it shipped on: 34.5 short of the line the player starts on. The
+        // side-on arena is 1536 now and the line moved with the wall, so the same clearance is here.
+        double playersLine = Orientation.RIGHT_TO_LEFT.arenaDepth() - PLAYER_LINE;
+        assertTrue(Math.abs(deepest - (playersLine - 34.5)) < 1.5,
+                "level 9's strike should finish 34.5 short of " + playersLine + " and finishes at " + deepest);
     }
 
     /**

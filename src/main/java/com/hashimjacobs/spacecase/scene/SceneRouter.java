@@ -47,6 +47,7 @@ import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Account;
 import com.hashimjacobs.spacecase.prefs.ControlAction;
+import com.hashimjacobs.spacecase.prefs.PadAction;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 import com.hashimjacobs.spacecase.prefs.HighScores;
 import com.hashimjacobs.spacecase.prefs.Pilots;
@@ -800,9 +801,10 @@ public final class SceneRouter {
 
     public void showSettings(Runnable onBack) {
         SettingsPanel panel = new SettingsPanel(settings, sounds, this::padStatus, onBack,
-                () -> showControls(() -> showSettings(onBack)));
+                () -> showControls(() -> showSettings(onBack)),
+                () -> showControllers(() -> showSettings(onBack)));
         StackPane root = MenuScreen.build("SETTINGS", panel);
-        show(root, panel.navigator(onBack)::handleKey);
+        show(root, panel::handleKey);
     }
 
     /**
@@ -821,12 +823,40 @@ public final class SceneRouter {
         show(root, code -> panel.captureKey(code) || navigator.handleKey(code));
     }
 
+    /**
+     * Binding a gamepad, on a drawing of it.
+     *
+     * The pulse is what lights the drawing as buttons go down; {@link #show} stops it with the
+     * screen, as it does the turning planet on the galaxy list.
+     */
+    public void showControllers(Runnable onBack) {
+        ControllerPanel panel = new ControllerPanel(settings, gamepad, onBack);
+        MenuNavigator navigator = panel.navigator(onBack);
+        StackPane root = MenuScreen.build("CONTROLLER", panel,
+                MenuScreen.caption("Choose an action, then hold the button you want for a second, "
+                        + "or click it on the drawing. The stick and d-pad always move.",
+                        12, Tokens.TEXT_FAINT));
+        show(root, code -> panel.captureKey(code) || navigator.handleKey(code));
+        AnimationTimer live = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                panel.tick(now);
+            }
+        };
+        live.start();
+        screenPulse = live;
+    }
+
     /** Read off the bindings rather than written out, so the page cannot go stale after a rebind. */
     private String movementKeys(int player) {
         return settings.key(player, ControlAction.UP).getName()
                 + "  " + settings.key(player, ControlAction.LEFT).getName()
                 + "  " + settings.key(player, ControlAction.DOWN).getName()
                 + "  " + settings.key(player, ControlAction.RIGHT).getName();
+    }
+
+    private String padButton(PadAction action) {
+        return settings.padButton(1, action).label();
     }
 
     private String fireKey(int player) {
@@ -887,9 +917,9 @@ public final class SceneRouter {
                 "ESCAPE          pause / resume        F11   fullscreen",
                 "M               mute / unmute",
                 "MENUS           arrows or W/S, Enter to choose",
-                "CONTROLLERS     stick or d-pad, A to fire, Start to pause.",
-                "                First pad is player one. Buttons and",
-                "                deadzone are in Settings.",
+                "CONTROLLERS     stick or d-pad, " + padButton(PadAction.FIRE) + " to fire,",
+                "                " + padButton(PadAction.PAUSE) + " to pause. First pad is player",
+                "                one. Rebind under Settings, Controller.",
                 "",
                 "Shoot asteroids and enemy ships for points. Enemies drop",
                 "pickups: tri-shot, rockets, shield, speed, health or an",

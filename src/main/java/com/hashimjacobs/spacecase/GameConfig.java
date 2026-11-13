@@ -4,6 +4,13 @@ package com.hashimjacobs.spacecase;
 public final class GameConfig {
 
     public static final double WIDTH = 996;
+    /**
+     * How wide the arena is in a side-view level: 16:9 at the arena's height, so the fight fills a
+     * widescreen from edge to edge. Top-down levels keep {@link #WIDTH}. Ask
+     * {@code Orientation.arenaWidth()} which applies; this is a fixed size and not the window's, so
+     * every machine in an online room simulates the same arena.
+     */
+    public static final double WIDE_WIDTH = 1536;
     public static final double HEIGHT = 864;
 
     public static final int PLAYER_HEALTH = 100;

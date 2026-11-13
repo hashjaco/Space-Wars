@@ -82,7 +82,16 @@ class OrientationTest {
         double h = 168;
 
         assertTrue(Orientation.TOP_DOWN.depth(400, -h, w, h) < 0);
-        assertTrue(Orientation.RIGHT_TO_LEFT.depth(GameConfig.WIDTH, 400, w, h) < 0);
+        assertTrue(Orientation.RIGHT_TO_LEFT.depth(Orientation.RIGHT_TO_LEFT.arenaWidth(), 400, w, h) < 0);
+    }
+
+    /** A side-view level is flown in a 16:9 arena, so the lane fills a widescreen; top-down is unchanged. */
+    @Test
+    void aSideViewArenaIsWiderAndNoTaller() {
+        assertEquals(GameConfig.WIDTH, Orientation.TOP_DOWN.arenaWidth());
+        assertEquals(GameConfig.HEIGHT * 16 / 9, Orientation.RIGHT_TO_LEFT.arenaWidth());
+        assertEquals(Orientation.RIGHT_TO_LEFT.arenaWidth(), Orientation.RIGHT_TO_LEFT.arenaDepth());
+        assertEquals(GameConfig.HEIGHT, Orientation.RIGHT_TO_LEFT.arenaBreadth());
     }
 
     @Test

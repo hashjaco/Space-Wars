@@ -149,6 +149,11 @@ public final class MenuButton extends StackPane implements MenuNavigator.Item {
         return true;
     }
 
+    /** Lets Left/Right step a row that cycles through choices, with no bar to drag. */
+    void setOnAdjust(java.util.function.IntConsumer onAdjust) {
+        this.onAdjust = onAdjust;
+    }
+
     /** Puts a level bar before the value, and lets Left/Right step it. */
     void setTrailing(LevelBar bar, java.util.function.IntConsumer onAdjust) {
         this.onAdjust = onAdjust;

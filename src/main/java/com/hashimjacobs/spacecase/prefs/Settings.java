@@ -17,14 +17,14 @@ public final class Settings {
     private static final String KEY_REDUCED_FLASH = "reducedFlash";
     private static final String KEY_CINEMATIC = "glowEffects";
     private static final String KEY_FILM_GRAIN = "filmGrain";
+    private static final String KEY_MIRRORED_SIDES = "mirroredSides";
     private static final String KEY_WINDOW = "windowHeight";
 
     /** {@link #windowHeight} values that are not a pixel height. */
     public static final int FULLSCREEN = 0;
     public static final int FIT_SCREEN = -1;
     /** Player one keeps the original keys, so a store written before per-player binding loads. */
-    private static final String[] KEY_FIRE_BUTTON = {"gamepadFireButton", "gamepadFireButton2"};
-    private static final String[] KEY_PAUSE_BUTTON = {"gamepadPauseButton", "gamepadPauseButton2"};
+    private static final String[] KEY_PAD_LAYOUT = {"padLayout", "padLayout2"};
     private static final String[] KEY_SENSITIVITY = {"gamepadSensitivity", "gamepadSensitivity2"};
 
     /** Slots 0 and 1, addressed by player number one and two. */
@@ -33,6 +33,19 @@ public final class Settings {
     /** One stored key per action per player, named from the action so no table has to be kept. */
     private static String keyBindingName(int slot, ControlAction action) {
         return "key" + action.name() + (slot == 0 ? "" : "2");
+    }
+
+    /**
+     * One stored button per pad action per player. Fire and pause keep the names they had when they
+     * were the only two a pad could rebind, so a store from before the controller screen loads.
+     */
+    private static String padBindingName(int slot, PadAction action) {
+        String name = switch (action) {
+            case FIRE -> "gamepadFireButton";
+            case PAUSE -> "gamepadPauseButton";
+            default -> "pad" + action.name();
+        };
+        return name + (slot == 0 ? "" : "2");
     }
 
     private static final double MIN_DEADZONE = 0.05;
@@ -50,9 +63,10 @@ public final class Settings {
     private boolean reducedFlash;
     private boolean cinematic;
     private boolean filmGrain;
+    private boolean mirroredSides;
     private int windowHeight;
-    private final PadButton[] gamepadFireButton = new PadButton[PLAYERS];
-    private final PadButton[] gamepadPauseButton = new PadButton[PLAYERS];
+    private final PadButton[][] padButtons = new PadButton[PLAYERS][PadAction.values().length];
+    private final String[] padLayout = new String[PLAYERS];
     private final double[] gamepadSensitivity = new double[PLAYERS];
     private final KeyCode[][] keyBindings = new KeyCode[PLAYERS][ControlAction.values().length];
 
@@ -81,12 +95,15 @@ public final class Settings {
         settings.reducedFlash = store.getBoolean(KEY_REDUCED_FLASH, false);
         settings.cinematic = store.getBoolean(KEY_CINEMATIC, true);
         settings.filmGrain = store.getBoolean(KEY_FILM_GRAIN, false);
+        settings.mirroredSides = store.getBoolean(KEY_MIRRORED_SIDES, true);
         settings.windowHeight = store.getInt(KEY_WINDOW, 864);
         for (int slot = 0; slot < PLAYERS; slot++) {
-            settings.gamepadFireButton[slot] =
-                    readPadButton(store, KEY_FIRE_BUTTON[slot], PadButton.A);
-            settings.gamepadPauseButton[slot] =
-                    readPadButton(store, KEY_PAUSE_BUTTON[slot], PadButton.START);
+            for (PadAction action : PadAction.values()) {
+                settings.padButtons[slot][action.ordinal()] =
+                        readPadButton(store, padBindingName(slot, action), action.defaultButton());
+            }
+            untangle(settings.padButtons[slot]);
+            settings.padLayout[slot] = store.get(KEY_PAD_LAYOUT[slot], "");
             settings.gamepadSensitivity[slot] =
                     clampSensitivity(store.getDouble(KEY_SENSITIVITY[slot], 1.0));
             for (ControlAction action : ControlAction.values()) {
@@ -120,6 +137,32 @@ public final class Settings {
     }
 
     /**
+     * Gives every action a button of its own.
+     *
+     * {@link #setPadButton} never creates a tie, but a store can arrive with one: fire moved to X
+     * back when punch was fixed there, or a node edited by hand. The later action gives way, to the
+     * first button nothing is using.
+     */
+    private static void untangle(PadButton[] row) {
+        for (int later = 1; later < row.length; later++) {
+            for (int earlier = 0; earlier < later; earlier++) {
+                if (row[later] == row[earlier]) {
+                    row[later] = firstUnused(row);
+                }
+            }
+        }
+    }
+
+    private static PadButton firstUnused(PadButton[] row) {
+        for (PadButton candidate : PadButton.values()) {
+            if (!java.util.Arrays.asList(row).contains(candidate)) {
+                return candidate;
+            }
+        }
+        throw new IllegalStateException("more pad actions than pad buttons");
+    }
+
+    /**
      * A stored key name, or the action's default where it does not name a key this JavaFX knows.
      *
      * Same tolerance as {@link #readPadButton}: a store written by another build, or by hand, must
@@ -144,10 +187,13 @@ public final class Settings {
         store.putBoolean(KEY_REDUCED_FLASH, reducedFlash);
         store.putBoolean(KEY_CINEMATIC, cinematic);
         store.putBoolean(KEY_FILM_GRAIN, filmGrain);
+        store.putBoolean(KEY_MIRRORED_SIDES, mirroredSides);
         store.putInt(KEY_WINDOW, windowHeight);
         for (int slot = 0; slot < PLAYERS; slot++) {
-            store.put(KEY_FIRE_BUTTON[slot], gamepadFireButton[slot].name());
-            store.put(KEY_PAUSE_BUTTON[slot], gamepadPauseButton[slot].name());
+            for (PadAction action : PadAction.values()) {
+                store.put(padBindingName(slot, action), padButtons[slot][action.ordinal()].name());
+            }
+            store.put(KEY_PAD_LAYOUT[slot], padLayout[slot]);
             store.putDouble(KEY_SENSITIVITY[slot], gamepadSensitivity[slot]);
             for (ControlAction action : ControlAction.values()) {
                 store.put(keyBindingName(slot, action), keyBindings[slot][action.ordinal()].name());
@@ -275,6 +321,19 @@ public final class Settings {
     }
 
     /**
+     * Whether the bars either side of the arena, on a screen wider than it, carry the level's sky
+     * mirrored about each edge. Off leaves them plain dark; the seat panels sit in them either way.
+     * On by default.
+     */
+    public boolean mirroredSides() {
+        return mirroredSides;
+    }
+
+    public void setMirroredSides(boolean on) {
+        this.mirroredSides = on;
+    }
+
+    /**
      * The window's content height in pixels (its width follows the arena's aspect), or
      * {@link #FULLSCREEN}, or {@link #FIT_SCREEN} for a maximized window.
      */
@@ -319,13 +378,40 @@ public final class Settings {
         return null;
     }
 
-    /** @param player one or two; each pad carries its own bindings. */
-    public PadButton gamepadFireButton(int player) {
-        return gamepadFireButton[player - 1];
+    /**
+     * The button this player's pad uses for an action.
+     *
+     * @param player one or two; each pad carries its own bindings
+     */
+    public PadButton padButton(int player, PadAction action) {
+        return padButtons[player - 1][action.ordinal()];
     }
 
-    public void setGamepadFireButton(int player, PadButton button) {
-        this.gamepadFireButton[player - 1] = button;
+    /**
+     * Binds an action to a button. Whatever was on that button takes the one this action gives up,
+     * so a rebind is a swap and no action is ever left without a button.
+     */
+    public void setPadButton(int player, PadAction action, PadButton button) {
+        PadButton[] row = padButtons[player - 1];
+        for (int other = 0; other < row.length; other++) {
+            if (row[other] == button) {
+                row[other] = row[action.ordinal()];
+            }
+        }
+        row[action.ordinal()] = button;
+    }
+
+    /**
+     * Which controller drawing this player chose on the controller screen, by name, or empty to go
+     * by whatever the connected pad calls itself. A name rather than the enum because the drawings
+     * belong to the UI, and a name this build does not know simply reads as "not chosen".
+     */
+    public String padLayout(int player) {
+        return padLayout[player - 1];
+    }
+
+    public void setPadLayout(int player, String name) {
+        padLayout[player - 1] = name;
     }
 
     /** @param player one or two; each pad carries its own feel. */
@@ -335,13 +421,5 @@ public final class Settings {
 
     public void setGamepadSensitivity(int player, double value) {
         this.gamepadSensitivity[player - 1] = clampSensitivity(value);
-    }
-
-    public PadButton gamepadPauseButton(int player) {
-        return gamepadPauseButton[player - 1];
-    }
-
-    public void setGamepadPauseButton(int player, PadButton button) {
-        this.gamepadPauseButton[player - 1] = button;
     }
 }

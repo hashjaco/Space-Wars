@@ -37,7 +37,10 @@ public final class MenuRepeat implements Predicate<KeyCode> {
 
     private static final Set<KeyCode> REPEATABLE = EnumSet.of(
             KeyCode.UP, KeyCode.DOWN, KeyCode.LEFT, KeyCode.RIGHT,
-            KeyCode.W, KeyCode.A, KeyCode.S, KeyCode.D, KeyCode.BACK_SPACE);
+            KeyCode.W, KeyCode.A, KeyCode.S, KeyCode.D, KeyCode.BACK_SPACE,
+            // The eight a pad's stick and d-pad send; see GamepadMapping.direction.
+            KeyCode.SOFTKEY_0, KeyCode.SOFTKEY_1, KeyCode.SOFTKEY_2, KeyCode.SOFTKEY_3,
+            KeyCode.SOFTKEY_4, KeyCode.SOFTKEY_5, KeyCode.SOFTKEY_6, KeyCode.SOFTKEY_7);
 
     private final Predicate<KeyCode> inner;
     private final LongSupplier clock;
@@ -73,7 +76,7 @@ public final class MenuRepeat implements Predicate<KeyCode> {
                 return consumed.getOrDefault(code, Boolean.FALSE);   // held: once per press
             }
             passed = true;
-            boolean result = inner.test(code);
+            boolean result = deliver(code);
             consumed.put(code, result);
             return result;
         }
@@ -87,9 +90,21 @@ public final class MenuRepeat implements Predicate<KeyCode> {
 
         openAt.put(code, nextOpening(code, now, fresh));
         passed = true;
-        boolean result = inner.test(code);
+        boolean result = deliver(code);
         consumed.put(code, result);
         return result;
+    }
+
+    /**
+     * A pad direction is offered as itself first and as an arrow key second.
+     *
+     * The garage reads the pad's own code, because that is what says which seat pushed the stick;
+     * every other menu has never heard of it and takes the arrow. Timed and remembered under the
+     * pad's code either way, so a pad and the arrow keys never share a repeat clock.
+     */
+    private boolean deliver(KeyCode code) {
+        KeyCode arrow = GamepadMapping.menuKey(code);
+        return inner.test(code) || (arrow != code && inner.test(arrow));
     }
 
     /**

@@ -64,8 +64,13 @@ public final class BurrowingWorm extends EnemyShip {
      * and across is 996, so a worm striking from the top of a top-down level and one striking from
      * the side of a side-on level need different absolute reaches to look the same. This used to be
      * {@code WIDTH * 0.62}, which was right only for the side-on level it was written for.
+     *
+     * It was 0.62 of a 996 arena. Side-on levels are 1536 wide now, and what the fight was tuned
+     * around is not the fraction but where the jaws stop: about 35 short of the line the player
+     * starts on, 130 off the back wall. Keeping that on the wider arena is 1157.5 of reach, which
+     * is this fraction. At 0.62 the strike would stop 370 short and never trouble anyone.
      */
-    private static final double LEVIATHAN_REACH = 0.62;
+    private static final double LEVIATHAN_REACH = 1157.5 / 1536;
 
     /**
      * The Storm Serpent's reach, which is shorter, and not by preference.

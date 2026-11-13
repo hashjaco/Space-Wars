@@ -55,7 +55,7 @@ class SideOnHullTest {
         solo.setPosition(10_000, solo.y());
         world.update();
 
-        assertEquals(com.hashimjacobs.spacecase.GameConfig.WIDTH - solo.width(), solo.x(), 1e-9,
+        assertEquals(Orientation.RIGHT_TO_LEFT.arenaWidth() - solo.width(), solo.x(), 1e-9,
                 "should sit flush against the right wall");
     }
 

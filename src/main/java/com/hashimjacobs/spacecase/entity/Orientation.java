@@ -76,12 +76,12 @@ public enum Orientation {
      * outside the arena and descend into it without being culled on arrival.
      */
     public double depth(double x, double y, double width, double height) {
-        return this == TOP_DOWN ? y : GameConfig.WIDTH - x - width;
+        return this == TOP_DOWN ? y : arenaWidth() - x - width;
     }
 
     /** World x of a box placed at the given depth and across position. Inverse of {@link #depth}. */
     public double atX(double depth, double across, double width, double height) {
-        return this == TOP_DOWN ? across : GameConfig.WIDTH - depth - width;
+        return this == TOP_DOWN ? across : arenaWidth() - depth - width;
     }
 
     public double atY(double depth, double across, double width, double height) {
@@ -90,7 +90,15 @@ public enum Orientation {
 
     /** How far the arena runs in the direction of travel. */
     public double arenaDepth() {
-        return this == TOP_DOWN ? GameConfig.HEIGHT : GameConfig.WIDTH;
+        return this == TOP_DOWN ? GameConfig.HEIGHT : arenaWidth();
+    }
+
+    /**
+     * The arena's width in world units. A side-view level is flown in a wider arena than a
+     * top-down one, so the lane runs the full width of a widescreen; the height never changes.
+     */
+    public double arenaWidth() {
+        return this == TOP_DOWN ? GameConfig.WIDTH : GameConfig.WIDE_WIDTH;
     }
 
     /** How wide the lane is. */

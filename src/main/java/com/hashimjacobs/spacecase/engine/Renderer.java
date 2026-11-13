@@ -145,10 +145,18 @@ public final class Renderer {
      */
     private GraphicsContext gc;
 
-    /** The side-bar canvas, or null when the window is the arena's own shape and there are no bars. */
+    /** The bar canvas, or null when the window is the arena's own shape and there are no bars. */
     private GraphicsContext bars;
-    /** Arena units of bar on each side of the arena. */
+    /** Arena units of bar on each side of the arena, and above and below it. Never both. */
     private double side;
+    private double band;
+    /**
+     * How wide the arena being drawn is: {@link GameConfig#WIDTH}, or wider for a side-view level.
+     * Everything in this class that used to say WIDTH says this; the height never changes.
+     */
+    private double arenaW = GameConfig.WIDTH;
+    private Runnable onArenaResized = () -> {
+    };
     /** Over the bars' sky, so they read as the frame around the fight and not as more of it. */
     private static final Color BAR_VEIL = Color.color(0, 0, 0, 0.62);
     private final Settings settings;
@@ -189,21 +197,50 @@ public final class Renderer {
     }
 
     /**
-     * Where to paint the room either side of the arena on a screen wider than it.
+     * Where to paint the room around the arena on a screen that is not the arena's shape.
      *
-     * @param bars a canvas whose origin is the arena's top-left corner and which reaches
-     *             {@code side} arena units past each edge; null for none
+     * @param bars a canvas whose origin is the arena's top-left corner, in arena units, reaching
+     *             {@code side} past its left and right edges and {@code band} past its top and
+     *             bottom; null for none
      */
-    public void setBars(GraphicsContext bars, double side) {
-        this.bars = side > 0 ? bars : null;
+    public void setBars(GraphicsContext bars, double side, double band) {
+        this.bars = side > 0 || band > 0 ? bars : null;
         this.side = this.bars == null ? 0 : side;
-        hud.setBars(this.bars, this.side);
+        this.band = this.bars == null ? 0 : band;
+        hud.setBars(this.side > 0 ? this.bars : null, this.side);
+    }
+
+    /** The width of the arena being drawn, in arena units, for whoever sizes the canvas. */
+    public double arenaWidth() {
+        return arenaW;
+    }
+
+    /** Runs when a level of a different shape starts being drawn, so the screen can refit. */
+    public void setOnArenaResized(Runnable onArenaResized) {
+        this.onArenaResized = onArenaResized;
+    }
+
+    private void arena(double width) {
+        if (width != arenaW) {
+            arenaW = width;
+            hud.setArenaWidth(width);
+            onArenaResized.run();
+        }
+    }
+
+    /** The overlays are laid out for the 996 arena; in a wider one they sit in the middle of it. */
+    private void centered(Runnable overlay) {
+        gc.save();
+        gc.translate((arenaW - GameConfig.WIDTH) / 2, 0);
+        overlay.run();
+        gc.restore();
     }
 
     /**
-     * Fills the bars: the level's sky mirrored about each edge of the arena, so it meets the arena
-     * edge to identical edge, under a veil. Presentation only -- nothing here reads or moves the
-     * simulation, and the arena itself is drawn exactly as it is without bars.
+     * Fills the bars: the level's sky mirrored about the arena's edges, so it meets the arena edge
+     * to identical edge, under a veil. Left and right of a top-down level on a wide screen; above
+     * and below a side-view level on a screen too narrow for its 16:9 arena. Presentation only --
+     * nothing here reads or moves the simulation, and the arena is drawn exactly as it is without.
      *
      * @param level the level whose sky to continue, or null for plain space (the on-foot stages)
      */
@@ -214,38 +251,48 @@ public final class Renderer {
         GraphicsContext arena = gc;
         gc = bars;
         try {
-            double w = GameConfig.WIDTH;
+            double w = arenaW;
             double h = GameConfig.HEIGHT;
-            gc.clearRect(-side, 0, w + 2 * side, h);
-            if (level != null) {
-                for (double mirror : new double[] {0, 2 * w}) {
+            gc.clearRect(-side, -band, w + 2 * side, h + 2 * band);
+            if (level != null && settings.mirroredSides()) {
+                // About x = 0 and x = w for side bars, about y = 0 and y = h for bands.
+                for (int edge = 0; edge < 2; edge++) {
                     gc.save();
-                    gc.translate(mirror, 0);
-                    gc.scale(-1, 1);
+                    if (side > 0) {
+                        gc.translate(edge * 2 * w, 0);
+                        gc.scale(-1, 1);
+                    } else {
+                        gc.translate(0, edge * 2 * h);
+                        gc.scale(1, -1);
+                    }
                     drawScrollingBackground(level, tick);
                     gc.restore();
                 }
             } else {
                 gc.setFill(Tokens.SPACE);
-                gc.fillRect(-side, 0, side, h);
-                gc.fillRect(w, 0, side, h);
+                gc.fillRect(-side, -band, w + 2 * side, h + 2 * band);
             }
             gc.setFill(BAR_VEIL);
-            gc.fillRect(-side, 0, side, h);
-            gc.fillRect(w, 0, side, h);
+            gc.fillRect(-side, -band, w + 2 * side, h + 2 * band);
             // The sky draws overrun their own arena by the shake margin; this canvas lies over the
             // real arena, so the middle is opened again rather than clipped on every draw.
             gc.clearRect(0, 0, w, h);
             gc.setStroke(Tokens.EDGE_STRONG);
             gc.setLineWidth(Tokens.STROKE_HAIR);
-            gc.strokeLine(-0.5, 0, -0.5, h);
-            gc.strokeLine(w + 0.5, 0, w + 0.5, h);
+            if (side > 0) {
+                gc.strokeLine(-0.5, 0, -0.5, h);
+                gc.strokeLine(w + 0.5, 0, w + 0.5, h);
+            } else {
+                gc.strokeLine(0, -0.5, w, -0.5);
+                gc.strokeLine(0, h + 0.5, w, h + 0.5);
+            }
         } finally {
             gc = arena;
         }
     }
 
     public void draw(World world, SpawnDirector director) {
+        arena(director.level().orientation().arenaWidth());
         drawBars(director.level(), world.tick());
         // The arena is thrown about; the HUD is not, so it stays readable through a hit. Popped
         // before hud.draw and therefore before the debrief, garage and warp veil the game loop
@@ -270,7 +317,7 @@ public final class Renderer {
             gc.setGlobalBlendMode(BlendMode.MULTIPLY);
             gc.setGlobalAlpha(0.55 * mood);
             gc.setFill(MOOD);
-            gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN, GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
+            gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN, arenaW + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
             gc.restore();
         }
         // After the sky and before everything solid, so rock sits behind the fight but in front of
@@ -326,13 +373,13 @@ public final class Renderer {
         double flash = settings.reducedFlash() ? 0 : world.flashRemaining();
         if (flash > 0) {
             gc.setFill(Color.color(1, 1, 1, flash * 0.75));
-            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
         }
         drawVignette();
         if (mood > 0 && !settings.reducedFlash()) {
             gc.setGlobalAlpha(mood);
             gc.setFill(VIGNETTE);
-            gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+            gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
             gc.setGlobalAlpha(1);
         }
         drawGrain(world.tick());
@@ -363,12 +410,14 @@ public final class Renderer {
         gc.setGlobalBlendMode(BlendMode.OVERLAY);
         gc.setGlobalAlpha(0.08);
         gc.setFill(new ImagePattern(grain, (tick * 37) % 128, (tick * 53) % 128, 128, 128, false));
-        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
         gc.restore();
     }
 
     /** The on-foot stage in place of the arena, finished with the same vignette and grain. */
     public void drawOnFoot(OnFootStage stage) {
+        // The stage on foot is its own place, laid out for the 996 arena whatever level led to it.
+        arena(GameConfig.WIDTH);
         drawBars(null, 0);
         onFoot.draw(stage);
         drawVignette();
@@ -380,7 +429,7 @@ public final class Renderer {
             return;
         }
         gc.setFill(VIGNETTE);
-        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
     }
 
     /**
@@ -410,22 +459,24 @@ public final class Renderer {
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.BOTTOM);
         gc.setFill(Tokens.TEXT_DIM);
-        gc.fillText("MUTED  (M)", GameConfig.WIDTH / 2.0, GameConfig.HEIGHT - 12);
+        gc.fillText("MUTED  (M)", arenaW / 2.0, GameConfig.HEIGHT - 12);
     }
 
     /** The between-levels report, over a frozen world. */
     public void drawDebrief(Level level, List<Debrief> debriefs, List<Standing> standings,
                             int tick, boolean armed, int challengesMet, int challengesNew,
                             int challengesHeld) {
-        debriefOverlay.draw(level, debriefs, standings, tick, armed);
-        if (challengesHeld >= 0) {
-            debriefOverlay.drawChallenges(tick, debriefs, challengesMet, challengesNew, challengesHeld);
-        }
+        centered(() -> {
+            debriefOverlay.draw(level, debriefs, standings, tick, armed);
+            if (challengesHeld >= 0) {
+                debriefOverlay.drawChallenges(tick, debriefs, challengesMet, challengesNew, challengesHeld);
+            }
+        });
     }
 
     /** The between-levels garage, over a frozen world. */
     public void drawGarage(GarageSession session, int tick) {
-        garageOverlay.draw(session, tick);
+        centered(() -> garageOverlay.draw(session, tick));
     }
 
     /** Blackout during the warp, at the given 0..1 opacity. */
@@ -434,7 +485,7 @@ public final class Renderer {
             return;
         }
         gc.setFill(Tokens.veil(Math.min(1, opacity)));
-        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
     }
 
     /**
@@ -504,16 +555,15 @@ public final class Renderer {
         // camera would otherwise drag a band of last frame's pixels in at two edges.
         gc.setFill(Tokens.SPACE);
         gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN,
-                GameConfig.WIDTH + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
+                arenaW + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
 
         Orientation facing = level.orientation();
-        // The trailing copy sits one arena back along whichever way the level runs.
-        double backX = facing.vx(facing.arenaDepth(), 0);
-        double backY = facing.vy(facing.arenaDepth(), 0);
-
         boolean horizontal = facing.vx(1, 0) != 0;
+        // The skies are painted at the top-down arena's size. One copy is a tile; a side-view
+        // arena is wider than a tile and simply takes more of them.
         double w = GameConfig.WIDTH;
         double h = GameConfig.HEIGHT;
+        double tile = horizontal ? w : h;
         List<Sprite> layers = level.skyLayers();
         for (int layer = 0; layer < layers.size(); layer++) {
             Image image = Assets.image(layers.get(layer));
@@ -522,17 +572,23 @@ public final class Renderer {
             // at the join by over four times their own row-to-row change, and that jump scrolled down
             // the screen as a hard line. So every other copy is mirrored along the scroll axis (as the
             // on-foot backdrop does), which meets edge to identical edge for any painting. The period
-            // is two arenas, so the mirrored copy is always the same one and nothing flips mid-scroll.
-            double travelled = Math.floor(scrolled % (2 * facing.arenaDepth()));
-            double ox = facing.vx(travelled, 0);
-            double oy = facing.vy(travelled, 0);
-            gc.drawImage(image, ox - 2 * backX, oy - 2 * backY, w, h);
+            // is two tiles, so the mirrored copy is always the same one and nothing flips mid-scroll.
+            double travelled = Math.floor(scrolled % (2 * tile));
             if (horizontal) {
-                gc.drawImage(image, ox - backX + w, oy - backY, -w, h);
+                // Scrolling left: copies from the one sliding off the left edge to past the right.
+                for (int copy = 0; -travelled + copy * w < arenaW + SHAKE_MARGIN; copy++) {
+                    double x = -travelled + copy * w;
+                    if (copy % 2 == 1) {
+                        gc.drawImage(image, x + w, 0, -w, h);
+                    } else {
+                        gc.drawImage(image, x, 0, w, h);
+                    }
+                }
             } else {
-                gc.drawImage(image, ox - backX, oy - backY + h, w, -h);
+                gc.drawImage(image, 0, travelled - 2 * h, w, h);
+                gc.drawImage(image, 0, travelled - h + h, w, -h);
+                gc.drawImage(image, 0, travelled, w, h);
             }
-            gc.drawImage(image, ox, oy, w, h);
         }
     }
 
@@ -808,9 +864,9 @@ public final class Renderer {
         if (zoom <= 1.0001) {
             return;
         }
-        double viewW = GameConfig.WIDTH / zoom;
+        double viewW = arenaW / zoom;
         double viewH = GameConfig.HEIGHT / zoom;
-        double left = Math.max(0, Math.min(GameConfig.WIDTH - viewW, ship.centerX() - viewW / 2));
+        double left = Math.max(0, Math.min(arenaW - viewW, ship.centerX() - viewW / 2));
         double top = Math.max(0, Math.min(GameConfig.HEIGHT - viewH, ship.centerY() - viewH / 2));
         gc.scale(zoom, zoom);
         gc.translate(-left, -top);
@@ -850,12 +906,12 @@ public final class Renderer {
         double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
         double bar = 72 * bars;
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
-        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+        gc.fillRect(0, 0, arenaW, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
         Color accent = Color.web(ship.loadout().chassis().specialColor());
-        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, windup / 0.25)) * GameConfig.WIDTH * 0.4;
-        double cx = GameConfig.WIDTH / 2 + slide;
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, windup / 0.25)) * arenaW * 0.4;
+        double cx = arenaW / 2 + slide;
         double cy = GameConfig.HEIGHT - 36;
         gc.setGlobalAlpha(Math.min(in, out));
         gc.setTextAlign(TextAlignment.CENTER);
@@ -882,13 +938,13 @@ public final class Renderer {
         double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
         double bar = 72 * bars;
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
-        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+        gc.fillRect(0, 0, arenaW, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
         Color accent = Color.web(level.galaxy().accent());
         String name = level.label().toUpperCase();
-        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * GameConfig.WIDTH * 0.4;
-        double cx = GameConfig.WIDTH / 2 + slide;
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * arenaW * 0.4;
+        double cx = arenaW / 2 + slide;
         double cy = GameConfig.HEIGHT * 0.4;
         gc.setGlobalAlpha(Math.min(in, out));
         gc.setTextAlign(TextAlignment.CENTER);
@@ -907,7 +963,7 @@ public final class Renderer {
         gc.setFont(Font.font(Assets.displayFontFamily(), 20));
         gc.setFill(Color.WHITE);
         gc.fillText(number, cx, cy - 52);
-        gc.setFont(Assets.fitted(level.galaxy().titleFace(), 58, name, GameConfig.WIDTH - 80));
+        gc.setFont(Assets.fitted(level.galaxy().titleFace(), 58, name, arenaW - 80));
         gc.setFill(Color.rgb(0, 0, 0, 0.6));
         gc.fillText(name, cx + 3, cy + 4);
         gc.setFill(accent);
@@ -925,18 +981,18 @@ public final class Renderer {
         double bars = settings.reducedFlash() ? 1 : Math.min(in, out);
         double bar = 72 * bars;
         gc.setFill(Color.BLACK);
-        gc.fillRect(0, 0, GameConfig.WIDTH, bar);
-        gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+        gc.fillRect(0, 0, arenaW, bar);
+        gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
         String name = boss.boss().label().toUpperCase();
         Color accent = Color.web(director.level().galaxy().accent());
-        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * -GameConfig.WIDTH * 0.4;
-        double cx = GameConfig.WIDTH / 2 + slide;
+        double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * -arenaW * 0.4;
+        double cx = arenaW / 2 + slide;
         double cy = GameConfig.HEIGHT * 0.44;
         gc.setGlobalAlpha(Math.min(in, out));
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
-        gc.setFont(Assets.fitted(director.level().galaxy().titleFace(), 54, name, GameConfig.WIDTH - 80));
+        gc.setFont(Assets.fitted(director.level().galaxy().titleFace(), 54, name, arenaW - 80));
         gc.setFill(Color.rgb(0, 0, 0, 0.6));
         gc.fillText(name, cx + 3, cy + 4);
         gc.setFill(Color.WHITE);
@@ -1399,6 +1455,6 @@ public final class Renderer {
 
     public void drawPausedVeil() {
         gc.setFill(Tokens.veil(0.55));
-        gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
+        gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
     }
 }

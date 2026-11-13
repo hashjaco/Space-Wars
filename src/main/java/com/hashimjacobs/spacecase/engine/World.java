@@ -457,7 +457,7 @@ public final class World {
             // pattern, and every rocket already carry sideways velocity, so a y-only test leaks
             // anything that drifts off the left or right edge instead of the bottom.
             boolean gone = bullet.y() + bullet.height() < 0 || bullet.y() > GameConfig.HEIGHT
-                    || bullet.x() + bullet.width() < 0 || bullet.x() > GameConfig.WIDTH;
+                    || bullet.x() + bullet.width() < 0 || bullet.x() > orientation.arenaWidth();
             if (gone) {
                 bullet.kill();
             }
@@ -557,7 +557,7 @@ public final class World {
     }
 
     private void clampToArena(PlayerShip player) {
-        double maxX = GameConfig.WIDTH - player.width();
+        double maxX = orientation.arenaWidth() - player.width();
         double maxY = GameConfig.HEIGHT - player.height();
         double clampedX = Math.max(0, Math.min(maxX, player.x()));
         double clampedY = Math.max(0, Math.min(maxY, player.y()));

@@ -142,9 +142,20 @@ public final class CaptureHarness {
                 Preferences.userRoot().node("space-case-capture-" + System.nanoTime());
         Settings settings = ScratchSettings.on(node);
 
-        Canvas canvas = new Canvas(WIDTH, HEIGHT);
+        // A side-view level is flown in a 1536-wide arena. The frame stays 996x864, which is what
+        // every script in tools/press reads, so the arena is fitted to the width with the sky's
+        // bands above and below -- exactly what GameScreen.fit shows in a window this shape.
+        double shown = Math.min(1, WIDTH / level.orientation().arenaWidth());
+        double band = (HEIGHT / shown - HEIGHT) / 2;
+        Canvas canvas = new Canvas(WIDTH, HEIGHT * shown);
+        canvas.getGraphicsContext2D().setTransform(shown, 0, 0, shown, 0, 0);
         Renderer renderer = new Renderer(canvas.getGraphicsContext2D(), settings);
-        StackPane root = new StackPane(canvas);
+        Canvas bars = new Canvas(WIDTH, HEIGHT);
+        bars.getGraphicsContext2D().setTransform(shown, 0, 0, shown, 0, band * shown);
+        if (band >= 1) {
+            renderer.setBars(bars.getGraphicsContext2D(), 0, band);
+        }
+        StackPane root = new StackPane(canvas, bars);
         // A Scene, but deliberately no Stage: that is what lets this run without a window.
         new Scene(root, WIDTH, HEIGHT, Tokens.SPACE);
         root.applyCss();

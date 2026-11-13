@@ -30,7 +30,10 @@ public enum MusicTrack {
     THE_NEST("the-nest.mp3"),
     THE_LEDGER("the-ledger.mp3"),
     THE_WALL("the-wall.mp3"),
-    THE_STORM_BREAKS("the-storm-breaks.mp3");
+    THE_STORM_BREAKS("the-storm-breaks.mp3"),
+    // Dark horror, for the flagships that are creatures rather than ships (MusicCue.HORROR_BOSS).
+    KILLER_FUCKING_SPACE_DEATH_WORM("killer-fucking-space-death-worm.mp3"),
+    THIS_WORM_FUCKS("this-worm-fucks.mp3");
     // The two heavy tracks play for every flagship (MusicCue.BOSS); see ASSETS.md for origins.
 
 

@@ -1,5 +1,6 @@
 package com.hashimjacobs.spacecase.garage;
 
+import com.hashimjacobs.spacecase.engine.GamepadMapping;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -205,7 +206,9 @@ public final class GarageSession {
                 return true;
             }
         }
-        return false;
+        // A pad direction nobody took -- its bay has launched -- still stops here. Unclaimed, it
+        // would be offered again as an arrow key, and the arrows are the other seat's cursor.
+        return GamepadMapping.menuKey(code) != code;
     }
 
     private void move(Bay bay, int delta) {

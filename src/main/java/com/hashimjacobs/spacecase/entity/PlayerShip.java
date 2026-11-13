@@ -390,7 +390,8 @@ public final class PlayerShip extends Entity {
             case LEFT -> new double[] {Math.max(0, nose - beamReach), centerY() - half,
                     Math.min(beamReach, Math.max(0, nose)), width};
             case RIGHT -> new double[] {nose, centerY() - half,
-                    Math.min(beamReach, Math.max(0, GameConfig.WIDTH - nose)), width};
+                    // Only a side-view level turns a ship to face right, and that arena is the wide one.
+                    Math.min(beamReach, Math.max(0, GameConfig.WIDE_WIDTH - nose)), width};
         };
     }
 

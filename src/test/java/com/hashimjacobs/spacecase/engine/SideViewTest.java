@@ -98,7 +98,7 @@ class SideViewTest {
     @Test
     void aBossHoldsStationOffTheRightWall() {
         World world = sideView(GameMode.SOLO);
-        EnemyShip boss = new EnemyShip(Boss.SENTINEL, GameConfig.WIDTH, 400);
+        EnemyShip boss = new EnemyShip(Boss.SENTINEL, Orientation.RIGHT_TO_LEFT.arenaWidth(), 400);
         world.addEnemy(boss);
 
         for (int tick = 0; tick < 2000; tick++) {
