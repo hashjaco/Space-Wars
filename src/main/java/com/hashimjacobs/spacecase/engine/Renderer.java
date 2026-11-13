@@ -24,6 +24,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.EnemyArt;
@@ -159,9 +160,12 @@ public final class Renderer {
         });
     }
 
-    /** One soft glow under something. The cheap path on Android; the original everywhere else. */
+    /**
+     * One soft glow under something: as an image on Android, where the gradient fill is what makes
+     * the garbage, and as it has always been drawn everywhere else.
+     */
     private void drawHalo(Paint halo, double x, double y, double size) {
-        if (com.hashimjacobs.spacecase.Probe.leanHalos) {
+        if (OnAndroid.ACTIVE) {
             gc.drawImage(haloSprite(halo), x, y, size, size);
             return;
         }
@@ -262,7 +266,7 @@ public final class Renderer {
      * @param level the level whose sky to continue, or null for plain space (the on-foot stages)
      */
     private void drawBars(Level level, int tick) {
-        if (bars == null || com.hashimjacobs.spacecase.Probe.noBars) {
+        if (bars == null) {
             return;
         }
         GraphicsContext arena = gc;
@@ -329,22 +333,22 @@ public final class Renderer {
         }
         // After the sky and before everything solid, so rock sits behind the fight but in front of
         // the parallax. Inside the shake, so it is thrown with the arena rather than against it.
-        if (com.hashimjacobs.spacecase.Probe.stages >= 2) drawTerrain(world);
+        drawTerrain(world);
 
-        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (Asteroid asteroid : world.asteroids()) {
+        for (Asteroid asteroid : world.asteroids()) {
             drawTumble(asteroid, world.tick());
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (PowerUp powerUp : world.powerUps()) {
+        for (PowerUp powerUp : world.powerUps()) {
             drawPowerUp(powerUp);
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (Core core : world.cores()) {
+        for (Core core : world.cores()) {
             drawCore(core, world.tick(), world.coreKnown(core.index()));
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 3) for (World.Wreck wreck : world.wrecks()) {
+        for (World.Wreck wreck : world.wrecks()) {
             Image frame = Assets.bossFrames(wreck.art(), BossArt.State.DEATH).get(wreck.frameAt(world.tick()));
             drawFitted(frame, wreck.x(), wreck.y(), wreck.width(), wreck.height());
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 4) for (EnemyShip enemy : world.enemies()) {
+        for (EnemyShip enemy : world.enemies()) {
             if (enemy.isBoss()) {
                 drawBoss(enemy, world.tick());
             } else {
@@ -355,22 +359,22 @@ public final class Renderer {
             }
             drawHitBar(enemy);
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 5) for (Bullet bullet : world.bullets()) {
+        for (Bullet bullet : world.bullets()) {
             drawBullet(bullet, world.tick());
         }
         // Between the bullets and the hulls, so a ship is drawn over its own muzzle rather than
         // sitting behind the beam it is firing.
-        if (com.hashimjacobs.spacecase.Probe.stages >= 6) for (PlayerShip player : world.players()) {
+        for (PlayerShip player : world.players()) {
             drawBeam(player, world.tick());
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 6) for (PlayerShip player : world.players()) {
+        for (PlayerShip player : world.players()) {
             drawPlayer(player, world.tick());
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 7) for (ActiveExplosion explosion : world.explosions()) {
+        for (ActiveExplosion explosion : world.explosions()) {
             Image frame = explosion.currentFrame();
             gc.drawImage(frame, explosion.drawX(), explosion.drawY(), explosion.size(), explosion.size());
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 7) drawParticles(world);
+        drawParticles(world);
         if (windup >= 0) {
             drawSpecialCharge(caster, windup, world.tick());
         }
@@ -382,7 +386,7 @@ public final class Renderer {
             gc.setFill(Color.color(1, 1, 1, flash * 0.75));
             gc.fillRect(0, 0, GameConfig.WIDTH, GameConfig.HEIGHT);
         }
-        if (com.hashimjacobs.spacecase.Probe.stages >= 8) drawVignette();
+        drawVignette();
         if (mood > 0 && !settings.reducedFlash()) {
             gc.setGlobalAlpha(mood);
             gc.setFill(VIGNETTE);
@@ -396,9 +400,7 @@ public final class Renderer {
         if (windup >= 0 && settings.cinematic()) {
             drawSpecialCard(caster, windup);
         }
-        if (!com.hashimjacobs.spacecase.Probe.noHud) {
-            hud.draw(world, director);
-        }
+        hud.draw(world, director);
     }
 
     /**
@@ -1230,7 +1232,7 @@ public final class Renderer {
             // Behind the hull, so the nozzles sit over the root of the flame.
             drawFlame(player, hull, sideOn, hullDegrees, tick);
         }
-        if (settings.cinematic() && !com.hashimjacobs.spacecase.Probe.leanHull) {
+        if (settings.cinematic()) {
             // The hull's shadow on the sky, then the hull lit.
             gc.save();
             gc.setEffect(SILHOUETTE);

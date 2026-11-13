@@ -146,22 +146,6 @@ public final class SceneRouter {
         shell.getChildren().add(stage2d);
 
         com.hashimjacobs.spacecase.PlatformLifecycle.start(this::onBackground, this::onForeground);
-        if (OnAndroid.ACTIVE) {
-            // TEMPORARY: the title menu's own garbage, shown and then taken out of the scene.
-            javafx.animation.Timeline probe = new javafx.animation.Timeline(
-                    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(40), e -> com.hashimjacobs.spacecase.Probe.phase("menu as shown")),
-                    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(48), e -> {
-                        com.hashimjacobs.spacecase.Probe.phase("menu, screen detached");
-                        shell.getChildren().remove(stage2d);
-                    }),
-                    new javafx.animation.KeyFrame(javafx.util.Duration.seconds(56), e -> {
-                        com.hashimjacobs.spacecase.Probe.phase("menu, reattached");
-                        if (!shell.getChildren().contains(stage2d)) {
-                            shell.getChildren().add(stage2d);
-                        }
-                    }));
-            probe.play();
-        }
     }
 
     /** Whether going to the background paused a level, which then stays paused on the way back. */

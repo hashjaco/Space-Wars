@@ -119,9 +119,6 @@ final class GameScreen {
         // pass, and resizing a canvas there changes bounds the pass has already read. On the Shield
         // that left the whole game screen drawn at five eighths size until something else -- hiding
         // and showing a node was enough -- forced a clean layout.
-        if (OnAndroid.ACTIVE) {
-            probe(canvas, barGroup);
-        }
         Runnable fitBars = () -> javafx.application.Platform.runLater(() -> {
             fitBars(bars, barShrink, barGroup, renderer);
             root.requestLayout();
@@ -202,36 +199,6 @@ final class GameScreen {
         GraphicsContext gc = bars.getGraphicsContext2D();
         gc.setTransform(factor, 0, 0, factor, side * factor, 0);
         renderer.setBars(side < 1 ? null : gc, side);
-    }
-
-    /** TEMPORARY: steps the level through {@link com.hashimjacobs.spacecase.Probe}'s switches. */
-    private void probe(Canvas canvas, Group barGroup) {
-        // Fifteen seconds of play to fill the arena, then the world is frozen and the same moment
-        // is drawn every frame with one more stage each time, six seconds apiece.
-        String[] names = {"A  as it was", "B  halos as images", "C  + hull without shadow and glow", "D  + no HUD",
-            "E  as it was, again", "F  both fixes, HUD on"};
-        Runnable[] steps = {
-            () -> { },
-            () -> com.hashimjacobs.spacecase.Probe.leanHalos = true,
-            () -> com.hashimjacobs.spacecase.Probe.leanHull = true,
-            () -> com.hashimjacobs.spacecase.Probe.noHud = true,
-            () -> { com.hashimjacobs.spacecase.Probe.leanHalos = false; com.hashimjacobs.spacecase.Probe.leanHull = false; com.hashimjacobs.spacecase.Probe.noHud = false; },
-            () -> { com.hashimjacobs.spacecase.Probe.leanHalos = true; com.hashimjacobs.spacecase.Probe.leanHull = true; },
-        };
-        javafx.animation.Timeline timeline = new javafx.animation.Timeline();
-        for (int i = 0; i < names.length; i++) {
-            int stage = i;
-            timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 8 * i), event -> {
-                com.hashimjacobs.spacecase.Probe.freeze = true;
-                steps[stage].run();
-                com.hashimjacobs.spacecase.Probe.phase(names[stage]);
-            }));
-        }
-        timeline.getKeyFrames().add(new javafx.animation.KeyFrame(javafx.util.Duration.seconds(15 + 8 * names.length), event -> {
-            com.hashimjacobs.spacecase.Probe.freeze = false;
-            com.hashimjacobs.spacecase.Probe.phase("unfrozen, both fixes on");
-        }));
-        timeline.play();
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
