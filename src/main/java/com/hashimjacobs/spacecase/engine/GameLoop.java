@@ -223,7 +223,6 @@ public final class GameLoop {
     private long lastFrameNanos;
     private long meterWindowStart;
     private double worstMs;
-    private int framesThisWindow;
     private int worstSteps;
     private double shownMs;
     private int shownSteps;
@@ -543,14 +542,7 @@ public final class GameLoop {
         }
         lastFrameNanos = frameNanos;
 
-        framesThisWindow++;
         if (frameNanos - meterWindowStart >= METER_WINDOW_NANOS) {
-            if (com.hashimjacobs.spacecase.OnAndroid.ACTIVE) {
-                // TEMPORARY: frame times to logcat while the Shield build is being tuned.
-                System.err.println(String.format("[perf] %d frames, worst %.1f ms x%d, %s",
-                        framesThisWindow, worstMs, worstSteps, phase));
-            }
-            framesThisWindow = 0;
             shownMs = worstMs;
             shownSteps = worstSteps;
             worstMs = 0;
