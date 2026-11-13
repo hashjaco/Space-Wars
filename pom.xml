@@ -6,7 +6,7 @@
 
   <groupId>com.hashimjacobs</groupId>
   <artifactId>space-case</artifactId>
-  <version>2.5</version>
+  <version>2.6</version>
   <packaging>jar</packaging>
   <name>Space Case</name>
 
