@@ -4,10 +4,12 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Function;
 
 import javafx.scene.input.KeyCode;
 
 import com.hashimjacobs.spacecase.prefs.ControlAction;
+import com.hashimjacobs.spacecase.prefs.PadAction;
 import com.hashimjacobs.spacecase.prefs.PadButton;
 
 /**
@@ -53,6 +55,42 @@ public final class GamepadMapping {
      */
     public static final KeyCode MENU_CANCEL = KeyCode.CANCEL;
 
+    /**
+     * What the stick and d-pad speak: four codes per pad that no keyboard sends, in the order up,
+     * down, left, right.
+     *
+     * They used to speak each seat's default movement keys, which worked until a pilot rebound
+     * those keys -- the pad went on pressing W, and W no longer meant up. A pad direction is not a
+     * keyboard key and must not depend on one. {@link PlayerControls} adds these to each seat's
+     * directions, so flight, the garage and the stage on foot all follow the stick whatever the
+     * keyboard is bound to; {@link MenuRepeat} offers a menu the matching arrow key.
+     */
+    private static final KeyCode[][] DIRECTIONS = {
+            {KeyCode.SOFTKEY_0, KeyCode.SOFTKEY_1, KeyCode.SOFTKEY_2, KeyCode.SOFTKEY_3},
+            {KeyCode.SOFTKEY_4, KeyCode.SOFTKEY_5, KeyCode.SOFTKEY_6, KeyCode.SOFTKEY_7}};
+    private static final KeyCode[] ARROWS = {KeyCode.UP, KeyCode.DOWN, KeyCode.LEFT, KeyCode.RIGHT};
+
+    /**
+     * The code this player's pad sends for a direction, or null for an action that is not one.
+     *
+     * @param player one or two
+     */
+    public static KeyCode direction(int player, ControlAction action) {
+        return action.ordinal() < ARROWS.length ? DIRECTIONS[player - 1][action.ordinal()] : null;
+    }
+
+    /** The arrow key a menu should read a pad direction as; any other code comes back unchanged. */
+    public static KeyCode menuKey(KeyCode code) {
+        for (KeyCode[] pad : DIRECTIONS) {
+            for (int way = 0; way < pad.length; way++) {
+                if (pad[way] == code) {
+                    return ARROWS[way];
+                }
+            }
+        }
+        return code;
+    }
+
     public record KeyChange(KeyCode code, boolean pressed) {
     }
 
@@ -60,21 +98,15 @@ public final class GamepadMapping {
     private final KeyCode down;
     private final KeyCode left;
     private final KeyCode right;
-    private final KeyCode fire;
     private final KeyCode confirm;
-    /** On-foot keys: X, Y, B and the right bumper. Fixed for the trial stage, so not rebindable. */
-    private final KeyCode punch;
-    private final KeyCode kick;
-    private final KeyCode special;
-    private final KeyCode guard;
 
     private final Set<KeyCode> held = EnumSet.noneOf(KeyCode.class);
     private final Set<PadButton> previousButtons = EnumSet.noneOf(PadButton.class);
     private int polls;
 
     /**
-     * Slot 0 drives player one and slot 1 player two, using each player's existing keys from
-     * {@link PlayerControls} so the pad and the keyboard are interchangeable mid-game.
+     * Slot 0 drives player one and slot 1 player two. Buttons hold down that player's own keys, as
+     * bound at the moment of the poll, so the pad and the keyboard are interchangeable mid-game.
      *
      * The fire button yields two keys: the player's fire key, which is held, plus a menu confirm
      * key, which is tapped. That is what lets one button both shoot and choose a menu item without
@@ -86,29 +118,34 @@ public final class GamepadMapping {
      * menus a notion of which pad owns the cursor only if players complain.
      */
     public GamepadMapping(int slot) {
-        boolean playerOne = slot == 0;
-        up = playerOne ? KeyCode.W : KeyCode.UP;
-        down = playerOne ? KeyCode.S : KeyCode.DOWN;
-        left = playerOne ? KeyCode.A : KeyCode.LEFT;
-        right = playerOne ? KeyCode.D : KeyCode.RIGHT;
-        fire = playerOne ? KeyCode.SHIFT : KeyCode.COMMA;
-        confirm = playerOne ? KeyCode.SPACE : KeyCode.ENTER;
-        int player = slot + 1;
-        punch = ControlAction.PUNCH.defaultKey(player);
-        kick = ControlAction.KICK.defaultKey(player);
-        special = ControlAction.SPECIAL.defaultKey(player);
-        guard = ControlAction.GUARD.defaultKey(player);
+        up = DIRECTIONS[slot][0];
+        down = DIRECTIONS[slot][1];
+        left = DIRECTIONS[slot][2];
+        right = DIRECTIONS[slot][3];
+        // Enter for both pads, never Space: Space is also a lone player one's second fire key, and
+        // in the garage fire buys -- so a Space tap riding on the fire button bought two levels
+        // with every press. Enter is nobody's fire key, and the garage ignores it on purpose.
+        confirm = KeyCode.ENTER;
     }
 
-    /** Returns the changes to apply, in the order they must be applied. */
-    public List<KeyChange> poll(PadState state, double deadzone, PadButton fireButton,
-                                PadButton pauseButton) {
+    /**
+     * Returns the changes to apply, in the order they must be applied.
+     *
+     * @param buttons which button this pad has each action on
+     * @param keys    which key this player has each keyboard action on; a held button holds that
+     *                key, so the pad follows a keyboard rebind instead of being broken by it
+     */
+    public List<KeyChange> poll(PadState state, double deadzone,
+                                Function<PadAction, PadButton> buttons,
+                                Function<ControlAction, KeyCode> keys) {
         if (!state.connected()) {
             List<KeyChange> releases = releaseEverything();
             return releases;
         }
+        PadButton fireButton = buttons.apply(PadAction.FIRE);
+        PadButton pauseButton = buttons.apply(PadAction.PAUSE);
 
-        Set<KeyCode> wanted = wantedKeys(state, deadzone, fireButton);
+        Set<KeyCode> wanted = wantedKeys(state, deadzone, buttons, keys);
         List<KeyChange> changes = new ArrayList<>();
 
         for (KeyCode code : held) {
@@ -157,16 +194,47 @@ public final class GamepadMapping {
      * the ship drifting, the same hazard the focus-loss guard in {@link InputState} protects against.
      */
     public List<KeyChange> releaseEverything() {
+        List<KeyChange> changes = releaseKeys();
+        previousButtons.clear();
+        return changes;
+    }
+
+    /**
+     * Lets go of the keys but remembers which buttons are down, for the moment the controller
+     * screen starts listening: the button that chose the row is still held, and forgetting it would
+     * make it look newly pressed and bind it on the spot.
+     */
+    public List<KeyChange> releaseKeys() {
         List<KeyChange> changes = new ArrayList<>();
         for (KeyCode code : held) {
             changes.add(new KeyChange(code, false));
         }
         held.clear();
-        previousButtons.clear();
         return changes;
     }
 
-    private Set<KeyCode> wantedKeys(PadState state, double deadzone, PadButton fireButton) {
+    /**
+     * The button that has just gone down, or null. Stands in for {@link #poll} while the controller
+     * screen is waiting for a button, and sends no keys -- otherwise the button being bound would
+     * also confirm, cancel or pause on its way past.
+     */
+    public PadButton capture(PadState state) {
+        PadButton fresh = null;
+        // In enum order rather than the set's, so two buttons landing in one poll bind the same
+        // one every time.
+        for (PadButton button : PadButton.values()) {
+            if (fresh == null && justPressed(state, button)) {
+                fresh = button;
+            }
+        }
+        previousButtons.clear();
+        previousButtons.addAll(state.pressed());
+        return fresh;
+    }
+
+    private Set<KeyCode> wantedKeys(PadState state, double deadzone,
+                                    Function<PadAction, PadButton> buttons,
+                                    Function<ControlAction, KeyCode> keys) {
         Set<KeyCode> wanted = EnumSet.noneOf(KeyCode.class);
         if (state.dpadUp() || pushedPast(-state.leftStickY(), deadzone, up)) {
             wanted.add(up);
@@ -180,22 +248,13 @@ public final class GamepadMapping {
         if (state.dpadRight() || pushedPast(state.leftStickX(), deadzone, right)) {
             wanted.add(right);
         }
-        if (state.isPressed(fireButton)) {
-            wanted.add(fire);
-        }
-        // Always sent, whatever screen is up: nothing in flight reads them, and the stage on foot
-        // reads nothing else. That is what saves the pad layer from knowing which one is running.
-        if (state.isPressed(PadButton.X)) {
-            wanted.add(punch);
-        }
-        if (state.isPressed(PadButton.Y)) {
-            wanted.add(kick);
-        }
-        if (state.isPressed(PadButton.B)) {
-            wanted.add(special);
-        }
-        if (state.isPressed(PadButton.RIGHT_BUMPER)) {
-            wanted.add(guard);
+        // Always sent, whatever screen is up: nothing in flight reads the on-foot keys, and the
+        // stage on foot reads nothing else. That is what saves the pad layer from knowing which one
+        // is running.
+        for (PadAction action : PadAction.values()) {
+            if (action.key() != null && state.isPressed(buttons.apply(action))) {
+                wanted.add(keys.apply(action.key()));
+            }
         }
         return wanted;
     }

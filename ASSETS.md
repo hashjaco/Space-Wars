@@ -148,6 +148,8 @@ rather than a remaster.
 | `dogfight-protocol.mp3` | Hashim Jacobs (Suno) | `BATTLE`, alongside the riot variant |
 | `event-horizon.mp3` | Hashim Jacobs (Suno) | `NULL`'s signature |
 | `aeons-end.mp3` | Hashim Jacobs (Suno) | `AEON_BOSS`: Aeon's own theme, orchestral metal with a wordless choir |
+| `killer-fucking-space-death-worm.mp3` | Hashim Jacobs | `HORROR_BOSS`: the creature flagships (worms, the Hydra, the Null's monsters). Dark horror |
+| `this-worm-fucks.mp3` | Hashim Jacobs | `HORROR_BOSS`, alongside the above |
 | `morning-after-the-dark.mp3` | Hashim Jacobs (Suno) | The ending cutscene's theme (`scene.Cutscene.ENDING`), no cue: orchestral synthwave from a quiet piano opening to a sunrise swell |
 | `kestrel-station.mp3` | Hashim Jacobs (Suno) | The intro's score, no cue: radio static and lonely piano building to the launch |
 | `the-nest.mp3` | Hashim Jacobs (Suno) | Scored for the scene after Verdance: wet jungle ambience, a mournful middle, a smuggler's bassline |

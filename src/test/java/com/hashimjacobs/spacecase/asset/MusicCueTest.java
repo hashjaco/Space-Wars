@@ -37,8 +37,9 @@ class MusicCueTest {
 
     @Test
     void heavyTracksOnlyPlayForBosses() {
-        Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK, MusicTrack.AEONS_END);
-        Set<MusicCue> hard = EnumSet.of(MusicCue.BOSS, MusicCue.AEON_BOSS);
+        Set<MusicTrack> heavy = EnumSet.of(MusicTrack.DEATH_METAL, MusicTrack.DEATH_PUNK, MusicTrack.AEONS_END,
+                MusicTrack.KILLER_FUCKING_SPACE_DEATH_WORM, MusicTrack.THIS_WORM_FUCKS);
+        Set<MusicCue> hard = EnumSet.of(MusicCue.BOSS, MusicCue.AEON_BOSS, MusicCue.HORROR_BOSS);
         for (MusicCue cue : MusicCue.values()) {
             if (hard.contains(cue)) {
                 assertTrue(heavy.containsAll(cue.tracks()), cue + " should be metal or hard rock only");
@@ -83,9 +84,22 @@ class MusicCueTest {
 
     @Test
     void everyBossGetsTheHeavyCue() {
+        Set<MusicCue> bossCues = EnumSet.of(MusicCue.BOSS, MusicCue.AEON_BOSS, MusicCue.HORROR_BOSS);
         for (Boss boss : Boss.values()) {
-            assertEquals(boss == Boss.AEON ? MusicCue.AEON_BOSS : MusicCue.BOSS, boss.music(), boss.name());
+            assertTrue(bossCues.contains(boss.music()), boss.name());
+            assertEquals(boss == Boss.AEON, boss.music() == MusicCue.AEON_BOSS, boss.name());
         }
+    }
+
+    /** The monsters get the horror tracks; a warship does not. */
+    @Test
+    void theCreaturesGetTheHorrorCue() {
+        assertEquals(MusicCue.HORROR_BOSS, Boss.DUNE_LEVIATHAN.music());
+        assertEquals(MusicCue.HORROR_BOSS, Boss.HYDRA.music());
+        assertEquals(MusicCue.HORROR_BOSS, Boss.GULLET.music());
+        assertEquals(MusicCue.BOSS, Boss.SENTINEL.music());
+        assertEquals(MusicCue.BOSS, Boss.EXODUS_DREADNOUGHT.music());
+        assertTrue(MusicCue.HORROR_BOSS.tracks().size() >= 2, "two songs, so two monsters differ");
     }
 
     @Test

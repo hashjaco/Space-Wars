@@ -51,6 +51,13 @@ public enum MusicCue {
      */
     BOSS(MusicTrack.DEATH_PUNK, MusicTrack.DEATH_METAL),
 
+    /**
+     * The flagships that are monsters rather than machines: the worms, the Hydra, the things in the
+     * Null. Dark horror in place of the metal, so the screen filling with teeth sounds like it.
+     * Which flagships those are is {@code Boss.music()}'s to say.
+     */
+    HORROR_BOSS(MusicTrack.KILLER_FUCKING_SPACE_DEATH_WORM, MusicTrack.THIS_WORM_FUCKS),
+
     /** The between-levels garage, between the debrief and the warp. */
     GARAGE(MusicTrack.GARAGE_MUSIC),
 

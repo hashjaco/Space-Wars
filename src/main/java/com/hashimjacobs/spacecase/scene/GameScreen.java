@@ -46,7 +46,6 @@ final class GameScreen {
     private final SaveGames saves;
     private final MenuButton[] slotButtons = new MenuButton[SaveGames.SLOTS];
     private MenuNavigator pauseNavigator;
-    private MenuNavigator settingsNavigator;
     private SettingsPanel settingsPanel;
     private MenuNavigator saveNavigator;
 
@@ -102,76 +101,89 @@ final class GameScreen {
         this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();
 
-        // Over the arena and transparent across it: the room either side of the arena on a screen
-        // wider than it. Empty, and the renderer told there are none, at the arena's own shape.
+        // Over the arena and transparent across it: the room around the arena on a screen that is
+        // not its shape. Empty, and the renderer told there are none, where the arena fills it.
         Canvas bars = new Canvas(0, 0);
         bars.setMouseTransparent(true);
         Scale barShrink = new Scale(1, 1);
         bars.getTransforms().add(barShrink);
         Group barGroup = new Group(bars);
+        Scale arenaShrink = new Scale(1, 1);
+        canvas.getTransforms().add(arenaShrink);
+        Group arenaGroup = new Group(canvas);
 
-        root = new StackPane(sharp(canvas), barGroup, pauseLayer, settingsLayer, saveLayer);
+        root = new StackPane(arenaGroup, barGroup, pauseLayer, settingsLayer, saveLayer);
         root.setPrefSize(GameConfig.WIDTH, GameConfig.HEIGHT);
         root.setStyle("-fx-background-color: black;");
 
-        Runnable fitBars = () -> fitBars(bars, barShrink, barGroup, renderer);
-        root.widthProperty().addListener((observable, old, width) -> fitBars.run());
-        barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fitBars.run());
+        // Deferred, never run inside the listener: both properties change in the middle of a layout
+        // pass, and resizing a canvas there changes bounds the pass has already read. On an Android
+        // TV that left the whole game screen drawn at five eighths size until something else forced
+        // a clean layout.
+        Runnable fit = () -> javafx.application.Platform.runLater(() -> {
+            fit(canvas, arenaShrink, bars, barShrink, barGroup, renderer);
+            root.requestLayout();
+        });
+        root.widthProperty().addListener((observable, old, width) -> fit.run());
+        barGroup.localToSceneTransformProperty().addListener((observable, old, transform) -> fit.run());
+        // A side-view level is flown in a wider arena than a top-down one, so the fit changes
+        // between levels as well as with the window.
+        renderer.setOnArenaResized(fit);
 
         input.setOnPausePressed(this::togglePause);
     }
 
     /**
-     * Keeps the canvas rasterizing at the size it is shown rather than at 996x864.
+     * Fits the arena to the room the router gave this screen, and the bars to what is left over.
      *
-     * The router scales the whole screen to fit the window, and a canvas scaled as a node is a
-     * stretched bitmap. So the canvas grows by that same factor, shrinks back by a transform the
-     * Group hides from layout, and the renderer's base transform scales every draw call up to
-     * match: it still draws in arena units and never knows. Safe because the renderer balances
-     * every save with a restore and never calls setTransform itself.
+     * The arena is {@link Renderer#arenaWidth} by 864 in its own units: 996 wide for a top-down
+     * level, 1536 for a side-view one. It is shown as large as fits. Wider room than that leaves
+     * bars at the sides; a 1536 arena in narrower room is shrunk to the width and leaves bands
+     * above and below. Never both.
+     *
+     * Both canvases rasterize at the size they are shown rather than being stretched: the router
+     * scales the whole screen to fit the window, and a canvas scaled as a node is a stretched
+     * bitmap. So each grows by the scale it is shown at, shrinks back by a transform its Group
+     * hides from layout, and carries a base transform that scales every draw call to match -- the
+     * renderer still draws in arena units and never knows. Safe because the renderer balances every
+     * save with a restore and never calls setTransform itself. The bar canvas's origin is moved to
+     * the arena's top-left corner, so the bars are at negative coordinates and past the far edges.
      */
-    private static Group sharp(Canvas canvas) {
-        Scale shrink = new Scale(1, 1);
-        canvas.getTransforms().add(shrink);
-        Group group = new Group(canvas);
-        group.localToSceneTransformProperty().addListener((observable, old, transform) -> {
-            double factor = transform.getMxx();     // the router scales uniformly and never rotates
-            if (factor <= 0 || !Double.isFinite(factor) || factor == 1 / shrink.getX()) {
-                return;
-            }
-            canvas.setWidth(GameConfig.WIDTH * factor);
-            canvas.setHeight(GameConfig.HEIGHT * factor);
-            shrink.setX(1 / factor);
-            shrink.setY(1 / factor);
-            canvas.getGraphicsContext2D().setTransform(factor, 0, 0, factor, 0, 0);
-        });
-        return group;
-    }
-
-    /**
-     * Sizes the side-bar canvas to the room the router gave this screen beyond the arena, at the
-     * scale the screen is shown at -- the same sharpness bargain {@link #sharp} makes. Its origin
-     * is moved to the arena's top-left corner, so the renderer draws the bars in arena units with
-     * the left one at negative x.
-     */
-    private void fitBars(Canvas bars, Scale shrink, Group group, Renderer renderer) {
-        double factor = group.getLocalToSceneTransform().getMxx();
+    private void fit(Canvas arena, Scale arenaShrink, Canvas bars, Scale barShrink, Group group,
+                     Renderer renderer) {
+        double factor = group.getLocalToSceneTransform().getMxx();   // the router scales uniformly
         if (factor <= 0 || !Double.isFinite(factor)) {
             factor = 1;
         }
-        double side = Math.max(0, Math.floor((root.getWidth() - GameConfig.WIDTH) / 2));
-        double width = side < 1 ? 0 : (GameConfig.WIDTH + 2 * side) * factor;
-        double height = side < 1 ? 0 : GameConfig.HEIGHT * factor;
-        if (bars.getWidth() == width && bars.getHeight() == height) {
+        double arenaWidth = renderer.arenaWidth();
+        double room = Math.max(GameConfig.WIDTH, root.getWidth());
+        double shown = Math.min(1, room / arenaWidth);      // stage units per arena unit
+        double pixels = factor * shown;                     // canvas pixels per arena unit
+        double side = shown < 1 ? 0 : Math.max(0, Math.floor((room - arenaWidth) / 2));
+        double band = (GameConfig.HEIGHT / shown - GameConfig.HEIGHT) / 2;
+        boolean barred = side >= 1 || band >= 1;
+
+        double width = arenaWidth * pixels;
+        double height = GameConfig.HEIGHT * pixels;
+        double barWidth = barred ? (arenaWidth + 2 * side) * pixels : 0;
+        double barHeight = barred ? (GameConfig.HEIGHT + 2 * band) * pixels : 0;
+        if (arena.getWidth() == width && arena.getHeight() == height
+                && bars.getWidth() == barWidth && bars.getHeight() == barHeight) {
             return;
         }
-        bars.setWidth(width);
-        bars.setHeight(height);
-        shrink.setX(1 / factor);
-        shrink.setY(1 / factor);
+        arena.setWidth(width);
+        arena.setHeight(height);
+        arenaShrink.setX(1 / factor);
+        arenaShrink.setY(1 / factor);
+        arena.getGraphicsContext2D().setTransform(pixels, 0, 0, pixels, 0, 0);
+
+        bars.setWidth(barWidth);
+        bars.setHeight(barHeight);
+        barShrink.setX(1 / factor);
+        barShrink.setY(1 / factor);
         GraphicsContext gc = bars.getGraphicsContext2D();
-        gc.setTransform(factor, 0, 0, factor, side * factor, 0);
-        renderer.setBars(side < 1 ? null : gc, side);
+        gc.setTransform(pixels, 0, 0, pixels, side * pixels, band * pixels);
+        renderer.setBars(barred ? gc : null, side, band);
     }
 
     private VBox buildPauseLayer(Runnable onQuitToMenu) {
@@ -200,7 +212,6 @@ final class GameScreen {
         layer.setAlignment(Pos.CENTER);
         SettingsPanel panel = new SettingsPanel(settings, sounds, padStatus, this::showPauseMenu);
         this.settingsPanel = panel;
-        settingsNavigator = panel.navigator(this::showPauseMenu);
         layer.getChildren().addAll(MenuTitle.plate("SETTINGS", Tokens.SIZE_OVERLAY_TITLE), panel);
         layer.setBackground(veil());
         layer.setVisible(false);
@@ -304,7 +315,7 @@ final class GameScreen {
         pauseLayer.setVisible(false);
         settingsPanel.refresh();
         settingsLayer.setVisible(true);
-        input.setMenuRouter(settingsNavigator::handleKey);
+        input.setMenuRouter(settingsPanel::handleKey);
     }
 
     private void showPauseMenu() {

@@ -173,7 +173,8 @@ class PlayerShipTest {
         PlayerShip right = new PlayerShip(1, "TESTER", Facing.RIGHT, 100, 400);
         double[] sideways = right.beamBox();
         assertEquals(GameConfig.BEAM_WIDTH, sideways[3], "a side-on beam is BEAM_WIDTH tall");
-        assertEquals(GameConfig.WIDTH, sideways[0] + sideways[2], 0.001, "reaching the right wall");
+        // A ship faces right only in a side-view level, whose arena is the wide one.
+        assertEquals(GameConfig.WIDE_WIDTH, sideways[0] + sideways[2], 0.001, "reaching the right wall");
         assertEquals(right.centerY(), sideways[1] + sideways[3] / 2, 0.001);
     }
 

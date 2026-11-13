@@ -106,6 +106,11 @@ final class ControlsPanel extends VBox {
         if (armed == null || code == KeyCode.ESCAPE || code == GamepadMapping.MENU_CANCEL) {
             return false;
         }
+        // A pad's stick is not a key either. Swallowed rather than refused, or it would come round
+        // again as an arrow key and bind that.
+        if (GamepadMapping.menuKey(code) != code) {
+            return true;
+        }
         ControlAction clash = settings.keyClash(armedPlayer, armedAction, code);
         if (clash != null) {
             notice = code.getName() + " is already " + clash.label();

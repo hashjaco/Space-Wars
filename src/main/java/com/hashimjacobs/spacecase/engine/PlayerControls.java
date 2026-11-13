@@ -83,13 +83,19 @@ public record PlayerControls(
 
     private static Set<KeyCode> keys(Settings settings, int player, boolean solo,
                                      ControlAction action) {
-        KeyCode bound = settings.key(player, action);
+        // A set, so the alternate a pilot has bound outright is simply not there twice.
+        Set<KeyCode> keys = new java.util.HashSet<>();
+        keys.add(settings.key(player, action));
         KeyCode alternate = action.alternate(player, solo);
-        // The alternate is dropped when a pilot has bound that very key, so the set stays a set and
-        // an unbound-looking duplicate never appears.
-        return alternate == null || alternate == bound
-                ? Set.of(bound)
-                : Set.of(bound, alternate);
+        if (alternate != null) {
+            keys.add(alternate);
+        }
+        // The pad's stick and d-pad, which answer to no keyboard key and so survive any rebind.
+        KeyCode pad = GamepadMapping.direction(player, action);
+        if (pad != null) {
+            keys.add(pad);
+        }
+        return Set.copyOf(keys);
     }
 
     public boolean anyHeld(InputState input, Set<KeyCode> codes) {

@@ -51,12 +51,15 @@ class PreferencesRoundTripTest {
         Settings fresh = Settings.load(scratch);
         assertTrue(fresh.cinematic(), "cinematic lighting is on by default");
         assertFalse(fresh.filmGrain(), "film grain is off by default");
+        assertTrue(fresh.mirroredSides(), "mirrored sides are on by default");
+        fresh.setMirroredSides(false);
         fresh.setCinematic(false);
         fresh.setFilmGrain(true);
         fresh.save();
         Settings reloaded = Settings.load(scratch);
         assertFalse(reloaded.cinematic());
         assertTrue(reloaded.filmGrain());
+        assertFalse(reloaded.mirroredSides());
     }
 
     @Test
@@ -89,16 +92,63 @@ class PreferencesRoundTripTest {
         Settings saved = Settings.load(scratch);
         saved.setGamepadEnabled(false);
         saved.setGamepadDeadzone(0.45);
-        saved.setGamepadFireButton(1, PadButton.RIGHT_BUMPER);
-        saved.setGamepadPauseButton(1, PadButton.BACK);
+        saved.setPadButton(1, PadAction.FIRE, PadButton.RIGHT_TRIGGER);
+        saved.setPadButton(1, PadAction.PAUSE, PadButton.BACK);
+        saved.setPadButton(2, PadAction.PUNCH, PadButton.C_LEFT);
+        saved.setPadLayout(2, "N64");
         saved.save();
 
         Settings reloaded = Settings.load(scratch);
 
         assertFalse(reloaded.gamepadEnabled());
         assertEquals(0.45, reloaded.gamepadDeadzone(), 1e-9);
-        assertEquals(PadButton.RIGHT_BUMPER, reloaded.gamepadFireButton(1));
-        assertEquals(PadButton.BACK, reloaded.gamepadPauseButton(1));
+        assertEquals(PadButton.RIGHT_TRIGGER, reloaded.padButton(1, PadAction.FIRE));
+        assertEquals(PadButton.BACK, reloaded.padButton(1, PadAction.PAUSE));
+        assertEquals(PadButton.C_LEFT, reloaded.padButton(2, PadAction.PUNCH));
+        assertEquals(PadButton.X, reloaded.padButton(1, PadAction.PUNCH), "each pad has its own");
+        assertEquals("N64", reloaded.padLayout(2));
+        assertEquals("", reloaded.padLayout(1), "unchosen means go by the pad's own name");
+    }
+
+    /** Every action starts on the button it was fixed to before any of them could be moved. */
+    @Test
+    void padActionsStartOnTheirDefaults() {
+        Settings settings = Settings.load(scratch);
+        for (PadAction action : PadAction.values()) {
+            assertEquals(action.defaultButton(), settings.padButton(1, action), action.name());
+        }
+    }
+
+    /** Rebinding is a swap, so no action is left without a button and no button does two things. */
+    @Test
+    void bindingATakenPadButtonSwapsTheTwoActions() {
+        Settings settings = Settings.load(scratch);
+
+        settings.setPadButton(1, PadAction.FIRE, PadButton.X);
+
+        assertEquals(PadButton.X, settings.padButton(1, PadAction.FIRE));
+        assertEquals(PadButton.A, settings.padButton(1, PadAction.PUNCH),
+                "punch was on X and takes the button fire gave up");
+    }
+
+    /**
+     * A store from before the controller screen holds only fire and pause, under their old names.
+     * Fire on X was legal then and collides with punch now; fire keeps it, since fire is the one
+     * the pilot chose.
+     */
+    @Test
+    void aStoreFromBeforePadActionsLoadsWithoutTwoActionsOnOneButton() {
+        scratch.put("gamepadFireButton", "X");
+        scratch.put("gamepadPauseButton", "BACK");
+
+        Settings settings = Settings.load(scratch);
+
+        assertEquals(PadButton.X, settings.padButton(1, PadAction.FIRE));
+        assertEquals(PadButton.BACK, settings.padButton(1, PadAction.PAUSE));
+        java.util.Set<PadButton> used = java.util.EnumSet.noneOf(PadButton.class);
+        for (PadAction action : PadAction.values()) {
+            assertTrue(used.add(settings.padButton(1, action)), action + " shares a button");
+        }
     }
 
     @Test
@@ -116,14 +166,7 @@ class PreferencesRoundTripTest {
     void anUnknownStoredPadButtonFallsBackToTheDefault() {
         scratch.put("gamepadFireButton", "PADDLE_7");
         Settings settings = Settings.load(scratch);
-        assertEquals(PadButton.A, settings.gamepadFireButton(1));
-    }
-
-    @Test
-    void padButtonsCycleThroughEveryChoiceAndWrap() {
-        assertEquals(PadButton.B, PadButton.A.next());
-        PadButton[] all = PadButton.values();
-        assertEquals(PadButton.A, all[all.length - 1].next(), "cycling wraps around");
+        assertEquals(PadButton.A, settings.padButton(1, PadAction.FIRE));
     }
 
     @Test

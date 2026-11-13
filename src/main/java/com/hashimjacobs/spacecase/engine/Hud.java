@@ -73,6 +73,13 @@ final class Hud {
         this.settings = settings;
     }
 
+    /** The width of the arena being drawn; see {@code Renderer.arenaWidth}. */
+    private double arenaW = GameConfig.WIDTH;
+
+    void setArenaWidth(double width) {
+        this.arenaW = width;
+    }
+
     void setBars(GraphicsContext bars, double side) {
         this.bars = bars;
         this.side = side;
@@ -96,7 +103,7 @@ final class Hud {
         try {
             for (PlayerShip player : players) {
                 int seat = player.playerNumber() - 1;
-                double x = seat % 2 == 1 ? GameConfig.WIDTH - PANEL_WIDTH - PANEL_MARGIN + out
+                double x = seat % 2 == 1 ? arenaW - PANEL_WIDTH - PANEL_MARGIN + out
                         : PANEL_MARGIN - out;
                 double y = seat >= 2 ? GameConfig.HEIGHT - PANEL_HEIGHT - PANEL_MARGIN : 14;
                 drawPlayerPanel(player, x, y, world.tick());
@@ -335,11 +342,11 @@ final class Hud {
         // A plate between the two top panels, so the line reads over any sky.
         double width = 500;
         gc.setFill(Tokens.PLATE);
-        gc.fillRoundRect(GameConfig.WIDTH / 2 - width / 2, 8, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        gc.fillRoundRect(arenaW / 2 - width / 2, 8, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(chipFont);
         gc.setFill(Color.web(level.galaxy().accent()));
-        gc.fillText(heading.toString(), GameConfig.WIDTH / 2, 12);
+        gc.fillText(heading.toString(), arenaW / 2, 12);
     }
 
     /**
@@ -350,7 +357,7 @@ final class Hud {
         int ticks = director.ticksIntoLevel();
         boolean overPar = ticks > director.parTicks();
         double width = 230;
-        double x = GameConfig.WIDTH / 2 - width / 2;
+        double x = arenaW / 2 - width / 2;
         double y = GameConfig.HEIGHT - 32;
         gc.setFill(Tokens.PLATE);
         gc.fillRoundRect(x, y, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
@@ -360,7 +367,7 @@ final class Hud {
         gc.fillText(clock(ticks) + " / PAR " + clock(director.parTicks()), x + 14, y + 4);
         // The preset, named on every frame: a screenshot or a clip of a run says what it was run on.
         String preset = director.difficulty().label().toUpperCase();
-        chip(preset, GameConfig.WIDTH / 2 + (preset.length() * 7.6 + 12) / 2, y - 24, Color.WHITE);
+        chip(preset, arenaW / 2 + (preset.length() * 7.6 + 12) / 2, y - 24, Color.WHITE);
         double cx = x + width - 62;
         for (int i = 0; i < 3; i++) {
             boolean taken = (world.coresTaken() & (1 << i)) != 0;
@@ -390,11 +397,11 @@ final class Hud {
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
     void drawNetBanner(String line) {
         gc.setFill(Tokens.veil(0.6));
-        gc.fillRoundRect(GameConfig.WIDTH * 0.2, GameConfig.HEIGHT * 0.44, GameConfig.WIDTH * 0.6, 44, 10, 10);
+        gc.fillRoundRect(arenaW * 0.2, GameConfig.HEIGHT * 0.44, arenaW * 0.6, 44, 10, 10);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(bannerFont);
         gc.setFill(Tokens.HEALTH_MID);
-        gc.fillText(line, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.44 + 29);
+        gc.fillText(line, arenaW / 2, GameConfig.HEIGHT * 0.44 + 29);
     }
 
     private void drawWarning(String text, int tick) {
@@ -404,12 +411,12 @@ final class Hud {
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(bannerFont);
         gc.setFill(Tokens.DANGER_SOFT);
-        gc.fillText(text, GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.34);
+        gc.fillText(text, arenaW / 2, GameConfig.HEIGHT * 0.34);
     }
 
     private void drawBossBar(EnemyShip boss) {
         double width = 500;
-        double x = GameConfig.WIDTH / 2 - width / 2;
+        double x = arenaW / 2 - width / 2;
         double y = 54;
         if (bossLag == null) {
             bossLag = new Meter.Lag();

@@ -1,6 +1,7 @@
 package com.hashimjacobs.spacecase.scene;
 
 import javafx.geometry.Pos;
+import javafx.scene.input.KeyCode;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
@@ -12,12 +13,16 @@ import java.util.function.Supplier;
 
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
-import com.hashimjacobs.spacecase.prefs.PadButton;
 import com.hashimjacobs.spacecase.prefs.Settings;
 
 /**
  * The settings controls, as a reusable node so the start menu and the pause overlay show the same
  * thing rather than each growing its own copy.
+ *
+ * Sorted into pages -- Sound, Display, Controller -- behind a short front page. As one list it had
+ * grown to twenty rows in a window that shows twelve, so finding a setting meant scrolling past
+ * every other one. The pages swap inside this node, which is what lets the pause overlay have them
+ * too: it has one layer for settings and nowhere to push a second screen.
  */
 final class SettingsPanel extends VBox {
 
@@ -35,15 +40,23 @@ final class SettingsPanel extends VBox {
     private final MenuButton reducedFlashRow;
     private final MenuButton cinematicRow;
     private final MenuButton grainRow;
+    private final MenuButton sidesRow;
     private final MenuButton resolutionRow;
     private final MenuButton controlsRow;
-    private final MenuButton[] fireButtonRow = new MenuButton[PLAYERS];
-    private final MenuButton[] pauseButtonRow = new MenuButton[PLAYERS];
+    private final MenuButton padButtonsRow;
     private final MenuButton[] sensitivityRow = new MenuButton[PLAYERS];
     private final MenuButton deadzoneRow;
     private final MenuButton padStatusRow;
     private final Supplier<String> padStatus;
-    private final MenuPanel rows;
+    private final Runnable onBack;
+    /** The front page, and the page showing now; each page keeps its own cursor. */
+    private final Page front;
+    private Page showing;
+
+    /** One page of rows with the cursor that walks it. */
+    private record Page(MenuPanel panel, MenuNavigator navigator) {
+    }
+
     /** Pushes the stored values back into the bars, for {@link #refreshLabels}. */
     private final List<Runnable> barRefreshers = new ArrayList<>();
 
@@ -53,18 +66,20 @@ final class SettingsPanel extends VBox {
      *                  anything about SDL.
      */
     SettingsPanel(Settings settings, SoundBank sounds, Supplier<String> padStatus, Runnable onBack) {
-        this(settings, sounds, padStatus, onBack, null);
+        this(settings, sounds, padStatus, onBack, null, null);
     }
 
     /**
-     * @param onControls opens the keyboard rebinding screen, or null where there is nowhere to go --
-     *                   the pause overlay has no second screen to push, so it hides the row
+     * @param onControls    opens the keyboard rebinding screen, or null where there is nowhere to
+     *                      go -- the pause overlay has no second screen to push, so it hides the row
+     * @param onControllers opens the controller screen, or null on the same terms
      */
     SettingsPanel(Settings settings, SoundBank sounds, Supplier<String> padStatus, Runnable onBack,
-                  Runnable onControls) {
+                  Runnable onControls, Runnable onControllers) {
         this.settings = settings;
         this.sounds = sounds;
         this.padStatus = padStatus;
+        this.onBack = onBack;
 
         // Range and drag snap per row; the setters on Settings own the real clamping.
         musicRow = sliderRow(0, 1, 0.01, settings::musicVolume, value -> {
@@ -78,15 +93,18 @@ final class SettingsPanel extends VBox {
         reducedFlashRow = new MenuButton("", this::toggleReducedFlash);
         cinematicRow = new MenuButton("", this::toggleCinematic);
         grainRow = new MenuButton("", this::toggleGrain);
+        sidesRow = new MenuButton("", this::toggleSides);
         resolutionRow = new MenuButton("", this::cycleResolution);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
             controlsRow.setRow("Keyboard", ">");
         }
+        padButtonsRow = onControllers == null ? null : new MenuButton("Pad buttons", onControllers);
+        if (padButtonsRow != null) {
+            padButtonsRow.setRow("Pad buttons", ">");
+        }
         for (int slot = 0; slot < PLAYERS; slot++) {
             int player = slot + 1;
-            fireButtonRow[slot] = new MenuButton("", () -> cycleFireButton(player));
-            pauseButtonRow[slot] = new MenuButton("", () -> cyclePauseButton(player));
             sensitivityRow[slot] = sliderRow(0.50, 2.00, 0.05,
                     () -> settings.gamepadSensitivity(player),
                     value -> settings.setGamepadSensitivity(player, value));
@@ -96,33 +114,60 @@ final class SettingsPanel extends VBox {
         // Nothing to activate: a readout, not a control. Left in the navigable list all the same so
         // it cannot be skipped past unseen on a pad, which is exactly who needs to read it.
         padStatusRow = new MenuButton("", () -> { });
-        MenuButton backRow = new MenuButton("Back", () -> {
-            settings.save();
-            onBack.run();
-        });
-
         refreshLabels();
 
-        List<MenuButton> panelRows = new ArrayList<>(List.of(
-                musicRow, sfxRow, difficultyRow, resolutionRow, reducedFlashRow, cinematicRow, grainRow,
-                controllerRow, analogRow,
-                fireButtonRow[0], pauseButtonRow[0], sensitivityRow[0],
-                fireButtonRow[1], pauseButtonRow[1], sensitivityRow[1],
-                deadzoneRow, padStatusRow));
-        if (controlsRow != null) {
-            panelRows.add(controlsRow);
+        List<MenuButton> padRows = new ArrayList<>(List.of(controllerRow, analogRow,
+                sensitivityRow[0], sensitivityRow[1], deadzoneRow, padStatusRow));
+        if (padButtonsRow != null) {
+            padRows.add(padButtonsRow);
         }
-        panelRows.add(backRow);
-        rows = new MenuPanel(panelRows.toArray(new MenuButton[0]));
+        List<MenuButton> frontRows = new ArrayList<>(List.of(
+                difficultyRow,
+                category("Sound", List.of(musicRow, sfxRow)),
+                category("Display", List.of(resolutionRow, reducedFlashRow, cinematicRow, grainRow,
+                        sidesRow)),
+                category("Controller", padRows)));
+        if (controlsRow != null) {
+            frontRows.add(controlsRow);
+        }
+        frontRows.add(new MenuButton("Back", this::leave));
+        front = page(frontRows, this::leave);
         setAlignment(Pos.CENTER);
-        getChildren().add(rows);
+        show(front);
     }
 
-    /** Keyboard navigation over the settings rows, with Escape wired to the back action. */
-    MenuNavigator navigator(Runnable onBack) {
-        MenuNavigator navigator = rows.navigator();
-        navigator.setOnBack(onBack);
-        return navigator;
+    /** A front-page row that opens a page of its own, which Back and Escape both return from. */
+    private MenuButton category(String name, List<MenuButton> rows) {
+        List<MenuButton> withBack = new ArrayList<>(rows);
+        withBack.add(new MenuButton("Back", () -> show(front)));
+        Page page = page(withBack, () -> show(front));
+        MenuButton row = new MenuButton(name, () -> show(page));
+        row.setRow(name, ">");
+        return row;
+    }
+
+    private static Page page(List<MenuButton> rows, Runnable onEscape) {
+        MenuPanel panel = new MenuPanel(rows.toArray(new MenuButton[0]));
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(onEscape);
+        return new Page(panel, navigator);
+    }
+
+    private void show(Page page) {
+        showing = page;
+        getChildren().setAll(page.panel());
+    }
+
+    private void leave() {
+        settings.save();
+        // Front page next time: the pause overlay keeps this panel and shows it again.
+        show(front);
+        onBack.run();
+    }
+
+    /** Key navigation over whichever page is up. Escape steps back a page, then out. */
+    boolean handleKey(KeyCode code) {
+        return showing.navigator().handleKey(code);
     }
 
     /**
@@ -174,20 +219,13 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void toggleSides() {
+        settings.setMirroredSides(!settings.mirroredSides());
+        refreshLabels();
+    }
+
     private void toggleGrain() {
         settings.setFilmGrain(!settings.filmGrain());
-        refreshLabels();
-    }
-
-    private void cycleFireButton(int player) {
-        PadButton next = settings.gamepadFireButton(player).next();
-        settings.setGamepadFireButton(player, next);
-        refreshLabels();
-    }
-
-    private void cyclePauseButton(int player) {
-        PadButton next = settings.gamepadPauseButton(player).next();
-        settings.setGamepadPauseButton(player, next);
         refreshLabels();
     }
 
@@ -222,14 +260,11 @@ final class SettingsPanel extends VBox {
         cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
         resolutionRow.setRow("Resolution", SceneRouter.resolutionLabel(settings.windowHeight()));
         grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
+        sidesRow.setRow("Mirrored sides", settings.mirroredSides() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");
         analogRow.setRow("Stick mode", settings.gamepadAnalog() ? "Analog" : "Digital");
         for (int slot = 0; slot < PLAYERS; slot++) {
             int player = slot + 1;
-            fireButtonRow[slot].setRow(
-                    "P" + player + " fire", settings.gamepadFireButton(player).label());
-            pauseButtonRow[slot].setRow(
-                    "P" + player + " pause", settings.gamepadPauseButton(player).label());
             sensitivityRow[slot].setRow(
                     "P" + player + " stick", percent(settings.gamepadSensitivity(player)));
         }
