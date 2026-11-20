@@ -62,7 +62,7 @@
         <artifactId>javafx-maven-plugin</artifactId>
         <version>0.0.8</version>
         <configuration>
-          <mainClass>com.hashimjacobs.spacecase.Main</mainClass>
+          <mainClass>com.hashimjacobs.spacecase.Launcher</mainClass>
           <options>
             <!-- JavaFX loads native libs and binds native methods. Unapproved native
                  access only warns today but is slated to be blocked outright. Jamepad does
