@@ -1,6 +1,11 @@
 package com.hashimjacobs.spacecase;
 
+import android.content.Intent;
+import android.os.Bundle;
+import android.os.FileObserver;
 import android.view.KeyEvent;
+
+import java.io.File;
 
 import com.gluonhq.helloandroid.MainActivity;
 
@@ -14,11 +19,59 @@ import com.gluonhq.helloandroid.MainActivity;
  * SceneRouter.installAndroidController turns it back into its button. F3 and F11 are skipped: the
  * game uses them.
  *
+ * It also starts the install of a downloaded update. The game runs as a native image and cannot
+ * send Android an intent itself, so it moves the verified APK into files/update/SpaceCase.apk and
+ * this activity, watching that folder, asks the system installer to take it (see ApkProvider).
+ *
  * This runs on Android's own VM, not in the native image, so it is not part of the Maven build. It
  * ships as the compiled class under src/android/resources, where Gluon collects it into the APK;
  * after changing this file rebuild that with src/android/dalvik/build.sh.
  */
 public class TvActivity extends MainActivity {
+
+    /** Held, because a FileObserver nothing refers to stops watching when it is collected. */
+    private FileObserver updates;
+
+    @Override
+    public void onCreate(Bundle state) {
+        super.onCreate(state);
+        File folder = ApkProvider.apk(this).getParentFile();
+        folder.mkdirs();
+        updates = new FileObserver(folder.getPath(), FileObserver.MOVED_TO) {
+            @Override
+            public void onEvent(int event, String path) {
+                if ("SpaceCase.apk".equals(path)) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            askToInstall();
+                        }
+                    });
+                }
+            }
+        };
+        updates.startWatching();
+    }
+
+    @Override
+    public void onDestroy() {
+        if (updates != null) {
+            updates.stopWatching();
+        }
+        super.onDestroy();
+    }
+
+    /** The system's own prompt. The first time, it sends the player to allow installs from this app. */
+    private void askToInstall() {
+        Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE);
+        install.setDataAndType(ApkProvider.uri(), ApkProvider.APK_TYPE);
+        install.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            startActivity(install);
+        } catch (RuntimeException refused) {
+            android.util.Log.e("SpaceCase", "could not start the update install", refused);
+        }
+    }
 
     private static int remap(int code) {
         switch (code) {

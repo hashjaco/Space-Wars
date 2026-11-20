@@ -11,10 +11,14 @@
     sensorLandscape             the arena is wider than it is tall on every screen it has met
     TvActivity                  Gluon's MainActivity plus the controller buttons it drops; see
                                 src/android/dalvik
+    ApkProvider, REQUEST_INSTALL_PACKAGES
+                                in-game updates: the installer reads the downloaded APK through it
 -->
 <manifest xmlns:android='http://schemas.android.com/apk/res/android' android:versionCode='1' android:versionName='1.0'>
     <supports-screens android:xlargeScreens="true"/>
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- In-game updates: hands a downloaded APK to the system installer. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <uses-feature android:name="android.software.leanback" android:required="false"/>
     <uses-feature android:name="android.hardware.touchscreen" android:required="false"/>
 
@@ -31,5 +35,10 @@
         </activity>
         <activity android:name='com.gluonhq.helloandroid.PermissionRequestActivity'
                   android:exported="true"/>
+        <!-- Serves a downloaded update to the installer; see src/android/dalvik/ApkProvider. -->
+        <provider android:name='com.hashimjacobs.spacecase.ApkProvider'
+                  android:authorities='com.hashimjacobs.spacecase.apk'
+                  android:exported="false"
+                  android:grantUriPermissions="true"/>
     </application>
 </manifest>

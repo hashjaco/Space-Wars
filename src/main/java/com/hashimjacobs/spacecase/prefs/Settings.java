@@ -20,6 +20,7 @@ public final class Settings {
     private static final String KEY_MIRRORED_SIDES = "mirroredSides";
     private static final String KEY_SHARP_RENDER = "sharpRender";
     private static final String KEY_WINDOW = "windowHeight";
+    private static final String KEY_UPDATE_CHECK = "checkForUpdates";
 
     /** {@link #windowHeight} values that are not a pixel height. */
     public static final int FULLSCREEN = 0;
@@ -66,6 +67,7 @@ public final class Settings {
     private boolean filmGrain;
     private boolean mirroredSides;
     private boolean sharpRender;
+    private boolean checkForUpdates;
     private int windowHeight;
     private final PadButton[][] padButtons = new PadButton[PLAYERS][PadAction.values().length];
     private final String[] padLayout = new String[PLAYERS];
@@ -100,6 +102,7 @@ public final class Settings {
         settings.mirroredSides = store.getBoolean(KEY_MIRRORED_SIDES, true);
         settings.sharpRender = store.getBoolean(KEY_SHARP_RENDER, sharpByDefault());
         settings.windowHeight = store.getInt(KEY_WINDOW, 864);
+        settings.checkForUpdates = store.getBoolean(KEY_UPDATE_CHECK, true);
         for (int slot = 0; slot < PLAYERS; slot++) {
             for (PadAction action : PadAction.values()) {
                 settings.padButtons[slot][action.ordinal()] =
@@ -193,6 +196,7 @@ public final class Settings {
         store.putBoolean(KEY_MIRRORED_SIDES, mirroredSides);
         store.putBoolean(KEY_SHARP_RENDER, sharpRender);
         store.putInt(KEY_WINDOW, windowHeight);
+        store.putBoolean(KEY_UPDATE_CHECK, checkForUpdates);
         for (int slot = 0; slot < PLAYERS; slot++) {
             for (PadAction action : PadAction.values()) {
                 store.put(padBindingName(slot, action), padButtons[slot][action.ordinal()].name());
@@ -348,6 +352,18 @@ public final class Settings {
 
     public void setSharpRender(boolean on) {
         this.sharpRender = on;
+    }
+
+    /**
+     * Whether the game asks, once at launch, if a newer release is out. On by default. Off means the
+     * game never goes online for this unless the player presses Check for updates.
+     */
+    public boolean checkForUpdates() {
+        return checkForUpdates;
+    }
+
+    public void setCheckForUpdates(boolean on) {
+        this.checkForUpdates = on;
     }
 
     /**

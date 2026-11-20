@@ -11,8 +11,10 @@ echo 'package com.gluonhq.helloandroid; public class MainActivity extends androi
     > "$work/stub/com/gluonhq/helloandroid/MainActivity.java"
 javac --release 8 -Xlint:-options -cp "$work/android-4.1.1.4.jar" -d "$work/out" \
     "$work/stub/com/gluonhq/helloandroid/MainActivity.java" \
-    src/android/dalvik/com/hashimjacobs/spacecase/TvActivity.java
+    src/android/dalvik/com/hashimjacobs/spacecase/TvActivity.java \
+    src/android/dalvik/com/hashimjacobs/spacecase/ApkProvider.java
 dest=src/android/resources/META-INF/substrate/dalvik/precompiled/classes/com/hashimjacobs/spacecase
 mkdir -p "$dest"
-cp "$work/out/com/hashimjacobs/spacecase/TvActivity.class" "$dest/"
+# TvActivity's inner and lambda classes come too: the FileObserver is one.
+cp "$work"/out/com/hashimjacobs/spacecase/*.class "$dest/"
 rm -rf "$work"

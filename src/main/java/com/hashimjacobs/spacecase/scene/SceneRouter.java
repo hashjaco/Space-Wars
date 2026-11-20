@@ -32,6 +32,7 @@ import javafx.util.Duration;
 
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
+import com.hashimjacobs.spacecase.GameVersion;
 import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.MapArt;
@@ -67,6 +68,8 @@ import com.hashimjacobs.spacecase.net.NetworkedGame;
 import com.hashimjacobs.spacecase.net.LobbyModel;
 import com.hashimjacobs.spacecase.net.LevelStart;
 import com.hashimjacobs.spacecase.engine.GameLoop;
+import com.hashimjacobs.spacecase.update.Installation;
+import com.hashimjacobs.spacecase.update.Updates;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CancellationException;
@@ -98,6 +101,10 @@ public final class SceneRouter {
      */
     private final Account account = Account.load();
     private final Random random = new Random();
+    /** Newer releases: found at launch, shown on the title screen, installed from {@link #showUpdate}. */
+    private final Updates updates = new Updates();
+    /** The title screen as last built, so a check that lands while it is up can redraw it. */
+    private Parent startMenuRoot;
 
     /** How many places the board shows. Ten is what fits under a title beside two more rows. */
     private static final int BOARD_ROWS = 10;
@@ -222,6 +229,8 @@ public final class SceneRouter {
         }
         rows.add(new MenuButton("Multiplayer", this::showMultiplayerMenu));
         rows.add(new MenuButton("Extras", "Load game, pilots, story, soundtrack, help", this::showExtras));
+        updates.known().ifPresent(offer -> rows.add(new MenuButton(offer.headline(), offer.detail(),
+                () -> showUpdate(this::showStartMenu))));
         rows.add(new MenuButton("Settings", () -> showSettings(this::showStartMenu)));
         // The session mute the M key already flips in a run, where a player first wants it: the
         // moment the title theme starts. Everything, not the music alone -- there is one mute.
@@ -276,6 +285,7 @@ public final class SceneRouter {
             return navigator.handleKey(code);
         };
         show(root, keys);
+        startMenuRoot = root;
         if (intro != null) {
             intro.play();
         }
@@ -915,17 +925,15 @@ public final class SceneRouter {
         return settings.key(player, ControlAction.FIRE).getName();
     }
 
-    /** Shown on the About page. Keep in step with {@code <version>} in pom.xml. */
-    private static final String VERSION = "2.7";
-    private static final String VERSION_DATE = "November 20, 2026";
-
     /** What the game is and where it came from. */
     public void showAbout() {
         VBox lines = new VBox(7);
         lines.setAlignment(Pos.CENTER_LEFT);
         lines.getChildren().add(MenuScreen.caption("SPACE CASE", Tokens.SIZE_HEADING, Color.WHITE));
         lines.getChildren().add(MenuScreen.caption(
-                "Version " + VERSION + "   \u00b7   " + VERSION_DATE, Tokens.SIZE_BODY, Tokens.BRAND));
+                "Version " + GameVersion.current()
+                        + (GameVersion.date().isEmpty() ? "" : "   \u00b7   " + GameVersion.date()),
+                Tokens.SIZE_BODY, Tokens.BRAND));
         List<String> rows = List.of(
                 "",
                 "A space shooter across five galaxies and fifty levels: fly top-down",
@@ -947,12 +955,217 @@ public final class SceneRouter {
                     heading ? Tokens.LABEL : Tokens.TEXT_MUTED));
         }
 
+        MenuButton check = new MenuButton("Check for updates", () -> showUpdate(this::showAbout));
         MenuButton back = new MenuButton("Back", this::showExtras);
-        MenuPanel panel = new MenuPanel(back);
+        MenuPanel panel = new MenuPanel(check, back);
         MenuNavigator navigator = panel.navigator();
         navigator.setOnBack(this::showExtras);
+        navigator.focus(1);
 
         show(MenuScreen.build("ABOUT", lines, panel), navigator::handleKey);
+    }
+
+    /**
+     * The quiet check at launch, if the player has not turned it off: off the JavaFX thread, and
+     * silent whatever happens -- no network is not worth a word on the title screen. A newer release
+     * appears as a row there; if the title screen is still up when the answer lands, it is redrawn
+     * with that row.
+     */
+    public void checkForUpdatesAtLaunch() {
+        boolean ask = settings.checkForUpdates();
+        Thread check = new Thread(() -> {
+            updates.cleanUp();
+            if (!ask) {
+                return;
+            }
+            try {
+                if (updates.check().isPresent()) {
+                    Platform.runLater(() -> {
+                        if (startMenuRoot != null && stage2d.getChildren().contains(startMenuRoot)) {
+                            showStartMenu();
+                        }
+                    });
+                }
+            } catch (IOException | RuntimeException quiet) {
+                System.err.println("[update] launch check: " + quiet.getMessage());
+            }
+        }, "update-check");
+        check.setDaemon(true);
+        check.start();
+    }
+
+    /**
+     * Checking for, downloading and installing a newer release.
+     *
+     * One action row whose label is the next step -- Check again, Download, Install and restart --
+     * and a status above it. The slow steps run off the JavaFX thread and report back only while
+     * this screen is still mounted; a download left running when the player goes Back finishes on
+     * its own, and coming back finds it ready to install.
+     */
+    public void showUpdate(Runnable onBack) {
+        Installation installation = updates.installation();
+        boolean source = installation.kind() == Installation.Kind.SOURCE;
+        boolean android = installation.kind() == Installation.Kind.ANDROID;
+
+        Text status = MenuScreen.caption("", Tokens.SIZE_HEADING, Color.WHITE);
+        Text detail = MenuScreen.caption("", Tokens.SIZE_BODY, Tokens.TEXT_MUTED);
+        detail.setWrappingWidth(Tokens.ROW_WIDTH + 160);
+        status.setWrappingWidth(Tokens.ROW_WIDTH + 160);
+        VBox lines = new VBox(7,
+                MenuScreen.caption("This copy is version " + GameVersion.current()
+                        + (source ? ", run from a git checkout" : ""), Tokens.SIZE_BODY, Tokens.BRAND),
+                status, detail);
+        lines.setAlignment(Pos.CENTER_LEFT);
+
+        Runnable[] onPress = {() -> { }};
+        MenuButton action = new MenuButton("", () -> onPress[0].run());
+        MenuButton back = new MenuButton("Back", onBack);
+        MenuPanel panel = new MenuPanel(action, back);
+        MenuNavigator navigator = panel.navigator();
+        navigator.setOnBack(onBack);
+        StackPane root = MenuScreen.build("UPDATE", lines, panel);
+        show(root, navigator::handleKey);
+
+        // Each step sets the screen up for the next. An array so the steps can name each other.
+        Runnable[] step = new Runnable[4];
+        java.util.function.BiConsumer<String, Runnable> next = (label, then) -> {
+            action.setText(label);
+            action.setLocked(then == null);
+            onPress[0] = then == null ? () -> { } : then;
+        };
+        java.util.function.Consumer<Throwable> failed = error -> {
+            Throwable cause = error instanceof CompletionException && error.getCause() != null ? error.getCause() : error;
+            status.setText("Could not update");
+            String why = cause.getMessage() == null ? cause.toString() : cause.getMessage();
+            detail.setText(why.isEmpty() ? why : Character.toUpperCase(why.charAt(0)) + why.substring(1)
+                    + (why.endsWith(".") ? "" : "."));
+            next.accept("Try again", step[0]);
+        };
+        Predicate<Void> mounted = unused -> root.getScene() != null;
+
+        // 0: check.
+        step[0] = () -> {
+            status.setText("Checking...");
+            detail.setText(source ? "Fetching from the branch this checkout tracks." : "Asking for the newest release.");
+            next.accept("Checking...", null);
+            CompletableFuture.supplyAsync(() -> {
+                try {
+                    return updates.check();
+                } catch (IOException e) {
+                    throw new CompletionException(e);
+                }
+            }).whenComplete((offer, error) -> Platform.runLater(() -> {
+                if (!mounted.test(null)) {
+                    return;
+                }
+                if (error != null) {
+                    failed.accept(error);
+                } else if (offer.isEmpty()) {
+                    status.setText("You have the newest version");
+                    detail.setText("");
+                    next.accept("Check again", step[0]);
+                } else {
+                    step[1].run();
+                }
+            }));
+        };
+        // 1: an offer is known; show it, and download (or pull) on the press.
+        step[1] = () -> {
+            Updates.Offer offer = updates.known().orElseThrow();
+            status.setText(offer.headline());
+            if (!offer.installable()) {
+                detail.setText(offer.whyNot());
+                next.accept("Check again", step[0]);
+                return;
+            }
+            if (offer.prepared()) {
+                step[2].run();
+                return;
+            }
+            detail.setText(source
+                    ? offer.detail() + "\nThe game pulls them with git, then rebuilds and restarts."
+                    : android
+                            ? offer.detail() + ". The first time, Android asks you to allow installs from Space Case."
+                            : offer.detail() + ".");
+            next.accept(source ? "Pull the changes" : "Download", () -> {
+                next.accept(source ? "Pulling..." : "Downloading...", null);
+                int[] shown = {-1};
+                CompletableFuture.runAsync(() -> {
+                    try {
+                        updates.prepare(offer, fraction -> {
+                            int percent = fraction < 0 ? -1 : (int) Math.floor(fraction * 100);
+                            if (percent != shown[0]) {
+                                shown[0] = percent;
+                                Platform.runLater(() -> {
+                                    if (percent >= 0) {
+                                        action.setText("Downloading " + percent + "%");
+                                    }
+                                });
+                            }
+                        });
+                    } catch (IOException e) {
+                        throw new CompletionException(e);
+                    }
+                }).whenComplete((done, error) -> Platform.runLater(() -> {
+                    if (!mounted.test(null)) {
+                        return;
+                    }
+                    if (error != null) {
+                        failed.accept(error);
+                    } else {
+                        step[2].run();
+                    }
+                }));
+            });
+            navigator.focus(0);
+        };
+        // 2: prepared; install on the press.
+        step[2] = () -> {
+            Updates.Offer offer = updates.known().orElseThrow();
+            status.setText(offer.headline());
+            detail.setText(source ? "Pulled. Restart to rebuild with the changes; that takes a minute."
+                    : android ? "Downloaded. Android will ask whether to install it."
+                    : "Downloaded and checked. The game closes, installs it and opens again.");
+            next.accept(android ? "Install" : source ? "Restart" : "Install and restart", () -> {
+                try {
+                    if (updates.install(offer)) {
+                        exitForUpdate();
+                    } else {
+                        detail.setText("If Android asks to allow installs from Space Case, allow it, then "
+                                + "come back and choose Install again.");
+                    }
+                } catch (IOException | RuntimeException e) {
+                    failed.accept(e);
+                }
+            });
+            navigator.focus(0);
+        };
+
+        if (updates.known().isPresent()) {
+            step[1].run();
+        } else {
+            step[0].run();
+        }
+    }
+
+    /**
+     * Closes the game so the update's script can replace it. The script waits for this process to
+     * end, so if anything is still holding it a few seconds on, it is ended outright: settings have
+     * been saved by then and every other store flushes as it is written.
+     */
+    private void exitForUpdate() {
+        exit();
+        Thread stop = new Thread(() -> {
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException ignored) {
+                Thread.currentThread().interrupt();
+            }
+            System.exit(0);
+        }, "update-exit");
+        stop.setDaemon(true);
+        stop.start();
+        Platform.exit();
     }
 
     public void showHelp() {

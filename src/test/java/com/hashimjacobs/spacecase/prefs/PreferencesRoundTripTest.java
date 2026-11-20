@@ -63,6 +63,15 @@ class PreferencesRoundTripTest {
     }
 
     @Test
+    void theLaunchUpdateCheckIsOnByDefaultAndSurvivesAReload() {
+        Settings fresh = Settings.load(scratch);
+        assertTrue(fresh.checkForUpdates(), "the launch check is on by default");
+        fresh.setCheckForUpdates(false);
+        fresh.save();
+        assertFalse(Settings.load(scratch).checkForUpdates());
+    }
+
+    @Test
     void theRenderSettingStartsAtThePlatformDefaultAndSurvivesAReload() {
         Settings fresh = Settings.load(scratch);
         assertEquals(Settings.sharpByDefault(), fresh.sharpRender());

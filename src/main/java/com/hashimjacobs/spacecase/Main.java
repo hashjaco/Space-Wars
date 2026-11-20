@@ -62,8 +62,12 @@ public final class Main extends Application {
                 }
             }
             router.startGame(mode, SaveSlot.forReplay(mode, mission.level()));
+        } else if (getParameters().getRaw().contains("--update")) {
+            // Straight onto the update screen, for trying an update against -Dspacecase.updateUrl.
+            router.showUpdate(router::showStartMenu);
         } else {
             router.showStartMenu();
+            router.checkForUpdatesAtLaunch();
         }
 
         stage.setOnHidden(event -> {

@@ -19,6 +19,10 @@
     <!-- Version tracks the SDL release it wraps: 2.30.0.0 is SDL 2.30.0. -->
     <jamepad.version>2.30.0.0</jamepad.version>
     <junit.version>5.11.4</junit.version>
+    <!-- The build date the About page shows, written into version.properties. Through a property of
+         its own because resource filtering cannot see maven.build.timestamp directly. -->
+    <maven.build.timestamp.format>MMMM d, yyyy</maven.build.timestamp.format>
+    <build.date>${maven.build.timestamp}</build.date>
   </properties>
 
   <dependencies>
@@ -50,6 +54,17 @@
   </dependencies>
 
   <build>
+    <!-- Only src/main/resources-filtered is filtered: it holds version.properties, which is how the
+         game knows its own version. Filtering the art and sound would corrupt them. -->
+    <resources>
+      <resource>
+        <directory>src/main/resources</directory>
+      </resource>
+      <resource>
+        <directory>src/main/resources-filtered</directory>
+        <filtering>true</filtering>
+      </resource>
+    </resources>
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
@@ -284,6 +299,8 @@
                 <!-- PlatformAudio finds the Android audio by name. -->
                 <list>com.hashimjacobs.spacecase.asset.AttachAudio</list>
                 <list>com.hashimjacobs.spacecase.AttachLifecycle</list>
+                <!-- update.Updates finds where to download an APK by name. -->
+                <list>com.hashimjacobs.spacecase.AttachUpdateFolder</list>
                 <list>com.hashimjacobs.spacecase.Main</list>
                 <!-- JavaFX finds the renderer for every effect and canvas blend mode by class
                      name, and its own native-image config lists only a handful. Each one missing
@@ -342,6 +359,8 @@
                 <list>.*\\.wav$</list>
                 <list>.*\\.mp3$</list>
                 <list>.*\\.txt$</list>
+                <!-- version.properties, which the About page and the update check read. -->
+                <list>.*\\.properties$</list>
               </resourcesList>
             </configuration>
           </plugin>

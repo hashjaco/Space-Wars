@@ -41,6 +41,7 @@ final class SettingsPanel extends VBox {
     private final MenuButton cinematicRow;
     private final MenuButton grainRow;
     private final MenuButton renderRow;
+    private final MenuButton updatesRow;
     private final MenuButton sidesRow;
     private final MenuButton resolutionRow;
     private final MenuButton controlsRow;
@@ -97,6 +98,7 @@ final class SettingsPanel extends VBox {
         sidesRow = new MenuButton("", this::toggleSides);
         resolutionRow = new MenuButton("", this::cycleResolution);
         renderRow = new MenuButton("", this::toggleRender);
+        updatesRow = new MenuButton("", this::toggleUpdates);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
             controlsRow.setRow("Keyboard", ">");
@@ -132,6 +134,7 @@ final class SettingsPanel extends VBox {
         if (controlsRow != null) {
             frontRows.add(controlsRow);
         }
+        frontRows.add(updatesRow);
         frontRows.add(new MenuButton("Back", this::leave));
         front = page(frontRows, this::leave);
         setAlignment(Pos.CENTER);
@@ -221,6 +224,11 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void toggleUpdates() {
+        settings.setCheckForUpdates(!settings.checkForUpdates());
+        refreshLabels();
+    }
+
     private void toggleRender() {
         settings.setSharpRender(!settings.sharpRender());
         refreshLabels();
@@ -267,6 +275,7 @@ final class SettingsPanel extends VBox {
         cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
         resolutionRow.setRow("Resolution", SceneRouter.resolutionLabel(settings.windowHeight()));
         renderRow.setRow("Render", settings.sharpRender() ? "Sharp" : "Fast");
+        updatesRow.setRow("Check for updates", settings.checkForUpdates() ? "At launch" : "Only when asked");
         grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
         sidesRow.setRow("Mirrored sides", settings.mirroredSides() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");

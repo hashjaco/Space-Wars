@@ -37,6 +37,21 @@ the app and choose **Open**; on Windows pick **More info** then **Run anyway**.
 Already have a JDK 26? `java -jar space-case-<your-platform>.jar` from the same page skips the
 installer.
 
+### Updating
+
+The game checks for a newer release when it starts and offers it on the title screen; **Extras →
+About → Check for updates** asks on demand, and **Settings → Check for updates** turns the launch
+check off. Choosing it downloads the file for your machine, checks it against the release's
+`update.txt`, installs it and restarts:
+
+- **dmg, msi, deb and jar**: replaced in place once the game closes. The deb asks for your password
+  through `pkexec`.
+- **Android TV**: Android's own install prompt. The first time, allow installs from Space Case.
+- **A git checkout** (`./mvnw javafx:run`, as on a Raspberry Pi): a fast-forward `git pull` of the
+  branch it tracks, then a rebuild. A checkout with local changes is left alone.
+
+If an update does not take, `space-case-update/update.log` in the temp folder says why.
+
 ## Running it from source
 
     ./mvnw javafx:run
