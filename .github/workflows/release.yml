@@ -119,11 +119,39 @@ jobs:
           pattern: space-case-*
           merge-multiple: true
 
+      # What the game reads to update itself (src/main/java/.../update/Manifest.java): the version,
+      # then one line per download, naming the platform key the game looks itself up by, the file,
+      # and its SHA-256, which the game checks before installing anything.
+      - name: Write the update list
+        shell: bash
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          cd artifacts
+          {
+            echo "version ${TAG#v}"
+            for f in *; do
+              case "$f" in
+                *-intel.dmg)       key=macos-intel ;;
+                *.dmg)             key=macos ;;
+                *.msi)             key=windows ;;
+                *_amd64.deb)       key=linux ;;
+                *_arm64.deb)       key=linux-arm64 ;;
+                *-androidtv.apk)   key=androidtv ;;
+                space-case-*.jar)  key="jar-${f#space-case-}"; key="${key%.jar}" ;;
+                *) continue ;;
+              esac
+              echo "$key $f $(sha256sum "$f" | cut -d' ' -f1)"
+            done
+          } > update.txt
+          cat update.txt
+
       - name: Attach installers and jars to the release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.tag || github.ref_name }}
           files: |
+            artifacts/update.txt
             artifacts/*.dmg
             artifacts/*.deb
             artifacts/*.msi
