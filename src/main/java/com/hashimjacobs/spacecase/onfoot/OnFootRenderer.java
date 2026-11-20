@@ -211,9 +211,9 @@ public final class OnFootRenderer {
         double cam = Math.round(s.camera());
 
         gc.save();
-        gc.translate(GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.6);
+        gc.translate(OnFootStage.VIEW / 2, GameConfig.HEIGHT * 0.6);
         gc.scale(zoom, zoom);
-        gc.translate(-GameConfig.WIDTH / 2 + shake * Math.sin(tick * 2.7), -GameConfig.HEIGHT * 0.6 + shake * Math.cos(tick * 3.9));
+        gc.translate(-OnFootStage.VIEW / 2 + shake * Math.sin(tick * 2.7), -GameConfig.HEIGHT * 0.6 + shake * Math.cos(tick * 3.9));
 
         drawCavern(cam, tick);
 
@@ -277,7 +277,7 @@ public final class OnFootRenderer {
 
     private void drawCavern(double cam, int tick) {
         gc.setFill(Tokens.SPACE);
-        gc.fillRect(-40, -40, GameConfig.WIDTH + 80, GameConfig.HEIGHT + 80);
+        gc.fillRect(-40, -40, OnFootStage.VIEW + 80, GameConfig.HEIGHT + 80);
         boolean[] borrowed = new boolean[1];
         Image back = missionStill("backdrop", borrowed);
         double h = FLOOR + 30;
@@ -286,24 +286,26 @@ public final class OnFootRenderer {
             double w = back.getWidth() * h / back.getHeight();
             double off = -(cam * 0.25) % (2 * w);
             // Every other copy mirrored, so a painting never meant to tile still has no seam.
-            for (double x = off - 2 * w; x < GameConfig.WIDTH + 2 * w; x += 2 * w) {
+            for (double x = off - 2 * w; x < OnFootStage.VIEW + 2 * w; x += 2 * w) {
                 drawAdjusted(back, hue, 0, x, 0, w, h);
                 drawAdjusted(back, hue, 0, x + 2 * w, 0, -w, h);
             }
         } else {
-            gc.drawImage(Baked.paint(CAVERN, 4, 256), -40, 0, GameConfig.WIDTH + 80, h);
+            gc.drawImage(Baked.paint(CAVERN, 4, 256), -40, 0, OnFootStage.VIEW + 80, h);
         }
         // Cold light shafts from the city above, slowly breathing.
         gc.save();
         gc.setGlobalBlendMode(BlendMode.ADD);
+        // Spaced off the view, so the shafts spread across a 16:9 screen rather than bunching left.
+        double period = OnFootStage.VIEW + 644;
         for (int i = 0; i < 4; i++) {
-            double x = ((i * 410 - cam * 0.32) % 1640 + 1640) % 1640 - 200;
+            double x = ((i * period / 4 - cam * 0.32) % period + period) % period - 200;
             gc.setGlobalAlpha(0.05 + 0.025 * Math.sin(tick * 0.013 + i));
             gc.drawImage(shaft(), x, 0, 260, FLOOR);
         }
         gc.restore();
         // Haze: the far plane sits in fog, which is what pushes it back.
-        gc.drawImage(Baked.paint(HAZE, 4, 256), -40, 0, GameConfig.WIDTH + 80, FLOOR + 30);
+        gc.drawImage(Baked.paint(HAZE, 4, 256), -40, 0, OnFootStage.VIEW + 80, FLOOR + 30);
     }
 
     private void drawFloor(double cam) {
@@ -315,28 +317,28 @@ public final class OnFootRenderer {
             double hue = tint(borrowed[0]);
             double w = floor.getWidth() * h / floor.getHeight();
             double start = Math.floor(cam / (2 * w)) * 2 * w;
-            for (double x = start - 2 * w; x < cam + GameConfig.WIDTH + 2 * w; x += 2 * w) {
+            for (double x = start - 2 * w; x < cam + OnFootStage.VIEW + 2 * w; x += 2 * w) {
                 drawAdjusted(floor, hue, 0, x, top, w, h);
                 drawAdjusted(floor, hue, 0, x + 2 * w, top, -w, h);
             }
         } else {
             gc.setFill(FLOOR_PLAIN);
-            gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, h);
+            gc.fillRect(cam - 60, top, OnFootStage.VIEW + 120, h);
             gc.setStroke(FLOOR_SEAM);
             gc.setLineWidth(2);
-            for (double x = Math.floor(cam / 120) * 120; x < cam + GameConfig.WIDTH + 120; x += 120) {
+            for (double x = Math.floor(cam / 120) * 120; x < cam + OnFootStage.VIEW + 120; x += 120) {
                 gc.strokeLine(x, top, x - 30, GameConfig.HEIGHT);
             }
         }
         // The walkway's lit lip, and the floor falling away into dark below it.
         gc.setFill(Color.rgb(255, 160, 90, 0.35));
-        gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, 2);
-        gc.drawImage(Baked.paint(FLOOR_FALL, 4, 256), cam - 60, top + 20, GameConfig.WIDTH + 120, h);
+        gc.fillRect(cam - 60, top, OnFootStage.VIEW + 120, 2);
+        gc.drawImage(Baked.paint(FLOOR_FALL, 4, 256), cam - 60, top + 20, OnFootStage.VIEW + 120, h);
         // Untinted: a hue-shifted crate went magenta. Iron reads as iron in any galaxy.
         Image crate = missionStill("crate", borrowed);
         if (crate != null) {
-            for (double x : new double[] {420, 1180, 1960, 2700, 3560}) {
-                if (x > cam - 200 && x < cam + GameConfig.WIDTH + 200) {
+            for (double x : new double[] {420, 1180, 1960, 2700, 3560, 4300, 5100, 5900}) {
+                if (x > cam - 200 && x < cam + OnFootStage.VIEW + 200) {
                     double ch = 96, cw = crate.getWidth() * ch / crate.getHeight();
                     gc.drawImage(crate, x, FLOOR - ch + 8, cw, ch);
                 }
@@ -354,9 +356,9 @@ public final class OnFootRenderer {
      */
     private void drawLight(double cam, int tick) {
         gc.save();
-        for (int i = 0; i < 12; i++) {
+        for (int i = 0; i < 18; i++) {
             double x = 180 + i * 360;
-            if (x < cam - 400 || x > cam + GameConfig.WIDTH + 400) {
+            if (x < cam - 400 || x > cam + OnFootStage.VIEW + 400) {
                 continue;
             }
             double flicker = settings.reducedFlash() ? 0.8 : 0.7 + 0.15 * Math.sin(tick * 0.07 + i * 1.7)
@@ -371,7 +373,7 @@ public final class OnFootRenderer {
     private void drawChains(double cam) {
         for (int i = 0; i < 20; i++) {
             double x = i * 520 + 130 - cam * 1.35;
-            if (x < -60 || x > GameConfig.WIDTH + 60) {
+            if (x < -60 || x > OnFootStage.VIEW + 60) {
                 continue;
             }
             int len = 120 + Math.floorMod(i * 31, 5) * 60;
@@ -873,7 +875,7 @@ public final class OnFootRenderer {
         }
         for (Fighter p : s.pilots()) {
             boolean right = p.player == 2;
-            double x = right ? GameConfig.WIDTH - 24 - 260 : 24, y = 24;
+            double x = right ? OnFootStage.VIEW - 24 - 260 : 24, y = 24;
             gc.setFill(Color.rgb(0, 0, 0, 0.5));
             gc.fillRoundRect(x - 8, y - 8, 276, 54, 10, 10);
             gc.setFill(Tokens.TRACK);
@@ -893,7 +895,7 @@ public final class OnFootRenderer {
         }
         Fighter boss = s.boss();
         if (boss != null && boss.alive()) {
-            double w = 560, x = (GameConfig.WIDTH - w) / 2, y = GameConfig.HEIGHT - 58;
+            double w = 560, x = (OnFootStage.VIEW - w) / 2, y = GameConfig.HEIGHT - 58;
             gc.setFill(Color.rgb(0, 0, 0, 0.6));
             gc.fillRoundRect(x - 10, y - 26, w + 20, 46, 10, 10);
             gc.setFill(Tokens.TRACK_DANGER);
@@ -904,24 +906,24 @@ public final class OnFootRenderer {
             gc.setFill(Tokens.TEXT);
             gc.setTextAlign(TextAlignment.CENTER);
             gc.setTextBaseline(VPos.BOTTOM);
-            gc.fillText(mission.bossName(), GameConfig.WIDTH / 2, y - 4);
+            gc.fillText(mission.bossName(), OnFootStage.VIEW / 2, y - 4);
         }
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setTextBaseline(VPos.CENTER);
         if (s.goPrompt() && (tick / 20) % 2 == 0) {
             gc.setFont(TITLE);
             gc.setFill(FURNACE);
-            gc.fillText("GO  →", GameConfig.WIDTH - 130, GameConfig.HEIGHT * 0.42);
+            gc.fillText("GO  →", OnFootStage.VIEW - 130, GameConfig.HEIGHT * 0.42);
         }
         if (s.retrying() > 0) {
             gc.setFont(TITLE);
             gc.setFill(Tokens.DANGER_SOFT);
-            gc.fillText("PILOTS DOWN", GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.42);
+            gc.fillText("PILOTS DOWN", OnFootStage.VIEW / 2, GameConfig.HEIGHT * 0.42);
         }
         if (s.beat() == OnFootStage.Beat.KEY) {
             gc.setFont(CAPTION);
             gc.setFill(VIOLET);
-            gc.fillText("TAKE " + mission.prize(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
+            gc.fillText("TAKE " + mission.prize(), OnFootStage.VIEW / 2, GameConfig.HEIGHT * 0.3);
         }
         gc.setTextBaseline(VPos.BASELINE);
     }
@@ -938,8 +940,8 @@ public final class OnFootRenderer {
         if (bars > 0) {
             double bar = 72 * bars;
             gc.setFill(Color.BLACK);
-            gc.fillRect(0, 0, GameConfig.WIDTH, bar);
-            gc.fillRect(0, GameConfig.HEIGHT - bar, GameConfig.WIDTH, bar);
+            gc.fillRect(0, 0, OnFootStage.VIEW, bar);
+            gc.fillRect(0, GameConfig.HEIGHT - bar, OnFootStage.VIEW, bar);
         }
         if (s.beat() == OnFootStage.Beat.LANDING || s.beat() == OnFootStage.Beat.EXIT) {
             double t = s.beat() == OnFootStage.Beat.LANDING ? s.beatTicks() : OnFootStage.LANDING_TICKS + s.beatTicks();
@@ -949,12 +951,12 @@ public final class OnFootRenderer {
             gc.setTextBaseline(VPos.CENTER);
             gc.setFont(cinemaTitle());
             gc.setFill(Color.rgb(0, 0, 0, 0.6));
-            gc.fillText(mission.title(), GameConfig.WIDTH / 2 + 3, GameConfig.HEIGHT * 0.3 + 4);
+            gc.fillText(mission.title(), OnFootStage.VIEW / 2 + 3, GameConfig.HEIGHT * 0.3 + 4);
             gc.setFill(Color.WHITE);
-            gc.fillText(mission.title(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
+            gc.fillText(mission.title(), OnFootStage.VIEW / 2, GameConfig.HEIGHT * 0.3);
             gc.setFont(cinemaObjective());
             gc.setFill(VIOLET);
-            gc.fillText(mission.objective(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3 + 46);
+            gc.fillText(mission.objective(), OnFootStage.VIEW / 2, GameConfig.HEIGHT * 0.3 + 46);
             gc.setGlobalAlpha(1);
             gc.setTextBaseline(VPos.BASELINE);
         }

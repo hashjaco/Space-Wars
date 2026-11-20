@@ -163,6 +163,7 @@ public final class SpawnDirector {
         this.random = random;
         this.difficulty = difficulty;
         this.rules = rules;
+        this.level = rules.arena();
     }
 
     /**
@@ -472,6 +473,19 @@ public final class SpawnDirector {
             case 2, 3, 4 -> 56;
             default -> 34;
         };
+        if (rules.hazardsFromAllSides()) {
+            Sprite art = size <= 1 ? Sprite.ASTEROID_HUGE : size <= 4 ? Sprite.ASTEROID_BIG : Sprite.ASTEROID_SMALL;
+            double speed = 1.6 + random.nextDouble() * 1.8;
+            double[] path = fromAnyEdge(facing, art.width(), art.height(), speed);
+            Asteroid rock = switch (size) {
+                case 0, 1 -> new Asteroid(art, path[0], path[1], 70, 22, 30);
+                case 2, 3, 4 -> new Asteroid(art, path[0], path[1], 40, 15, 20);
+                default -> new Asteroid(art, path[0], path[1], 20, 9, 10);
+            };
+            rock.setVelocity(path[2], path[3]);
+            world.addAsteroid(rock);
+            return;
+        }
         double across = randomAcross(world, extent);
         double drift = (random.nextDouble() - 0.5) * 1.6;
         double fall = 1.6 + random.nextDouble() * 1.8;
@@ -624,23 +638,45 @@ public final class SpawnDirector {
         PowerUp.Kind kind = PowerUp.Kind.randomCommon(random);
         double w = kind.sprite().width();
         double h = kind.sprite().height();
-        double across = spawnLaneForPickup(world, facing, w, h);
+        if (rules.hazardsFromAllSides()) {
+            double[] path = fromAnyEdge(facing, w, h, GameConfig.POWERUP_DRIFT_SPEED);
+            world.addPowerUp(new PowerUp(kind, path[0], path[1]), path[2], path[3]);
+            return;
+        }
+        double across = randomAcross(world, facing.acrossExtent(w, h));
         PowerUp powerUp = new PowerUp(kind,
                 facing.atX(-40, across, w, h), facing.atY(-40, across, w, h));
         world.addPowerUp(powerUp);
     }
 
     /**
-     * In battle mode pickups drop down the middle so both players have an equal claim; otherwise
-     * anywhere across the arena.
+     * Somewhere just outside a random edge of the arena, heading inward through its middle.
+     *
+     * The target is drawn from the central half of the arena on both axes, so whatever comes in
+     * crosses the field rather than skimming an edge, and on average neither seat of a face-off
+     * has the nearer claim. Four draws, in a fixed order.
+     *
+     * @return {x, y, velocityX, velocityY}
      */
-    private double spawnLaneForPickup(World world, Orientation facing, double width, double height) {
-        if (!rules.lastPlayerStanding()) {
-            return randomAcross(world, facing.acrossExtent(width, height));
+    private double[] fromAnyEdge(Orientation facing, double width, double height, double speed) {
+        double arenaWidth = facing.arenaWidth();
+        double arenaHeight = GameConfig.HEIGHT;
+        int edge = random.nextInt(4);
+        double along = random.nextDouble();
+        double x;
+        double y;
+        switch (edge) {
+            case 0 -> { x = -width; y = along * (arenaHeight - height); }
+            case 1 -> { x = arenaWidth; y = along * (arenaHeight - height); }
+            case 2 -> { x = along * (arenaWidth - width); y = -height; }
+            default -> { x = along * (arenaWidth - width); y = arenaHeight; }
         }
-        double centreBand = facing.arenaBreadth() / 3;
-        double offset = random.nextDouble() * centreBand;
-        return centreBand + offset;
+        double targetX = arenaWidth * (0.25 + random.nextDouble() * 0.5);
+        double targetY = arenaHeight * (0.25 + random.nextDouble() * 0.5);
+        double dx = targetX - (x + width / 2);
+        double dy = targetY - (y + height / 2);
+        double length = Math.max(1, StrictMath.hypot(dx, dy));
+        return new double[] {x, y, dx / length * speed, dy / length * speed};
     }
 
     /**

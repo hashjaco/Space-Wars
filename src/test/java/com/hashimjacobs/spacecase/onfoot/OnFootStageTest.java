@@ -12,6 +12,25 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** The on-foot rules, without a toolkit: physics, the combo chains, the specials, and the stage as a whole. */
 class OnFootStageTest {
 
+    /**
+     * The stage is 16:9, and every locked arena is at least a view wide less the camera's
+     * forty-pixel overhang each side -- narrower and the camera clamp would show past a wall.
+     */
+    @Test
+    void theStageIsWidescreenAndEveryArenaFillsIt() {
+        assertEquals(16.0 / 9.0, OnFootStage.VIEW / com.hashimjacobs.spacecase.GameConfig.HEIGHT, 1e-9);
+        for (Mission mission : Mission.values()) {
+            for (OnFootStage.Segment segment : mission.segments) {
+                assertTrue(segment.right() - segment.left() >= OnFootStage.VIEW - 80,
+                        mission + " has an arena narrower than the screen: " + segment);
+                assertTrue(segment.left() >= 0 && segment.right() <= OnFootStage.LENGTH,
+                        mission + " has an arena off the end of the stage: " + segment);
+            }
+            assertEquals(OnFootStage.LENGTH, mission.segments.get(mission.segments.size() - 1).right(),
+                    mission + "'s boss room should close the stage");
+        }
+    }
+
     private static final Physics P = Physics.DEFAULT;
     private static final Buttons IDLE = Buttons.NONE;
 

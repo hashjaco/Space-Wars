@@ -503,8 +503,8 @@ public final class Renderer {
 
     /** The on-foot stage in place of the arena, finished with the same vignette and grain. */
     public void drawOnFoot(OnFootStage stage) {
-        // The stage on foot is its own place, laid out for the 996 arena whatever level led to it.
-        arena(GameConfig.WIDTH);
+        // The stage on foot is its own place, 16:9 like a side-view arena whatever level led to it.
+        arena(OnFootStage.VIEW);
         drawBars(null, 0);
         onFoot.draw(stage);
         drawVignette();

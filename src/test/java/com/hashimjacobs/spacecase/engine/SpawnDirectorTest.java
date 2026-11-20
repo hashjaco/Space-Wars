@@ -7,6 +7,8 @@ import java.util.Random;
 import org.junit.jupiter.api.Test;
 
 import com.hashimjacobs.spacecase.entity.EnemyShip;
+import com.hashimjacobs.spacecase.entity.Entity;
+import com.hashimjacobs.spacecase.entity.Orientation;
 import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.entity.WaveShip;
 import com.hashimjacobs.spacecase.GameConfig;
@@ -52,6 +54,67 @@ class SpawnDirectorTest {
 
         assertTrue(world.enemies().isEmpty(), "battle mode must not spawn AI ships");
         assertTrue(world.asteroids().size() > 0, "battle mode keeps asteroid hazards");
+    }
+
+    /** Battle is a face-off across a side-view arena, so the director starts on one. */
+    @Test
+    void battleFightsOnASideViewArena() {
+        SpawnDirector director = new SpawnDirector(
+                new Random(7), Difficulty.NORMAL, GameMode.BATTLE.rules());
+        assertEquals(Orientation.RIGHT_TO_LEFT, director.level().orientation());
+        assertEquals(Orientation.RIGHT_TO_LEFT, new World(GameMode.BATTLE).orientation());
+        // The renderer sizes the canvas off director.level(), so this is the screen's shape too:
+        // the same 16:9 every side-view level is drawn at.
+        double width = director.level().orientation().arenaWidth();
+        assertEquals(GameConfig.WIDE_WIDTH, width);
+        assertEquals(16.0 / 9.0, width / GameConfig.HEIGHT, 1e-9);
+    }
+
+    /**
+     * Rocks and pickups come in from all four edges, each heading into the arena, and none is
+     * culled on arrival -- which the directional cull the campaign uses would do to anything
+     * entering by the far side.
+     */
+    @Test
+    void battleHazardsArriveFromEveryEdgeHeadingInward() {
+        World world = new World(GameMode.BATTLE);
+        SpawnDirector director = new SpawnDirector(
+                new Random(11), Difficulty.NORMAL, GameMode.BATTLE.rules());
+        double arenaWidth = world.orientation().arenaWidth();
+
+        for (int i = 0; i < FRAMES * 2; i++) {
+            director.update(world);
+        }
+        List<Entity> arrivals = new ArrayList<>(world.asteroids());
+        arrivals.addAll(world.powerUps());
+        assertFalse(world.powerUps().isEmpty(), "battle still drops pickups");
+
+        boolean[] edges = new boolean[4];
+        for (Entity e : arrivals) {
+            if (e.x() + e.width() <= 0) {
+                edges[0] = true;
+            } else if (e.x() >= arenaWidth) {
+                edges[1] = true;
+            } else if (e.y() + e.height() <= 0) {
+                edges[2] = true;
+            } else if (e.y() >= GameConfig.HEIGHT) {
+                edges[3] = true;
+            } else {
+                throw new AssertionError("spawned inside the arena at " + e.x() + "," + e.y());
+            }
+            double toCentreX = arenaWidth / 2 - e.centerX();
+            double toCentreY = GameConfig.HEIGHT / 2 - e.centerY();
+            assertTrue(e.velocityX() * toCentreX + e.velocityY() * toCentreY > 0,
+                    "everything should be heading into the arena: " + e.getClass().getSimpleName() + " at " + e.x() + "," + e.y() + " v " + e.velocityX() + "," + e.velocityY());
+        }
+        for (int edge = 0; edge < 4; edge++) {
+            assertTrue(edges[edge], "nothing came in from edge " + edge);
+        }
+
+        world.update();
+        for (Entity e : arrivals) {
+            assertTrue(e.isAlive(), "a hazard was culled the moment it arrived");
+        }
     }
 
     /**

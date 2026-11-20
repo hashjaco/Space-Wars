@@ -9,38 +9,42 @@ import com.hashimjacobs.spacecase.mode.Level;
  *
  * One per galaxy, each after a level whose name already puts the fight on the ground. Arenas get
  * heavier per galaxy; the bosses share the Foreman's melee and each adds one signature to learn.
+ *
+ * Every arena is 1540 wide, a hair over {@link OnFootStage#VIEW}, so its walls sit just off the
+ * edges of a 16:9 screen and the camera barely has to travel inside one. Neighbours overlap by
+ * sixty, and the boss room by more, at the far end of {@link OnFootStage#LENGTH}.
  */
 public enum Mission {
     UNDERCITY(Level.UNDERCITY, "THE UNDERCITY", "RECOVER THE RIFT KEY", "THE RIFT KEY",
             Fighter.Kind.FOREMAN, "THE FOUNDRY FOREMAN", 0,
-            List.of(new OnFootStage.Segment(560, 1560, 4, 0, 0, false),
-                    new OnFootStage.Segment(1500, 2500, 4, 1, 0, false),
-                    new OnFootStage.Segment(2440, 3440, 5, 2, 1, false),
-                    new OnFootStage.Segment(3200, 4200, 0, 0, 0, true))),
+            List.of(new OnFootStage.Segment(560, 2100, 4, 0, 0, false),
+                    new OnFootStage.Segment(2040, 3580, 4, 1, 0, false),
+                    new OnFootStage.Segment(3520, 5060, 5, 2, 1, false),
+                    new OnFootStage.Segment(4820, 6360, 0, 0, 0, true))),
     FORGEWORKS(Level.THE_FORGEWORKS, "THE FORGEWORKS", "SEIZE THE CRUCIBLE SEAL", "THE CRUCIBLE SEAL",
             Fighter.Kind.WARDEN, "THE CRUCIBLE WARDEN", -0.08,
-            List.of(new OnFootStage.Segment(560, 1560, 4, 1, 0, false),
-                    new OnFootStage.Segment(1500, 2500, 5, 1, 1, false),
-                    new OnFootStage.Segment(2440, 3440, 5, 2, 1, false),
-                    new OnFootStage.Segment(3200, 4200, 0, 0, 0, true))),
+            List.of(new OnFootStage.Segment(560, 2100, 4, 1, 0, false),
+                    new OnFootStage.Segment(2040, 3580, 5, 1, 1, false),
+                    new OnFootStage.Segment(3520, 5060, 5, 2, 1, false),
+                    new OnFootStage.Segment(4820, 6360, 0, 0, 0, true))),
     UNDER_ICE(Level.UNDER_ICE, "UNDER THE ICE", "RECOVER THE COLD LENS", "THE COLD LENS",
             Fighter.Kind.MATRIARCH, "THE RIME MATRIARCH", 0.55,
-            List.of(new OnFootStage.Segment(560, 1560, 5, 1, 0, false),
-                    new OnFootStage.Segment(1500, 2500, 5, 2, 1, false),
-                    new OnFootStage.Segment(2440, 3440, 6, 2, 1, false),
-                    new OnFootStage.Segment(3200, 4200, 0, 0, 0, true))),
+            List.of(new OnFootStage.Segment(560, 2100, 5, 1, 0, false),
+                    new OnFootStage.Segment(2040, 3580, 5, 2, 1, false),
+                    new OnFootStage.Segment(3520, 5060, 6, 2, 1, false),
+                    new OnFootStage.Segment(4820, 6360, 0, 0, 0, true))),
     MAG_STORM(Level.MAG_STORM_CAVERNS, "THE MAG-STORM CAVERNS", "TAKE THE STORM COIL", "THE STORM COIL",
             Fighter.Kind.TYRANT, "THE ARC TYRANT", 0.3,
-            List.of(new OnFootStage.Segment(560, 1560, 5, 2, 0, false),
-                    new OnFootStage.Segment(1500, 2500, 6, 2, 1, false),
-                    new OnFootStage.Segment(2440, 3440, 6, 2, 2, false),
-                    new OnFootStage.Segment(3200, 4200, 0, 0, 0, true))),
+            List.of(new OnFootStage.Segment(560, 2100, 5, 2, 0, false),
+                    new OnFootStage.Segment(2040, 3580, 6, 2, 1, false),
+                    new OnFootStage.Segment(3520, 5060, 6, 2, 2, false),
+                    new OnFootStage.Segment(4820, 6360, 0, 0, 0, true))),
     HULK_DRIFT(Level.HULK_DRIFT, "ABOARD THE HULK", "CUT OUT THE NULL HEART", "THE NULL HEART",
             Fighter.Kind.REVENANT, "THE NULL REVENANT", 0.8,
-            List.of(new OnFootStage.Segment(560, 1560, 6, 2, 1, false),
-                    new OnFootStage.Segment(1500, 2500, 6, 2, 2, false),
-                    new OnFootStage.Segment(2440, 3440, 7, 3, 2, false),
-                    new OnFootStage.Segment(3200, 4200, 0, 0, 0, true)));
+            List.of(new OnFootStage.Segment(560, 2100, 6, 2, 1, false),
+                    new OnFootStage.Segment(2040, 3580, 6, 2, 2, false),
+                    new OnFootStage.Segment(3520, 5060, 7, 3, 2, false),
+                    new OnFootStage.Segment(4820, 6360, 0, 0, 0, true)));
 
     final Level after;
     final String title, objective, prize, bossName;

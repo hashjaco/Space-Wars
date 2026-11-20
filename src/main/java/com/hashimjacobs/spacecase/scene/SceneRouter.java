@@ -999,7 +999,8 @@ public final class SceneRouter {
                 "                bonuses build a career score and your rank,",
                 "                and buy upgrades in the garage.",
                 "",
-                "In Battle, player two starts at the top facing down and",
+                "In Battle, player one holds the left, player two the",
+                "right. Rocks and pickups fly in from every side,",
                 "friendly fire is on. Last player with lives wins.");
         for (String row : rows) {
             lines.getChildren().add(MenuScreen.caption(row, 13, Tokens.TEXT_MUTED));

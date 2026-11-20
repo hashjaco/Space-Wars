@@ -46,9 +46,10 @@ class ModeRulesTest {
         PlayerShip one = world.players().get(0);
         PlayerShip two = world.players().get(1);
 
-        assertEquals(Facing.UP, one.facing());
-        assertEquals(Facing.DOWN, two.facing());
-        assertTrue(two.y() < one.y(), "player two starts above player one");
+        assertEquals(Facing.RIGHT, one.facing());
+        assertEquals(Facing.LEFT, two.facing());
+        assertTrue(one.x() < two.x(), "player one holds the left and player two the right");
+        assertEquals(one.centerY(), two.centerY(), 0.5, "nose to nose on the centre line");
     }
 
     @Test

@@ -5,7 +5,10 @@ import java.util.Random;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Sprite;
 
-/** A collectable pickup that drifts down the arena and expires if nobody takes it. */
+/**
+ * A collectable pickup that drifts down the arena -- or across it from any edge, in battle -- and
+ * expires if nobody takes it.
+ */
 public final class PowerUp extends Entity {
 
     private final Kind kind;

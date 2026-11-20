@@ -110,6 +110,9 @@ public final class World {
     /** @param pilotNames one per player slot, player one first */
     public World(GameMode mode, List<String> pilotNames) {
         this.mode = mode;
+        // Seated on the mode's own arena from the start, so Battle's pilots face off left and
+        // right even before the loop calls enterLevel.
+        this.orientation = mode.rules().arena().orientation();
         spawnPlayers(pilotNames);
     }
 
@@ -185,6 +188,10 @@ public final class World {
             // one, which keeps two-player battle exactly where it has always been and gives four
             // players two a side rather than a queue at one end.
             boolean opposed = headToHead && number % 2 == 0;
+            Facing facing = opposed ? near.opposite() : near;
+            // Turned first, because a side-on hull is cut with its box swapped: measured before the
+            // turn, a ship moving between a top-down and a side-view arena lands a few pixels off.
+            player.setSpawn(player.x(), player.y(), facing);
             double w = player.width();
             double h = player.height();
 
@@ -200,7 +207,7 @@ public final class World {
 
             player.setSpawn(orientation.atX(depth, across, w, h),
                     orientation.atY(depth, across, w, h),
-                    opposed ? near.opposite() : near);
+                    facing);
             player.returnToSpawn();
         }
     }
@@ -466,10 +473,24 @@ public final class World {
         // spawn off-screen on the entry side and have to survive the trip in. A boss arrives at a
         // depth of about -190, which any symmetric margin would kill on the spot.
         double arenaDepth = orientation.arenaDepth();
+        if (rules().hazardsFromAllSides()) {
+            // Everything comes in from every edge, so a far side is somebody's entry side and the
+            // directional test below would kill rocks the moment they arrived. A box, like bullets.
+            for (Asteroid asteroid : asteroids) {
+                if (outsideBox(asteroid, margin)) {
+                    asteroid.kill();
+                }
+            }
+            for (PowerUp powerUp : powerUps) {
+                if (outsideBox(powerUp, margin)) {
+                    powerUp.kill();
+                }
+            }
+        }
         for (Asteroid asteroid : asteroids) {
             double across = orientation.across(asteroid.x(), asteroid.y());
             double acrossExtent = orientation.acrossExtent(asteroid.width(), asteroid.height());
-            boolean gone = orientation.depth(asteroid.x(), asteroid.y(),
+            boolean gone = !rules().hazardsFromAllSides() && orientation.depth(asteroid.x(), asteroid.y(),
                             asteroid.width(), asteroid.height()) > arenaDepth
                     || across + acrossExtent < -margin
                     || across > orientation.arenaBreadth() + margin
@@ -496,12 +517,18 @@ public final class World {
             }
         }
         for (PowerUp powerUp : powerUps) {
-            boolean gone = orientation.depth(powerUp.x(), powerUp.y(),
+            boolean gone = !rules().hazardsFromAllSides() && orientation.depth(powerUp.x(), powerUp.y(),
                     powerUp.width(), powerUp.height()) > arenaDepth;
             if (gone) {
                 powerUp.kill();
             }
         }
+    }
+
+    /** True once a box has left the arena on any side by more than {@code margin}. */
+    private boolean outsideBox(Entity entity, double margin) {
+        return entity.x() + entity.width() < -margin || entity.x() > orientation.arenaWidth() + margin
+                || entity.y() + entity.height() < -margin || entity.y() > GameConfig.HEIGHT + margin;
     }
 
     /**
@@ -718,6 +745,12 @@ public final class World {
     public void addPowerUp(PowerUp powerUp) {
         powerUp.setVelocity(orientation.vx(GameConfig.POWERUP_DRIFT_SPEED, 0),
                 orientation.vy(GameConfig.POWERUP_DRIFT_SPEED, 0));
+        powerUps.add(powerUp);
+    }
+
+    /** A pickup on a heading of its own rather than down the lane: battle's, from any edge. */
+    public void addPowerUp(PowerUp powerUp, double velocityX, double velocityY) {
+        powerUp.setVelocity(velocityX, velocityY);
         powerUps.add(powerUp);
     }
 

@@ -6,13 +6,13 @@ import com.hashimjacobs.spacecase.asset.MusicCue;
 public enum GameMode {
 
     SOLO("Single Player", null,
-            new ModeRules(1, true, true, true, false, false)),
+            new ModeRules(1, true, true, true, false, false, Level.values()[0], false)),
 
     COOP("Co-op", null,
-            new ModeRules(2, true, true, true, false, false)),
+            new ModeRules(2, true, true, true, false, false, Level.values()[0], false)),
 
     BATTLE("Battle", MusicCue.BATTLE,
-            new ModeRules(2, false, true, true, true, true));
+            new ModeRules(2, false, true, true, true, true, Level.VERDANT_AIRSPACE, true));
 
     private final String label;
     private final MusicCue music;

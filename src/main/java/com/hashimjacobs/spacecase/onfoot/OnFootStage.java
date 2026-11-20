@@ -23,7 +23,13 @@ public final class OnFootStage {
 
     /** The floor line, in canvas pixels. Everything stands on it. */
     public static final double FLOOR = GameConfig.HEIGHT * 0.83;
-    public static final double LENGTH = 4200;
+    /**
+     * How much of the stage is on screen at once: 16:9 at the arena's height, the same shape the
+     * side-view levels fly at, so the drop to the ground does not narrow the screen.
+     */
+    public static final double VIEW = GameConfig.WIDE_WIDTH;
+    /** The whole walkway, end to end. Each locked arena in a {@link Mission} is a view and a bit wide. */
+    public static final double LENGTH = 6360;
     static final double SHIP_X = 260;
     static final int LANDING_TICKS = 130;
     static final int EXIT_TICKS = 50;
@@ -829,7 +835,7 @@ public final class OnFootStage {
         if (!pendingSpawns.isEmpty() && spawnClock % 50 == 1 && liveEnemies() < MAX_ON_FLOOR + livePilots()) {
             Spawn next = pendingSpawns.remove(0);
             int side = next.side();
-            double x = side > 0 ? Math.min(s.right() - 40, camera + GameConfig.WIDTH + 40)
+            double x = side > 0 ? Math.min(s.right() - 40, camera + VIEW + 40)
                     : Math.max(s.left() + 40, camera - 40);
             Fighter e = spawn(next.kind(), x);
             e.vy = -6;      // they drop in from the catwalks
@@ -908,12 +914,12 @@ public final class OnFootStage {
             }
         }
         double target = (n == 0 ? (beat == Beat.LANDING || beat == Beat.LIFTOFF || beat == Beat.PICKUP ? shipX : camera
-                + GameConfig.WIDTH / 2.0) : sum / n) - GameConfig.WIDTH / 2.0;
+                + VIEW / 2.0) : sum / n) - VIEW / 2.0;
         if (beat == Beat.PICKUP) {
-            target = shipX - GameConfig.WIDTH / 2.0;
+            target = shipX - VIEW / 2.0;
         }
-        target = Math.max(wallLeft() - 40, Math.min(wallRight() + 40 - GameConfig.WIDTH, target));
-        target = Math.max(0, Math.min(LENGTH - GameConfig.WIDTH, target));
+        target = Math.max(wallLeft() - 40, Math.min(wallRight() + 40 - VIEW, target));
+        target = Math.max(0, Math.min(LENGTH - VIEW, target));
         camera += (target - camera) * 0.09;
     }
 
