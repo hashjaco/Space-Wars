@@ -18,6 +18,7 @@ public final class Settings {
     private static final String KEY_CINEMATIC = "glowEffects";
     private static final String KEY_FILM_GRAIN = "filmGrain";
     private static final String KEY_MIRRORED_SIDES = "mirroredSides";
+    private static final String KEY_SHARP_RENDER = "sharpRender";
     private static final String KEY_WINDOW = "windowHeight";
 
     /** {@link #windowHeight} values that are not a pixel height. */
@@ -64,6 +65,7 @@ public final class Settings {
     private boolean cinematic;
     private boolean filmGrain;
     private boolean mirroredSides;
+    private boolean sharpRender;
     private int windowHeight;
     private final PadButton[][] padButtons = new PadButton[PLAYERS][PadAction.values().length];
     private final String[] padLayout = new String[PLAYERS];
@@ -96,6 +98,7 @@ public final class Settings {
         settings.cinematic = store.getBoolean(KEY_CINEMATIC, true);
         settings.filmGrain = store.getBoolean(KEY_FILM_GRAIN, false);
         settings.mirroredSides = store.getBoolean(KEY_MIRRORED_SIDES, true);
+        settings.sharpRender = store.getBoolean(KEY_SHARP_RENDER, sharpByDefault());
         settings.windowHeight = store.getInt(KEY_WINDOW, 864);
         for (int slot = 0; slot < PLAYERS; slot++) {
             for (PadAction action : PadAction.values()) {
@@ -188,6 +191,7 @@ public final class Settings {
         store.putBoolean(KEY_CINEMATIC, cinematic);
         store.putBoolean(KEY_FILM_GRAIN, filmGrain);
         store.putBoolean(KEY_MIRRORED_SIDES, mirroredSides);
+        store.putBoolean(KEY_SHARP_RENDER, sharpRender);
         store.putInt(KEY_WINDOW, windowHeight);
         for (int slot = 0; slot < PLAYERS; slot++) {
             for (PadAction action : PadAction.values()) {
@@ -331,6 +335,30 @@ public final class Settings {
 
     public void setMirroredSides(boolean on) {
         this.mirroredSides = on;
+    }
+
+    /**
+     * Whether the arena is drawn at the resolution it is shown at (sharp) or at its own 996 or
+     * 1536 by 864 and stretched to fit (fast). Fast fills a fraction of the pixels a frame at 1080p
+     * and above, which is what a small GPU runs short of, for slightly softer edges.
+     */
+    public boolean sharpRender() {
+        return sharpRender;
+    }
+
+    public void setSharpRender(boolean on) {
+        this.sharpRender = on;
+    }
+
+    /**
+     * Sharp, except on ARM Linux boards like the Raspberry Pi and on Android, whose GPUs cannot
+     * fill a full-resolution arena at 60 frames a second. Only until the player picks one.
+     */
+    static boolean sharpByDefault() {
+        boolean android = System.getenv("ANDROID_ROOT") != null;
+        boolean armLinux = "Linux".equals(System.getProperty("os.name"))
+                && "aarch64".equals(System.getProperty("os.arch"));
+        return !android && !armLinux;
     }
 
     /**

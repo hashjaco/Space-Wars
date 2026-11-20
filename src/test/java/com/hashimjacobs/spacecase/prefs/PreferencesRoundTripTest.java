@@ -63,6 +63,15 @@ class PreferencesRoundTripTest {
     }
 
     @Test
+    void theRenderSettingStartsAtThePlatformDefaultAndSurvivesAReload() {
+        Settings fresh = Settings.load(scratch);
+        assertEquals(Settings.sharpByDefault(), fresh.sharpRender());
+        fresh.setSharpRender(!fresh.sharpRender());
+        fresh.save();
+        assertEquals(!Settings.sharpByDefault(), Settings.load(scratch).sharpRender());
+    }
+
+    @Test
     void volumesAreClampedToZeroThroughOne() {
         Settings settings = Settings.load(scratch);
         settings.setMusicVolume(4.2);

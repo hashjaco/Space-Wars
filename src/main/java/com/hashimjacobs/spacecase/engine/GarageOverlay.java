@@ -1,6 +1,8 @@
 package com.hashimjacobs.spacecase.engine;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import javafx.geometry.VPos;
 import javafx.scene.canvas.GraphicsContext;
@@ -14,10 +16,12 @@ import javafx.scene.text.TextAlignment;
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.Baked;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.garage.Upgrade;
+import com.hashimjacobs.spacecase.ui.Pill;
 
 /**
  * The between-levels garage: a hangar deck, and a bay per pilot with their ship turning on a lift
@@ -123,14 +127,14 @@ final class GarageOverlay {
         double size = Math.min(narrow ? SHOWCASE_NARROW : SHOWCASE_WIDE, sideX - x - 20);
         drawShowcase(session.look(bay), x + (sideX - x) / 2, top + height * 0.42, size, tick);
 
+        // Every rounded box here goes through Pill, every rule is a thin rect and the pad is drawn
+        // once: on the Pi each shape filled or stroked on the canvas is a mask uploaded on its own,
+        // and a bay was sixty of them a frame.
         gc.save();
         gc.setGlobalAlpha(0.92);
-        gc.setFill(PANEL);
-        gc.fillRoundRect(sideX, top, sideWidth, height, 12, 12);
+        Pill.fill(gc, PANEL, sideX, top, sideWidth, height, 12);
         gc.restore();
-        gc.setStroke(PANEL_EDGE);
-        gc.setLineWidth(1.5);
-        gc.strokeRoundRect(sideX, top, sideWidth, height, 12, 12);
+        Pill.stroke(gc, PANEL_EDGE, 1.5, sideX, top, sideWidth, height, 12);
 
         double left = sideX + 20;
         double right = sideX + sideWidth - 20;
@@ -157,9 +161,7 @@ final class GarageOverlay {
 
         // LAUNCH is pinned to the foot of the sidebar, so the way out never moves between tabs.
         double launchY = top + height - 44;
-        gc.setStroke(PANEL_EDGE);
-        gc.setLineWidth(1);
-        gc.strokeLine(left - 6, launchY - 14, right + 6, launchY - 14);
+        rule(left - 6, right + 6, launchY - 14);
         drawRow(left, right, launchY, rows.get(launch), cursor == launch, true);
 
         String message = session.message(bay);
@@ -190,12 +192,9 @@ final class GarageOverlay {
             double tx = x + i * tabWidth;
             boolean selected = tabs[i] == current;
             if (selected) {
-                gc.setFill(Tokens.SURFACE_2);
-                gc.fillRoundRect(tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6, 6);
+                Pill.fill(gc, Tokens.SURFACE_2, tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6);
                 if (focused) {
-                    gc.setStroke(BRAND);
-                    gc.setLineWidth(1.5);
-                    gc.strokeRoundRect(tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6, 6);
+                    Pill.stroke(gc, BRAND, 1.5, tx + 2, y, tabWidth - 4, TAB_HEIGHT, 6);
                 }
             }
             gc.setFont(selected ? valueFont : rowFont);
@@ -209,28 +208,24 @@ final class GarageOverlay {
             gc.fillText("<", x - 6, y + 6);
             gc.fillText(">", x + width + 6, y + 6);
         }
-        gc.setStroke(PANEL_EDGE);
-        gc.setLineWidth(1);
-        gc.strokeLine(x, y + TAB_HEIGHT + 8, x + width, y + TAB_HEIGHT + 8);
+        rule(x, x + width, y + TAB_HEIGHT + 8);
+    }
+
+    /** A one-unit rule across from {@code x0} to {@code x1}, centred on {@code y}: a rect, not a stroked line. */
+    private void rule(double x0, double x1, double y) {
+        gc.setFill(PANEL_EDGE);
+        gc.fillRect(x0, y - 0.5, x1 - x0, 1);
     }
 
     private void drawShowcase(GarageSession.Look look, double centreX, double centreY, double size, int tick) {
         // The pad: a lit ring on the deck, and a cone of light from the gantry above it.
+        Pad pad = PADS.computeIfAbsent(size, Pad::new);
+        double padX = centreX - size * 0.62 - Pad.BLEED, padY = centreY - size * 0.95 - Pad.BLEED;
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setGlobalAlpha(0.10);
-        gc.setFill(Color.web("#ffd9a0"));
-        gc.fillPolygon(new double[] {centreX - 26, centreX + 26, centreX + size * 0.62, centreX - size * 0.62},
-                new double[] {centreY - size * 0.95, centreY - size * 0.95, centreY + size * 0.22, centreY + size * 0.22}, 4);
-        gc.setGlobalAlpha(0.30);
-        gc.setFill(BRAND);
-        gc.fillOval(centreX - size * 0.62, centreY + size * 0.12, size * 1.24, size * 0.22);
+        gc.drawImage(pad.light, padX, padY, pad.width, pad.height);
         gc.restore();
-        gc.setStroke(Color.web("#ffb347"));
-        gc.setLineWidth(2);
-        gc.setGlobalAlpha(0.8);
-        gc.strokeOval(centreX - size * 0.55, centreY + size * 0.14, size * 1.1, size * 0.18);
-        gc.setGlobalAlpha(1);
+        gc.drawImage(pad.ring, padX, padY, pad.width, pad.height);
 
         ChassisArt art = ChassisArt.named(look.chassis().name());
         if (art != null) {
@@ -260,11 +255,49 @@ final class GarageOverlay {
         }
     }
 
+    private static final Map<Double, Pad> PADS = new HashMap<>();
+
+    /**
+     * The lift pad for a showcase {@code size} across, drawn once: the light laid on under SCREEN
+     * in one draw, the ring over it plainly. Both share a box that starts {@link #BLEED} up and
+     * left of the cone's top-left corner.
+     */
+    private static final class Pad {
+        static final double BLEED = 2;
+        private static final double SCALE = 2;
+        private static final Color CONE = Color.web("#ffd9a0");
+        private static final Color RING = Color.web("#ffb347");
+
+        final double width, height;
+        final Image light, ring;
+
+        Pad(double size) {
+            width = size * 1.24 + 2 * BLEED;
+            height = size * 1.29 + 2 * BLEED;
+            // In the box's own frame the pad's centre sits at (cx, cy).
+            double cx = size * 0.62 + BLEED, cy = size * 0.95 + BLEED;
+            light = Baked.prerender(width, height, SCALE, g -> {
+                g.setGlobalAlpha(0.10);
+                g.setFill(CONE);
+                g.fillPolygon(new double[] {cx - 26, cx + 26, cx + size * 0.62, cx - size * 0.62},
+                        new double[] {cy - size * 0.95, cy - size * 0.95, cy + size * 0.22, cy + size * 0.22}, 4);
+                g.setGlobalAlpha(0.30);
+                g.setFill(BRAND);
+                g.fillOval(cx - size * 0.62, cy + size * 0.12, size * 1.24, size * 0.22);
+            });
+            ring = Baked.prerender(width, height, SCALE, g -> {
+                g.setStroke(RING);
+                g.setLineWidth(2);
+                g.setGlobalAlpha(0.8);
+                g.strokeOval(cx - size * 0.55, cy + size * 0.14, size * 1.1, size * 0.18);
+            });
+        }
+    }
+
     private double drawRow(double left, double right, double y, GarageSession.Row row,
                            boolean focused, boolean isLaunch) {
         if (focused) {
-            gc.setFill(Tokens.SURFACE_2);
-            gc.fillRoundRect(left - 10, y - 4, right - left + 20, 22, 5, 5);
+            Pill.fill(gc, Tokens.SURFACE_2, left - 10, y - 4, right - left + 20, 22, 5);
         }
 
         // Upgrade rows carry an icon ahead of the label; the cosmetic rows keep the bare label, so
@@ -335,18 +368,28 @@ final class GarageOverlay {
             boolean filled = i < row.level();
             boolean nextUp = i == row.level() && row.affordable();
             if (filled) {
-                gc.setFill(BRAND);
-                gc.fillRoundRect(sx, y, SEGMENT_WIDTH, SEGMENT_HEIGHT,
-                        Tokens.RADIUS_S, Tokens.RADIUS_S);
-                continue;
+                Pill.fill(gc, BRAND, sx, y, SEGMENT_WIDTH, SEGMENT_HEIGHT, Tokens.RADIUS_S);
+            } else if (nextUp) {
+                gc.drawImage(nextSegment(), sx - 1, y - 1, SEGMENT_WIDTH + 2, SEGMENT_HEIGHT + 2);
+            } else {
+                Pill.stroke(gc, PANEL_EDGE, 1, sx, y, SEGMENT_WIDTH, SEGMENT_HEIGHT, Tokens.RADIUS_S);
             }
-            gc.setStroke(nextUp ? BRAND : PANEL_EDGE);
-            gc.setLineWidth(1);
-            gc.setLineDashes(nextUp ? new double[]{3, 2} : null);
-            gc.strokeRoundRect(sx, y, SEGMENT_WIDTH, SEGMENT_HEIGHT,
-                    Tokens.RADIUS_S, Tokens.RADIUS_S);
-            gc.setLineDashes(null);
         }
+    }
+
+    private static Image nextSegment;
+
+    /** The dashed outline of the next affordable level, a unit of room round it for the stroke. */
+    private static Image nextSegment() {
+        if (nextSegment == null) {
+            nextSegment = Baked.prerender(SEGMENT_WIDTH + 2, SEGMENT_HEIGHT + 2, 4, g -> {
+                g.setStroke(BRAND);
+                g.setLineWidth(1);
+                g.setLineDashes(3, 2);
+                g.strokeRoundRect(1, 1, SEGMENT_WIDTH, SEGMENT_HEIGHT, Tokens.RADIUS_S, Tokens.RADIUS_S);
+            });
+        }
+        return nextSegment;
     }
 
     /** Where the visible slice sits in the whole list, for a bay that no longer shows all of it. */

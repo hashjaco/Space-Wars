@@ -302,6 +302,17 @@ public final class Assets {
      * the stage.
      */
     public static Font fitted(String family, double size, String text, double maxWidth) {
+        // Asked every frame a title card is up; measuring builds a Text node, so remember the answer.
+        return FITTED.computeIfAbsent(new FitKey(family, size, text, maxWidth),
+                key -> measureFitted(family, size, text, maxWidth));
+    }
+
+    private record FitKey(String family, double size, String text, double maxWidth) {
+    }
+
+    private static final Map<FitKey, Font> FITTED = new HashMap<>();
+
+    private static Font measureFitted(String family, double size, String text, double maxWidth) {
         Font font = Font.font(family, size);
         Text probe = new Text(text);
         probe.setFont(font);

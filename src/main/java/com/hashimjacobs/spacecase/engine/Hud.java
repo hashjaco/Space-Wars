@@ -12,6 +12,7 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import com.hashimjacobs.spacecase.ui.Meter;
+import com.hashimjacobs.spacecase.ui.Pill;
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.GameConfig;
@@ -66,6 +67,11 @@ final class Hud {
     // Never read by the simulation.
     private final Meter.Lag[] healthLag = {new Meter.Lag(), new Meter.Lag(), new Meter.Lag(), new Meter.Lag()};
     private final double[] shownScore = new double[4];
+    /** Each seat's score and combo as last formatted, so the text is only rebuilt when it changes. */
+    private final long[] scoreShown = new long[4];
+    private final String[] scoreText = new String[4];
+    private final int[] comboShown = new int[4];
+    private final String[] comboText = new String[4];
     private Meter.Lag bossLag;
 
     Hud(GraphicsContext gc, Settings settings) {
@@ -132,11 +138,9 @@ final class Hud {
 
     private void drawPlayerPanel(PlayerShip player, double x, double y, int tick) {
         int seat = Math.min(3, player.playerNumber() - 1);
-        gc.setFill(Tokens.PLATE);
-        gc.fillRoundRect(x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8, Tokens.RADIUS_L, Tokens.RADIUS_L);
-        gc.setStroke(Tokens.EDGE);
-        gc.setLineWidth(Tokens.STROKE_HAIR);
-        gc.strokeRoundRect(x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        Pill.fill(gc, Tokens.PLATE, x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8, Tokens.RADIUS_L);
+        Pill.stroke(gc, Tokens.EDGE, Tokens.STROKE_HAIR, x - 8, y - 6, PANEL_WIDTH + 16, PANEL_HEIGHT + 8,
+                Tokens.RADIUS_L);
 
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFont(labelFont);
@@ -151,9 +155,19 @@ final class Hud {
         shownScore[seat] = Math.abs(gap) < 1 ? player.score() : shownScore[seat] + gap * 0.18;
         gc.setFont(scoreFont);
         gc.setFill(Color.WHITE);
-        gc.fillText(String.format("%,d", Math.round(shownScore[seat])), x, y + 13);
+        long shown = Math.round(shownScore[seat]);
+        if (scoreText[seat] == null || shown != scoreShown[seat]) {
+            scoreShown[seat] = shown;
+            scoreText[seat] = String.format("%,d", shown);
+        }
+        gc.fillText(scoreText[seat], x, y + 13);
         if (player.combo() > 1 && tick - player.comboTick() <= PlayerShip.COMBO_WINDOW_TICKS) {
-            chip(String.format("x%.1f", player.comboMultiplier()), x + PANEL_WIDTH, y + 22, Tokens.HEALTH_MID);
+            int tenths = (int) Math.round(player.comboMultiplier() * 10);
+            if (comboText[seat] == null || tenths != comboShown[seat]) {
+                comboShown[seat] = tenths;
+                comboText[seat] = String.format("x%.1f", player.comboMultiplier());
+            }
+            chip(comboText[seat], x + PANEL_WIDTH, y + 22, Tokens.HEALTH_MID);
         }
 
         double barY = y + 50;
@@ -175,11 +189,8 @@ final class Hud {
     /** A small filled tag, right-aligned at {@code right}: the combo, the hydra's head count. */
     private void chip(String text, double right, double y, Color color) {
         double width = text.length() * 7.6 + 12;
-        gc.setFill(Tokens.veil(0.55));
-        gc.fillRoundRect(right - width, y, width, 18, Tokens.RADIUS, Tokens.RADIUS);
-        gc.setStroke(color);
-        gc.setLineWidth(Tokens.STROKE_HAIR);
-        gc.strokeRoundRect(right - width, y, width, 18, Tokens.RADIUS, Tokens.RADIUS);
+        Pill.fill(gc, Tokens.veil(0.55), right - width, y, width, 18, Tokens.RADIUS);
+        Pill.stroke(gc, color, Tokens.STROKE_HAIR, right - width, y, width, 18, Tokens.RADIUS);
         gc.setFont(chipFont);
         gc.setFill(color);
         gc.setTextAlign(TextAlignment.CENTER);
@@ -259,10 +270,7 @@ final class Hud {
         // White on impact, so a hit reads on the bar as well as on the hull. Eighteen ticks is
         // short enough to register as a flash without needing to blink.
         if (player.justHit()) {
-            gc.setStroke(Color.WHITE);
-            gc.setLineWidth(2);
-            gc.strokeRoundRect(x, y, PANEL_WIDTH, BAR_HEIGHT, 7, 7);
-            gc.setLineWidth(1);
+            Pill.stroke(gc, Color.WHITE, 2, x, y, PANEL_WIDTH, BAR_HEIGHT, 7);
         }
     }
 
@@ -274,15 +282,38 @@ final class Hud {
         gc.save();
         gc.setGlobalBlendMode(BlendMode.SCREEN);
         // A halo spilling past the bar's edge: with the alarm sound gone, this is the warning.
-        for (int ring = 3; ring >= 1; ring--) {
-            gc.setGlobalAlpha(pulse * 0.22);
-            gc.setFill(DANGER);
-            gc.fillRoundRect(x - ring * 3, y - ring * 3, PANEL_WIDTH + ring * 6, BAR_HEIGHT + ring * 6, 7 + ring * 3, 7 + ring * 3);
-        }
+        // One image of all three rings rather than three: on the Pi every draw under SCREEN is a
+        // pass of its own, and this one is on screen for as long as a pilot is near death.
         gc.setGlobalAlpha(pulse);
-        gc.setFill(DANGER);
-        gc.fillRoundRect(x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7, 7);
+        gc.drawImage(lowHealthHalo(), x - HALO_REACH, y - HALO_REACH,
+                PANEL_WIDTH + 2 * HALO_REACH, BAR_HEIGHT + 2 * HALO_REACH);
+        Pill.fill(gc, DANGER, x, y, PANEL_WIDTH * fraction, BAR_HEIGHT, 7);
         gc.restore();
+    }
+
+    private static final double HALO_REACH = 9;
+    private static javafx.scene.image.Image lowHealthHalo;
+
+    /** The three rings of the low-health halo, each at 0.22, laid over one another once. */
+    private static javafx.scene.image.Image lowHealthHalo() {
+        if (lowHealthHalo == null) {
+            int scale = 2;
+            javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(
+                    (PANEL_WIDTH + 2 * HALO_REACH) * scale, (BAR_HEIGHT + 2 * HALO_REACH) * scale);
+            GraphicsContext g = canvas.getGraphicsContext2D();
+            g.scale(scale, scale);
+            g.translate(HALO_REACH, HALO_REACH);
+            g.setGlobalAlpha(0.22);
+            g.setFill(DANGER);
+            for (int ring = 3; ring >= 1; ring--) {
+                g.fillRoundRect(-ring * 3, -ring * 3, PANEL_WIDTH + ring * 6, BAR_HEIGHT + ring * 6,
+                        7 + ring * 3, 7 + ring * 3);
+            }
+            javafx.scene.SnapshotParameters clear = new javafx.scene.SnapshotParameters();
+            clear.setFill(Color.TRANSPARENT);
+            lowHealthHalo = canvas.snapshot(clear, null);
+        }
+        return lowHealthHalo;
     }
 
     /**
@@ -341,8 +372,7 @@ final class Hud {
 
         // A plate between the two top panels, so the line reads over any sky.
         double width = 500;
-        gc.setFill(Tokens.PLATE);
-        gc.fillRoundRect(arenaW / 2 - width / 2, 8, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        Pill.fill(gc, Tokens.PLATE, arenaW / 2 - width / 2, 8, width, 22, Tokens.RADIUS_L);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(chipFont);
         gc.setFill(Color.web(level.galaxy().accent()));
@@ -359,8 +389,7 @@ final class Hud {
         double width = 230;
         double x = arenaW / 2 - width / 2;
         double y = GameConfig.HEIGHT - 32;
-        gc.setFill(Tokens.PLATE);
-        gc.fillRoundRect(x, y, width, 22, Tokens.RADIUS_L, Tokens.RADIUS_L);
+        Pill.fill(gc, Tokens.PLATE, x, y, width, 22, Tokens.RADIUS_L);
         gc.setFont(chipFont);
         gc.setTextAlign(TextAlignment.LEFT);
         gc.setFill(overPar ? Tokens.TEXT_FAINT : Color.WHITE);
@@ -396,8 +425,7 @@ final class Hud {
 
     /** Flashes while the flagship is arriving, so the fight does not start unannounced. */
     void drawNetBanner(String line) {
-        gc.setFill(Tokens.veil(0.6));
-        gc.fillRoundRect(arenaW * 0.2, GameConfig.HEIGHT * 0.44, arenaW * 0.6, 44, 10, 10);
+        Pill.fill(gc, Tokens.veil(0.6), arenaW * 0.2, GameConfig.HEIGHT * 0.44, arenaW * 0.6, 44, 10);
         gc.setTextAlign(TextAlignment.CENTER);
         gc.setFont(bannerFont);
         gc.setFill(Tokens.HEALTH_MID);

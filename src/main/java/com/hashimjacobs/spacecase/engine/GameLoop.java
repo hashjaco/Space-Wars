@@ -496,6 +496,8 @@ public final class GameLoop {
         }
         if (phase == Phase.ON_FOOT) {
             renderer.drawOnFoot(onFoot);
+        } else if (phase == Phase.GARAGE) {
+            renderer.drawUnderGarage(world, director);
         } else {
             renderer.draw(world, director);
             if (phase == Phase.FIGHTING && levelCardTicks > 0) {

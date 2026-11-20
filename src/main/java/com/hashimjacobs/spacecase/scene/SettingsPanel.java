@@ -40,6 +40,7 @@ final class SettingsPanel extends VBox {
     private final MenuButton reducedFlashRow;
     private final MenuButton cinematicRow;
     private final MenuButton grainRow;
+    private final MenuButton renderRow;
     private final MenuButton sidesRow;
     private final MenuButton resolutionRow;
     private final MenuButton controlsRow;
@@ -95,6 +96,7 @@ final class SettingsPanel extends VBox {
         grainRow = new MenuButton("", this::toggleGrain);
         sidesRow = new MenuButton("", this::toggleSides);
         resolutionRow = new MenuButton("", this::cycleResolution);
+        renderRow = new MenuButton("", this::toggleRender);
         controlsRow = onControls == null ? null : new MenuButton("Keyboard", onControls);
         if (controlsRow != null) {
             controlsRow.setRow("Keyboard", ">");
@@ -124,7 +126,7 @@ final class SettingsPanel extends VBox {
         List<MenuButton> frontRows = new ArrayList<>(List.of(
                 difficultyRow,
                 category("Sound", List.of(musicRow, sfxRow)),
-                category("Display", List.of(resolutionRow, reducedFlashRow, cinematicRow, grainRow,
+                category("Display", List.of(resolutionRow, renderRow, reducedFlashRow, cinematicRow, grainRow,
                         sidesRow)),
                 category("Controller", padRows)));
         if (controlsRow != null) {
@@ -219,6 +221,11 @@ final class SettingsPanel extends VBox {
         refreshLabels();
     }
 
+    private void toggleRender() {
+        settings.setSharpRender(!settings.sharpRender());
+        refreshLabels();
+    }
+
     private void toggleSides() {
         settings.setMirroredSides(!settings.mirroredSides());
         refreshLabels();
@@ -259,6 +266,7 @@ final class SettingsPanel extends VBox {
         reducedFlashRow.setRow("Flashing", settings.reducedFlash() ? "Reduced" : "Full");
         cinematicRow.setRow("Lighting", settings.cinematic() ? "Cinematic" : "Flat");
         resolutionRow.setRow("Resolution", SceneRouter.resolutionLabel(settings.windowHeight()));
+        renderRow.setRow("Render", settings.sharpRender() ? "Sharp" : "Fast");
         grainRow.setRow("Film grain", settings.filmGrain() ? "On" : "Off");
         sidesRow.setRow("Mirrored sides", settings.mirroredSides() ? "On" : "Off");
         controllerRow.setRow("Controller", settings.gamepadEnabled() ? "On" : "Off");

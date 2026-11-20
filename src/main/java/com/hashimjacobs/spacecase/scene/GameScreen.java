@@ -44,6 +44,9 @@ final class GameScreen {
     private final InputState input = new InputState();
     private final GameLoop loop;
     private final SaveGames saves;
+    private final Settings settings;
+    /** Re-runs {@link #fit}; set once the canvases exist. */
+    private Runnable refit;
     private final MenuButton[] slotButtons = new MenuButton[SaveGames.SLOTS];
     private MenuNavigator pauseNavigator;
     private SettingsPanel settingsPanel;
@@ -120,6 +123,7 @@ final class GameScreen {
         // pass, and resizing a canvas there changes bounds the pass has already read. On an Android
         // TV that left the whole game screen drawn at five eighths size until something else forced
         // a clean layout.
+        this.settings = settings;
         Runnable fit = () -> javafx.application.Platform.runLater(() -> {
             fit(canvas, arenaShrink, bars, barShrink, barGroup, renderer);
             root.requestLayout();
@@ -129,6 +133,8 @@ final class GameScreen {
         // A side-view level is flown in a wider arena than a top-down one, so the fit changes
         // between levels as well as with the window.
         renderer.setOnArenaResized(fit);
+        // And when the render setting is changed in the pause menu's settings.
+        this.refit = fit;
 
         input.setOnPausePressed(this::togglePause);
     }
@@ -141,13 +147,16 @@ final class GameScreen {
      * bars at the sides; a 1536 arena in narrower room is shrunk to the width and leaves bands
      * above and below. Never both.
      *
-     * Both canvases rasterize at the size they are shown rather than being stretched: the router
-     * scales the whole screen to fit the window, and a canvas scaled as a node is a stretched
-     * bitmap. So each grows by the scale it is shown at, shrinks back by a transform its Group
+     * With the Sharp render setting, both canvases rasterize at the size they are shown rather
+     * than being stretched: the router scales the whole screen to fit the window, and a canvas
+     * scaled as a node is a stretched bitmap. So each grows by the scale it is shown at, shrinks back by a transform its Group
      * hides from layout, and carries a base transform that scales every draw call to match -- the
      * renderer still draws in arena units and never knows. Safe because the renderer balances every
      * save with a restore and never calls setTransform itself. The bar canvas's origin is moved to
      * the arena's top-left corner, so the bars are at negative coordinates and past the far edges.
+     *
+     * With the Fast setting they rasterize at arena size and are stretched after all: at 1080p that
+     * is under half the pixels to fill each frame, for slightly softer edges.
      */
     private void fit(Canvas arena, Scale arenaShrink, Canvas bars, Scale barShrink, Group group,
                      Renderer renderer) {
@@ -158,7 +167,9 @@ final class GameScreen {
         double arenaWidth = renderer.arenaWidth();
         double room = Math.max(GameConfig.WIDTH, root.getWidth());
         double shown = Math.min(1, room / arenaWidth);      // stage units per arena unit
-        double pixels = factor * shown;                     // canvas pixels per arena unit
+        // Fast draws at the arena's own size and lets the router's scale stretch the bitmap.
+        double raster = settings.sharpRender() ? factor : 1;
+        double pixels = raster * shown;                     // canvas pixels per arena unit
         double side = shown < 1 ? 0 : Math.max(0, Math.floor((room - arenaWidth) / 2));
         double band = (GameConfig.HEIGHT / shown - GameConfig.HEIGHT) / 2;
         boolean barred = side >= 1 || band >= 1;
@@ -173,14 +184,14 @@ final class GameScreen {
         }
         arena.setWidth(width);
         arena.setHeight(height);
-        arenaShrink.setX(1 / factor);
-        arenaShrink.setY(1 / factor);
+        arenaShrink.setX(1 / raster);
+        arenaShrink.setY(1 / raster);
         arena.getGraphicsContext2D().setTransform(pixels, 0, 0, pixels, 0, 0);
 
         bars.setWidth(barWidth);
         bars.setHeight(barHeight);
-        barShrink.setX(1 / factor);
-        barShrink.setY(1 / factor);
+        barShrink.setX(1 / raster);
+        barShrink.setY(1 / raster);
         GraphicsContext gc = bars.getGraphicsContext2D();
         gc.setTransform(pixels, 0, 0, pixels, side * pixels, band * pixels);
         renderer.setBars(barred ? gc : null, side, band);
@@ -336,6 +347,9 @@ final class GameScreen {
     }
 
     private void showPauseMenu() {
+        if (refit != null) {
+            refit.run();    // back from settings, where the render setting may have changed
+        }
         settingsLayer.setVisible(false);
         saveLayer.setVisible(false);
         pauseLayer.setVisible(true);

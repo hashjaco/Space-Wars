@@ -23,6 +23,7 @@ import javafx.scene.text.TextAlignment;
 
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.Baked;
 import com.hashimjacobs.spacecase.asset.ChassisArt;
 import com.hashimjacobs.spacecase.garage.Livery;
 import com.hashimjacobs.spacecase.asset.Sprite;
@@ -54,28 +55,27 @@ public final class OnFootRenderer {
     private static final Paint TEAL_HALO = Renderer.halo(TEAL);
     private static final Paint MOLTEN_HALO = Renderer.halo(MOLTEN);
     /** Second seat: same pilot, re-dyed, so two players are told apart at a glance and art costs nothing. */
-    private static final ColorAdjust SECOND_SEAT = new ColorAdjust(-0.55, 0.1, 0, 0);
-    /**
-     * A frame's hit flash: the same shape in white, laid over the frame. Baked once per frame rather
-     * than a ColorAdjust under ADD, which flashed the frame's whole rectangle, not the body.
-     */
-    private static final Map<Image, Image> WHITE = new java.util.IdentityHashMap<>();
+    private static final double SECOND_SEAT_HUE = -0.55, SECOND_SEAT_SATURATION = 0.1;
 
-    private static Image whiteOf(Image frame) {
-        return WHITE.computeIfAbsent(frame, f -> {
-            int w = (int) f.getWidth(), h = (int) f.getHeight();
-            javafx.scene.image.WritableImage white = new javafx.scene.image.WritableImage(w, h);
-            javafx.scene.image.PixelReader in = f.getPixelReader();
-            javafx.scene.image.PixelWriter out = white.getPixelWriter();
-            for (int y = 0; y < h; y++) {
-                for (int x = 0; x < w; x++) {
-                    int alpha = in.getArgb(x, y) >>> 24;
-                    out.setArgb(x, y, alpha == 0 ? 0 : alpha << 24 | 0x00ffffff);
-                }
-            }
-            return white;
-        });
-    }
+    /** Built once: these were new gradients every frame. */
+    private static final Paint CAVERN = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.web("#06080d")), new Stop(1, Color.web("#1e1518")));
+    private static final Paint SHAFT = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+            new Stop(0, KEY_COLD), new Stop(1, Color.TRANSPARENT));
+    private static final Paint HAZE = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.rgb(8, 10, 14, 0.15)), new Stop(0.7, Color.rgb(8, 10, 14, 0.45)),
+            new Stop(1, Color.rgb(30, 14, 10, 0.6)));
+    private static final Paint FLOOR_FALL = new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.TRANSPARENT), new Stop(1, Color.rgb(3, 4, 7, 0.85)));
+    private static final Paint WALL_GLOW = new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
+            new Stop(0, Color.TRANSPARENT), new Stop(0.5, MOLTEN), new Stop(1, Color.TRANSPARENT));
+    private static final Map<Color, Paint> FLOOR_LIGHTS = new HashMap<>();
+    private static final Color FLOOR_PLAIN = Color.web("#14161c");
+    private static final Color FLOOR_SEAM = Color.web("#2b3140");
+    private static final Color CHAIN = Color.web("#050608");
+    private static final Color SPARK = Color.web("#ffd27a");
+    private static final Color KI = Color.web("#9ffcff");
+    private static final Color DUST = Color.rgb(90, 84, 80);
     private static final Font TITLE = Font.font(Tokens.BODY, FontWeight.BOLD, 46);
     private static final Font CAPTION = Font.font(Tokens.BODY, FontWeight.BOLD, Tokens.SIZE_LABEL);
     private static final double FLOOR = OnFootStage.FLOOR;
@@ -90,6 +90,22 @@ public final class OnFootRenderer {
 
     private final GraphicsContext gc;
     private final Settings settings;
+    private Font cinemaTitle, cinemaObjective;
+
+    /** Made on first use, not per frame: the display face is only registered once assets load. */
+    private Font cinemaTitle() {
+        if (cinemaTitle == null) {
+            cinemaTitle = Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 54);
+        }
+        return cinemaTitle;
+    }
+
+    private Font cinemaObjective() {
+        if (cinemaObjective == null) {
+            cinemaObjective = Font.font(Assets.displayFontFamily(), FontWeight.NORMAL, 18);
+        }
+        return cinemaObjective;
+    }
 
     public OnFootRenderer(GraphicsContext gc, Settings settings) {
         this.gc = gc;
@@ -99,9 +115,85 @@ public final class OnFootRenderer {
     /** The stage being drawn; set once per {@link #draw}. */
     private Mission mission = Mission.UNDERCITY;
 
-    /** The mission's hue over art it borrowed from the Undercity, or null where none is needed. */
-    private ColorAdjust tint() {
-        return mission.hue() == 0 ? null : new ColorAdjust(mission.hue(), 0, 0, 0);
+    /**
+     * An image under {@code ColorAdjust(hue, saturation, 0, 0)}: the baked copy, or the live effect
+     * for the few frames before it comes back. Live, every copy of the backdrop and every enemy
+     * was a render to a scratch texture and back, each frame.
+     */
+    private void drawAdjusted(Image image, double hue, double saturation, double x, double y, double w, double h) {
+        Image baked = hue == 0 && saturation == 0 ? image : Baked.hueShifted(image, hue, saturation);
+        if (baked != null) {
+            gc.drawImage(baked, x, y, w, h);
+            return;
+        }
+        gc.setEffect(new ColorAdjust(hue, saturation, 0, 0));
+        gc.drawImage(image, x, y, w, h);
+        gc.setEffect(null);
+    }
+
+    /** A halo paint's glow over a box, as an image rather than a filled oval: no mask to upload. */
+    private void glow(Paint halo, double x, double y, double w, double h) {
+        gc.drawImage(Renderer.haloImage(halo), x, y, w, h);
+    }
+
+    /** A filled ellipse as an image, at {@code alpha} of the current alpha: no mask to upload. */
+    private void disc(Color colour, double alpha, double x, double y, double w, double h) {
+        double was = gc.getGlobalAlpha();
+        gc.setGlobalAlpha(was * alpha);
+        gc.drawImage(Baked.disc(colour), x, y, w, h);
+        gc.setGlobalAlpha(was);
+    }
+
+    /** Scale the drawn-once pictures are made at, so they stay sharp on a 1080p screen. */
+    private static final double PRERENDER = 2;
+
+    /**
+     * Shapes that never change, drawn once onto a scratch canvas and kept as an image. A shape
+     * filled or stroked on the game canvas is rasterized into a mask on the CPU and uploaded to the
+     * GPU every frame; on the Pi that, for the shafts and the chains, was most of the frame.
+     */
+    private static Image prerender(double w, double h, java.util.function.Consumer<GraphicsContext> draw) {
+        javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(w * PRERENDER, h * PRERENDER);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.scale(PRERENDER, PRERENDER);
+        draw.accept(g);
+        javafx.scene.SnapshotParameters clear = new javafx.scene.SnapshotParameters();
+        clear.setFill(Color.TRANSPARENT);
+        return canvas.snapshot(clear, null);
+    }
+
+    private static Image shaft;
+
+    /** One light shaft, its box 260 by the floor's height, the slanted quad and fade inside it. */
+    private static Image shaft() {
+        if (shaft == null) {
+            shaft = prerender(260, FLOOR, g -> {
+                g.setFill(SHAFT);
+                g.fillPolygon(new double[] {0, 70, 260, 120}, new double[] {0, 0, FLOOR, FLOOR}, 4);
+            });
+        }
+        return shaft;
+    }
+
+    private static final Map<Integer, Image> CHAINS = new HashMap<>();
+
+    /** A hanging chain {@code length} long; its image starts 16 above and 16 left of the anchor. */
+    private static Image chain(int length) {
+        return CHAINS.computeIfAbsent(length, len -> prerender(56, len + 40, g -> {
+            g.translate(16, 16);
+            g.setStroke(CHAIN);
+            g.setLineWidth(9);
+            g.strokeLine(0, -10, 6, len);
+            g.setLineWidth(5);
+            for (double y = 0; y < len; y += 22) {
+                g.strokeOval(-6 + y * 0.05, y, 12, 20);
+            }
+        }));
+    }
+
+    /** The mission's hue over art it borrowed from the Undercity, or 0 where none is needed. */
+    private double tint(boolean borrowed) {
+        return borrowed ? mission.hue() : 0;
     }
 
     /** The mission's own still if it has one, otherwise the Undercity's, which then wants the tint. */
@@ -190,19 +282,16 @@ public final class OnFootRenderer {
         Image back = missionStill("backdrop", borrowed);
         double h = FLOOR + 30;
         if (back != null) {
-            gc.setEffect(borrowed[0] ? tint() : null);
+            double hue = tint(borrowed[0]);
             double w = back.getWidth() * h / back.getHeight();
             double off = -(cam * 0.25) % (2 * w);
             // Every other copy mirrored, so a painting never meant to tile still has no seam.
             for (double x = off - 2 * w; x < GameConfig.WIDTH + 2 * w; x += 2 * w) {
-                gc.drawImage(back, x, 0, w, h);
-                gc.drawImage(back, x + 2 * w, 0, -w, h);
+                drawAdjusted(back, hue, 0, x, 0, w, h);
+                drawAdjusted(back, hue, 0, x + 2 * w, 0, -w, h);
             }
-            gc.setEffect(null);
         } else {
-            gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                    new Stop(0, Color.web("#06080d")), new Stop(1, Color.web("#1e1518"))));
-            gc.fillRect(-40, 0, GameConfig.WIDTH + 80, h);
+            gc.drawImage(Baked.paint(CAVERN, 4, 256), -40, 0, GameConfig.WIDTH + 80, h);
         }
         // Cold light shafts from the city above, slowly breathing.
         gc.save();
@@ -210,16 +299,11 @@ public final class OnFootRenderer {
         for (int i = 0; i < 4; i++) {
             double x = ((i * 410 - cam * 0.32) % 1640 + 1640) % 1640 - 200;
             gc.setGlobalAlpha(0.05 + 0.025 * Math.sin(tick * 0.013 + i));
-            gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                    new Stop(0, KEY_COLD), new Stop(1, Color.TRANSPARENT)));
-            gc.fillPolygon(new double[] {x, x + 70, x + 260, x + 120}, new double[] {0, 0, FLOOR, FLOOR}, 4);
+            gc.drawImage(shaft(), x, 0, 260, FLOOR);
         }
         gc.restore();
         // Haze: the far plane sits in fog, which is what pushes it back.
-        gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.rgb(8, 10, 14, 0.15)), new Stop(0.7, Color.rgb(8, 10, 14, 0.45)),
-                new Stop(1, Color.rgb(30, 14, 10, 0.6))));
-        gc.fillRect(-40, 0, GameConfig.WIDTH + 80, FLOOR + 30);
+        gc.drawImage(Baked.paint(HAZE, 4, 256), -40, 0, GameConfig.WIDTH + 80, FLOOR + 30);
     }
 
     private void drawFloor(double cam) {
@@ -228,18 +312,17 @@ public final class OnFootRenderer {
         double top = FLOOR - 6;
         double h = GameConfig.HEIGHT - top + 60;
         if (floor != null) {
-            gc.setEffect(borrowed[0] ? tint() : null);
+            double hue = tint(borrowed[0]);
             double w = floor.getWidth() * h / floor.getHeight();
             double start = Math.floor(cam / (2 * w)) * 2 * w;
             for (double x = start - 2 * w; x < cam + GameConfig.WIDTH + 2 * w; x += 2 * w) {
-                gc.drawImage(floor, x, top, w, h);
-                gc.drawImage(floor, x + 2 * w, top, -w, h);
+                drawAdjusted(floor, hue, 0, x, top, w, h);
+                drawAdjusted(floor, hue, 0, x + 2 * w, top, -w, h);
             }
-            gc.setEffect(null);
         } else {
-            gc.setFill(Color.web("#14161c"));
+            gc.setFill(FLOOR_PLAIN);
             gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, h);
-            gc.setStroke(Color.web("#2b3140"));
+            gc.setStroke(FLOOR_SEAM);
             gc.setLineWidth(2);
             for (double x = Math.floor(cam / 120) * 120; x < cam + GameConfig.WIDTH + 120; x += 120) {
                 gc.strokeLine(x, top, x - 30, GameConfig.HEIGHT);
@@ -248,9 +331,7 @@ public final class OnFootRenderer {
         // The walkway's lit lip, and the floor falling away into dark below it.
         gc.setFill(Color.rgb(255, 160, 90, 0.35));
         gc.fillRect(cam - 60, top, GameConfig.WIDTH + 120, 2);
-        gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, Color.TRANSPARENT), new Stop(1, Color.rgb(3, 4, 7, 0.85))));
-        gc.fillRect(cam - 60, top + 20, GameConfig.WIDTH + 120, h);
+        gc.drawImage(Baked.paint(FLOOR_FALL, 4, 256), cam - 60, top + 20, GameConfig.WIDTH + 120, h);
         // Untinted: a hue-shifted crate went magenta. Iron reads as iron in any galaxy.
         Image crate = missionStill("crate", borrowed);
         if (crate != null) {
@@ -281,27 +362,20 @@ public final class OnFootRenderer {
             double flicker = settings.reducedFlash() ? 0.8 : 0.7 + 0.15 * Math.sin(tick * 0.07 + i * 1.7)
                     + 0.08 * Math.sin(tick * 0.31 + i);
             gc.setGlobalAlpha(0.32 * flicker);
-            gc.setFill(FURNACE_POOL);
-            gc.fillOval(x - 260, FLOOR - 220, 520, 300);
+            glow(FURNACE_POOL, x - 260, FLOOR - 220, 520, 300);
         }
         gc.restore();
     }
 
     /** Chains hung close to the lens, moving faster than the fight: the cheapest depth there is. */
     private void drawChains(double cam) {
-        gc.setStroke(Color.web("#050608"));
         for (int i = 0; i < 20; i++) {
             double x = i * 520 + 130 - cam * 1.35;
             if (x < -60 || x > GameConfig.WIDTH + 60) {
                 continue;
             }
-            double len = 120 + Math.floorMod(i * 31, 5) * 60;
-            gc.setLineWidth(9);
-            gc.strokeLine(x, -10, x + 6, len);
-            gc.setLineWidth(5);
-            for (double y = 0; y < len; y += 22) {
-                gc.strokeOval(x - 6 + y * 0.05, y, 12, 20);
-            }
+            int len = 120 + Math.floorMod(i * 31, 5) * 60;
+            gc.drawImage(chain(len), x - 16, -16, 56, len + 40);
         }
     }
 
@@ -314,9 +388,7 @@ public final class OnFootRenderer {
         for (double x : new double[] {s.wallLeft(), s.wallRight()}) {
             double pulse = 0.5 + 0.2 * Math.sin(tick * 0.2);
             gc.setGlobalAlpha(pulse);
-            gc.setFill(new LinearGradient(0, 0, 1, 0, true, CycleMethod.NO_CYCLE,
-                    new Stop(0, Color.TRANSPARENT), new Stop(0.5, MOLTEN), new Stop(1, Color.TRANSPARENT)));
-            gc.fillRect(x - 14, FLOOR - 420, 28, 420);
+            gc.drawImage(Baked.paint(WALL_GLOW, 64, 4), x - 14, FLOOR - 420, 28, 420);
             gc.setGlobalAlpha(0.8);
             gc.setFill(Color.WHITE);
             gc.fillRect(x - 1, FLOOR - 420, 2, 420);
@@ -341,8 +413,7 @@ public final class OnFootRenderer {
             gc.save();
             gc.setGlobalBlendMode(BlendMode.ADD);
             double flame = 70 + 20 * Math.sin(tick * 0.9);
-            gc.setFill(TEAL_HALO);
-            gc.fillOval(x - flame, y + 10, flame * 2, flame * 1.6);
+            glow(TEAL_HALO, x - flame, y + 10, flame * 2, flame * 1.6);
             gc.restore();
         }
         // Seen from the side: the hull's true profile, nose right; the drawn fallback is the
@@ -358,8 +429,7 @@ public final class OnFootRenderer {
         gc.restore();
         double above = Math.max(0, FLOOR - (y + 40));
         double spread = 220 * Math.max(0.3, 1 - above / 600);
-        gc.setFill(Color.rgb(0, 0, 0, 0.5 * Math.max(0.2, 1 - above / 600)));
-        gc.fillOval(x - spread / 2, FLOOR - 10, spread, 18);
+        disc(Color.BLACK, 0.5 * Math.max(0.2, 1 - above / 600), x - spread / 2, FLOOR - 10, spread, 18);
     }
 
     // ---- the fight
@@ -370,8 +440,7 @@ public final class OnFootRenderer {
         }
         double above = FLOOR - f.y();
         double w = f.kind.width() * 1.7 * Math.max(0.35, 1 - above / 400);
-        gc.setFill(Color.rgb(0, 0, 0, 0.55 * Math.max(0.25, 1 - above / 400)));
-        gc.fillOval(f.x() - w / 2, FLOOR - 8, w, 14);
+        disc(Color.BLACK, 0.55 * Math.max(0.25, 1 - above / 400), f.x() - w / 2, FLOOR - 8, w, 14);
     }
 
     /**
@@ -459,21 +528,20 @@ public final class OnFootRenderer {
             Image frame = frames.get(frameIndex(f, anim[0], frames.size(), tick));
             double h = f.kind.height() * art;
             double w = frame.getWidth() * h / frame.getHeight();
-            if (f.player == 2) {
-                gc.setEffect(SECOND_SEAT);
-            } else if (f.player == 0 && !f.kind.boss()) {
-                gc.setEffect(tint());    // the borrowed crowd, dyed to the galaxy
-            }
             if (f.mercy() > 0 && (tick / 4) % 2 == 0) {
                 gc.setGlobalAlpha(fade * 0.45);    // protected after a hit: blinks until it can be hit again
             }
-            gc.drawImage(frame, -w / 2, -h, w, h);
+            if (f.player == 2) {
+                drawAdjusted(frame, SECOND_SEAT_HUE, SECOND_SEAT_SATURATION, -w / 2, -h, w, h);
+            } else {
+                // The borrowed crowd, dyed to the galaxy.
+                drawAdjusted(frame, tint(f.player == 0 && !f.kind.boss()), 0, -w / 2, -h, w, h);
+            }
             if (f.hurtFlash() > 0 && !settings.reducedFlash()) {
                 // Plain alpha, not ADD: an image drawn with ADD lightens its whole rectangle here, clear
                 // pixels included, which is the box that used to flash around a struck enemy.
-                gc.setEffect(null);
                 gc.setGlobalAlpha(fade * f.hurtFlash() / 12.0);
-                gc.drawImage(whiteOf(frame), -w / 2, -h, w, h);
+                gc.drawImage(Baked.whiteOf(frame), -w / 2, -h, w, h);
             }
         }
         gc.restore();
@@ -621,15 +689,14 @@ public final class OnFootRenderer {
         }
         double bloom = 40 + t * 2.2;
         gc.setGlobalAlpha(1);
-        gc.setFill(halo);
-        gc.fillOval(b.x() - bloom / 2, b.y() - bloom / 2, bloom, bloom);
+        glow(halo, b.x() - bloom / 2, b.y() - bloom / 2, bloom, bloom);
         double end = b.dir() > 0 ? b.right() : b.left();
-        gc.fillOval(end - bloom * 0.6, b.y() - bloom * 0.6, bloom * 1.2, bloom * 1.2);
+        glow(halo, end - bloom * 0.6, b.y() - bloom * 0.6, bloom * 1.2, bloom * 1.2);
         // Light thrown down onto the floor under the beam.
         gc.setGlobalAlpha(0.35 * swell);
-        gc.setFill(new LinearGradient(0, 0, 0, 1, true, CycleMethod.NO_CYCLE,
-                new Stop(0, core), new Stop(1, Color.TRANSPARENT)));
-        gc.fillRect(b.left(), FLOOR - 4, b.length(), 26);
+        gc.drawImage(Baked.paint(FLOOR_LIGHTS.computeIfAbsent(core, c -> new LinearGradient(0, 0, 0, 1, true,
+                CycleMethod.NO_CYCLE, new Stop(0, c), new Stop(1, Color.TRANSPARENT))), 4, 64),
+                b.left(), FLOOR - 4, b.length(), 26);
         gc.restore();
     }
 
@@ -644,13 +711,11 @@ public final class OnFootRenderer {
             double r = 18 + 70 * p + (settings.reducedFlash() ? 0 : 6 * Math.sin(tick * 0.8));
             double hx = f.x() - f.facing() * f.kind.width() * 0.2, hy = f.y() - f.kind.height() * 0.5;
             gc.setGlobalAlpha(0.6 + 0.4 * p);
-            gc.setFill(TEAL_HALO);
-            gc.fillOval(hx - r, hy - r, 2 * r, 2 * r);
-            gc.setFill(Color.WHITE);
-            gc.fillOval(hx - r * 0.18, hy - r * 0.18, r * 0.36, r * 0.36);
+            glow(TEAL_HALO, hx - r, hy - r, 2 * r, 2 * r);
+            disc(Color.WHITE, 1, hx - r * 0.18, hy - r * 0.18, r * 0.36, r * 0.36);
             // An aura around the whole body, the ki made visible.
             gc.setGlobalAlpha(0.25 * p);
-            gc.fillOval(f.x() - 60, f.y() - f.kind.height() - 30, 120, f.kind.height() + 40);
+            disc(Color.WHITE, 1, f.x() - 60, f.y() - f.kind.height() - 30, 120, f.kind.height() + 40);
         }
         gc.restore();
     }
@@ -658,8 +723,7 @@ public final class OnFootRenderer {
     private void drawShock(OnFootStage.Shock s, int tick) {
         gc.save();
         gc.setGlobalBlendMode(BlendMode.ADD);
-        gc.setFill(MOLTEN_HALO);
-        gc.fillOval(s.x() - 50, FLOOR - 70, 100, 90);
+        glow(MOLTEN_HALO, s.x() - 50, FLOOR - 70, 100, 90);
         gc.setFill(MOLTEN);
         gc.fillPolygon(new double[] {s.x() - 22, s.x(), s.x() + 22},
                 new double[] {FLOOR, FLOOR - 46 - 8 * Math.sin(tick * 0.9), FLOOR}, 3);
@@ -740,27 +804,18 @@ public final class OnFootRenderer {
             gc.setStroke(Color.web("#b07cff", 0.55 * phase));
             gc.strokeOval(cx - r, cy - r * 0.45, 2 * r, r * 0.9);
         }
-        gc.setFill(KEY_HALO);
-        gc.fillOval(cx - 70, cy - 70, 140, 140);
+        glow(KEY_HALO, cx - 70, cy - 70, 140, 140);
         gc.restore();
     }
 
+    /** Dust and debris first under plain alpha, then every spark and ki mote under one ADD. */
     private void drawParticles(OnFootStage s) {
         for (OnFootStage.Particle p : s.particles()) {
             double a = p.life() / (double) p.maxLife();
             switch (p.kind()) {
-                case OnFootStage.Particle.SPARK -> {
-                    gc.save();
-                    gc.setGlobalBlendMode(BlendMode.ADD);
-                    gc.setStroke(Color.web("#ffd27a", a));
-                    gc.setLineWidth(2.5);
-                    gc.strokeLine(p.x(), p.y(), p.x() - p.vx() * 2.2, p.y() - p.vy() * 2.2);
-                    gc.restore();
-                }
                 case OnFootStage.Particle.DUST -> {
                     double r = 10 + (1 - a) * 26;
-                    gc.setFill(Color.rgb(90, 84, 80, 0.28 * a));
-                    gc.fillOval(p.x() - r, p.y() - r, 2 * r, 2 * r);
+                    disc(DUST, 0.28 * a, p.x() - r, p.y() - r, 2 * r, 2 * r);
                 }
                 case OnFootStage.Particle.DEBRIS -> {
                     gc.setFill(Color.rgb(30, 26, 24, Math.min(1, a * 2)));
@@ -768,15 +823,28 @@ public final class OnFootRenderer {
                     gc.setFill(Color.rgb(255, 120, 40, 0.6 * a));
                     gc.fillRect(p.x() - 1, p.y() - 2, 2, 2);
                 }
-                default -> {
-                    gc.save();
-                    gc.setGlobalBlendMode(BlendMode.ADD);
-                    gc.setFill(Color.web("#9ffcff", a));
-                    gc.fillOval(p.x() - 2.5, p.y() - 2.5, 5, 5);
-                    gc.restore();
-                }
+                default -> { }
             }
         }
+        gc.save();
+        gc.setGlobalBlendMode(BlendMode.ADD);
+        gc.setLineWidth(2.5);
+        for (OnFootStage.Particle p : s.particles()) {
+            int kind = p.kind();
+            if (kind == OnFootStage.Particle.DUST || kind == OnFootStage.Particle.DEBRIS) {
+                continue;
+            }
+            double a = p.life() / (double) p.maxLife();
+            if (kind == OnFootStage.Particle.SPARK) {
+                gc.setGlobalAlpha(a);
+                gc.setStroke(SPARK);
+                gc.strokeLine(p.x(), p.y(), p.x() - p.vx() * 2.2, p.y() - p.vy() * 2.2);
+            } else {
+                gc.setGlobalAlpha(a);
+                gc.drawImage(Baked.disc(KI), p.x() - 2.5, p.y() - 2.5, 5, 5);
+            }
+        }
+        gc.restore();
     }
 
     private void drawKey(OnFootStage s, int tick) {
@@ -785,15 +853,12 @@ public final class OnFootRenderer {
         gc.save();
         gc.setGlobalBlendMode(BlendMode.ADD);
         double r = 80 + 10 * Math.sin(tick * 0.15);
-        gc.setFill(KEY_HALO);
-        gc.fillOval(x - r, y - r, 2 * r, 2 * r);
+        glow(KEY_HALO, x - r, y - r, 2 * r, 2 * r);
         gc.restore();
         Image key = still("rift-key");
         if (key != null) {
             double h = 64, w = key.getWidth() * h / key.getHeight();
-            gc.setEffect(tint());
-            gc.drawImage(key, x - w / 2, y - h / 2, w, h);
-            gc.setEffect(null);
+            drawAdjusted(key, tint(true), 0, x - w / 2, y - h / 2, w, h);
         } else {
             gc.setFill(VIOLET);
             gc.fillPolygon(new double[] {x, x + 16, x, x - 16}, new double[] {y - 26, y, y + 26, y}, 4);
@@ -882,12 +947,12 @@ public final class OnFootRenderer {
             gc.setGlobalAlpha(Math.max(0, Math.min(in, out)));
             gc.setTextAlign(TextAlignment.CENTER);
             gc.setTextBaseline(VPos.CENTER);
-            gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.BOLD, 54));
+            gc.setFont(cinemaTitle());
             gc.setFill(Color.rgb(0, 0, 0, 0.6));
             gc.fillText(mission.title(), GameConfig.WIDTH / 2 + 3, GameConfig.HEIGHT * 0.3 + 4);
             gc.setFill(Color.WHITE);
             gc.fillText(mission.title(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3);
-            gc.setFont(Font.font(Assets.displayFontFamily(), FontWeight.NORMAL, 18));
+            gc.setFont(cinemaObjective());
             gc.setFill(VIOLET);
             gc.fillText(mission.objective(), GameConfig.WIDTH / 2, GameConfig.HEIGHT * 0.3 + 46);
             gc.setGlobalAlpha(1);

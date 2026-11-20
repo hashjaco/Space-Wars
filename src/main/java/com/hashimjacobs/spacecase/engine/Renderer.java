@@ -26,6 +26,7 @@ import javafx.scene.text.TextAlignment;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.OnAndroid;
 import com.hashimjacobs.spacecase.asset.Assets;
+import com.hashimjacobs.spacecase.asset.Baked;
 import com.hashimjacobs.spacecase.asset.BossArt;
 import com.hashimjacobs.spacecase.asset.EnemyArt;
 import com.hashimjacobs.spacecase.asset.Explosion;
@@ -119,6 +120,11 @@ public final class Renderer {
         return gradient;
     }
 
+    /** A {@link #halo} paint as an image, to draw in place of filling an oval with it. */
+    public static Image haloImage(Paint halo) {
+        return haloSprite(halo);
+    }
+
     /** Each halo paint as a picture of itself, made the first time it is wanted. */
     private static final Map<Paint, Image> HALO_SPRITES = new java.util.IdentityHashMap<>();
 
@@ -160,20 +166,22 @@ public final class Renderer {
         });
     }
 
+    /** A {@link #halo} of one colour as an image, for glows whose colour is only known at draw time. */
+    private static final Map<Color, Image> COLOUR_HALOS = new java.util.HashMap<>();
+
+    private static Image haloSprite(Color core) {
+        return COLOUR_HALOS.computeIfAbsent(core, c -> haloSprite(halo(c)));
+    }
+
     /**
-     * One soft glow under something: as an image on Android, where the gradient fill is what makes
-     * the garbage, and as it has always been drawn everywhere else.
+     * One soft glow under something, as an image everywhere.
+     *
+     * It was a gradient fill under SCREEN off Android. On the Raspberry Pi 5 each such fill is a
+     * render to a scratch texture and back, one for every bullet on screen, and that is what made
+     * the frame rate fall as a fight filled up; the image is one ordinary draw.
      */
     private void drawHalo(Paint halo, double x, double y, double size) {
-        if (OnAndroid.ACTIVE) {
-            gc.drawImage(haloSprite(halo), x, y, size, size);
-            return;
-        }
-        gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setFill(halo);
-        gc.fillOval(x, y, size, size);
-        gc.restore();
+        gc.drawImage(haloSprite(halo), x, y, size, size);
     }
 
     /**
@@ -316,12 +324,18 @@ public final class Renderer {
                 // About x = 0 and x = w for side bars, about y = 0 and y = h for bands.
                 for (int edge = 0; edge < 2; edge++) {
                     gc.save();
+                    // Only the strip the bar shows, in the sky's own (unmirrored) coordinates: the
+                    // rest was drawn and then cleared again, close to two whole skies a frame.
                     if (side > 0) {
                         gc.translate(edge * 2 * w, 0);
                         gc.scale(-1, 1);
+                        double strip = Math.min(side, w);
+                        skyWindow(edge == 0 ? 0 : w - strip, edge == 0 ? strip : w, 0, h);
                     } else {
                         gc.translate(0, edge * 2 * h);
                         gc.scale(1, -1);
+                        double strip = Math.min(band, h);
+                        skyWindow(0, w, edge == 0 ? 0 : h - strip, edge == 0 ? strip : h);
                     }
                     drawScrollingBackground(level, tick);
                     gc.restore();
@@ -349,6 +363,21 @@ public final class Renderer {
         }
     }
 
+    /**
+     * What goes under the garage. Its hangar is opaque and as wide as a top-down arena, so there
+     * the frozen level would be drawn only to be painted over -- on the Pi, most of a frame -- and
+     * just the bars are drawn. A side-view arena is wider than the hangar and shows either side
+     * of it, so that is drawn whole.
+     */
+    public void drawUnderGarage(World world, SpawnDirector director) {
+        if (director.level().orientation().arenaWidth() > GameConfig.WIDTH) {
+            draw(world, director);
+            return;
+        }
+        arena(director.level().orientation().arenaWidth());
+        drawBars(director.level(), world.tick());
+    }
+
     public void draw(World world, SpawnDirector director) {
         arena(director.level().orientation().arenaWidth());
         drawBars(director.level(), world.tick());
@@ -367,6 +396,7 @@ public final class Renderer {
             zoomOn(caster, specialZoom(windup));
         }
         Level level = director.level();
+        skyWindow(-SHAKE_MARGIN, arenaW + SHAKE_MARGIN, -SHAKE_MARGIN, GameConfig.HEIGHT + SHAKE_MARGIN);
         drawScrollingBackground(level, world.tick());
         double mood = bossMood(world, director);
         if (mood > 0) {
@@ -436,8 +466,7 @@ public final class Renderer {
         drawVignette();
         if (mood > 0 && !settings.reducedFlash()) {
             gc.setGlobalAlpha(mood);
-            gc.setFill(VIGNETTE);
-            gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
+            gc.drawImage(Baked.paint(VIGNETTE, 256, 256), 0, 0, arenaW, GameConfig.HEIGHT);
             gc.setGlobalAlpha(1);
         }
         drawGrain(world.tick());
@@ -486,8 +515,7 @@ public final class Renderer {
         if (settings.reducedFlash()) {
             return;
         }
-        gc.setFill(VIGNETTE);
-        gc.fillRect(0, 0, arenaW, GameConfig.HEIGHT);
+        gc.drawImage(Baked.paint(VIGNETTE, 256, 256), 0, 0, arenaW, GameConfig.HEIGHT);
     }
 
     /**
@@ -566,14 +594,27 @@ public final class Renderer {
      * read as solid at a glance. The lighter inner stroke is the important part: it is the edge the
      * player is actually flying against, so it gets the contrast.
      */
+    /** The rock's outline, kept between frames rather than made twice a frame. */
+    private double[] terrainXs = new double[0], terrainYs = new double[0];
+
+    private static final Color SHIELD_FILL = Color.web("#9fd0ff");
+    private static final Color SHIELD_TRACK = Color.web("#0d1626", 0.75);
+
+    /** Colours named by hex in the level data, parsed once each rather than every frame. */
+    private static final Map<String, Color> WEB = new java.util.HashMap<>();
+
+    private static Color web(String hex) {
+        return WEB.computeIfAbsent(hex, Color::web);
+    }
+
     private void drawTerrain(World world) {
         Terrain terrain = world.terrain();
         if (terrain.isEmpty()) {
             return;
         }
         Orientation facing = terrain.orientation();
-        Color rock = Color.web(terrain.template().rockHex());
-        Color edge = Color.web(terrain.template().edgeHex());
+        Color rock = web(terrain.template().rockHex());
+        Color edge = web(terrain.template().edgeHex());
 
         // Overrun the arena on all sides so a thrown camera never shows daylight past the rock,
         // the same reason the sky fill above is drawn oversized.
@@ -582,9 +623,12 @@ public final class Renderer {
         double breadth = facing.arenaBreadth();
         int steps = (int) Math.ceil((depthTo + margin) / Terrain.PITCH) + 1;
 
+        if (terrainXs.length < steps + 2) {
+            terrainXs = new double[steps + 2];
+            terrainYs = new double[steps + 2];
+        }
+        double[] xs = terrainXs, ys = terrainYs;
         for (int side = -1; side <= 1; side += 2) {
-            double[] xs = new double[steps + 2];
-            double[] ys = new double[steps + 2];
             for (int i = 0; i < steps; i++) {
                 double depth = -margin + i * Terrain.PITCH;
                 double across = side < 0 ? terrain.laneLow(depth) : terrain.laneHigh(depth);
@@ -607,13 +651,44 @@ public final class Renderer {
         gc.setLineWidth(1);
     }
 
+    /** The part of the sky the next {@link #drawScrollingBackground} must cover, in sky units. */
+    private double skyX0, skyX1, skyY0, skyY1;
+
+    private void skyWindow(double x0, double x1, double y0, double y1) {
+        skyX0 = x0;
+        skyX1 = x1;
+        skyY0 = y0;
+        skyY1 = y1;
+    }
+
+    /**
+     * One copy of a sky layer, cut to the sky window: a copy wholly outside it is not drawn, and
+     * one across its edge draws only the part inside. A negative width or height mirrors the copy,
+     * as {@code drawImage} does; the source rectangle runs the same way, so the cut piece is the
+     * same pixels the whole copy would have put there.
+     */
+    private void drawSkyTile(Image image, double dx, double dy, double dw, double dh) {
+        double left = Math.max(skyX0, Math.min(dx, dx + dw));
+        double right = Math.min(skyX1, Math.max(dx, dx + dw));
+        double top = Math.max(skyY0, Math.min(dy, dy + dh));
+        double bottom = Math.min(skyY1, Math.max(dy, dy + dh));
+        if (left >= right || top >= bottom) {
+            return;
+        }
+        // Start and end of the cut piece in the direction the copy is drawn.
+        double ax = dw > 0 ? left : right, bx = dw > 0 ? right : left;
+        double ay = dh > 0 ? top : bottom, by = dh > 0 ? bottom : top;
+        double iw = image.getWidth(), ih = image.getHeight();
+        gc.drawImage(image, (ax - dx) / dw * iw, (ay - dy) / dh * ih, (bx - ax) / dw * iw, (by - ay) / dh * ih,
+                ax, ay, bx - ax, by - ay);
+    }
+
     private void drawScrollingBackground(Level level, int tick) {
         // Fill first: the layers have transparent gaps, so without this the previous frame shows.
         // Overdrawn by the shake margin, because this is a fill rather than a clear -- a thrown
         // camera would otherwise drag a band of last frame's pixels in at two edges.
         gc.setFill(Tokens.SPACE);
-        gc.fillRect(-SHAKE_MARGIN, -SHAKE_MARGIN,
-                arenaW + 2 * SHAKE_MARGIN, GameConfig.HEIGHT + 2 * SHAKE_MARGIN);
+        gc.fillRect(skyX0, skyY0, skyX1 - skyX0, skyY1 - skyY0);
 
         Orientation facing = level.orientation();
         boolean horizontal = facing.vx(1, 0) != 0;
@@ -637,15 +712,15 @@ public final class Renderer {
                 for (int copy = 0; -travelled + copy * w < arenaW + SHAKE_MARGIN; copy++) {
                     double x = -travelled + copy * w;
                     if (copy % 2 == 1) {
-                        gc.drawImage(image, x + w, 0, -w, h);
+                        drawSkyTile(image, x + w, 0, -w, h);
                     } else {
-                        gc.drawImage(image, x, 0, w, h);
+                        drawSkyTile(image, x, 0, w, h);
                     }
                 }
             } else {
-                gc.drawImage(image, 0, travelled - 2 * h, w, h);
-                gc.drawImage(image, 0, travelled - h + h, w, -h);
-                gc.drawImage(image, 0, travelled, w, h);
+                drawSkyTile(image, 0, travelled - 2 * h, w, h);
+                drawSkyTile(image, 0, travelled - h + h, w, -h);
+                drawSkyTile(image, 0, travelled, w, h);
             }
         }
     }
@@ -718,7 +793,7 @@ public final class Renderer {
             double size = hullHeight * scale * 0.55;
             double length = size * (1.5 + 0.12 * Math.sin(tick * 0.7 + enemy.weavePhase()));
             gc.save();
-            gc.setGlobalBlendMode(BlendMode.SCREEN);
+            flame = screenLit(flame);
             // The art is a plume pointing down from its top edge; a quarter turn streams it right, astern.
             gc.translate(hullLength * scale * 0.46, 0);
             gc.rotate(-90);
@@ -737,30 +812,51 @@ public final class Renderer {
         return Assets.bossFrames(art, state).get(art.frameIndexAt(state, tick));
     }
 
-    /** Sparks and embers as small discs that shrink and fade with their remaining life. */
+    /**
+     * Sparks and embers as small discs that shrink and fade with their remaining life.
+     *
+     * Two passes: everything under plain alpha, then the arcs under one SCREEN. Switching the blend
+     * per particle was a state change for each of up to four hundred discs.
+     */
     private void drawParticles(World world) {
+        boolean arcs = false;
         for (Particle particle : world.particles()) {
-            double life = particle.remaining();
-            Color color = switch (particle.kind()) {
-                case SPARK -> SPARK;
-                case MUZZLE -> Color.WHITE;
-                case EMBER -> EMBER;
-                case ARC -> ARC;
-                case SMOKE -> SMOKE;
-            };
-            gc.setGlobalAlpha(particle.kind() == Particle.Kind.SMOKE ? life * 0.5 : life);
-            gc.setGlobalBlendMode(particle.kind() == Particle.Kind.ARC ? BlendMode.SCREEN : BlendMode.SRC_OVER);
-            gc.setFill(color);
-            double radius = switch (particle.kind()) {
-                case MUZZLE -> 5 * (0.4 + 0.6 * life);
-                case ARC -> 2.5 + 2.5 * life;
-                case SMOKE -> 4 + 10 * (1 - life); // grows as it fades
-                default -> 2.5 * (0.4 + 0.6 * life);
-            };
-            gc.fillOval(particle.x() - radius, particle.y() - radius, radius * 2, radius * 2);
+            if (particle.kind() == Particle.Kind.ARC) {
+                arcs = true;
+            } else {
+                drawParticle(particle);
+            }
+        }
+        if (arcs) {
+            gc.setGlobalBlendMode(BlendMode.SCREEN);
+            for (Particle particle : world.particles()) {
+                if (particle.kind() == Particle.Kind.ARC) {
+                    drawParticle(particle);
+                }
+            }
+            gc.setGlobalBlendMode(BlendMode.SRC_OVER);
         }
         gc.setGlobalAlpha(1);
-        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+    }
+
+    private void drawParticle(Particle particle) {
+        double life = particle.remaining();
+        Color color = switch (particle.kind()) {
+            case SPARK -> SPARK;
+            case MUZZLE -> Color.WHITE;
+            case EMBER -> EMBER;
+            case ARC -> ARC;
+            case SMOKE -> SMOKE;
+        };
+        gc.setGlobalAlpha(particle.kind() == Particle.Kind.SMOKE ? life * 0.5 : life);
+        double radius = switch (particle.kind()) {
+            case MUZZLE -> 5 * (0.4 + 0.6 * life);
+            case ARC -> 2.5 + 2.5 * life;
+            case SMOKE -> 4 + 10 * (1 - life); // grows as it fades
+            default -> 2.5 * (0.4 + 0.6 * life);
+        };
+        // A disc image, not fillOval: every filled oval is a mask rasterized and uploaded on its own.
+        gc.drawImage(Baked.disc(color), particle.x() - radius, particle.y() - radius, radius * 2, radius * 2);
     }
 
     private static final Color SPARK = Color.web("#ffb347");
@@ -792,11 +888,11 @@ public final class Renderer {
         boolean body = !boss.isBossPart() && !settings.reducedFlash();
         double x = boss.x() + (body ? 3 * Math.sin(tick * 0.045) : 0);
         double y = boss.y() + (body ? 2 * Math.sin(tick * 0.03 + 1.3) : 0);
-        if (settings.cinematic()) {
+        boolean lit = settings.cinematic();
+        if (lit) {
             castShadow(frame, x, y, boss.width(), boss.height(), 14);
-            gc.setEffect(GLOW);
         }
-        drawFitted(frame, x, y, boss.width(), boss.height());
+        drawFittedLit(frame, x, y, boss.width(), boss.height(), lit);
         // A slow loop (the rendered ones hold each frame for a fraction of a second) cross-fades
         // into its next frame, so the motion flows instead of stepping.
         BossArt art = boss.bossArt();
@@ -807,10 +903,9 @@ public final class Renderer {
             Image next = frames.get((art.frameIndexAt(state, tick) + 1) % frames.size());
             double alpha = gc.getGlobalAlpha();
             gc.setGlobalAlpha(alpha * blend);
-            drawFitted(next, x, y, boss.width(), boss.height());
+            drawFittedLit(next, x, y, boss.width(), boss.height(), lit);
             gc.setGlobalAlpha(alpha);
         }
-        gc.setEffect(null);
         if (turned) {
             gc.restore();
         }
@@ -829,10 +924,8 @@ public final class Renderer {
     private void drawCharge(EnemyShip boss, double charge) {
         double size = Math.max(boss.width(), boss.height()) * (0.7 + 0.8 * charge);
         gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
         gc.setGlobalAlpha(0.25 + 0.55 * charge);
-        gc.setFill(CHARGE_GLOW);
-        gc.fillOval(boss.centerX() - size / 2, boss.centerY() - size / 2, size, size);
+        drawHalo(CHARGE_GLOW, boss.centerX() - size / 2, boss.centerY() - size / 2, size);
         gc.restore();
     }
 
@@ -866,11 +959,36 @@ public final class Renderer {
 
     /** The image's silhouette dropped down-right onto the sky, as if lit from above-left. */
     private void castShadow(Image frame, double x, double y, double width, double height, double drop) {
+        Image shadow = BAKE_BOSSES ? Baked.shadowOf(frame) : null;
         gc.save();
-        gc.setEffect(SILHOUETTE);
+        if (shadow == null) {
+            gc.setEffect(SILHOUETTE);
+        }
         gc.setGlobalAlpha(0.45);
-        drawFitted(frame, x + drop * 0.6, y + drop, width, height);
+        drawFitted(shadow == null ? frame : shadow, x + drop * 0.6, y + drop, width, height);
         gc.restore();
+    }
+
+    /**
+     * Whether a flagship's glow and shadow are baked. Not on Android: its frames at 512 px run to
+     * tens of megabytes a loop already, and two baked copies of each would not fit the Shield's heap.
+     */
+    private static final boolean BAKE_BOSSES = !OnAndroid.ACTIVE;
+
+    /** {@link #drawFitted}, under the hull glow when {@code lit}: baked where it can be, live where not. */
+    private void drawFittedLit(Image frame, double x, double y, double width, double height, boolean lit) {
+        Image glow = lit && BAKE_BOSSES ? Baked.glowOf(frame) : null;
+        if (glow == null) {
+            if (lit) {
+                gc.setEffect(GLOW);
+            }
+            drawFitted(frame, x, y, width, height);
+            gc.setEffect(null);
+            return;
+        }
+        double scale = Math.min(width / frame.getWidth(), height / frame.getHeight());
+        double w = frame.getWidth() * scale, h = frame.getHeight() * scale, pad = Baked.GLOW_PAD * scale;
+        gc.drawImage(glow, x + (width - w) / 2 - pad, y + (height - h) / 2 - pad, w + 2 * pad, h + 2 * pad);
     }
 
     /** 0 with no flagship, rising to 1 over its arrival, so the arena darkens as it comes in. */
@@ -932,19 +1050,16 @@ public final class Renderer {
 
     /** Light pulled in to the nose: a swelling halo and motes spiralling inward. World space. */
     private void drawSpecialCharge(PlayerShip ship, double windup, int tick) {
-        Color tint = Color.web(ship.loadout().chassis().specialColor());
+        Color tint = web(ship.loadout().chassis().specialColor());
         double noseX = ship.centerX() + ship.facing().xDirection() * ship.width() / 2;
         double noseY = ship.centerY() + ship.facing().yDirection() * ship.height() / 2;
         double grow = Math.min(1, windup / 0.8);
         gc.save();
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
         double glow = 30 + 150 * grow;
-        gc.setFill(halo(tint));
-        gc.fillOval(noseX - glow / 2, noseY - glow / 2, glow, glow);
-        gc.setFill(halo(Color.WHITE));
+        gc.drawImage(haloSprite(tint), noseX - glow / 2, noseY - glow / 2, glow, glow);
         double core = 10 + 40 * grow;
-        gc.fillOval(noseX - core / 2, noseY - core / 2, core, core);
-        gc.setFill(tint.brighter());
+        gc.drawImage(haloSprite(Color.WHITE), noseX - core / 2, noseY - core / 2, core, core);
+        Image mote = Baked.disc(tint.brighter());
         for (int i = 0; i < 18; i++) {
             // Each mote runs a 22-tick loop inward from 150 px, staggered, on its own spoke.
             double phase = ((tick + i * 7) % 22) / 22.0;
@@ -952,7 +1067,7 @@ public final class Renderer {
             double r = 150 * (1 - phase);
             double size = 2 + 4 * phase;
             gc.setGlobalAlpha(0.3 + 0.7 * phase);
-            gc.fillOval(noseX + Math.cos(angle) * r - size / 2, noseY + Math.sin(angle) * r - size / 2, size, size);
+            gc.drawImage(mote, noseX + Math.cos(angle) * r - size / 2, noseY + Math.sin(angle) * r - size / 2, size, size);
         }
         gc.restore();
     }
@@ -967,7 +1082,7 @@ public final class Renderer {
         gc.fillRect(0, 0, arenaW, bar);
         gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
-        Color accent = Color.web(ship.loadout().chassis().specialColor());
+        Color accent = web(ship.loadout().chassis().specialColor());
         double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, windup / 0.25)) * arenaW * 0.4;
         double cx = arenaW / 2 + slide;
         double cy = GameConfig.HEIGHT - 36;
@@ -999,7 +1114,7 @@ public final class Renderer {
         gc.fillRect(0, 0, arenaW, bar);
         gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
-        Color accent = Color.web(level.galaxy().accent());
+        Color accent = web(level.galaxy().accent());
         String name = level.label().toUpperCase();
         double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * arenaW * 0.4;
         double cx = arenaW / 2 + slide;
@@ -1043,7 +1158,7 @@ public final class Renderer {
         gc.fillRect(0, GameConfig.HEIGHT - bar, arenaW, bar);
 
         String name = boss.boss().label().toUpperCase();
-        Color accent = Color.web(director.level().galaxy().accent());
+        Color accent = web(director.level().galaxy().accent());
         double slide = settings.reducedFlash() ? 0 : (1 - Math.min(1, done / 0.2)) * -arenaW * 0.4;
         double cx = arenaW / 2 + slide;
         double cy = GameConfig.HEIGHT * 0.44;
@@ -1152,19 +1267,18 @@ public final class Renderer {
         // A bloom at the muzzle end, where the energy is leaving the hull.
         double bloom = GameConfig.BEAM_WIDTH * 3.4;
         gc.setGlobalAlpha(1);
-        gc.setFill(BEAM_HALO);
-        gc.fillOval(player.centerX() - bloom / 2, player.centerY() - bloom / 2, bloom, bloom);
+        Image beamHalo = haloSprite(BEAM_HALO);
+        gc.drawImage(beamHalo, player.centerX() - bloom / 2, player.centerY() - bloom / 2, bloom, bloom);
         // And one where it lands, when it lands on something. This is the whole point of the beam
         // ending at a hull rather than at the wall -- without it the shortened column reads as the
         // beam having failed rather than as it burning through something.
         if (player.beamStopped()) {
             double impact = bloom * (settings.reducedFlash() ? 1.15 : 1.15 + 0.2 * Math.sin(tick * 0.6));
             double[] end = beamImpactPoint(player, beam, vertical);
-            gc.fillOval(end[0] - impact / 2, end[1] - impact / 2, impact, impact);
+            gc.drawImage(beamHalo, end[0] - impact / 2, end[1] - impact / 2, impact, impact);
             gc.setGlobalAlpha(0.85);
-            gc.setFill(Color.WHITE);
             double core = GameConfig.BEAM_WIDTH * 0.8;
-            gc.fillOval(end[0] - core / 2, end[1] - core / 2, core, core);
+            gc.drawImage(Baked.disc(Color.WHITE), end[0] - core / 2, end[1] - core / 2, core, core);
         }
         gc.restore();
     }
@@ -1215,11 +1329,8 @@ public final class Renderer {
         double pulse = settings.reducedFlash() ? 1 : 0.85 + 0.15 * Math.sin(tick * 0.12);
         gc.save();
         gc.setGlobalAlpha(known ? 0.4 : 1);
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
-        gc.setFill(PICKUP_HALO);
         double glow = r * 4.2 * pulse;
-        gc.fillOval(cx - glow / 2, cy - glow / 2, glow, glow);
-        gc.setGlobalBlendMode(BlendMode.SRC_OVER);
+        drawHalo(PICKUP_HALO, cx - glow / 2, cy - glow / 2, glow);
         double[] xs = new double[6];
         double[] ys = new double[6];
         for (int i = 0; i < 6; i++) {
@@ -1289,17 +1400,29 @@ public final class Renderer {
             drawFlame(player, hull, sideOn, hullDegrees, tick);
         }
         if (settings.cinematic()) {
-            // The hull's shadow on the sky, then the hull lit.
+            // The hull's shadow on the sky, then the hull lit: baked images, or the live effects
+            // for the few frames before a new pose's bakes come back.
+            Image shadow = Baked.shadowOf(frame);
             gc.save();
-            gc.setEffect(SILHOUETTE);
+            if (shadow == null) {
+                gc.setEffect(SILHOUETTE);
+            }
             gc.setGlobalAlpha(gc.getGlobalAlpha() * 0.28);
             gc.translate(12, 20);
-            drawImage(frame, player, hullDegrees);
+            drawImage(shadow == null ? frame : shadow, player, hullDegrees);
             gc.restore();
-            gc.setEffect(GLOW);
+            Image glow = Baked.glowOf(frame);
+            if (glow == null) {
+                gc.setEffect(GLOW);
+                drawImage(frame, player, hullDegrees);
+                gc.setEffect(null);
+            } else {
+                drawImage(glow, player, hullDegrees, Baked.GLOW_PAD * player.width() / frame.getWidth(),
+                        Baked.GLOW_PAD * player.height() / frame.getHeight());
+            }
+        } else {
+            drawImage(frame, player, hullDegrees);
         }
-        drawImage(frame, player, hullDegrees);
-        gc.setEffect(null);
         // A CG hull wears its kit in its own frames; only the drawn fallback hulls take the decal.
         Sprite kit = player.kitOverlay();
         if (kit != null && hull == null) {
@@ -1319,6 +1442,19 @@ public final class Renderer {
      * right in profile -- and turned with it, so battle mode's far seat gets it too. The art is a
      * plume pointing down from its top edge; in profile it is turned a quarter to point left.
      */
+    /**
+     * A flame frame to draw as if under SCREEN: its baked equivalent under plain alpha, or the
+     * frame itself with SCREEN set, for the frames before the bake comes back. Call inside a save.
+     */
+    private Image screenLit(Image flame) {
+        Image baked = Baked.screenLike(flame);
+        if (baked != null) {
+            return baked;
+        }
+        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        return flame;
+    }
+
     private void drawFlame(PlayerShip player, ChassisArt hull, boolean sideOn, double hullDegrees, int tick) {
         List<Image> frames = Assets.explosionFrames(Explosion.ENGINE_FLAME);
         Image flame = frames.get((tick / Explosion.ENGINE_FLAME.ticksPerFrame()) % frames.size());
@@ -1329,7 +1465,7 @@ public final class Renderer {
         gc.save();
         gc.translate(player.centerX(), player.centerY());
         gc.rotate(hullDegrees);
-        gc.setGlobalBlendMode(BlendMode.SCREEN);
+        flame = screenLit(flame);
         if (sideOn) {
             // Nozzles at the left end, sideTailY down the profile; the plume streams left.
             double ax = -w / 2 + w * 0.06, ay = (hull.sideTailY() - 0.5) * h;
@@ -1430,15 +1566,25 @@ public final class Renderer {
 
     /** An image over an entity's box, turned about its centre by {@code degrees}. */
     private void drawImage(Image image, Entity entity, double degrees) {
+        drawImage(image, entity, degrees, 0, 0);
+    }
+
+    /**
+     * The same, over the entity's box grown by {@code padX} and {@code padY} on every side: for a
+     * baked glow, whose spill reaches past the sprite. Grown evenly, so it still turns about the
+     * entity's centre.
+     */
+    private void drawImage(Image image, Entity entity, double degrees, double padX, double padY) {
+        double w = entity.width() + 2 * padX, h = entity.height() + 2 * padY;
         if (degrees == 0) {
-            gc.drawImage(image, entity.x(), entity.y(), entity.width(), entity.height());
+            gc.drawImage(image, entity.x() - padX, entity.y() - padY, w, h);
             return;
         }
         // Rotate about the sprite's centre so a downward-facing ship points at its opponent.
         gc.save();
         gc.translate(entity.centerX(), entity.centerY());
         gc.rotate(degrees);
-        gc.drawImage(image, -entity.width() / 2, -entity.height() / 2, entity.width(), entity.height());
+        gc.drawImage(image, -w / 2, -h / 2, w, h);
         gc.restore();
     }
 
@@ -1495,7 +1641,7 @@ public final class Renderer {
         double y = player.centerY() - player.height() / 2 - 12;
         double fraction = Math.min(1, player.shieldRemaining() / (double) GameConfig.SHIELD_CAPACITY);
 
-        Meter.draw(gc, x, y, width, 5, fraction, fraction, Color.web("#9fd0ff"), Color.web("#0d1626", 0.75),
+        Meter.draw(gc, x, y, width, 5, fraction, fraction, SHIELD_FILL, SHIELD_TRACK,
                 0, false);
     }
 

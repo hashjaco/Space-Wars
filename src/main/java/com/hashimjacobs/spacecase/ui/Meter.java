@@ -25,47 +25,63 @@ public final class Meter {
                             int segments, boolean hatched) {
         double radius = Math.min(Tokens.RADIUS, height);
         double f = Math.max(0, Math.min(1, fraction));
-        gc.setFill(Tokens.veil(0.6));
-        gc.fillRoundRect(x - 2, y - 2, width + 4, height + 4, radius + 2, radius + 2);
-        gc.setFill(track);
-        gc.fillRoundRect(x, y, width, height, radius, radius);
+        // Rounded boxes from images and ticks as thin rects: no shape masks, see Pill.
+        Pill.fill(gc, Tokens.veil(0.6), x - 2, y - 2, width + 4, height + 4, radius + 2);
+        Pill.fill(gc, track, x, y, width, height, radius);
         if (ghost > f) {
-            gc.setFill(Tokens.GHOST);
-            gc.fillRoundRect(x, y, width * Math.min(1, ghost), height, radius, radius);
+            Pill.fill(gc, Tokens.GHOST, x, y, width * Math.min(1, ghost), height, radius);
         }
-        gc.setFill(fill);
-        gc.fillRoundRect(x, y, width * f, height, radius, radius);
+        Pill.fill(gc, fill, x, y, width * f, height, radius);
         if (hatched) {
             stripes(gc, x, y, width * f, height);
         }
-        gc.setStroke(Tokens.veil(0.55));
-        gc.setLineWidth(Tokens.STROKE);
+        gc.setFill(Tokens.veil(0.55));
         for (int i = 1; i < segments; i++) {
             double tx = Math.round(x + width * i / segments) + 0.5;
-            gc.strokeLine(tx, y, tx, y + height);
+            gc.fillRect(tx - Tokens.STROKE / 2, y, Tokens.STROKE, height);
         }
-        gc.setStroke(Tokens.EDGE_STRONG);
-        gc.setLineWidth(Tokens.STROKE_HAIR);
-        gc.strokeRoundRect(x, y, width, height, radius, radius);
+        Pill.stroke(gc, Tokens.EDGE_STRONG, Tokens.STROKE_HAIR, x, y, width, height, radius);
     }
+
+    /** The hatching, drawn once per bar height and kept as an image. */
+    private static final java.util.Map<Integer, javafx.scene.image.Image> HATCHES = new java.util.HashMap<>();
+    /** A whole number of stripes, so lengths of it laid end to end continue the pattern. */
+    private static final double HATCH_LENGTH = 510;
+    private static final int HATCH_SCALE = 4;
 
     /**
      * Diagonal hatching over a bar's fill. Static on purpose: it is a state, not an alarm.
+     *
+     * From an image cut to the fill's width. Drawn live, it was a clip and a stroked line every
+     * six pixels, every frame the bar was low -- on the Raspberry Pi 5, a quarter-second frame
+     * for as long as a pilot was close to death.
      */
     public static void stripes(GraphicsContext gc, double x, double y, double width, double height) {
         if (width <= 0) {
             return;
         }
-        gc.save();
-        gc.beginPath();
-        gc.rect(x, y, width, height);
-        gc.clip();
-        gc.setStroke(Tokens.veil(0.45));
-        gc.setLineWidth(2);
-        for (double sx = x - height; sx < x + width; sx += 6) {
-            gc.strokeLine(sx, y + height, sx + height, y);
+        javafx.scene.image.Image hatch = HATCHES.computeIfAbsent((int) Math.round(height * 4),
+                quarters -> hatch(quarters / 4.0));
+        for (double from = 0; from < width; from += HATCH_LENGTH) {
+            double drawn = Math.min(width - from, HATCH_LENGTH);
+            gc.drawImage(hatch, 0, 0, drawn * HATCH_SCALE, height * HATCH_SCALE, x + from, y, drawn, height);
         }
-        gc.restore();
+    }
+
+    /** Lines from the bar's bottom-left to top-right every six units, starting a height before x. */
+    private static javafx.scene.image.Image hatch(double height) {
+        javafx.scene.canvas.Canvas canvas = new javafx.scene.canvas.Canvas(
+                HATCH_LENGTH * HATCH_SCALE, height * HATCH_SCALE);
+        GraphicsContext g = canvas.getGraphicsContext2D();
+        g.scale(HATCH_SCALE, HATCH_SCALE);
+        g.setStroke(Tokens.veil(0.45));
+        g.setLineWidth(2);
+        for (double sx = -height; sx < HATCH_LENGTH; sx += 6) {
+            g.strokeLine(sx, height, sx + height, 0);
+        }
+        javafx.scene.SnapshotParameters clear = new javafx.scene.SnapshotParameters();
+        clear.setFill(Color.TRANSPARENT);
+        return canvas.snapshot(clear, null);
     }
 
     /**
