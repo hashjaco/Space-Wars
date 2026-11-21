@@ -8,8 +8,14 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing tag to build and publish, e.g. v2.1.0
+        description: Existing tag to build and publish, e.g. v2.1.0 (or a branch, for a dry run)
         required: true
+      # Off builds every desktop installer and keeps them as this run's artifacts, publishing
+      # nothing: a trial of the workflow itself, e.g. after a platform is added to the matrix.
+      publish:
+        description: Attach the builds to the tag's release
+        type: boolean
+        default: true
 
 permissions:
   contents: write
@@ -37,6 +43,12 @@ jobs:
             label: linux
             installer: deb
             installerArgs: "--linux-shortcut --icon src/desktop/icon.png"
+          # The Raspberry Pi 4 and 5 on 64-bit Raspberry Pi OS, and any other arm64 Debian or
+          # Ubuntu. JavaFX has no 32-bit ARM build, so there is no armhf package.
+          - os: ubuntu-24.04-arm
+            label: linux-arm64
+            installer: deb
+            installerArgs: "--linux-shortcut --linux-menu-group Game --icon src/desktop/icon.png"
           - os: windows-latest
             label: windows
             installer: msi
@@ -66,7 +78,7 @@ jobs:
 
       # jpackage builds a .deb through fakeroot, which the runner image does not always carry.
       - name: Install Linux packaging tools
-        if: matrix.os == 'ubuntu-latest'
+        if: startsWith(matrix.os, 'ubuntu')
         run: sudo apt-get update && sudo apt-get install -y fakeroot
 
       # jpackage ships inside the JDK. It bundles a cut-down runtime with the app, so the installer
@@ -100,6 +112,7 @@ jobs:
 
   # The Android TV build, by the same workflow that makes the test builds.
   androidtv:
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.publish }}
     uses: ./.github/workflows/android.yml
     with:
       ref: ${{ inputs.tag || github.ref }}
@@ -109,7 +122,7 @@ jobs:
   # proven of the five, so the release goes out with whatever did build.
   publish:
     needs: [jars, androidtv]
-    if: ${{ !cancelled() && needs.jars.result == 'success' }}
+    if: ${{ !cancelled() && needs.jars.result == 'success' && (github.event_name != 'workflow_dispatch' || inputs.publish) }}
     runs-on: ubuntu-latest
     steps:
       # By name, not everything: the Android job also uploads its logs and generated manifest.
@@ -168,8 +181,13 @@ jobs:
             | macOS (Apple Silicon) | `SpaceCase-*.dmg` |
             | macOS (Intel) | `SpaceCase-*-intel.dmg` |
             | Windows | `SpaceCase-*.msi` |
-            | Linux | `spacecase_*.deb` |
+            | Linux (x86-64) | `spacecase_*_amd64.deb` |
+            | Raspberry Pi 4 / 5 (64-bit Raspberry Pi OS) | `spacecase_*_arm64.deb` |
             | Android TV (Nvidia Shield and others) | `SpaceCase-*-androidtv.apk` |
+
+            On Linux and the Raspberry Pi, install from a terminal in the download folder:
+            `sudo apt install ./spacecase_*_arm64.deb` (or `_amd64` on a PC). It appears under
+            Games in the menu.
 
             The builds are unsigned. macOS will refuse the first launch: right-click the app and
             choose **Open**, then confirm. Windows may show a SmartScreen notice — **More info**,
