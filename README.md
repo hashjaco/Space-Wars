@@ -29,10 +29,19 @@ open it. Java is bundled — there is nothing else to install.
 |---|---|
 | macOS | `SpaceCase-*.dmg` |
 | Windows | `SpaceCase-*.msi` |
-| Linux | `spacecase_*.deb` |
+| Linux (x86-64) | `spacecase_*_amd64.deb` |
+| Raspberry Pi 4 / 5 | `spacecase_*_arm64.deb` |
 
 The builds are unsigned, so the first launch needs a nudge past the gatekeeper: on macOS right-click
 the app and choose **Open**; on Windows pick **More info** then **Run anyway**.
+
+On Linux and the Raspberry Pi, install the package from a terminal in the download folder, and the
+game appears under **Games** in the menu:
+
+    sudo apt install ./spacecase_*_arm64.deb    # _amd64 on a PC
+
+The Pi needs 64-bit Raspberry Pi OS: JavaFX has no 32-bit ARM build. An installed copy and a git
+checkout run with `./mvnw javafx:run` share the same saves and settings.
 
 Already have a JDK 26? `java -jar space-case-<your-platform>.jar` from the same page skips the
 installer.
