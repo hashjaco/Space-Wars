@@ -24,6 +24,7 @@ import com.hashimjacobs.spacecase.mode.Challenge;
 import com.hashimjacobs.spacecase.mode.Debrief;
 import com.hashimjacobs.spacecase.mode.Galaxy;
 import com.hashimjacobs.spacecase.mode.GameMode;
+import com.hashimjacobs.spacecase.mode.HelperBonus;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
 import com.hashimjacobs.spacecase.prefs.HighScores;
@@ -136,6 +137,22 @@ public final class GameLoop {
      * save. One field answers all three, because they are the same question.
      */
     private int localSeat = EVERY_SEAT_IS_LOCAL;
+
+    /** The host's terms this loop was built from, or null for single-machine play. */
+    private final NetSetup net;
+
+    /** Whether this machine's pilot is flying in somebody else's group rather than their own run. */
+    private boolean helper;
+    /** What helping paid this machine's pilot for the level just cleared, for the debrief; or null. */
+    private HelperBonus helperBonus;
+
+    /**
+     * Marks this machine's pilot as a guest in another pilot's group, which pays them a bonus for
+     * each level cleared and keeps the levels they are shown from counting as their own progress.
+     */
+    public void setHelper(boolean helper) {
+        this.helper = helper;
+    }
 
     /** Single-machine play, where every ship at the keyboard is this pilot's business. */
     private static final int EVERY_SEAT_IS_LOCAL = 0;
@@ -265,10 +282,38 @@ public final class GameLoop {
                     Consumer<RoundResult> onRoundOver,
                     HighScores highScores, SaveGames saves, SaveSlot resume, boolean endless,
                     int seats) {
+        this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver,
+                highScores, saves, resume, endless, seats, null);
+    }
+
+    /**
+     * A networked run, built from the host's terms rather than from this machine's preferences.
+     *
+     * @param net everything a peer must not read locally; see {@link NetSetup}
+     */
+    public GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
+                    Settings settings, Pilots pilots, Random random,
+                    Consumer<RoundResult> onRoundOver,
+                    HighScores highScores, SaveGames saves, SaveSlot resume, NetSetup net) {
+        this(mode, renderer, input, sounds, settings, pilots, random, onRoundOver,
+                highScores, saves, resume, false, net.pilotNames().size(), net);
+    }
+
+    private GameLoop(GameMode mode, Renderer renderer, InputState input, SoundBank sounds,
+                     Settings settings, Pilots pilots, Random random,
+                     Consumer<RoundResult> onRoundOver,
+                     HighScores highScores, SaveGames saves, SaveSlot resume, boolean endless,
+                     int seats, NetSetup net) {
         // Exactly as many names as there are seats. Passing a fixed two was harmless while World
         // trimmed the list to the mode's count; now that the list decides, a fixed two would field
         // a wingman in a solo run.
-        this.world = new World(mode, pilotNames(pilots, seats));
+        this.world = new World(mode, net == null ? pilotNames(pilots, seats) : net.pilotNames());
+        this.net = net;
+        if (net != null) {
+            // Before anything below asks whose business a ship is: the checkpoint at the foot of
+            // this constructor must already know this is one seat of a shared run.
+            this.localSeat = net.localSeat();
+        }
         this.renderer = renderer;
         this.input = input;
         this.sounds = sounds;
@@ -278,7 +323,7 @@ public final class GameLoop {
         this.saves = saves;
         this.onRoundOver = onRoundOver;
         this.endless = endless;
-        this.difficulty = settings.difficulty();
+        this.difficulty = net == null ? settings.difficulty() : net.difficulty();
         this.director = resume == null
                 ? new SpawnDirector(random, difficulty, mode.rules())
                 : new SpawnDirector(random, difficulty, mode.rules(),
@@ -288,8 +333,17 @@ public final class GameLoop {
         world.enterLevel(director.level());
         this.collisions = new CollisionSystem(sounds, random);
         attachControllers();
-        fitSavedLoadouts();
+        if (net == null) {
+            fitSavedLoadouts();
+        } else {
+            // The ships the host named, and before restore: both clamp health to the fitted hull,
+            // so a machine that restored onto its own garage first would hold different health.
+            world.fitLoadouts(net.loadoutCodes());
+        }
         restore(resume);
+        if (net != null) {
+            world.resumeAt(net.resumeTick());
+        }
         snapshotLevelStart();
         snapshotSave();
         if (devOnFoot && OnFootStage.missionAfter(director.level()) != null) {
@@ -342,6 +396,24 @@ public final class GameLoop {
     /** The current level's opening state, which is what the pause menu writes to a slot. */
     public SaveSlot checkpoint() {
         return levelStartSave;
+    }
+
+    /**
+     * Where the run will stand as the next level opens, or null if there is no next level because
+     * this one ends the run at a galaxy's border.
+     *
+     * Only meaningful between fights, once the level is scored and nothing more can happen to a
+     * ship. It is what a machine needs to build the next level from nothing: the spawn director's
+     * resume constructor is documented as equal to {@code advanceLevel}, which changes neither the
+     * waves survived nor the loop, and each ship is its counters plus its loadout.
+     */
+    public SaveSlot nextCheckpoint() {
+        Level next = director.level().next();
+        if (!endless && next.galaxy() != director.level().galaxy()) {
+            return null;
+        }
+        return new SaveSlot(world.mode(), next, director.wavesSurvived(), director.loop(),
+                world.players().stream().map(PlayerShip::progress).toList());
     }
 
     /**
@@ -437,7 +509,7 @@ public final class GameLoop {
     public Intent sampleLocal(int playerNumber) {
         for (ShipController controller : controllers) {
             if (controller.ship().playerNumber() == playerNumber) {
-                return controller.sample(input, tuningFor(playerNumber));
+                return controller.sample(input, tuningFor(controller.padNumber()));
             }
         }
         return Intent.NEUTRAL;
@@ -459,6 +531,16 @@ public final class GameLoop {
         List<PlayerShip> players = world.players();
         boolean solo = players.size() == 1;
         for (PlayerShip player : players) {
+            if (net != null) {
+                // Online, this machine has one pilot and they sit at player one's controls whatever
+                // ship the room gave them: bindings by ship number would hand the pilot of ship
+                // two the second player's keys, and the pilots of three and four none at all.
+                boolean mine = player.playerNumber() == net.localSeat();
+                controllers.add(new ShipController(player,
+                        mine ? PlayerControls.of(settings, 1, true) : PlayerControls.none(),
+                        number -> mine && sticks != null ? sticks.apply(number) : null, 1));
+                continue;
+            }
             PlayerControls controls = PlayerControls.of(settings, player.playerNumber(), solo);
             controllers.add(new ShipController(player, controls,
                     number -> sticks == null ? null : sticks.apply(number)));
@@ -507,7 +589,7 @@ public final class GameLoop {
         switch (phase) {
             case DEBRIEF -> renderer.drawDebrief(director.level(), debriefs, standings, debriefClock(), debriefArmed,
                     challengesMet, challengesNew, saves == null || endless || world.mode() == GameMode.BATTLE
-                            ? -1 : saves.challenges(director.level()));
+                            ? -1 : saves.challenges(director.level()), helperBonus);
             case GARAGE -> renderer.drawGarage(garage, phaseTicks);
             case WARP -> renderer.drawWarpVeil(warpOpacity());
             default -> {
@@ -620,7 +702,7 @@ public final class GameLoop {
         for (ShipController controller : controllers) {
             int number = controller.ship().playerNumber();
             Intent intent = intents == null
-                    ? controller.sample(input, tuningFor(number))
+                    ? controller.sample(input, tuningFor(controller.padNumber()))
                     : intents.intentFor(number, tick);
             if (recorded != null) {
                 recorded.add(intent);
@@ -671,6 +753,9 @@ public final class GameLoop {
         phase = Phase.VICTORY_LAP;
         phaseTicks = 0;
         scoreLevel();
+        if (handshake != null) {
+            handshake.cleared();
+        }
         // After scoring, never before: the debrief subtracts a lives tally, so handing a fallen
         // player three lives first would report a level they did not fly as one they survived.
         world.reviveFallenAllies();
@@ -868,7 +953,9 @@ public final class GameLoop {
             pilots.setCredits(pilotName, garage.credits(bay));
             pilots.setLoadoutCode(pilotName, loadout.encode());
             for (PlayerShip player : world.players()) {
-                if (player.name().equals(pilotName)) {
+                // isLocal as well as the name: online the names come from other machines, and a
+                // guest who shares this pilot's name must not be handed this pilot's purchases.
+                if (player.name().equals(pilotName) && isLocal(player)) {
                     player.applyLoadout(loadout);
                 }
             }
@@ -947,6 +1034,7 @@ public final class GameLoop {
     private void scoreLevel() {
         debriefs.clear();
         standings.clear();
+        helperBonus = null;
         boolean sRank = false;
 
         for (PlayerShip player : world.players()) {
@@ -975,6 +1063,15 @@ public final class GameLoop {
                 // the bay opens a few phases later and a level's work is spendable the same level.
                 pilots.addCredits(player.name(), debrief.credits());
             }
+            if (mine && helper) {
+                // On top of the level's own pay, and only ever into this machine's own records:
+                // nothing here touches the ship's score, which is what every machine and the
+                // replay check must agree on. Before the standing is read, so help can promote.
+                helperBonus = HelperBonus.of(debrief);
+                career = pilots.addCareerScore(player.name(), helperBonus.career());
+                pilots.addCredits(player.name(), helperBonus.credits());
+                pilots.addHelpPoints(player.name(), helperBonus.helpPoints());
+            }
             if (mine && highScores != null) {
                 // The level's own bonus, not the running score: a replay of level two and a deep
                 // run passing through it have wildly different totals but comparable level work.
@@ -986,8 +1083,17 @@ public final class GameLoop {
         }
         // The flagship is confirmed dead by the time this runs, so this is the one place a level
         // becomes "cleared". Endless runs are not campaign progress and do not unlock anything.
-        if (saves != null && !endless) {
+        // A helper is flown to wherever the host is. Clearing it with them counts as the helper's
+        // own progress only if they had already got that far themselves; otherwise one evening in
+        // a veteran's group would unlock a campaign the helper has not played.
+        boolean ownProgress = !helper || (saves != null && saves.isUnlocked(world.mode(), director.level()));
+        if (saves != null && !endless && ownProgress) {
             saves.recordClear(world.mode(), director.level());
+        }
+        if (!ownProgress) {
+            challengesMet = 0;
+            challengesNew = 0;
+            return;
         }
         scoreChallenges(sRank);
     }

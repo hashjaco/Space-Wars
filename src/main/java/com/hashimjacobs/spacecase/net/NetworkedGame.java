@@ -2,6 +2,7 @@ package com.hashimjacobs.spacecase.net;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.function.IntPredicate;
 import java.util.function.Supplier;
 
@@ -26,35 +27,88 @@ public final class NetworkedGame implements AutoCloseable {
     private final Lockstep lockstep;
     private final NetworkedLevel level;
     private final LevelStart opening;
+    /**
+     * The room slots flying, in ship order: ship one is {@code seats.get(0)}.
+     *
+     * Two numberings meet here and nowhere else. The wire and the lockstep speak in room slots,
+     * which have gaps the moment anybody leaves a lobby; the engine numbers its ships densely from
+     * one. Handing the engine a slot, as this once did, flew ship two with nobody's input in a room
+     * seated one and three.
+     */
+    private final List<Integer> seats;
     private final int localSeat;
 
+    private final Events events;
+    private boolean hostGoneRaised;
+
     private NetworkedGame(RelayClient relay, Lockstep lockstep, NetworkedLevel level,
-                          LevelStart opening, int localSeat) {
+                          LevelStart opening, List<Integer> seats, Events events) {
+        this.events = events;
         this.relay = relay;
         this.lockstep = lockstep;
         this.level = level;
         this.opening = opening;
-        this.localSeat = localSeat;
-        this.host = relay.welcome().isHost();
+        this.seats = List.copyOf(seats);
+        this.localSeat = shipOf(seats, relay.welcome().slot());
+        this.host = relay.isHost();
+    }
+
+    /** The ship (1-based, dense) a room slot flies, or 0 if that slot is not in the match. */
+    public static int shipOf(List<Integer> seats, int slot) {
+        return seats.indexOf(slot) + 1;
     }
 
     /**
-     * @param seats        the room's final roster, which fixes the lockstep's player numbers
+     * What the game tells whoever owns the screen. All three are called from inside the loop's own
+     * frame, so the receiver must defer anything that tears the loop down.
+     *
+     * @param rosterChanged the next level seats different pilots: rebuild the game from these terms
+     * @param removed       the next level does not include this machine's pilot
+     * @param hostGone      the host has left and the group is closed
+     */
+    public record Events(Consumer<LevelStart> rosterChanged, Runnable removed, Runnable hostGone) {
+    }
+
+    /**
+     * @param opening      the terms the fight begins on, which name who is flying
      * @param sampleLocal  this machine's input for its own seat, from {@code GameLoop.sampleLocal}
      * @param checkpoint   where the run stands, for the host to state in each level's terms
-     * @param localLoadout what this machine's pilot is flying, read after its garage closes
+     * @param nextCheckpoint where it will stand as the next level opens, or null at a galaxy's end
+     * @param localLoadout what this machine's pilot is flying, read after their garage closes
+     * @param previous     the game these terms replace, when the roster changed mid-run; its
+     *                     lockstep carries on, already holding whatever arrived for the new fight.
+     *                     Null when a match opens.
      */
-    public static NetworkedGame begin(RelayClient relay, LevelStart opening, List<Integer> seats,
+    public static NetworkedGame begin(RelayClient relay, LevelStart opening,
                                       Supplier<Intent> sampleLocal, Supplier<SaveSlot> checkpoint,
-                                      Supplier<String> localLoadout) {
-        int localSeat = relay.welcome().slot();
-        boolean host = relay.welcome().isHost();
+                                      Supplier<SaveSlot> nextCheckpoint,
+                                      Supplier<String> localLoadout, NetworkedGame previous,
+                                      Events events) {
+        int localSlot = relay.welcome().slot();
+        boolean host = relay.isHost();
+        List<Integer> seats = opening.seats();
 
-        int[] numbers = seats.stream().mapToInt(Integer::intValue).toArray();
-        Lockstep lockstep = new Lockstep(localSeat, numbers, sampleLocal, relay::send);
+        Lockstep lockstep;
+        if (previous == null) {
+            int[] numbers = seats.stream().mapToInt(Integer::intValue).toArray();
+            lockstep = new Lockstep(localSlot, numbers, sampleLocal, relay::send);
+            lockstep.adopt(opening);
+        } else {
+            // Taking the terms already re-cut its rings for the new roster.
+            lockstep = previous.lockstep;
+            lockstep.setSampler(sampleLocal);
+        }
+        int capacity = relay.group().map(GroupInfo::maxPlayers).orElse(LobbyModel.MAX_PEERS);
         NetworkedLevel level = new NetworkedLevel(lockstep, host, opening.seed(),
-                opening.difficulty(), checkpoint, localLoadout);
-        return new NetworkedGame(relay, lockstep, level, opening, localSeat);
+                opening.difficulty(), checkpoint, localLoadout,
+                new NetworkedLevel.Roster(seats, nextCheckpoint, relay::peers, capacity,
+                        relay::sendControl, events.rosterChanged(), events.removed()));
+        if (host) {
+            // So the board shows the level being flown, and the relay knows whom to credit when
+            // it is won. Said at every start: the opening one here, later ones at the barrier.
+            relay.sendControl(NetworkedLevel.stateLine(opening.slot().level(), seats));
+        }
+        return new NetworkedGame(relay, lockstep, level, opening, seats, events);
     }
 
     /**
@@ -72,17 +126,38 @@ public final class NetworkedGame implements AutoCloseable {
 
     public IntPredicate stepGate() {
         return tick -> {
+            // Still drained once this game has been told to stop: the lockstep outlives it, and what
+            // arrives now is input for the fight the next game is about to be built for.
             relay.drainTo(lockstep::receive);
+            if (level.handedOver()) {
+                return false;
+            }
+            if (relay.closed()) {
+                // The group was its host's. There is nobody to name the next level's terms and
+                // no room to reconnect to.
+                if (!hostGoneRaised) {
+                    hostGoneRaised = true;
+                    events.hostGone().run();
+                }
+                return false;
+            }
             if (!relay.isConnected()) {
                 reconnectInBackground();
             }
             boolean ok = lockstep.canStep(tick);
-            // Only the host decides a peer is gone, and only once the window has run out; every
-            // machine then applies the same DROP from the same tick.
-            if (!ok && host && lockstep.pastReconnectWindow()) {
+            // Only the host decides a peer is gone; every machine then applies the same DROP from
+            // the same tick. A dropped connection gets the whole window to come back. A pilot the
+            // relay says left on purpose gets none -- their own LEAVE normally lands first and
+            // this never fires, but if it was lost with the socket nobody should wait thirty
+            // seconds for somebody who said goodbye.
+            if (!ok && host) {
                 List<Integer> present = relay.peers();
+                boolean windowOver = lockstep.pastReconnectWindow();
                 for (int player : lockstep.waitingFor()) {
-                    if (!present.contains(player) && !lockstep.isDropped(player)) {
+                    if (lockstep.isDropped(player)) {
+                        continue;
+                    }
+                    if (relay.left().contains(player) || (windowOver && !present.contains(player))) {
                         lockstep.drop(player);
                     }
                 }
@@ -107,7 +182,8 @@ public final class NetworkedGame implements AutoCloseable {
         int secondsLeft = Math.max(0, (Lockstep.RECONNECT_WINDOW_CALLS - lockstep.stalledCalls()) / 60);
         StringBuilder names = new StringBuilder();
         for (int player : waiting) {
-            names.append(names.isEmpty() ? "" : ", ").append("PILOT ").append(player);
+            names.append(names.isEmpty() ? "" : ", ")
+                    .append(relay.names().getOrDefault(player, "PILOT " + player));
         }
         return "WAITING FOR " + names + (lockstep.isDropped(waiting.get(0)) ? "" : "  " + secondsLeft + "s");
     }
@@ -139,7 +215,14 @@ public final class NetworkedGame implements AutoCloseable {
     }
 
     public IntentSource intents() {
-        return lockstep::intentFor;
+        return (ship, tick) -> ship < 1 || ship > seats.size()
+                ? Intent.NEUTRAL
+                : lockstep.intentFor(seats.get(ship - 1), tick);
+    }
+
+    /** Whether this machine names each level's terms. */
+    public boolean isHost() {
+        return host;
     }
 
     public LevelHandshake handshake() {
@@ -163,6 +246,22 @@ public final class NetworkedGame implements AutoCloseable {
     /** Where two machines stopped agreeing, or null while they still do. */
     public Lockstep.Divergence divergence() {
         return lockstep.divergence();
+    }
+
+    /** A packet that arrived somewhere other than the gate: the lobby's read of the socket. */
+    public void receive(byte[] packet) {
+        lockstep.receive(packet);
+    }
+
+    /**
+     * Leaves the match on purpose. The others are told the tick this pilot's input stops at, so
+     * they carry on without a pause, and the relay frees the seat at once.
+     */
+    public void leave() {
+        if (!level.handedOver() && !relay.closed()) {
+            lockstep.leave();
+        }
+        relay.leave();
     }
 
     @Override

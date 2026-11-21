@@ -68,6 +68,12 @@ import com.hashimjacobs.spacecase.net.NetworkedGame;
 import com.hashimjacobs.spacecase.net.LobbyModel;
 import com.hashimjacobs.spacecase.net.LevelStart;
 import com.hashimjacobs.spacecase.engine.GameLoop;
+import com.hashimjacobs.spacecase.engine.NetSetup;
+import com.hashimjacobs.spacecase.net.GroupBoardModel;
+import com.hashimjacobs.spacecase.net.GroupFormModel;
+import com.hashimjacobs.spacecase.net.GroupInfo;
+import com.hashimjacobs.spacecase.net.GroupSpec;
+import com.hashimjacobs.spacecase.net.NetworkedLevel;
 import com.hashimjacobs.spacecase.update.Installation;
 import com.hashimjacobs.spacecase.update.Updates;
 import java.util.concurrent.CompletionException;
@@ -138,6 +144,9 @@ public final class SceneRouter {
 
     /** The room being joined or waited in, or null when no lobby is open. */
     private RelayClient lobbyRelay;
+    /** Frames spent waiting in a lobby, for pacing what a waiting pilot repeats. */
+    private int lobbyFrames;
+    private static final int JOIN_EVERY_FRAMES = 120;
     private CompletableFuture<RelayClient> lobbyJoin;
 
     /** The network side of a running game, or null for a local one. */
@@ -604,6 +613,41 @@ public final class SceneRouter {
      */
     public void showLeaderboard(GameMode mode) {
         GameMode other = mode == GameMode.SOLO ? GameMode.COOP : GameMode.SOLO;
+        URI base = RelayClient.defaultBase();
+        showBoard(mode.label().toUpperCase() + " BOARD",
+                "Every run you finish is posted under your pilot's name.",
+                () -> Cloud.top(base, mode),
+                // Solo to Co-op to Helpers and round again: one row, so the ten places and the
+                // way out still fit the panel without scrolling.
+                mode == GameMode.SOLO
+                        ? new MenuButton(other.label() + " board", () -> showLeaderboard(other))
+                        : new MenuButton("Helpers board", this::showHelperBoard));
+    }
+
+    /**
+     * The pilots who have cleared the most levels in other pilots' groups.
+     *
+     * A row is added by the relay itself when a group's host reports a level won, for everyone
+     * else flying in it -- so, unlike a score, it is not something a pilot posts about themselves.
+     */
+    public void showHelperBoard() {
+        URI base = RelayClient.defaultBase();
+        String name = pilots.name(1);
+        showBoard("HELPERS BOARD",
+                "Levels cleared in other pilots' groups. " + name + " has "
+                        + String.format("%,d", pilots.helpPoints(name)) + " help points.",
+                () -> Cloud.helpers(base),
+                new MenuButton(GameMode.SOLO.label() + " board", () -> showLeaderboard(GameMode.SOLO)));
+    }
+
+    /**
+     * Ten places, a way to the next board and a way out.
+     *
+     * The rows are built at once and filled when the relay answers, so nothing on the screen moves
+     * when it does.
+     */
+    private void showBoard(String title, String caption, java.util.function.Supplier<List<Cloud.Entry>> fetch,
+                           MenuButton next) {
         MenuButton[] entries = new MenuButton[BOARD_ROWS];
         for (int at = 0; at < entries.length; at++) {
             entries[at] = new MenuButton("", () -> { });
@@ -612,8 +656,7 @@ public final class SceneRouter {
         }
         MenuButton[] rows = new MenuButton[entries.length + 2];
         System.arraycopy(entries, 0, rows, 0, entries.length);
-        rows[rows.length - 2] = new MenuButton(other.label() + " board",
-                () -> showLeaderboard(other));
+        rows[rows.length - 2] = next;
         rows[rows.length - 1] = new MenuButton("Back", this::showExtras);
 
         MenuPanel panel = new MenuPanel(rows);
@@ -623,13 +666,11 @@ public final class SceneRouter {
         // a score nobody can do anything with.
         navigator.focus(entries.length);
 
-        StackPane root = MenuScreen.build(mode.label().toUpperCase() + " BOARD", panel,
-                MenuScreen.caption("Every run you finish is posted under your pilot's name.", 12,
-                        Tokens.TEXT_FAINT));
+        StackPane root = MenuScreen.build(title, panel,
+                MenuScreen.caption(caption, 12, Tokens.TEXT_FAINT));
         show(root, navigator::handleKey);
 
-        URI base = RelayClient.defaultBase();
-        CompletableFuture.supplyAsync(() -> Cloud.top(base, mode))
+        CompletableFuture.supplyAsync(fetch)
                 .thenAccept(board -> Platform.runLater(() -> fillBoard(entries, board)));
     }
 
@@ -714,10 +755,10 @@ public final class SceneRouter {
         // than inheriting whichever galaxy the solo campaign happens to be in.
         MenuButton coopMap = new MenuButton("Co-op Campaign", () -> showGalaxySelect(GameMode.COOP));
         MenuButton battle = new MenuButton("Battle", "face each other", () -> startGame(GameMode.BATTLE));
-        MenuButton host = new MenuButton("Host Online", "get a room code", () -> showLobby(true));
-        MenuButton join = new MenuButton("Join Online", "someone gave you a code", () -> showLobby(false));
+        MenuButton online = new MenuButton("Online Groups", "help a pilot, or ask for help",
+                this::showGroupBoard);
         MenuButton back = new MenuButton("Back", this::showStartMenu);
-        MenuPanel panel = new MenuPanel(coop, coopMap, battle, host, join, back);
+        MenuPanel panel = new MenuPanel(coop, coopMap, battle, online, back);
 
         MenuNavigator navigator = panel.navigator();
         navigator.setOnBack(this::showStartMenu);
@@ -730,6 +771,74 @@ public final class SceneRouter {
     }
 
     /**
+     * The game board: every public group open right now, to browse, filter and join.
+     *
+     * Asks the relay again every few seconds while it is up, off the FX thread, from the one timer
+     * a screen is allowed. A listing is a minute stale at worst, which is fine for a list of
+     * people waiting for company -- and a row that filled in the meantime fails the ordinary way
+     * a full room always has.
+     */
+    public void showGroupBoard() {
+        showGroupBoard(null);
+    }
+
+    /** @param notice why the pilot is back here, when it was not their choice; null otherwise */
+    private void showGroupBoard(String notice) {
+        stopActiveGame();
+        closeLobby();
+        GroupBoardModel model = new GroupBoardModel();
+        GroupBoardPanel panel = new GroupBoardPanel(model,
+                listing -> showLobby(null, listing.code()),
+                this::showCreateGroup,
+                () -> showLobby(null, null),
+                this::showMultiplayerMenu);
+
+        StackPane root = notice == null
+                ? MenuScreen.build("ONLINE GROUPS", panel)
+                : MenuScreen.build("ONLINE GROUPS",
+                        MenuScreen.caption(notice, Tokens.SIZE_LABEL, Tokens.TEXT_MUTED), panel);
+        if (notice != null) {
+            sounds.playMusic(MusicCue.MENU);
+        }
+        show(root, panel.navigator()::handleKey);
+
+        URI base = RelayClient.defaultBase();
+        AnimationTimer poll = new AnimationTimer() {
+            @Override
+            public void handle(long now) {
+                if (!model.refreshDue(now)) {
+                    return;
+                }
+                model.asked(now);
+                String galaxy = model.galaxyQuery();
+                String difficulty = model.difficultyQuery();
+                CompletableFuture.supplyAsync(() -> Cloud.groups(base, galaxy, difficulty))
+                        .thenAccept(found -> Platform.runLater(() -> {
+                            found.ifPresentOrElse(model::loaded, model::failed);
+                            // The pilot may have left while the relay was thinking.
+                            if (panel.getScene() != null) {
+                                panel.refresh();
+                            }
+                        }));
+            }
+        };
+        poll.start();
+        screenPulse = poll;
+    }
+
+    /** Opening a group of one's own: public or private, how many, and what to fly. */
+    public void showCreateGroup() {
+        GroupFormModel model = new GroupFormModel(
+                galaxy -> saves.isGalaxyUnlocked(GameMode.COOP, galaxy),
+                level -> saves.isUnlocked(GameMode.COOP, level),
+                settings.difficulty());
+        GroupFormPanel panel = new GroupFormPanel(model,
+                spec -> showLobby(spec, null), this::showGroupBoard);
+        StackPane root = MenuScreen.build("CREATE GROUP", panel);
+        show(root, panel.navigator()::handleKey);
+    }
+
+    /**
      * The room: opening a socket, watching who arrives, and beginning when the host says so.
      *
      * The one screen in the game that waits on something outside the machine. Nothing in
@@ -739,23 +848,26 @@ public final class SceneRouter {
      * {@code GameLoop.stepWarp} make. A callback firing on the socket's thread would be touching
      * scene graph nodes from the wrong one.
      *
-     * @param asHost true to ask the relay for a new code, false to type one somebody read out
+     * @param create the group to open and host, or null to join somebody else's
+     * @param code   the room to join, from the board; null with {@code create} null means the
+     *               pilot types a code somebody read out
      */
-    public void showLobby(boolean asHost) {
+    public void showLobby(GroupSpec create, String code) {
         closeLobby();
         LobbyModel model = new LobbyModel();
-        LobbyPanel panel = new LobbyPanel(model,
-                () -> lobbyAction(model, asHost), this::showMultiplayerMenu);
+        LobbyPanel panel = new LobbyPanel(model, () -> lobbyAction(model), this::showGroupBoard);
 
-        StackPane root = MenuScreen.build(asHost ? "HOST" : "JOIN", panel,
-                MenuScreen.caption(asHost
-                        ? "read the code out; they enter it"
-                        : "choose the code row and enter theirs", 12, Tokens.TEXT_FAINT));
+        boolean typing = create == null && code == null;
+        StackPane root = MenuScreen.build(create != null ? "YOUR GROUP" : "JOIN GROUP", panel,
+                MenuScreen.caption(create != null
+                        ? "start whenever you like; help can arrive at the start of any level"
+                        : typing ? "choose the code row and enter theirs"
+                        : "leave whenever you like", 12, Tokens.TEXT_FAINT));
         panel.setOverlayHost(root);
         show(root, panel::handleKey);
 
-        if (asHost) {
-            connectToRelay(model, null);
+        if (!typing) {
+            connectToRelay(model, create, code);
         }
         AnimationTimer poll = new AnimationTimer() {
             @Override
@@ -767,18 +879,23 @@ public final class SceneRouter {
         screenPulse = poll;
     }
 
-    /** The action row: join the typed room, or -- once everyone is in -- start the fight. */
-    private void lobbyAction(LobbyModel model, boolean asHost) {
+    /** The action row: join the typed room, or -- once the host is ready -- start the fight. */
+    private void lobbyAction(LobbyModel model) {
         if (model.state() == LobbyModel.State.CHOOSING && model.codeIsComplete()) {
-            connectToRelay(model, model.typed());
+            connectToRelay(model, null, model.typed());
             return;
         }
         if (model.canStart() && lobbyRelay != null) {
             // Only the host reaches here, and it begins its own game rather than waiting for its
             // own packet: the relay forwards to everyone else, never back to the sender.
-            LevelStart opening = new LevelStart(new Random().nextLong(), 0, settings.difficulty(),
-                    SaveSlot.forReplay(GameMode.COOP, Level.values()[0]),
-                    model.loadoutsInSeatOrder());
+            // A group flies what its host asked for help with. A bare room, which only an older
+            // game can still open, flies the campaign from its first level on the host's preset.
+            GroupInfo group = model.group();
+            Level level = group == null ? Level.values()[0] : group.level();
+            Difficulty difficulty = group == null ? settings.difficulty() : group.difficulty();
+            LevelStart opening = new LevelStart(new Random().nextLong(), 0, difficulty,
+                    SaveSlot.forReplay(GameMode.COOP, level),
+                    model.peers(), model.loadoutsInSeatOrder());
             lobbyRelay.send(Packet.start(model.localSlot(), opening).encode());
             model.starting();
             beginNetworkedGame(model, opening);
@@ -786,12 +903,16 @@ public final class SceneRouter {
     }
 
     /** Opens the socket off the FX thread. A ten-second block here would be a frozen window. */
-    private void connectToRelay(LobbyModel model, String room) {
+    private void connectToRelay(LobbyModel model, GroupSpec create, String room) {
         model.connecting();
         URI base = RelayClient.defaultBase();
+        // Read here, on the FX thread, rather than inside the task.
+        String name = pilots.name(1);
+        String player = account.id();
         lobbyJoin = CompletableFuture.supplyAsync(() -> {
             try {
-                return RelayClient.join(base, room == null ? RelayClient.newRoom(base) : room);
+                String code = create == null ? room : Cloud.createGroup(base, create, name);
+                return RelayClient.join(base, code, name, player);
             } catch (IOException | InterruptedException refused) {
                 throw new CompletionException(refused);
             }
@@ -810,7 +931,8 @@ public final class SceneRouter {
             try {
                 lobbyRelay = lobbyJoin.join();
                 RelayClient.Welcome welcome = lobbyRelay.welcome();
-                model.joined(welcome.room(), welcome.slot(), welcome.peers(), welcome.isHost());
+                model.group(lobbyRelay.group().orElse(null));
+                model.joined(welcome.room(), welcome.slot(), welcome.peers(), lobbyRelay.isHost());
                 model.loadout(welcome.slot(), localLoadoutCode());
                 // Announced immediately, so the host can start the moment the room is full rather
                 // than waiting for a round of introductions.
@@ -822,13 +944,34 @@ public final class SceneRouter {
         }
 
         if (lobbyRelay != null && model.state() == LobbyModel.State.WAITING) {
+            if (lobbyRelay.closed()) {
+                // The group was its host's, and they have gone.
+                closeLobby();
+                model.failed("the host closed the group");
+                panel.refresh();
+                return;
+            }
             model.roster(lobbyRelay.peers());
+            model.names(lobbyRelay.names());
+            model.group(lobbyRelay.group().orElse(null));
+            // A fight is already under way: ask to be flown from the next level. Asked again
+            // every couple of seconds, because the host forgets every request at each barrier.
+            if (model.inFlight() && lobbyFrames++ % JOIN_EVERY_FRAMES == 0) {
+                lobbyRelay.send(Packet.join(model.localSlot(), localLoadoutCode()).encode());
+            }
             lobbyRelay.drainTo(bytes -> acceptInLobby(model, bytes));
         }
         panel.refresh();
     }
 
     private void acceptInLobby(LobbyModel model, byte[] bytes) {
+        if (lobbyRelay == null && networked != null) {
+            // The terms arrived earlier in this same read of the socket and the game has begun.
+            // What follows them is that game's first input, and dropping it would stall the
+            // match on ticks nobody will send twice.
+            networked.receive(bytes);
+            return;
+        }
         Packet packet;
         try {
             packet = Packet.decode(bytes);
@@ -837,10 +980,14 @@ public final class SceneRouter {
         }
         switch (packet.kind()) {
             case READY -> model.loadout(packet.playerNumber(), packet.text());
-            case START -> LevelStart.decode(packet.text()).ifPresent(opening -> {
-                model.starting();
-                beginNetworkedGame(model, opening);
-            });
+            // Only terms that name this pilot are theirs to fly. A start for a fight they are
+            // not part of is the room carrying on without them, and they keep waiting.
+            case START -> LevelStart.decode(packet.text())
+                    .filter(opening -> opening.seats().contains(model.localSlot()))
+                    .ifPresent(opening -> {
+                        model.starting();
+                        beginNetworkedGame(model, opening);
+                    });
             default -> {
             }
         }
@@ -1261,37 +1408,97 @@ public final class SceneRouter {
         RelayClient relay = lobbyRelay;
         // Handed to the game, so closeLobby() below must not shut its socket.
         lobbyRelay = null;
-        List<Integer> seats = model.peers();
-
-        stopActiveGame();
         closeLobby();
-        sounds.playMusic(GameMode.COOP.musicFor(opening.slot().level()));
+        stopActiveGame();
+        startNetworkedGame(relay, opening, null);
+    }
 
+    /**
+     * Builds the game the terms describe and puts this machine's pilot in it.
+     *
+     * Everything a peer could read differently comes from {@code terms}: who is flying, in what,
+     * on which level, at what difficulty, from which tick. That is what lets the same call open a
+     * match from the lobby, seat a pilot who arrived while one was already under way, and rebuild
+     * every machine's game when the pilots change between levels.
+     *
+     * @param previous the game these terms replace, whose socket and lockstep carry on; null when
+     *                 a match opens
+     */
+    private void startNetworkedGame(RelayClient relay, LevelStart terms, NetworkedGame previous) {
+        List<Integer> seats = terms.seats();
+        int localShip = NetworkedGame.shipOf(seats, relay.welcome().slot());
+
+        // Not stopActiveGame(): that leaves the room, and this pilot is staying in it.
+        if (activeGame != null) {
+            activeGame.stop();
+            activeGame = null;
+        }
+        networked = null;
+        sounds.playMusic(GameMode.COOP.musicFor(terms.slot().level()));
+
+        NetSetup setup = new NetSetup(terms.difficulty(), pilotNamesFor(relay, seats),
+                terms.loadouts(), terms.resumeTick(), localShip);
         GameScreen screen = new GameScreen(GameMode.COOP, settings, sounds, pilots, highScores,
-                saves, new Random(opening.seed()), opening.slot(), this::showStartMenu,
-                this::showGameOver, this::padStatus, seats.size());
+                saves, new Random(terms.seed()), terms.slot(), this::showStartMenu,
+                this::showGameOver, this::padStatus, setup);
         GameLoop loop = screen.loop();
-        NetworkedGame net = NetworkedGame.begin(relay, opening, seats,
-                () -> loop.sampleLocal(relay.welcome().slot()),
-                loop::checkpoint, this::localLoadoutCode);
+        // Each callback fires inside the loop's own frame, so each defers: tearing a loop down
+        // from within its own step leaves it finishing a frame on a screen that is gone. And each
+        // checks it is still this game's business by the time it runs.
+        NetworkedGame[] self = new NetworkedGame[1];
+        NetworkedGame.Events events = new NetworkedGame.Events(
+                next -> Platform.runLater(() -> {
+                    if (networked == self[0]) {
+                        startNetworkedGame(relay, next, self[0]);
+                    }
+                }),
+                () -> Platform.runLater(() -> {
+                    if (networked == self[0]) {
+                        showGroupBoard("The group carried on without you.");
+                    }
+                }),
+                () -> Platform.runLater(() -> {
+                    if (networked == self[0]) {
+                        showGroupBoard("The host left, so the group has closed.");
+                    }
+                }));
+        NetworkedGame net = NetworkedGame.begin(relay, terms,
+                () -> loop.sampleLocal(localShip),
+                loop::checkpoint, loop::nextCheckpoint, this::localLoadoutCode, previous, events);
+        self[0] = net;
 
-        // The ships the host named, not the ones this machine's pilot happens to own: fitSavedLoadouts
-        // has already fitted the local pilot's to every seat, which is wrong for everyone but one.
-        loop.fitLoadouts(opening.loadouts());
-        loop.setLocalSeat(net.localSeat());
         loop.setStepGate(net.stepGate());
         loop.setIntentSource(net.intents());
         loop.setLevelHandshake(net.handshake());
         loop.setTickObserver(net.tickObserver());
 
         loop.setNetStatus(net::status);
-        loop.setRecorder(new Replay.Recorder(new Replay.Header(opening.seed(), GameMode.COOP,
-                opening.difficulty(), false, false, seats.size())));
+        // Everyone but the pilot who opened the group is there to help, and is paid for it.
+        loop.setHelper(!net.isHost());
+        // A run that opens past the first level, or was rebuilt around a new roster, is marked
+        // resumed: the verifier cannot replay it from nothing, and an unmarked row is the honest
+        // outcome where a failed check would call a clean run a cheat.
+        boolean resumed = previous != null || terms.slot().level() != Level.values()[0];
+        loop.setRecorder(new Replay.Recorder(new Replay.Header(terms.seed(), GameMode.COOP,
+                terms.difficulty(), false, resumed, seats.size())));
         networked = net;
         activeGame = screen;
         show(screen.root(), null);
         screen.attachInput(stage.getScene());
         screen.start();
+    }
+
+    /**
+     * One name per ship. This machine's pilot flies under their own name, which is the record
+     * their credits and career are written to.
+     */
+    private List<String> pilotNamesFor(RelayClient relay, List<Integer> seats) {
+        List<String> names = new ArrayList<>();
+        for (int slot : seats) {
+            names.add(slot == relay.welcome().slot() ? pilots.name(1)
+                    : relay.names().getOrDefault(slot, "PILOT " + slot));
+        }
+        return names;
     }
 
     /** Drops a lobby's socket, unless a game has already taken it over. */
@@ -1301,7 +1508,9 @@ public final class SceneRouter {
             lobbyJoin = null;
         }
         if (lobbyRelay != null) {
-            lobbyRelay.close();
+            // Leaving rather than hanging up, so the seat is free for the next pilot at once
+            // instead of being held a minute for a connection that is not coming back.
+            lobbyRelay.leave();
             lobbyRelay = null;
         }
     }
@@ -1433,7 +1642,8 @@ public final class SceneRouter {
             // row from somebody who played.
             return;
         }
-        String name = pilots.name(seat);
+        // Online this machine's pilot is pilot one whatever ship the room gave them.
+        String name = pilots.name(networked == null ? seat : 1);
         String player = account.id();
         GameMode mode = result.mode();
         URI base = RelayClient.defaultBase();
@@ -1493,7 +1703,9 @@ public final class SceneRouter {
         // The socket outlives the screen by design -- the game owns it once the lobby hands it over
         // -- so leaving a round is what finally closes it.
         if (networked != null) {
-            networked.close();
+            // Leaving, not hanging up: the others carry on without a pause and the seat is free
+            // for the next pilot at once. When the pilot leaving is the host, the group closes.
+            networked.leave();
             networked = null;
         }
     }

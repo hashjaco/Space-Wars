@@ -16,6 +16,8 @@ public final class Pilots {
     private static final String CAREER_NODE = "career";
     private static final String CREDITS_NODE = "credits";
     private static final String LOADOUT_NODE = "loadout";
+    /** A child of the pilots node, so it travels with a cloud save like the rest of a pilot's record. */
+    private static final String HELP_NODE = "help";
 
     /** Longest name the entry screen accepts, and what the HUD is laid out for. */
     public static final int MAX_NAME_LENGTH = 10;
@@ -24,8 +26,10 @@ public final class Pilots {
     private final Preferences careers;
     private final Preferences credits;
     private final Preferences loadouts;
+    private final Preferences help;
 
     private Pilots(Preferences store) {
+        this.help = store.node(HELP_NODE);
         this.store = store;
         this.careers = store.node(CAREER_NODE);
         this.credits = store.node(CREDITS_NODE);
@@ -96,6 +100,18 @@ public final class Pilots {
         int total = careerScore(pilotName) + Math.max(0, amount);
         careers.putInt(pilotName, total);
         flush(careers);
+        return total;
+    }
+
+    /** What a pilot has earned helping in other pilots' groups; see {@code mode.HelperBonus}. */
+    public int helpPoints(String pilotName) {
+        return help.getInt(pilotName, 0);
+    }
+
+    public int addHelpPoints(String pilotName, int amount) {
+        int total = helpPoints(pilotName) + Math.max(0, amount);
+        help.putInt(pilotName, total);
+        flush(help);
         return total;
     }
 

@@ -28,6 +28,7 @@ public final class ShipController {
     private final PlayerShip ship;
     private final PlayerControls controls;
     private final IntFunction<PadState> sticks;
+    private final int padNumber;
 
     /**
      * @param sticks this player's pad reading by player number, or null when nothing but a keyboard
@@ -36,9 +37,24 @@ public final class ShipController {
      *               everything else, which is what keeps menus and the garage working.
      */
     public ShipController(PlayerShip ship, PlayerControls controls, IntFunction<PadState> sticks) {
+        this(ship, controls, sticks, ship.playerNumber());
+    }
+
+    /**
+     * @param padNumber whose pad and stick settings this ship answers to. The ship's own number in
+     *                  local play; online it is always one, because a machine has one pilot and
+     *                  the room may have seated them anywhere.
+     */
+    public ShipController(PlayerShip ship, PlayerControls controls, IntFunction<PadState> sticks,
+                          int padNumber) {
         this.ship = ship;
         this.controls = controls;
         this.sticks = sticks;
+        this.padNumber = padNumber;
+    }
+
+    public int padNumber() {
+        return padNumber;
     }
 
     public PlayerShip ship() {
@@ -283,7 +299,7 @@ public final class ShipController {
         if (sticks == null || !tuning.analog() || deadzone <= 0) {
             return null;
         }
-        PadState pad = sticks.apply(ship.playerNumber());
+        PadState pad = sticks.apply(padNumber);
         if (pad == null || !pad.connected()) {
             return null;
         }

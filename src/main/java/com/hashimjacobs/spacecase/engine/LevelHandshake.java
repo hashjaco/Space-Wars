@@ -33,4 +33,13 @@ public interface LevelHandshake {
      *              the others are still standing at
      */
     boolean readyToFight(int level, World world);
+
+    /**
+     * Called once when a level's flagship dies, on the tick the level is scored.
+     *
+     * Not part of the barrier and nothing waits on it. It exists so the host can tell the relay a
+     * level was won, which is how the pilots who helped win it get written down.
+     */
+    default void cleared() {
+    }
 }

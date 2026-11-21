@@ -383,6 +383,23 @@ after thirty seconds (relay seats carry tokens); every run is recorded (`net.Rep
 leaderboard verifies scores by replay (`engine.Replayer`, `tools/verify`, `verify.yml`); the
 simulation's trig went through `StrictMath`, so the two CI determinism lines should now agree.
 
+**Landed 2026-11-20:** online groups. A board of open groups to browse and filter
+(`net.GroupBoardModel`, the relay's `Groups` object); creating one public or private, for two to
+four, on any level the host has unlocked; joining a group in flight and being seated at the next
+level, and leaving at any time without pausing the rest (`Packet.Kind.JOIN`/`LEAVE`,
+`NetworkedLevel.Roster`); bonus credits and career for helping (`mode.HelperBonus`) and a helpers'
+board the relay itself writes. A roster change rebuilds every machine's game from the host's terms
+rather than patching a ship into a running world, which is why `LevelStart` now names the seats
+and `GameLoop` takes a `NetSetup`. Fixed on the way: ships were indexed by room slot, so a room
+seated one and three flew a ship with nobody's input; the host's difficulty never reached the
+guests; a guest in seat three or four had no keys; a dropped pilot held the next level's barrier
+forever; and input arriving in the same read as a level's terms was thrown away with the old
+level's. `LevelStart` is format 4 and `Replay` version 5, so 2.8 does not play with 2.7.
+
+Not done, deliberately: joining in the middle of a fight (it needs a world sent over the wire,
+which this design exists to avoid); host migration (a group closes with its host); and a
+`GameLoop`-level test of the helper payout, which wants a loop that can be built without a canvas.
+
 - Per-upgrade garage icons: 14 shapes at 24×24 under `sprites/garage/`, one `Sprite` constant each,
   one `ASSETS.md` row (the directory name covers all twelve). **Never `drawString`** — see rule 1.
   `insignia()` shows how to draw a symbol without a font.

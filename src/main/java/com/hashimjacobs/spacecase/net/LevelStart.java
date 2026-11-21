@@ -28,25 +28,48 @@ import com.hashimjacobs.spacecase.prefs.SaveSlot;
  * @param seed      what every peer's shared {@code Random} starts from
  * @param resumeTick the tick the fight begins on, so machines that spent different amounts of time
  *                  in the garage still agree about the clock the simulation reads
- * @param loadouts  one encoded {@link Loadout} per player, in player-number order
+ * @param seats     the room slots flying this level, in ship order. Stated rather than left for
+ *                  each machine to read off its own roster: a roster is whatever the relay last
+ *                  said, and two machines hearing a join a moment apart would field different
+ *                  fleets. It is also how a pilot learns they have been let in, or left out.
+ * @param loadouts  one encoded {@link Loadout} per ship, in the order of {@code seats}
  */
 public record LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveSlot slot,
-                         List<String> loadouts) {
+                         List<Integer> seats, List<String> loadouts) {
 
     /**
      * Bumped if the field order changes incompatibly (appending a field is not a break), and when
      * the simulation changes: lockstep peers on different rules desync, and refusing to start is
      * the kinder failure. 2: set pieces and weapon stacks (game 2.3). 3: profile hitboxes on the side-on levels.
+     * 4: the seats flying are stated, so pilots can join and leave between levels.
      */
-    private static final int FORMAT_VERSION = 3;
+    private static final int FORMAT_VERSION = 4;
 
     private static final String SEPARATOR = ";";
 
-    /** Version, seed, resume tick, difficulty, save slot. */
-    private static final int HEADER_FIELDS = 5;
+    /** Between seats. The comma, pipe, equals and semicolon are all spent; see above. */
+    private static final String SEAT_SEPARATOR = ".";
+
+    /** Version, seed, resume tick, difficulty, save slot, seats. */
+    private static final int HEADER_FIELDS = 6;
 
     public LevelStart {
+        seats = List.copyOf(seats);
         loadouts = List.copyOf(loadouts);
+    }
+
+    /** Ships one to N with nobody missing, which is every match that is not an online room. */
+    public LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveSlot slot,
+                      List<String> loadouts) {
+        this(seed, resumeTick, difficulty, slot, countingSeats(loadouts.size()), loadouts);
+    }
+
+    private static List<Integer> countingSeats(int count) {
+        List<Integer> seats = new ArrayList<>();
+        for (int seat = 1; seat <= count; seat++) {
+            seats.add(seat);
+        }
+        return seats;
     }
 
     public String encode() {
@@ -55,7 +78,11 @@ public record LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveS
                 .append(SEPARATOR).append(seed)
                 .append(SEPARATOR).append(resumeTick)
                 .append(SEPARATOR).append(difficulty.name())
-                .append(SEPARATOR).append(slot.encode());
+                .append(SEPARATOR).append(slot.encode())
+                .append(SEPARATOR);
+        for (int i = 0; i < seats.size(); i++) {
+            code.append(i == 0 ? "" : SEAT_SEPARATOR).append(seats.get(i));
+        }
         for (String loadout : loadouts) {
             code.append(SEPARATOR).append(loadout);
         }
@@ -88,6 +115,12 @@ public record LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveS
             if (slot.isEmpty()) {
                 return Optional.empty();
             }
+            List<Integer> seats = new ArrayList<>();
+            if (!fields[5].isEmpty()) {
+                for (String seat : fields[5].split(java.util.regex.Pattern.quote(SEAT_SEPARATOR))) {
+                    seats.add(Integer.parseInt(seat));
+                }
+            }
             List<String> loadouts = new ArrayList<>();
             for (int i = HEADER_FIELDS; i < fields.length; i++) {
                 loadouts.add(fields[i]);
@@ -97,6 +130,7 @@ public record LevelStart(long seed, int resumeTick, Difficulty difficulty, SaveS
                     Integer.parseInt(fields[2]),
                     Difficulty.valueOf(fields[3]),
                     slot.get(),
+                    seats,
                     loadouts));
         } catch (IllegalArgumentException unreadable) {
             // NumberFormatException and Difficulty.valueOf both land here.

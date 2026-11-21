@@ -8,7 +8,8 @@
     "bindings": [
       { "name": "ROOM", "class_name": "Room" },
       { "name": "BOARD", "class_name": "Board" },
-      { "name": "VAULT", "class_name": "Vault" }
+      { "name": "VAULT", "class_name": "Vault" },
+      { "name": "GROUPS", "class_name": "Groups" }
     ]
   },
   // SQLite-backed, which is the only option for new classes. Nothing is written to a Room: it
@@ -18,6 +19,9 @@
   // the room: a hibernating room must stay disposable.
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["Room"] },
-    { "tag": "v2", "new_sqlite_classes": ["Board", "Vault"] }
+    { "tag": "v2", "new_sqlite_classes": ["Board", "Vault"] },
+    // The game board. Rooms now keep a few rows too -- what a group was opened for -- and delete
+    // them when the group closes, so a room is still disposable.
+    { "tag": "v3", "new_sqlite_classes": ["Groups"] }
   ]
 }

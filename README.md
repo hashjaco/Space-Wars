@@ -105,14 +105,27 @@ reproduced it (see [`server/`](server/README.md)).
 
 ### Online
 
-**Multiplayer → Host Online** hands you a six-character room code; **Join Online** takes one. Two to
-four ships fly the co-op campaign in deterministic lockstep: every machine runs the same simulation
-and only the sticks cross the wire, through a small WebSocket relay on Cloudflare Workers (see
-[`server/`](server/README.md)). Everyone checks in with a loadout before the host can start.
+**Multiplayer → Online Groups** is a board of every public group open right now, with filters for
+galaxy, difficulty and open seats. Pick one to join it, or **Create Group**: choose public or private,
+how many pilots (two to four), and the galaxy, level and difficulty you want help with, from what your
+own campaign has unlocked. A private group is not listed; read its six-character code out and your
+friends use **Join by Code**.
+
+The host can start alone. A pilot who joins a group already in flight waits in its lobby and is
+flown from the start of the next level; anyone can leave at any time, and the rest carry on without
+a pause. When the host leaves, the group closes.
+
+Helping pays. Each level cleared in somebody else's group earns bonus credits and bonus career
+score on top of the level's own pay, and puts the helper on **Leaderboard → Helpers board**.
+
+Underneath, two to four ships fly the campaign in deterministic lockstep: every machine runs the
+same simulation and only the sticks cross the wire, through a small WebSocket relay on Cloudflare
+Workers (see [`server/`](server/README.md)).
 
 If a pilot's connection drops, the match holds still for everyone and says so; that pilot's game
 rejoins by itself and is fed the input it missed. After thirty seconds the host's machine gives the
-seat up and the rest fly on with the missing ship holding neutral.
+seat up and the rest fly on with the missing ship holding neutral until the level ends; the next
+level opens without it.
 
 ## Controls
 

@@ -43,7 +43,23 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
         /** "Send me everything you have from this tick": the body byte is 1 for a reply, 0 for a request. */
         RESYNC,
         /** The host gives up on a peer: the body byte names the player, the tick is where neutral starts. */
-        DROP
+        DROP,
+        /**
+         * A pilot waiting in the room asks to be flown from the next level, carrying their loadout.
+         *
+         * Appended, like everything after START: the ordinal is the wire format, so a new kind
+         * goes last or every older one changes its number.
+         */
+        JOIN,
+        /**
+         * A pilot leaving on purpose: the tick is the first one they will send no input for.
+         *
+         * Said by the leaver, which is what makes it instant where a DROP is not. The socket keeps
+         * order, so by the time this arrives every peer already holds all the input before that
+         * tick, and they can all fly the ship neutral from the same one without waiting to find
+         * out what the others have.
+         */
+        LEAVE
     }
 
     /** Kind, player, tick. Every packet begins with these; only the body differs. */
@@ -81,6 +97,14 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
         return new Packet(Kind.DROP, playerNumber, fromTick, null, dropped, null);
     }
 
+    public static Packet join(int playerNumber, String loadout) {
+        return new Packet(Kind.JOIN, playerNumber, 0, null, 0, loadout == null ? "" : loadout);
+    }
+
+    public static Packet leave(int playerNumber, int fromTick) {
+        return new Packet(Kind.LEAVE, playerNumber, fromTick, null, 0, null);
+    }
+
     /** For RESYNC: whether this is a reply. For DROP: the dropped player. Both ride in {@code checksum}. */
     public int flag() {
         return (int) checksum;
@@ -96,9 +120,9 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
                 yield buffer.array();
             }
             case CHECKSUM -> ByteBuffer.allocate(CHECKSUM_BODY).putLong(checksum).array();
-            case READY -> text.getBytes(StandardCharsets.UTF_8);
-            case START -> text.getBytes(StandardCharsets.UTF_8);
+            case READY, START, JOIN -> text.getBytes(StandardCharsets.UTF_8);
             case RESYNC, DROP -> new byte[] {(byte) checksum};
+            case LEAVE -> new byte[0];
         };
 
         ByteBuffer packet = ByteBuffer.allocate(HEADER + body.length);
@@ -148,6 +172,11 @@ public record Packet(Kind kind, int playerNumber, int tick, Intent intent, long 
             case RESYNC, DROP -> {
                 require(kind, body, 1);
                 yield new Packet(kind, playerNumber, tick, null, buffer.get(), null);
+            }
+            case JOIN -> join(playerNumber, new String(bytes, HEADER, body, StandardCharsets.UTF_8));
+            case LEAVE -> {
+                require(kind, body, 0);
+                yield leave(playerNumber, tick);
             }
         };
     }

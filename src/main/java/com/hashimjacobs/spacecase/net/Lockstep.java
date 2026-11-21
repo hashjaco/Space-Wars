@@ -1,10 +1,12 @@
 package com.hashimjacobs.spacecase.net;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
@@ -74,7 +76,7 @@ public final class Lockstep implements IntentSource {
     /** Insertion-ordered so the missing-peer message names players the way the lobby did. */
     private final Map<Integer, IntentRing> rings = new LinkedHashMap<>();
     private final Consumer<byte[]> send;
-    private final Supplier<Intent> sampler;
+    private Supplier<Intent> sampler;
 
     /** Each peer's most recent fingerprint. Checksums are far enough apart that only the last matters. */
     private final Map<Integer, Packet> theirChecksums = new LinkedHashMap<>();
@@ -97,7 +99,21 @@ public final class Lockstep implements IntentSource {
     private int steppedThrough = -1;
     private List<Integer> waitingFor = List.of();
     private final Map<Integer, Integer> droppedFrom = new LinkedHashMap<>();
+    /** The dropped who said so themselves, and so need no grace: see {@link Packet.Kind#LEAVE}. */
+    private final Set<Integer> leftSelf = new HashSet<>();
     private int dropCalls;
+    /** Pilots waiting in the room who have asked to fly from the next level, with their loadouts. */
+    private final Map<Integer, String> joiners = new LinkedHashMap<>();
+    /**
+     * Input for the next fight from a pilot this machine does not have a seat for yet.
+     *
+     * The host's terms and a newcomer's first input can arrive in one read of the socket, terms
+     * first. Until the terms are taken there is no ring for the newcomer, and dropping their input
+     * would leave this machine waiting for ticks that will never be sent again.
+     */
+    private final List<Packet> early = new ArrayList<>();
+    private static final int EARLY_HELD = 1024;
+    private boolean removed;
     private LevelStart lastStart;
     private int lastStartTick = -1;
 
@@ -153,7 +169,8 @@ public final class Lockstep implements IntentSource {
                 continue;
             }
             Integer from = droppedFrom.get(entry.getKey());
-            if (from != null && tick >= from && dropCalls >= DROP_GRACE_CALLS) {
+            if (from != null && tick >= from
+                    && (dropCalls >= DROP_GRACE_CALLS || leftSelf.contains(entry.getKey()))) {
                 entry.getValue().put(tick, Intent.NEUTRAL);
                 continue;
             }
@@ -235,6 +252,54 @@ public final class Lockstep implements IntentSource {
         }
     }
 
+    /**
+     * This machine's pilot is leaving. Tells everyone the first tick there will be no input for,
+     * so they fly the ship neutral from that tick and carry on without a pause.
+     */
+    public void leave() {
+        send.accept(Packet.leave(localPlayer, lastSent + 1).encode());
+    }
+
+    /** Everyone flying in this match, by room slot, lowest first: the order ships are numbered in. */
+    public List<Integer> players() {
+        return rings.keySet().stream().sorted().toList();
+    }
+
+    /** Players who left or were dropped. They fly neutral now and have no seat in the next level. */
+    public Set<Integer> gone() {
+        return Set.copyOf(droppedFrom.keySet());
+    }
+
+    /** Pilots who have asked to join, by slot, with what each is flying. */
+    public Map<Integer, String> joiners() {
+        return Map.copyOf(joiners);
+    }
+
+    /** Whether the host's terms for the next level left this machine's pilot out. */
+    public boolean removed() {
+        return removed;
+    }
+
+    /**
+     * Hands this lockstep to a rebuilt game. The rings, the clock and everything already heard for
+     * the next fight stay; only where this machine's own input comes from changes, because the
+     * controls belong to the loop and the loop is new.
+     */
+    public void setSampler(Supplier<Intent> sampler) {
+        this.sampler = sampler;
+    }
+
+    /**
+     * Starts a fresh lockstep on terms that were taken somewhere else -- in the lobby, by the
+     * router -- so its clock begins where the fight does and a returning peer can be re-sent them.
+     */
+    public void adopt(LevelStart start) {
+        lastStart = start;
+        lastStartTick = start.resumeTick();
+        lastSent = start.resumeTick() - 1;
+        steppedThrough = start.resumeTick() - 1;
+    }
+
     private void resendFrom(int fromTick) {
         IntentRing mine = rings.get(localPlayer);
         for (int tick = Math.max(0, fromTick); tick <= lastSent; tick++) {
@@ -271,6 +336,10 @@ public final class Lockstep implements IntentSource {
                 if (ring != null && packet.playerNumber() != localPlayer
                         && packet.tick() > steppedThrough) {
                     ring.put(packet.tick(), packet.intent());
+                } else if (ring == null && pendingStart != null
+                        && pendingStart.seats().contains(packet.playerNumber())
+                        && early.size() < EARLY_HELD) {
+                    early.add(packet);
                 }
             }
             case RESYNC -> {
@@ -283,6 +352,18 @@ public final class Lockstep implements IntentSource {
                 }
             }
             case DROP -> acceptDrop(packet.flag(), packet.tick());
+            case LEAVE -> {
+                if (rings.containsKey(packet.playerNumber()) && packet.playerNumber() != localPlayer) {
+                    droppedFrom.putIfAbsent(packet.playerNumber(), packet.tick());
+                    leftSelf.add(packet.playerNumber());
+                }
+            }
+            // Only from somebody not already flying: a seated pilot has nothing to ask for.
+            case JOIN -> {
+                if (!rings.containsKey(packet.playerNumber())) {
+                    joiners.put(packet.playerNumber(), packet.text());
+                }
+            }
             case CHECKSUM -> {
                 theirChecksums.put(packet.playerNumber(), packet);
                 // Compared here as well as on publish because either machine can reach a tick
@@ -380,7 +461,17 @@ public final class Lockstep implements IntentSource {
 
     /** Whether everyone still in the match has announced for the level passed to {@link #ready}. */
     public boolean everyoneReady() {
-        return readyLevel >= 0 && readyLoadouts.keySet().containsAll(rings.keySet());
+        if (readyLevel < 0) {
+            return false;
+        }
+        for (int player : rings.keySet()) {
+            // A dropped player will never announce, and waiting for them would hold everyone at
+            // the barrier for the rest of the run.
+            if (!readyLoadouts.containsKey(player) && !droppedFrom.containsKey(player)) {
+                return false;
+            }
+        }
+        return true;
     }
 
     /**
@@ -394,6 +485,11 @@ public final class Lockstep implements IntentSource {
                 .sorted()
                 .map(player -> readyLoadouts.getOrDefault(player, ""))
                 .toList();
+    }
+
+    /** What one announced pilot is flying, or a stock ship for one who never said. */
+    public String readyLoadout(int player) {
+        return readyLoadouts.getOrDefault(player, "");
     }
 
     /**
@@ -423,18 +519,87 @@ public final class Lockstep implements IntentSource {
         }
         LevelStart start = pendingStart;
         pendingStart = null;
+        if (!start.seats().isEmpty() && !start.seats().contains(localPlayer)) {
+            // The fight goes on without this pilot. Nothing is re-based, because nothing here
+            // will run again; the caller is told and takes the pilot back to the board.
+            removed = true;
+            early.clear();
+            return Optional.empty();
+        }
         lastStart = start;
         lastStartTick = start.resumeTick();
         readyLoadouts.clear();
         readyLevel = -1;
-        for (IntentRing ring : rings.values()) {
-            ring.clear();
-        }
+        joiners.clear();
+        reseat(start);
         lastSent = start.resumeTick() - 1;
         steppedThrough = start.resumeTick() - 1;
         stalledCalls = 0;
         waitingFor = List.of();
         return Optional.of(start);
+    }
+
+    /**
+     * Empties the rings for the fight the terms describe, and re-cuts them if the terms seat
+     * different pilots: a ring for each newcomer, none for anyone who has gone.
+     *
+     * Not quite everything is thrown away. A peer who took the same terms a moment sooner is
+     * already sending input for the new fight, and that can arrive in the same read of the socket
+     * as the terms themselves -- so it is in a ring, or in {@link #early}, before this runs. It is
+     * kept. Emptying it, as this once did, left this machine waiting for ticks its peers had
+     * already sent and would never send again.
+     */
+    private void reseat(LevelStart start) {
+        Map<Integer, Map<Integer, Intent>> ahead = new LinkedHashMap<>();
+        for (Map.Entry<Integer, IntentRing> entry : rings.entrySet()) {
+            IntentRing ring = entry.getValue();
+            if (entry.getKey() == localPlayer) {
+                continue;
+            }
+            Map<Integer, Intent> kept = new LinkedHashMap<>();
+            int from = Math.max(start.resumeTick(), ring.newest() - IntentRing.capacity() + 1);
+            for (int tick = from; tick <= ring.newest(); tick++) {
+                Intent held = ring.get(tick);
+                if (held != null) {
+                    kept.put(tick, held);
+                }
+            }
+            ahead.put(entry.getKey(), kept);
+        }
+        for (Packet packet : early) {
+            if (packet.tick() >= start.resumeTick()) {
+                ahead.computeIfAbsent(packet.playerNumber(), player -> new LinkedHashMap<>())
+                        .put(packet.tick(), packet.intent());
+            }
+        }
+        early.clear();
+
+        boolean sameSeats = start.seats().isEmpty() || players().equals(sorted(start.seats()));
+        if (sameSeats) {
+            for (IntentRing ring : rings.values()) {
+                ring.clear();
+            }
+        } else {
+            rings.clear();
+            for (int seat : start.seats()) {
+                rings.put(seat, new IntentRing());
+            }
+            // Whoever was dropped is either not in the new terms or, named in them, is back.
+            droppedFrom.clear();
+            leftSelf.clear();
+            dropCalls = 0;
+            theirChecksums.clear();
+        }
+        for (Map.Entry<Integer, Map<Integer, Intent>> entry : ahead.entrySet()) {
+            IntentRing ring = rings.get(entry.getKey());
+            if (ring != null) {
+                entry.getValue().forEach(ring::put);
+            }
+        }
+    }
+
+    private static List<Integer> sorted(List<Integer> seats) {
+        return seats.stream().sorted().toList();
     }
 
     /**

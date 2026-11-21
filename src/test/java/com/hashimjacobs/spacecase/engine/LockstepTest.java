@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 
 import javafx.scene.input.KeyCode;
 
+import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundPlayer;
 import com.hashimjacobs.spacecase.entity.EnemyShip;
 import com.hashimjacobs.spacecase.entity.PlayerShip;
@@ -20,6 +21,7 @@ import com.hashimjacobs.spacecase.mode.GameMode;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.net.LevelStart;
 import com.hashimjacobs.spacecase.net.Lockstep;
+import com.hashimjacobs.spacecase.net.NetworkedGame;
 import com.hashimjacobs.spacecase.net.NetworkedLevel;
 import com.hashimjacobs.spacecase.net.Packet;
 import com.hashimjacobs.spacecase.prefs.Difficulty;
@@ -304,6 +306,43 @@ class LockstepTest {
         assertEquals(Intent.NEUTRAL, match.one.lockstep.intentFor(2, stuck));
     }
 
+    /** A peer who has been dropped will never announce, so the barrier must not wait for them. */
+    @Test
+    void aDroppedPeerDoesNotHoldTheNextBarrier() {
+        Match match = new Match();
+        for (int tick = 0; tick < 20; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.one.lockstep.drop(2);
+
+        match.one.lockstep.ready(1, match.one.loadoutCode());
+
+        assertTrue(match.one.lockstep.everyoneReady(), "the host is not held by a pilot who is gone");
+        assertEquals(2, match.one.lockstep.readyLoadouts().size(),
+                "the dropped ship still has a place in the terms, with a stock fit");
+    }
+
+    /**
+     * A room seated one and three has two ships, numbered one and two. The slot is the wire's
+     * name for a pilot and the ship number is the engine's, and only one place may translate.
+     */
+    @Test
+    void aGappedRosterMapsEverySlotToAShip() {
+        List<Integer> seats = List.of(1, 3);
+        assertEquals(1, NetworkedGame.shipOf(seats, 1));
+        assertEquals(2, NetworkedGame.shipOf(seats, 3));
+        assertEquals(0, NetworkedGame.shipOf(seats, 2), "nobody in slot two is flying");
+
+        Deque<byte[]> wire = new ArrayDeque<>();
+        Lockstep three = new Lockstep(3, new int[] {1, 3}, () -> Intent.of(1, 0, (byte) 0), wire::add);
+        Lockstep one = new Lockstep(1, new int[] {1, 3}, () -> Intent.NEUTRAL, bytes -> { });
+        three.canStep(0);
+        while (!wire.isEmpty()) {
+            one.receive(wire.poll());
+        }
+        assertEquals(1.0, one.intentFor(3, 0).moveX(), "slot three's input is held under slot three");
+    }
+
     @Test
     void aLevelStartHeardTwiceIsTakenOnce() {
         Match match = new Match();
@@ -432,6 +471,12 @@ class LockstepTest {
             return new NetworkedLevel(lockstep, isHost, SEED, Difficulty.NORMAL,
                     () -> SaveSlot.forReplay(GameMode.COOP, Level.values()[1]),
                     this::loadoutCode);
+        }
+
+        /** What {@code GameLoop.nextCheckpoint} answers between levels: the next level, every ship's counters. */
+        SaveSlot nextCheckpoint() {
+            return new SaveSlot(GameMode.COOP, director.level().next(), director.wavesSurvived(),
+                    director.loop(), world.players().stream().map(PlayerShip::progress).toList());
         }
 
         /** What this pilot is flying, which the garage changes locally and the barrier publishes. */
@@ -600,6 +645,21 @@ class LockstepTest {
         assertEquals(start.difficulty(), back.difficulty());
         assertEquals(start.slot().level(), back.slot().level());
         assertEquals(start.loadouts(), back.loadouts());
+        assertEquals(List.of(1, 2), back.seats(), "seats default to one per ship, counted from one");
+    }
+
+    @Test
+    void aLevelStartCarriesWhoIsFlying() {
+        LevelStart start = new LevelStart(7L, 60, Difficulty.EASY,
+                SaveSlot.forReplay(GameMode.COOP, Level.values()[2]),
+                List.of(1, 3, 4), List.of("1,0,0", "", "1,0,0"));
+
+        LevelStart back = LevelStart.decode(start.encode()).orElseThrow();
+
+        assertEquals(List.of(1, 3, 4), back.seats());
+        assertEquals(start.loadouts(), back.loadouts(), "a stock ship in the middle keeps its place");
+        assertTrue(LevelStart.decode("3;7;60;EASY;" + start.slot().encode() + ";1,0,0").isEmpty(),
+                "last release's terms name no seats and are refused");
     }
 
     /** Unreadable terms must read as no terms. A guess here is a desync wearing a bug's clothes. */
@@ -721,6 +781,398 @@ class LockstepTest {
         }
         if (tick % (player == 1 ? 5 : 7) != 0) {
             input.press(KeyCode.SPACE);
+        }
+    }
+
+    // ---- Joining and leaving between levels ----------------------------------------------------
+
+    @Test
+    void joinAndLeaveSurviveTheRoundTrip() {
+        Packet join = Packet.decode(Packet.join(3, "1,0,0|SALVO=2").encode());
+        assertEquals(Packet.Kind.JOIN, join.kind());
+        assertEquals(3, join.playerNumber());
+        assertEquals("1,0,0|SALVO=2", join.text());
+
+        Packet leave = Packet.decode(Packet.leave(2, 4321).encode());
+        assertEquals(Packet.Kind.LEAVE, leave.kind());
+        assertEquals(2, leave.playerNumber());
+        assertEquals(4321, leave.tick());
+    }
+
+    /**
+     * A pilot who says they are going is flown neutral from the tick they named, at once: no
+     * pause, and none of the grace a DROP needs, because nobody has to guess what the others hold.
+     */
+    @Test
+    void aPilotWhoLeavesIsFlownNeutralWithoutAPause() {
+        Match match = new Match();
+        for (int tick = 0; tick < 100; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.two.lockstep.leave();
+        match.deliver();
+        match.two.outbox.clear();
+
+        int lastHeard = 100 + Lockstep.INPUT_DELAY_TICKS - 1;
+        for (int tick = 100; tick < 200; tick++) {
+            assertTrue(match.one.lockstep.canStep(tick), "held at tick " + tick + " for a pilot who left");
+            match.one.stepFight();
+        }
+        assertTrue(match.one.lockstep.isDropped(2));
+        assertEquals(Intent.NEUTRAL, match.one.lockstep.intentFor(2, lastHeard + 1));
+        assertEquals(java.util.Set.of(2), match.one.lockstep.gone());
+    }
+
+    /** The terms and the first input of the fight they begin can arrive in one read of the socket. */
+    @Test
+    void inputThatArrivesWithTheTermsIsNotLost() {
+        Deque<byte[]> wire = new ArrayDeque<>();
+        Lockstep two = new Lockstep(2, new int[] {1, 2}, () -> Intent.NEUTRAL, wire::add);
+        two.ready(1, "");
+        LevelStart terms = new LevelStart(SEED, 500, Difficulty.NORMAL,
+                SaveSlot.forReplay(GameMode.COOP, Level.values()[1]), List.of(1, 2), List.of("", ""));
+
+        two.receive(Packet.start(1, terms).encode());
+        two.receive(Packet.intent(1, 500, Intent.of(1, 0, (byte) 0)).encode());
+        two.takeStart().orElseThrow();
+
+        assertTrue(two.canStep(500), "the host's first input was thrown away with the old level's");
+        assertEquals(1.0, two.intentFor(1, 500).moveX());
+    }
+
+    /** The same, for a pilot this machine has no seat for until the terms are taken. */
+    @Test
+    void aNewcomersFirstInputIsHeldUntilTheirSeatExists() {
+        Lockstep two = new Lockstep(2, new int[] {1, 2}, () -> Intent.NEUTRAL, bytes -> { });
+        LevelStart terms = new LevelStart(SEED, 500, Difficulty.NORMAL,
+                SaveSlot.forReplay(GameMode.COOP, Level.values()[1]),
+                List.of(1, 2, 3), List.of("", "", ""));
+
+        two.receive(Packet.intent(3, 500, Intent.of(0, 1, (byte) 0)).encode());
+        assertEquals(Intent.NEUTRAL, two.intentFor(3, 500), "a stranger's input before any terms is a stray");
+
+        two.receive(Packet.start(1, terms).encode());
+        two.receive(Packet.intent(3, 500, Intent.of(0, 1, (byte) 0)).encode());
+        two.receive(Packet.intent(1, 500, Intent.NEUTRAL).encode());
+        two.takeStart().orElseThrow();
+
+        assertEquals(List.of(1, 2, 3), two.players());
+        assertEquals(1.0, two.intentFor(3, 500).moveY());
+        assertTrue(two.canStep(500));
+    }
+
+    @Test
+    void termsThatLeaveThisPilotOutAreNotTheirs() {
+        Lockstep two = new Lockstep(2, new int[] {1, 2}, () -> Intent.NEUTRAL, bytes -> { });
+        two.receive(Packet.start(1, new LevelStart(SEED, 500, Difficulty.NORMAL,
+                SaveSlot.forReplay(GameMode.COOP, Level.values()[1]), List.of(1), List.of(""))).encode());
+
+        assertTrue(two.takeStart().isEmpty());
+        assertTrue(two.removed());
+    }
+
+    @Test
+    void aSeatedPilotAskingToJoinIsIgnoredAndAStrangerIsRemembered() {
+        Lockstep one = new Lockstep(1, new int[] {1, 2}, () -> Intent.NEUTRAL, bytes -> { });
+
+        one.receive(Packet.join(2, "seated").encode());
+        one.receive(Packet.join(3, "1,0,0").encode());
+
+        assertEquals(java.util.Map.of(3, "1,0,0"), one.joiners());
+    }
+
+    /**
+     * The whole of joining mid-run. Two machines fly a level; a third pilot asks to join; the host
+     * names terms that seat all three; and three games built from nothing but those terms -- one of
+     * them by a machine that never saw the first level -- fly the next one tick for tick alike.
+     */
+    @Test
+    void aPilotWhoAsksIsSeatedAtTheNextLevelAndAllThreeMachinesAgree() {
+        Match match = new Match();
+        for (int tick = 0; tick < 300; tick++) {
+            match.advanceOneTick(tick);
+        }
+        Barrier barrier = new Barrier(match, List.of(1, 2, 3), 4);
+        byte[] ask = Packet.join(3, "").encode();
+        match.one.lockstep.receive(ask);
+        match.two.lockstep.receive(ask);
+
+        LevelStart terms = barrier.cross();
+
+        assertEquals(List.of(1, 2, 3), terms.seats());
+        assertEquals(Level.values()[1], terms.slot().level(), "the terms open the next level");
+        assertEquals(3, terms.slot().players().size());
+        assertEquals(match.one.world.players().get(1).score(), terms.slot().players().get(1).score(),
+                "a pilot already flying keeps what they earned");
+        assertEquals(0, terms.slot().players().get(2).score(), "the newcomer starts with nothing");
+        assertEquals(GameConfig.PLAYER_LIVES, terms.slot().players().get(2).lives());
+        assertNotEquals(SEED, terms.seed(), "a new roster starts a new generator");
+
+        Seat one = new Seat(1, terms, match.one.lockstep, match.one.outbox);
+        Seat two = new Seat(2, terms, match.two.lockstep, match.two.outbox);
+        Seat three = new Seat(3, terms, null, new ArrayDeque<>());
+        List<Seat> fleet = List.of(one, two, three);
+        assertEquals(3, three.world.players().size());
+
+        for (int tick = terms.resumeTick(); tick < terms.resumeTick() + 600; tick++) {
+            Seat.advanceOneTick(fleet, tick);
+            assertEquals(one.world.checksum(), two.world.checksum(), "one and two disagreed at " + tick);
+            assertEquals(one.world.checksum(), three.world.checksum(),
+                    "the newcomer disagreed at " + tick);
+        }
+        for (Seat seat : fleet) {
+            assertNull(seat.lockstep.divergence());
+        }
+        assertTrue(one.world.enemies().size() + one.world.asteroids().size() > 0
+                        || one.world.players().stream().anyMatch(p -> p.enemiesKilled() > 0),
+                "the level the three flew was a real one");
+    }
+
+    @Test
+    void aPilotWhoLeftHasNoSeatInTheNextLevel() {
+        Match match = new Match();
+        for (int tick = 0; tick < 200; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.two.lockstep.leave();
+        match.deliver();
+        Barrier barrier = new Barrier(match, List.of(1), 4);
+
+        LevelStart terms = barrier.crossHostOnly();
+
+        assertEquals(List.of(1), terms.seats());
+        assertEquals(1, terms.loadouts().size());
+        Seat alone = new Seat(1, terms, match.one.lockstep, match.one.outbox);
+        for (int tick = terms.resumeTick(); tick < terms.resumeTick() + 120; tick++) {
+            Seat.advanceOneTick(List.of(alone), tick);
+        }
+        assertEquals(1, alone.world.players().size());
+        assertTrue(alone.lockstep.gone().isEmpty(), "the new level has nobody missing from it");
+    }
+
+    @Test
+    void theSamePilotsCarryOnInPlaceAndTheRelayIsToldTheLevel() {
+        Match match = new Match();
+        for (int tick = 0; tick < 60; tick++) {
+            match.advanceOneTick(tick);
+        }
+        Barrier barrier = new Barrier(match, List.of(1, 2), 4);
+
+        assertNull(barrier.cross(), "nobody joined or left, so nothing is rebuilt");
+        assertEquals(List.of("state,PLAYING," + Level.values()[1].name() + ",1,2"), barrier.said);
+    }
+
+    @Test
+    void aPilotWhoAskedAndThenLeftTheRoomIsNotSeated() {
+        Match match = new Match();
+        for (int tick = 0; tick < 60; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.one.lockstep.receive(Packet.join(3, "").encode());
+        Barrier barrier = new Barrier(match, List.of(1, 2), 4);
+
+        assertNull(barrier.cross());
+    }
+
+    @Test
+    void aGroupDoesNotGrowPastItsSize() {
+        Match match = new Match();
+        for (int tick = 0; tick < 60; tick++) {
+            match.advanceOneTick(tick);
+        }
+        match.one.lockstep.receive(Packet.join(3, "").encode());
+        Barrier barrier = new Barrier(match, List.of(1, 2, 3), 2);
+
+        assertNull(barrier.cross(), "two seats, both taken");
+    }
+
+    @Test
+    void theHostTellsTheRelayWhenALevelIsWon() {
+        Match match = new Match();
+        Barrier barrier = new Barrier(match, List.of(1, 2), 4);
+
+        barrier.guest.cleared();
+        assertTrue(barrier.said.isEmpty(), "only the host speaks for the match");
+        barrier.host.cleared();
+        assertEquals(List.of("cleared"), barrier.said);
+    }
+
+    /** The level barrier as the loop holds it, with a roster that can change. */
+    private static final class Barrier {
+
+        private final Match match;
+        private final List<String> said = new ArrayList<>();
+        private final LevelStart[] rebuiltOne = new LevelStart[1];
+        private final LevelStart[] rebuiltTwo = new LevelStart[1];
+        private final NetworkedLevel host;
+        private final NetworkedLevel guest;
+
+        /** @param present who the relay says is in the room when the host names the terms */
+        Barrier(Match match, List<Integer> present, int maxPlayers) {
+            this.match = match;
+            host = new NetworkedLevel(match.one.lockstep, true, SEED, Difficulty.NORMAL,
+                    () -> SaveSlot.forReplay(GameMode.COOP, Level.values()[0]), match.one::loadoutCode,
+                    new NetworkedLevel.Roster(List.of(1, 2), match.one::nextCheckpoint, () -> present,
+                            maxPlayers, said::add, terms -> rebuiltOne[0] = terms, () -> { }));
+            guest = new NetworkedLevel(match.two.lockstep, false, SEED, Difficulty.NORMAL,
+                    () -> SaveSlot.forReplay(GameMode.COOP, Level.values()[0]), match.two::loadoutCode,
+                    new NetworkedLevel.Roster(List.of(1, 2), match.two::nextCheckpoint, () -> present,
+                            maxPlayers, line -> { }, terms -> rebuiltTwo[0] = terms, () -> { }));
+        }
+
+        /** Both machines reach the barrier. Answers the rebuild terms, or null if they carried on in place. */
+        LevelStart cross() {
+            boolean oneThrough = false;
+            boolean twoThrough = false;
+            for (int round = 0; round < 10 && !((oneThrough || rebuiltOne[0] != null)
+                    && (twoThrough || rebuiltTwo[0] != null)); round++) {
+                oneThrough |= host.readyToFight(1, match.one.world);
+                twoThrough |= guest.readyToFight(1, match.two.world);
+                match.deliver();
+            }
+            assertEquals(rebuiltOne[0] == null, oneThrough, "rebuilt or carried on, never both");
+            assertEquals(rebuiltOne[0] == null, rebuiltTwo[0] == null, "both machines took the same path");
+            if (rebuiltOne[0] != null) {
+                assertEquals(rebuiltOne[0].encode(), rebuiltTwo[0].encode(), "both were handed the same terms");
+                assertTrue(host.handedOver() && guest.handedOver());
+            }
+            return rebuiltOne[0];
+        }
+
+        /** The host reaches the barrier with nobody else left to announce. */
+        LevelStart crossHostOnly() {
+            host.readyToFight(1, match.one.world);
+            assertNotNull(rebuiltOne[0], "a pilot leaving changes the roster");
+            return rebuiltOne[0];
+        }
+    }
+
+    /**
+     * One machine's game built from the host's terms and nothing else, in the order
+     * {@code GameLoop} builds a networked run: the ships the terms name, in the loadouts they name,
+     * with the counters they name, on the tick they name.
+     */
+    static final class Seat {
+
+        private final int slot;
+        private final List<Integer> seats;
+        final World world;
+        private final SpawnDirector director;
+        private final CollisionSystem collisions;
+        private final List<ShipController> controllers = new ArrayList<>();
+        final Deque<byte[]> outbox;
+        private final InputState input = new InputState();
+        final Lockstep lockstep;
+        private final Difficulty difficulty;
+
+        /** What {@code GameLoop.nextCheckpoint} answers between levels. */
+        SaveSlot nextCheckpoint() {
+            return new SaveSlot(GameMode.COOP, director.level().next(), director.wavesSurvived(),
+                    director.loop(), world.players().stream().map(PlayerShip::progress).toList());
+        }
+
+        /** @param carried the lockstep this machine was already running, or null for a newcomer */
+        Seat(int slot, LevelStart terms, Lockstep carried, Deque<byte[]> outbox) {
+            this.slot = slot;
+            this.seats = terms.seats();
+            this.outbox = outbox;
+            this.difficulty = terms.difficulty();
+            List<String> names = new ArrayList<>();
+            for (int seat : seats) {
+                names.add("PILOT " + seat);
+            }
+            world = new World(GameMode.COOP, names);
+            Random random = new Random(terms.seed());
+            director = new SpawnDirector(random, terms.difficulty(), GameMode.COOP.rules(),
+                    terms.slot().level(), terms.slot().wavesSurvived(), terms.slot().loop());
+            world.enterLevel(director.level());
+            collisions = new CollisionSystem(SoundPlayer.SILENT, random);
+            for (PlayerShip player : world.players()) {
+                controllers.add(new ShipController(player, Peer.KEYS, number -> null));
+            }
+            world.fitLoadouts(terms.loadouts());
+            for (int i = 0; i < world.players().size() && i < terms.slot().players().size(); i++) {
+                world.players().get(i).restore(terms.slot().players().get(i));
+            }
+            world.resumeAt(terms.resumeTick());
+
+            if (carried == null) {
+                int[] numbers = seats.stream().mapToInt(Integer::intValue).toArray();
+                lockstep = new Lockstep(slot, numbers, this::sampleLocal, outbox::add);
+                lockstep.adopt(terms);
+            } else {
+                lockstep = carried;
+                lockstep.setSampler(this::sampleLocal);
+            }
+        }
+
+        private Intent sampleLocal() {
+            script(input, world.tick(), slot);
+            return controllers.get(seats.indexOf(slot)).sample(input, StickTuning.none());
+        }
+
+        static void advanceOneTick(List<Seat> fleet, int tick) {
+            for (Seat seat : fleet) {
+                seat.lockstep.canStep(tick);
+            }
+            deliver(fleet);
+            for (Seat seat : fleet) {
+                assertTrue(seat.lockstep.canStep(tick), "slot " + seat.slot + " stuck at tick " + tick
+                        + " waiting for " + seat.lockstep.waitingFor());
+                seat.stepFight();
+            }
+            for (Seat seat : fleet) {
+                seat.lockstep.publishChecksum(tick, seat.world.checksum());
+            }
+            deliver(fleet);
+        }
+
+        /** Everything each machine sent reaches every other, as the relay would forward it. */
+        private static void deliver(List<Seat> fleet) {
+            for (Seat from : fleet) {
+                while (!from.outbox.isEmpty()) {
+                    byte[] packet = from.outbox.poll();
+                    for (Seat to : fleet) {
+                        if (to != from) {
+                            to.lockstep.receive(packet);
+                        }
+                    }
+                }
+            }
+        }
+
+        void stepFight() {
+            int tick = world.tick();
+            boolean frozen = world.frozen();
+            for (ShipController controller : controllers) {
+                // Ships are numbered densely; the lockstep knows pilots by room slot.
+                int ship = controller.ship().playerNumber();
+                Intent intent = lockstep.intentFor(seats.get(ship - 1), tick);
+                if (!frozen) {
+                    controller.apply(intent, world, SoundPlayer.SILENT);
+                }
+            }
+            world.update();
+            if (!frozen) {
+                int cooldown = difficulty.enemyFireCooldown();
+                int cap = difficulty.maxEnemies();
+                List<EnemyShip> enemies = world.enemies();
+                for (int i = 0, count = enemies.size(); i < count; i++) {
+                    EnemyShip enemy = enemies.get(i);
+                    PlayerShip target = world.nearestPlayer(enemy);
+                    if (target == null) {
+                        continue;
+                    }
+                    enemy.trackAcross(target);
+                    if (enemy.hasEntered()) {
+                        EnemyWeapons.driveWeapons(world, enemy, target, director.level(), cooldown, cap,
+                                SoundPlayer.SILENT);
+                    }
+                }
+                director.update(world);
+                collisions.resolve(world);
+            }
+            world.sweep();
         }
     }
 }

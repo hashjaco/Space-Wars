@@ -170,4 +170,70 @@ class LobbyModelTest {
                     "'" + c + "' is in the relay's alphabet and must be typeable");
         }
     }
+
+    private static final GroupInfo GROUP = new GroupInfo(true, 3,
+            com.hashimjacobs.spacecase.mode.Level.values()[4],
+            com.hashimjacobs.spacecase.prefs.Difficulty.HARD, false);
+
+    /** Help can arrive at the start of any level, so a group's host need not wait for it. */
+    @Test
+    void theHostOfAGroupMayStartAlone() {
+        LobbyModel model = new LobbyModel();
+        model.connecting();
+        model.group(GROUP);
+        model.joined("ABC234", 1, List.of(1), true);
+        model.loadout(1, "");
+
+        assertTrue(model.canStart());
+    }
+
+    @Test
+    void aBareRoomStillWaitsForASecondPilot() {
+        LobbyModel model = new LobbyModel();
+        model.connecting();
+        model.joined("ABC234", 1, List.of(1), true);
+        model.loadout(1, "");
+
+        assertFalse(model.canStart());
+    }
+
+    @Test
+    void seatsShowThePilotsNamesOnceTheRelayHasSaid() {
+        LobbyModel model = new LobbyModel();
+        model.connecting();
+        model.joined("ABC234", 2, List.of(1, 2, 3), false);
+        model.names(java.util.Map.of(1, "ACE", 2, "NOVA"));
+        model.loadout(1, "");
+
+        assertEquals("ACE", model.seatStatus(1));
+        assertEquals("NOVA (you)", model.seatStatus(2));
+        assertEquals("PILOT 3 ...", model.seatStatus(3), "no name sent, and no loadout yet");
+        assertEquals("empty", model.seatStatus(4));
+    }
+
+    @Test
+    void aPilotWhoArrivesMidFightIsInFlightRatherThanWaitingForTheHost() {
+        LobbyModel model = new LobbyModel();
+        model.connecting();
+        model.group(new GroupInfo(true, 3, GROUP.level(), GROUP.difficulty(), true));
+        model.joined("ABC234", 2, List.of(1, 2), false);
+
+        assertTrue(model.inFlight());
+        assertFalse(model.canStart());
+
+        model.group(GROUP);
+        assertFalse(model.inFlight(), "back in the lobby once the host says so");
+    }
+
+    @Test
+    void resettingForgetsTheGroup() {
+        LobbyModel model = new LobbyModel();
+        model.group(GROUP);
+        model.names(java.util.Map.of(1, "ACE"));
+
+        model.reset();
+
+        assertEquals(null, model.group());
+        assertEquals("PILOT 1", model.seatName(1));
+    }
 }

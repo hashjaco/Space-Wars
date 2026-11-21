@@ -15,15 +15,26 @@ const open = (room, query = "") => new Promise((res, rej) => {
   ws.onerror = (e) => rej(new Error("ws error " + room));
   setTimeout(() => rej(new Error("timeout opening " + room)), 5000);
 });
+const pick = (n, from) => Array.from({ length: n }, () => from[(Math.random() * from.length) | 0]).join("");
 const settle = () => new Promise((r) => setTimeout(r, 250));
 const parseControl = (line) => {
   const f = line.split(",");
-  return f[0] === "welcome"
-    ? { type: "welcome", slot: +f[1], room: f[2], peers: f.slice(3).map(Number) }
-    : f[0] === "token"
-      ? { type: "token", token: f[1] }
-      : { type: "roster", peers: f.slice(1).map(Number) };
+  switch (f[0]) {
+    case "welcome": return { type: "welcome", slot: +f[1], room: f[2], peers: f.slice(3).map(Number) };
+    case "token": return { type: "token", token: f[1] };
+    case "roster": return { type: "roster", peers: f.slice(1).map(Number) };
+    case "names": {
+      const names = {};
+      for (let i = 1; i + 1 < f.length; i += 2) names[f[i]] = f[i + 1];
+      return { type: "names", names };
+    }
+    case "group": return { type: "group", visibility: f[1], max: +f[2], galaxy: f[3], level: f[4], difficulty: f[5], status: f[6] };
+    case "left": return { type: "left", slot: +f[1] };
+    default: return { type: f[0] };
+  }
 };
+/** The newest line of one kind, since a roster is now followed by the names that go with it. */
+const last = (ws, type) => ws.control.findLast((c) => c.type === type);
 
 check("GET /new is refused", (await fetch(`${BASE}/new`)).status === 405);
 const room = (await (await fetch(`${BASE}/new`, { method: "POST" })).text()).trim();
@@ -34,6 +45,7 @@ const a = await open(room); await settle();
 const b = await open(room); await settle();
 
 check("first peer is told slot 1", a.control[0]?.type === "welcome" && a.control[0].slot === 1, String(a.control[0]?.slot));
+check("a bare room code is not a group", !a.control.some((c) => c.type === "group"), JSON.stringify(a.control));
 const tokenA = a.control.find((c) => c.type === "token")?.token;
 check("a peer is handed a reconnect token", /^[0-9a-f]{24}$/.test(tokenA ?? ""), String(tokenA));
 check("second peer is told slot 2", b.control[0]?.type === "welcome" && b.control[0].slot === 2, String(b.control[0]?.slot));
@@ -57,7 +69,7 @@ check("a fifth peer is refused", fifthOpened === false, "the fifth connection op
 
 const tokenB = b.control.find((c) => c.type === "token")?.token;
 b.close(); await settle();
-check("departure updates the roster", a.control.at(-1)?.type === "roster" && a.control.at(-1).peers.join() === "1,3,4", JSON.stringify(a.control.at(-1)));
+check("departure updates the roster", last(a, "roster")?.peers.join() === "1,3,4", JSON.stringify(last(a, "roster")));
 
 // The departed seat is held for its owner for a minute: with three present and one held, the room
 // is full to a stranger, even one guessing at the seat, while the owner walks back in.
@@ -66,7 +78,7 @@ check("a stranger cannot take the held seat", strangerOpened === false, "the str
 const back = await open(room, `?slot=2&token=${tokenB}`); await settle();
 check("the owner reclaims the held seat with the token", back.control[0]?.slot === 2, String(back.control[0]?.slot));
 check("reclaiming keeps the token", back.control.find((c) => c.type === "token")?.token === tokenB);
-check("the roster shows the owner back", a.control.at(-1)?.type === "roster" && a.control.at(-1).peers.join() === "1,2,3,4", JSON.stringify(a.control.at(-1)));
+check("the roster shows the owner back", last(a, "roster")?.peers.join() === "1,2,3,4", JSON.stringify(last(a, "roster")));
 back.close(); await settle();
 
 const eOpened = await open(room).then(() => true, () => false);
@@ -77,13 +89,97 @@ check("no upgrade header gets 426", (await fetch(`${BASE}/room/${room}`)).status
 
 for (const ws of [a, c, d, e]) ws.close();
 
+// ---- Groups ----------------------------------------------------------------------------------
+//
+// Galaxy and level names are random per run, so a listing left by an earlier run -- or by real
+// players, against production -- cannot be mistaken for this one's.
+
+const place = () => pick(12, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+const GALAXY = place(); const LEVEL = place(); const NEXT_LEVEL = place();
+const group = (body) => fetch(`${BASE}/group`, { method: "POST", body });
+const listed = async (query = "") => (await (await fetch(`${BASE}/groups${query}`)).text()).trim().split("\n").filter(Boolean);
+const rowFor = async (code, query = "") => (await listed(query)).find((row) => row.startsWith(code + ","));
+const helpers = async () => (await (await fetch(`${BASE}/helpers`)).text()).trim().split("\n");
+
+check("GET /group is refused", (await fetch(`${BASE}/group`)).status === 405);
+check("a group needs all six fields", (await group(`PUBLIC,3,${GALAXY},${LEVEL}`)).status === 400);
+check("a group for one is refused", (await group(`PUBLIC,1,${GALAXY},${LEVEL},HARD,ACE`)).status === 400);
+check("a group for five is refused", (await group(`PUBLIC,5,${GALAXY},${LEVEL},HARD,ACE`)).status === 400);
+check("a visibility that is neither is refused", (await group(`SECRET,2,${GALAXY},${LEVEL},HARD,ACE`)).status === 400);
+check("a level that is not an enum name is refused", (await group(`PUBLIC,2,${GALAXY},lower case,HARD,ACE`)).status === 400);
+
+const publicCode = (await (await group(`PUBLIC,2,${GALAXY},${LEVEL},HARD,ace!`)).text()).trim();
+check("POST /group returns a room code", /^[A-HJ-NP-Z2-9]{6}$/.test(publicCode), publicCode);
+check("a group is not listed until its host is in it", (await rowFor(publicCode)) === undefined, String(await rowFor(publicCode)));
+
+const hostId = crypto.randomUUID(); const helperId = crypto.randomUUID();
+const HELPER_NAME = pick(8, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+const host = await open(publicCode, `?name=ace&player=${hostId}`); await settle();
+check("the host is told what the group is before being seated",
+  host.control[0]?.type === "group" && host.control[0].max === 2 && host.control[0].status === "LOBBY", JSON.stringify(host.control[0]));
+check("the host of a group is slot 1", host.control.find((c) => c.type === "welcome")?.slot === 1);
+check("a public group is listed once its host arrives",
+  (await rowFor(publicCode)) === `${publicCode},ACE,1,2,${GALAXY},${LEVEL},HARD,LOBBY`, String(await rowFor(publicCode)));
+check("the galaxy filter finds it", (await rowFor(publicCode, `?galaxy=${GALAXY}`)) !== undefined);
+check("another galaxy's filter does not", (await rowFor(publicCode, `?galaxy=${place()}`)) === undefined);
+check("the difficulty filter finds it", (await rowFor(publicCode, `?galaxy=${GALAXY}&difficulty=HARD`)) !== undefined);
+check("another difficulty's filter does not", (await rowFor(publicCode, `?galaxy=${GALAXY}&difficulty=EASY`)) === undefined);
+check("a filter that is not a name is refused", (await fetch(`${BASE}/groups?galaxy=no%20such`)).status === 400);
+
+const helper = await open(publicCode, `?name=${HELPER_NAME}&player=${helperId}`); await settle();
+check("everyone is told everyone's name", last(host, "names")?.names[2] === HELPER_NAME && last(helper, "names")?.names[1] === "ACE",
+  JSON.stringify([last(host, "names"), last(helper, "names")]));
+check("the listing counts the newcomer", (await rowFor(publicCode))?.split(",")[2] === "2", String(await rowFor(publicCode)));
+const thirdOpened = await open(publicCode).then(() => true, () => false);
+check("a group for two refuses a third", thirdOpened === false, "the third connection opened");
+
+// Only the host describes the match. A guest saying the same words changes nothing.
+helper.send(`state,PLAYING,${NEXT_LEVEL},1,2`); await settle();
+check("a guest cannot say the match has started", (await rowFor(publicCode))?.endsWith(",LOBBY"), String(await rowFor(publicCode)));
+host.send(`state,PLAYING,${NEXT_LEVEL},1,2`); await settle();
+check("the host can, and the board shows the level being flown",
+  (await rowFor(publicCode)) === `${publicCode},ACE,2,2,${GALAXY},${NEXT_LEVEL},HARD,PLAYING`, String(await rowFor(publicCode)));
+check("everyone in the room is told", last(helper, "group")?.status === "PLAYING" && last(helper, "group")?.level === NEXT_LEVEL,
+  JSON.stringify(last(helper, "group")));
+
+// The relay runs with MIN_LEVEL_MS=1000 for these; say MIN_LEVEL_MS=30000 against production.
+const LEVEL_MS = Number(process.env.MIN_LEVEL_MS ?? 1000);
+const credited = async () => (await helpers()).some((row) => row === `${HELPER_NAME},100`);
+host.send("cleared"); await settle();
+check("a level cleared the moment it began earns nothing", !(await credited()), JSON.stringify(await helpers()));
+await new Promise((r) => setTimeout(r, LEVEL_MS + 200));
+helper.send("cleared"); await settle();
+check("a guest cannot call the level cleared", !(await credited()), JSON.stringify(await helpers()));
+host.send("cleared"); await settle();
+check("helping clear a level puts the helper on the table", await credited(), JSON.stringify(await helpers()));
+host.send("cleared"); await settle();
+check("one level is not cleared twice", await credited(), JSON.stringify(await helpers()));
+
+// Leaving on purpose frees the seat now, where a dropped socket holds it for a minute.
+helper.send("leave"); await settle();
+check("the others are told a pilot left on purpose", last(host, "left")?.slot === 2, JSON.stringify(host.control.slice(-3)));
+check("the listing shows the free seat at once", (await rowFor(publicCode))?.split(",")[2] === "1", String(await rowFor(publicCode)));
+const newcomer = await open(publicCode, "?name=late"); await settle();
+check("a newcomer takes the seat with no token", newcomer.control.find((c) => c.type === "welcome")?.slot === 2);
+check("a newcomer to a match under way is told so", newcomer.control[0]?.status === "PLAYING", JSON.stringify(newcomer.control[0]));
+
+host.send("leave"); await settle();
+check("when the host leaves, everyone is told the group is closed", newcomer.control.some((c) => c.type === "closed"), JSON.stringify(newcomer.control.slice(-3)));
+check("and the listing comes down", (await rowFor(publicCode)) === undefined, String(await rowFor(publicCode)));
+check("and its code finds no room", (await fetch(`${BASE}/room/${publicCode}`)).status === 404);
+
+const privateCode = (await (await group(`PRIVATE,4,${GALAXY},${LEVEL},EASY,ACE`)).text()).trim();
+const quiet = await open(privateCode, "?name=ace"); await settle();
+check("a private group is joinable by its code", quiet.control.find((c) => c.type === "welcome")?.slot === 1);
+check("a private group is never listed", (await rowFor(privateCode)) === undefined, String(await rowFor(privateCode)));
+quiet.send("leave"); await settle();
+
 // ---- The board -------------------------------------------------------------------------------
 //
 // Unlike a room, a board row outlives the run that wrote it -- that is the point of it -- and
 // `wrangler dev` keeps its storage between invocations. So every identifier below is fresh per
 // run: a suite that only passes against an empty table is a suite that passes once.
 
-const pick = (n, from) => Array.from({ length: n }, () => from[(Math.random() * from.length) | 0]).join("");
 const MODE = pick(10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 const EMPTY_MODE = pick(10, "ABCDEFGHIJKLMNOPQRSTUVWXYZ");
 const post = (body) => fetch(`${BASE}/score`, { method: "POST", body });

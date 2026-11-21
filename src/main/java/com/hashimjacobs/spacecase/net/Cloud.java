@@ -144,6 +144,67 @@ public final class Cloud {
      * Package-private and pure, which is the whole of what {@code CloudTest} needs: the parsing is
      * the only part of this class with a decision in it, and it can be checked without a server.
      */
+    /**
+     * Opens a group and answers with its room code.
+     *
+     * Throws where the board reads do not: a pilot who pressed Create is waiting for exactly this,
+     * and "it did not work" has to reach them rather than look like an empty list.
+     */
+    public static String createGroup(URI base, GroupSpec spec, String hostName)
+            throws IOException, InterruptedException {
+        HttpResponse<String> response = send(HttpRequest.newBuilder(base.resolve("/group"))
+                .POST(HttpRequest.BodyPublishers.ofString(spec.encode(hostName))));
+        if (response.statusCode() != 200) {
+            throw new IOException("the relay would not open a group: " + response.statusCode());
+        }
+        return response.body().trim();
+    }
+
+    /**
+     * The open groups, or nothing at all if the relay cannot be reached. An unreachable relay and
+     * an empty board are told apart by the Optional, because the screen says different things.
+     *
+     * @param galaxy     a {@code Galaxy} name to filter by, or "" for any
+     * @param difficulty a {@code Difficulty} name to filter by, or "" for any
+     */
+    public static java.util.Optional<List<GroupListing>> groups(URI base, String galaxy,
+                                                                 String difficulty) {
+        try {
+            HttpResponse<String> response = send(HttpRequest.newBuilder(base.resolve(
+                    "/groups?galaxy=" + galaxy + "&difficulty=" + difficulty)).GET());
+            return response.statusCode() == 200
+                    ? java.util.Optional.of(parseGroups(response.body()))
+                    : java.util.Optional.empty();
+        } catch (IOException unreachable) {
+            return java.util.Optional.empty();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return java.util.Optional.empty();
+        }
+    }
+
+    /** The pilots who have helped the most, as board rows: name and help points. */
+    public static List<Entry> helpers(URI base) {
+        try {
+            HttpResponse<String> response = send(HttpRequest.newBuilder(base.resolve("/helpers")).GET());
+            return response.statusCode() == 200 ? parse(response.body()) : List.of();
+        } catch (IOException unreachable) {
+            return List.of();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            return List.of();
+        }
+    }
+
+    /** Reads {@code GET /groups}. One unreadable row costs that row, not the board. */
+    static List<GroupListing> parseGroups(String body) {
+        List<GroupListing> listings = new ArrayList<>();
+        for (String line : body.split("\n")) {
+            GroupListing.parse(line).ifPresent(listings::add);
+        }
+        return List.copyOf(listings);
+    }
+
     static List<Entry> parse(String body) {
         List<Entry> board = new ArrayList<>();
         for (String line : body.split("\n")) {

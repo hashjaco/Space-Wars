@@ -2,22 +2,30 @@ package com.hashimjacobs.spacecase.net;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.net.http.WebSocket;
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.Queue;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * The socket to the relay, and the only class in the game that knows there is a network.
@@ -56,6 +64,9 @@ public final class RelayClient implements AutoCloseable {
     /** How long a join waits for the socket and the relay's first word before giving up. */
     private static final Duration JOIN_TIMEOUT = Duration.ofSeconds(10);
 
+    /** Whoever opens a group is seated first, and the first seat is slot one. */
+    private static final int HOST_SLOT = 1;
+
     /**
      * What the relay says when a peer arrives, including this one.
      *
@@ -78,9 +89,13 @@ public final class RelayClient implements AutoCloseable {
     private final Queue<byte[]> inbox;
     private final Roster roster;
     private final Link link;
+    /** Who this pilot says they are, kept so a reconnect can say it again. */
+    private final String identity;
+    /** The newest frame handed to the socket; see {@link #queue}. */
+    private CompletableFuture<?> lastSend = CompletableFuture.completedFuture(null);
 
     private RelayClient(HttpClient http, URI base, WebSocket socket, Welcome welcome,
-                        Queue<byte[]> inbox, Roster roster, Link link) {
+                        Queue<byte[]> inbox, Roster roster, Link link, String identity) {
         this.http = http;
         this.base = base;
         this.socket = socket;
@@ -88,6 +103,7 @@ public final class RelayClient implements AutoCloseable {
         this.inbox = inbox;
         this.roster = roster;
         this.link = link;
+        this.identity = identity;
     }
 
     /** True while the socket is up. False from the moment it closes until {@link #reconnect()} succeeds. */
@@ -109,7 +125,7 @@ public final class RelayClient implements AutoCloseable {
         CompletableFuture<Welcome> welcomed = new CompletableFuture<>();
         Frames frames = new Frames(inbox, roster, welcomed, link);
         URI uri = URI.create(socketUri(base, welcome.room()) + "?slot=" + welcome.slot()
-                + "&token=" + link.token);
+                + "&token=" + link.token + (identity.isEmpty() ? "" : "&" + identity));
         WebSocket fresh;
         try {
             fresh = http.newWebSocketBuilder().connectTimeout(JOIN_TIMEOUT)
@@ -152,6 +168,20 @@ public final class RelayClient implements AutoCloseable {
      * @throws IOException if the room is full, does not answer, or answers with something else
      */
     public static RelayClient join(URI base, String room) throws IOException, InterruptedException {
+        return join(base, room, null, null);
+    }
+
+    /**
+     * Joins saying who this pilot is, so the others see a name in the lobby rather than a seat
+     * number and the relay knows whose help to write down.
+     *
+     * @param name     the pilot's name, or null to send none
+     * @param playerId the pilot's public board id -- {@code Account.id()}, never the sync code,
+     *                 which is a credential -- or null to send none
+     */
+    public static RelayClient join(URI base, String room, String name, String playerId)
+            throws IOException, InterruptedException {
+        String identity = identity(name, playerId);
         Queue<byte[]> inbox = new ConcurrentLinkedQueue<>();
         Roster roster = new Roster();
         Link link = new Link();
@@ -162,7 +192,8 @@ public final class RelayClient implements AutoCloseable {
         try {
             socket = http.newWebSocketBuilder()
                     .connectTimeout(JOIN_TIMEOUT)
-                    .buildAsync(URI.create(socketUri(base, room)), new Frames(inbox, roster, welcomed, link))
+                    .buildAsync(URI.create(socketUri(base, room) + (identity.isEmpty() ? "" : "?" + identity)),
+                            new Frames(inbox, roster, welcomed, link))
                     .get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
         } catch (ExecutionException e) {
             // The relay refuses a fifth peer before the upgrade, so a full room arrives here as a
@@ -175,7 +206,7 @@ public final class RelayClient implements AutoCloseable {
         try {
             Welcome welcome = welcomed.get(JOIN_TIMEOUT.toSeconds(), TimeUnit.SECONDS);
             link.up = true;
-            return new RelayClient(http, base, socket, welcome, inbox, roster, link);
+            return new RelayClient(http, base, socket, welcome, inbox, roster, link, identity);
         } catch (ExecutionException | TimeoutException e) {
             socket.abort();
             throw new IOException("joined room " + room + " but it never said which slot", e);
@@ -192,16 +223,88 @@ public final class RelayClient implements AutoCloseable {
         return roster.current();
     }
 
+    /** Each seated pilot's name by slot. A pilot whose game sent none is absent. */
+    public Map<Integer, String> names() {
+        return roster.names;
+    }
+
+    /** What this room was opened for, or empty for a room that is only a code. */
+    public Optional<GroupInfo> group() {
+        return Optional.ofNullable(roster.group);
+    }
+
+    /** Slots whose pilots said they were leaving, as opposed to losing their connection. */
+    public Set<Integer> left() {
+        return roster.left;
+    }
+
+    /** Whether the host has gone and taken the group with them. Nothing more will arrive. */
+    public boolean closed() {
+        return roster.closed;
+    }
+
+    /**
+     * Whether this machine names each level's terms.
+     *
+     * In a group that is whoever opened it, who is always seated first. Reading it off the roster,
+     * as a bare room does, would crown a newcomer who arrived while the host's connection was down.
+     */
+    public boolean isHost() {
+        return roster.group != null ? welcome.slot() == HOST_SLOT : welcome.isHost();
+    }
+
+    /**
+     * Says something to the relay itself rather than to the other pilots: {@code leave},
+     * {@code state,...} or {@code cleared}. Text is the relay's own channel and is never forwarded.
+     *
+     * @return when the line has been handed to the socket, for a caller that must not close first
+     */
+    public CompletableFuture<?> sendControl(String line) {
+        if (!link.up) {
+            return CompletableFuture.completedFuture(null);
+        }
+        return queue(() -> socket.sendText(line, true));
+    }
+
+    /**
+     * Leaves on purpose: the seat is free at once rather than held for a minute, and the others
+     * are told it was a decision. Then closes, once the word has actually gone.
+     */
+    public void leave() {
+        sendControl("leave").whenComplete((sent, failed) -> close());
+    }
+
     /** Wire this to {@code Lockstep}'s byte sink. Non-blocking. */
     public void send(byte[] packet) {
         if (!link.up) {
             return; // the re-feed after reconnect covers what was not sent
         }
-        try {
-            socket.sendBinary(ByteBuffer.wrap(packet), true);
-        } catch (IllegalStateException closed) {
-            link.up = false;
-        }
+        queue(() -> socket.sendBinary(ByteBuffer.wrap(packet), true));
+    }
+
+    /**
+     * Sends one frame after the one before it has gone.
+     *
+     * The socket refuses a send while another is outstanding and reports it by failing the future
+     * -- which, unread, is a packet silently never sent, and in a lockstep one missing input is a
+     * stalled match. A send usually completes before the call returns, so this is normally a
+     * formality; it matters on the frame that sends several, and for a goodbye that must not be
+     * lost behind an input.
+     */
+    private synchronized CompletableFuture<?> queue(Supplier<CompletableFuture<WebSocket>> frame) {
+        CompletableFuture<?> sent = lastSend
+                // Whatever became of the frame before, this one still goes.
+                .handle((done, failed) -> null)
+                .thenCompose(ready -> {
+                    try {
+                        return frame.get();
+                    } catch (IllegalStateException closed) {
+                        link.up = false;
+                        return CompletableFuture.completedFuture(null);
+                    }
+                });
+        lastSend = sent;
+        return sent;
     }
 
     /**
@@ -231,6 +334,19 @@ public final class RelayClient implements AutoCloseable {
         Http.shutdownNow(http);
     }
 
+    /** The query that says who is joining, or "" for nobody in particular. */
+    private static String identity(String name, String playerId) {
+        StringBuilder query = new StringBuilder();
+        if (name != null && !name.isBlank()) {
+            query.append("name=").append(URLEncoder.encode(name, StandardCharsets.UTF_8));
+        }
+        if (playerId != null && !playerId.isBlank()) {
+            query.append(query.isEmpty() ? "" : "&").append("player=")
+                    .append(URLEncoder.encode(playerId, StandardCharsets.UTF_8));
+        }
+        return query.toString();
+    }
+
     private static String socketUri(URI base, String room) {
         String scheme = "https".equalsIgnoreCase(base.getScheme()) ? "wss" : "ws";
         return scheme + "://" + base.getAuthority() + "/room/" + room;
@@ -254,9 +370,16 @@ public final class RelayClient implements AutoCloseable {
     private static final class Roster {
 
         private volatile List<Integer> peers = List.of();
+        private volatile Map<Integer, String> names = Map.of();
+        private volatile GroupInfo group;
+        private volatile boolean closed;
+        /** Concurrent, because the socket's thread adds while the game's thread reads. */
+        private final Set<Integer> left = ConcurrentHashMap.newKeySet();
 
         void set(List<Integer> peers) {
             this.peers = List.copyOf(peers);
+            // A slot on the roster again is a new pilot in a seat somebody left, not the leaver.
+            left.removeAll(peers);
         }
 
         List<Integer> current() {
@@ -354,9 +477,24 @@ public final class RelayClient implements AutoCloseable {
                 }
                 case "roster" -> roster.set(slots(fields, 1));
                 case "token" -> link.token = fields.length > 1 ? fields[1] : "";
+                case "names" -> roster.names = names(fields);
+                case "group" -> GroupInfo.parse(fields).ifPresent(group -> roster.group = group);
+                case "left" -> slots(fields, 1).forEach(roster.left::add);
+                case "closed" -> roster.closed = true;
                 default -> {
                 }
             }
+        }
+
+        /** {@code names,<slot>,<name>,...}; a pilot with no name is left out. */
+        private static Map<Integer, String> names(String[] fields) {
+            Map<Integer, String> names = new HashMap<>();
+            for (int i = 1; i + 1 < fields.length; i += 2) {
+                if (!fields[i + 1].isBlank()) {
+                    names.put(Integer.parseInt(fields[i]), fields[i + 1]);
+                }
+            }
+            return Map.copyOf(names);
         }
 
         private static List<Integer> slots(String[] fields, int from) {

@@ -66,6 +66,11 @@ final class IntentRing {
         newest = -1;
     }
 
+    /** How many ticks back from the newest this can still answer for. */
+    static int capacity() {
+        return SLOTS;
+    }
+
     /** floorMod, not %, so a negative tick cannot index outside the array. */
     private static int slot(int tick) {
         return Math.floorMod(tick, SLOTS);

@@ -65,6 +65,8 @@ public final class LobbyModel {
     /** Every slot in the room, ascending, and what its pilot is flying. */
     private final Map<Integer, String> loadouts = new LinkedHashMap<>();
     private List<Integer> peers = List.of();
+    private Map<Integer, String> names = Map.of();
+    private GroupInfo group;
 
     public State state() {
         return state;
@@ -104,8 +106,59 @@ public final class LobbyModel {
      * peer's loadout would begin the fight with the machines disagreeing about that ship.
      */
     public boolean canStart() {
-        return host && state == State.WAITING && peers.size() >= 2
+        // A group's host may launch alone: the point of a group is that help can arrive later,
+        // at the start of any level. A bare room has no way in once it starts, so it waits for two.
+        return host && state == State.WAITING && (peers.size() >= 2 || group != null)
                 && loadouts.keySet().containsAll(peers);
+    }
+
+    /** What the relay last said every seated pilot is called. */
+    public void names(Map<Integer, String> names) {
+        this.names = Map.copyOf(names);
+    }
+
+    /** What this room was opened for, once the relay has said. Null leaves a bare room bare. */
+    public void group(GroupInfo group) {
+        if (group != null) {
+            this.group = group;
+        }
+    }
+
+    /** What this room was opened for, or null for a room that is only a code. */
+    public GroupInfo group() {
+        return group;
+    }
+
+    /**
+     * Whether a fight is already under way in this room.
+     *
+     * A pilot who arrives then is not late: they wait here, and the host seats them when the next
+     * level begins.
+     */
+    public boolean inFlight() {
+        return state == State.WAITING && !host && group != null && group.playing();
+    }
+
+    /** The name on a seat, or how to refer to a pilot whose game did not send one. */
+    public String seatName(int slot) {
+        return names.getOrDefault(slot, "PILOT " + slot);
+    }
+
+    /**
+     * What a seat row says: who is there, and whether the host is still waiting on them.
+     *
+     * "ready" means the loadout arrived, which is what the host actually waits on; a seat that is
+     * present but silent says so.
+     */
+    public String seatStatus(int slot) {
+        if (!peers.contains(slot)) {
+            return "empty";
+        }
+        String name = seatName(slot);
+        if (slot == localSlot) {
+            return name + " (you)";
+        }
+        return hasLoadout(slot) || inFlight() ? name : name + " ...";
     }
 
     /**
@@ -201,6 +254,8 @@ public final class LobbyModel {
         host = false;
         failure = "";
         peers = List.of();
+        names = Map.of();
+        group = null;
         loadouts.clear();
     }
 }

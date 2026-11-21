@@ -54,4 +54,37 @@ class CloudTest {
 
         assertEquals(List.of(new Cloud.Entry("NOVA", 9000), new Cloud.Entry("PIP", 100)), board);
     }
+
+    @Test
+    void theGameBoardIsReadRowByRow() {
+        List<GroupListing> groups = Cloud.parseGroups(
+                "ABC234,ACE,1,3,VERDANCE,ORBITAL_APPROACH,HARD,LOBBY\n"
+                + "XYZ789,NOVA,2,2,VERDANCE,CANOPY_DESCENT,NORMAL,PLAYING");
+
+        assertEquals(2, groups.size());
+        GroupListing first = groups.get(0);
+        assertEquals("ABC234", first.code());
+        assertEquals("ACE", first.host());
+        assertEquals(com.hashimjacobs.spacecase.mode.Level.ORBITAL_APPROACH, first.level());
+        assertTrue(first.isOpen());
+        assertTrue(!first.playing());
+        assertTrue(groups.get(1).playing());
+        assertTrue(!groups.get(1).isOpen(), "two of two is full");
+    }
+
+    /** A newer game's level, a row cut short, a level filed under the wrong galaxy: each costs its own row. */
+    @Test
+    void aGroupThisBuildCannotDescribeIsLeftOffTheBoard() {
+        List<GroupListing> groups = Cloud.parseGroups(
+                "AAAAAA,ACE,1,3,VERDANCE,NO_SUCH_LEVEL,HARD,LOBBY\n"
+                + "BBBBBB,ACE,1,3,VERDANCE,ORBITAL_APPROACH,UNHEARD_OF,LOBBY\n"
+                + "CCCCCC,ACE,1,3\n"
+                + "DDDDDD,ACE,one,3,VERDANCE,ORBITAL_APPROACH,HARD,LOBBY\n"
+                + "EEEEEE,ACE,1,3,ASHFALL,ORBITAL_APPROACH,HARD,LOBBY\n"
+                + "FFFFFF,ACE,1,3,VERDANCE,ORBITAL_APPROACH,HARD,LOBBY");
+
+        assertEquals(1, groups.size());
+        assertEquals("FFFFFF", groups.get(0).code());
+        assertTrue(Cloud.parseGroups("").isEmpty());
+    }
 }

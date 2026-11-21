@@ -26,6 +26,8 @@ final class LobbyPanel extends VBox {
     private final Runnable onAct;
 
     private final MenuButton roomRow;
+    /** What the group was opened for. Blank in a room that is only a code. */
+    private final MenuButton groupRow;
     private final MenuButton[] seatRows = new MenuButton[LobbyModel.MAX_PEERS];
     private final MenuButton actionRow;
     private final MenuPanel panel;
@@ -42,6 +44,8 @@ final class LobbyPanel extends VBox {
         this.onAct = onAct;
 
         roomRow = new MenuButton("", this::edit);
+        groupRow = new MenuButton("", () -> { });
+        groupRow.setLocked(true);
         for (int i = 0; i < seatRows.length; i++) {
             seatRows[i] = new MenuButton("", () -> { });
             seatRows[i].setLocked(true);
@@ -49,9 +53,10 @@ final class LobbyPanel extends VBox {
         actionRow = new MenuButton("", this::act);
         MenuButton backRow = new MenuButton("Back", onBack);
 
-        MenuButton[] rows = new MenuButton[seatRows.length + 3];
+        MenuButton[] rows = new MenuButton[seatRows.length + 4];
         rows[0] = roomRow;
-        System.arraycopy(seatRows, 0, rows, 1, seatRows.length);
+        rows[1] = groupRow;
+        System.arraycopy(seatRows, 0, rows, 2, seatRows.length);
         rows[rows.length - 2] = actionRow;
         rows[rows.length - 1] = backRow;
 
@@ -121,7 +126,11 @@ final class LobbyPanel extends VBox {
             case WAITING -> {
                 roomRow.setRow("ROOM CODE", model.room());
                 roomRow.setLocked(true);
-                actionRow.setText(model.isHost() ? "Start" : "Waiting for the host");
+                // Arriving mid-fight is not a failure to explain away: the seat is theirs, and the
+                // host launches them with everyone else when the next level begins.
+                actionRow.setText(model.isHost() ? "Start"
+                        : model.inFlight() ? "In flight: you launch at the next level"
+                        : "Waiting for the host");
                 actionRow.setLocked(!model.canStart());
             }
             case STARTING -> {
@@ -137,6 +146,8 @@ final class LobbyPanel extends VBox {
                 actionRow.setLocked(false);
             }
         }
+        groupRow.setRow(model.group() == null ? "" : "GROUP",
+                model.group() == null ? "" : model.group().summary());
         refreshSeats();
     }
 
@@ -144,11 +155,10 @@ final class LobbyPanel extends VBox {
         List<Integer> peers = model.peers();
         for (int i = 0; i < seatRows.length; i++) {
             int seat = i + 1;
-            // "ready" means the loadout arrived, which is what the host actually waits on; a seat
-            // that is present but silent says so.
-            String who = !peers.contains(seat) ? "empty"
-                    : seat == model.localSlot() ? "you"
-                    : model.hasLoadout(seat) ? "ready" : "joining";
+            int capacity = model.group() == null ? LobbyModel.MAX_PEERS : model.group().maxPlayers();
+            // A seat past the group's size is not empty, it is not on offer: say so, unless
+            // somebody is in it -- slots are handed out lowest first across all four.
+            String who = seat > capacity && !peers.contains(seat) ? "closed" : model.seatStatus(seat);
             seatRows[i].setRow("PLAYER " + seat, who);
             // Locked either way -- a seat is something to look at, not something to press. The
             // difference is only that an occupied one is worth reading.

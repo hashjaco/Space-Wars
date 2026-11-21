@@ -21,6 +21,7 @@ import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.SoundBank;
 import com.hashimjacobs.spacecase.engine.GameLoop;
+import com.hashimjacobs.spacecase.engine.NetSetup;
 import com.hashimjacobs.spacecase.engine.InputState;
 import com.hashimjacobs.spacecase.engine.PadState;
 import com.hashimjacobs.spacecase.engine.Renderer;
@@ -93,13 +94,33 @@ final class GameScreen {
                HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
                Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
                Supplier<String> padStatus, boolean endless, int seats) {
+        this(mode, settings, sounds, pilots, highScores, saves, random, resume, onQuitToMenu,
+                onRoundOver, padStatus, endless, seats, null);
+    }
+
+    /** A networked run: ships, names, loadouts and difficulty all come from the host's terms. */
+    GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus, NetSetup net) {
+        this(mode, settings, sounds, pilots, highScores, saves, random, resume, onQuitToMenu,
+                onRoundOver, padStatus, false, net.pilotNames().size(), net);
+    }
+
+    private GameScreen(GameMode mode, Settings settings, SoundBank sounds, Pilots pilots,
+               HighScores highScores, SaveGames saves, Random random, SaveSlot resume,
+               Runnable onQuitToMenu, Consumer<RoundResult> onRoundOver,
+               Supplier<String> padStatus, boolean endless, int seats, NetSetup net) {
         Canvas canvas = new Canvas(GameConfig.WIDTH, GameConfig.HEIGHT);
         GraphicsContext gc = canvas.getGraphicsContext2D();
         Renderer renderer = new Renderer(gc, settings);
 
         this.saves = saves;
-        this.loop = new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
-                onRoundOver, highScores, saves, resume, endless, seats);
+        this.loop = net == null
+                ? new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
+                        onRoundOver, highScores, saves, resume, endless, seats)
+                : new GameLoop(mode, renderer, input, sounds, settings, pilots, random,
+                        onRoundOver, highScores, saves, resume, net);
         this.pauseLayer = buildPauseLayer(onQuitToMenu);
         this.settingsLayer = buildSettingsLayer(settings, sounds, padStatus);
         this.saveLayer = buildSaveLayer();

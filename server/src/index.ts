@@ -4,8 +4,11 @@ export interface Env {
   ROOM: DurableObjectNamespace<Room>;
   BOARD: DurableObjectNamespace<Board>;
   VAULT: DurableObjectNamespace<Vault>;
+  GROUPS: DurableObjectNamespace<Groups>;
   /** Bearer token the replay verifier (a scheduled GitHub Action) presents; unset means no verification. */
   VERIFY_SECRET?: string;
+  /** Overrides MIN_LEVEL_MS, in milliseconds. Set short in .dev.vars so the tests need not wait. */
+  MIN_LEVEL_MS?: string;
 }
 /** A recorded run, gzipped. A twenty-minute run is well under this. */
 const MAX_REPLAY_BYTES = 1024 * 1024;
@@ -56,6 +59,37 @@ const MAX_SCORE = 100_000_000;
 /** Rows returned by GET /top. Ten is what the screen shows. */
 const TOP_ROWS = 10;
 
+/** Whoever opened a group is seated first, and the first seat is the lowest. */
+const HOST_SLOT = 1;
+
+/** A `mode.Galaxy` or `mode.Level` name, as the client's enum spells it. */
+const PLACE = /^[A-Z0-9_]{1,32}$/;
+
+/** A `prefs.Difficulty` name. */
+const DIFFICULTY = /^[A-Z]{1,16}$/;
+
+/** How often a listed room tells the board it is still there. */
+const HEARTBEAT_MS = 60_000;
+
+/** A listing nobody has refreshed for this long is a room that died without saying so. */
+const LISTING_STALE_MS = 150_000;
+
+/** Listings returned by GET /groups. More than a screen can scroll through comfortably already. */
+const LISTED_GROUPS = 50;
+
+/**
+ * The shortest a level can be for clearing it to count as help.
+ *
+ * The relay cannot tell a level that was flown from one that was only announced, so this is the
+ * whole of the check: a host and a helper who hold their sockets open and take turns saying
+ * "started" and "cleared" earn one assist per half minute and no faster. That is slower than
+ * playing the game, which is the bar for a scoreboard among friends.
+ */
+const MIN_LEVEL_MS = 30_000;
+
+/** What one level cleared for somebody else is worth on the helpers' table. Flat, so the relay needs no table of the game's levels. */
+const HELP_POINTS = 100;
+
 /**
  * What the relay itself says. Everything else it forwards without looking at it.
  *
@@ -66,7 +100,11 @@ const TOP_ROWS = 10;
 type Control =
   | { type: "welcome"; slot: number; peers: number[]; room: string }
   | { type: "token"; token: string }
-  | { type: "roster"; peers: number[] };
+  | { type: "roster"; peers: number[] }
+  | { type: "names"; names: [number, string][] }
+  | { type: "group"; group: Group }
+  | { type: "left"; slot: number }
+  | { type: "closed" };
 
 /** How long a departed peer's slot is held for them, so a dropped socket can come back as itself. */
 const RECLAIM_MS = 60_000;
@@ -77,6 +115,13 @@ const RECLAIM_MS = 60_000;
  *   welcome,<your slot>,<room>,<slot>,<slot>...
  *   token,<reconnect token>
  *   roster,<slot>,<slot>...
+ *   names,<slot>,<name>,<slot>,<name>...
+ *   group,<visibility>,<max>,<galaxy>,<level>,<difficulty>,<status>
+ *   left,<slot>
+ *   closed
+ *
+ * The last four arrived with groups. A client older than them skips any line it does not know,
+ * which is what lets them be added without a version handshake.
  *
  * The game is a Java client with no JSON library in it, and this is already the encoding it uses
  * for save slots and loadouts. One `split(",")` on the other side beats a dependency and a parser
@@ -87,7 +132,36 @@ function encode(control: Control): string {
     case "welcome": return ["welcome", control.slot, control.room, ...control.peers].join(",");
     case "token": return ["token", control.token].join(",");
     case "roster": return ["roster", ...control.peers].join(",");
+    case "names": return ["names", ...control.names.flat()].join(",");
+    case "group": {
+      const group = control.group;
+      return ["group", group.visibility, group.max, group.galaxy, group.level, group.difficulty, group.status].join(",");
+    }
+    case "left": return ["left", control.slot].join(",");
+    case "closed": return "closed";
   }
+}
+
+/**
+ * What a room was opened for, when it was opened as a group rather than as a bare code.
+ *
+ * The one place the relay knows anything about a match, and it is all hearsay: the host says which
+ * level and how hard, and the relay repeats it on the board without understanding a word. Nothing
+ * here feeds back into what is forwarded.
+ */
+interface Group {
+  code: string;
+  /** PRIVATE is a room found only by its code, which is what every room was before groups. */
+  visibility: "PUBLIC" | "PRIVATE";
+  max: number;
+  galaxy: string;
+  level: string;
+  difficulty: string;
+  /** The host's pilot name, for the board. */
+  host: string;
+  status: "LOBBY" | "PLAYING";
+  /** When the host said the level under way began, or 0 while none is. */
+  playingSince: number;
 }
 
 interface Session {
@@ -95,12 +169,23 @@ interface Session {
   slot: number;
   /** Proof of the slot: a peer that drops and comes back with it inside RECLAIM_MS gets the slot again. */
   token: string;
+  /** The pilot's name as the lobby shows it, or "" from a client that does not send one. */
+  name: string;
+  /** The pilot's public board id, or "" -- in which case helping earns them nothing here. */
+  player: string;
+  /** Whether the host named this seat in the level under way. Only those can be credited for it. */
+  flying: boolean;
+  /** Set as the relay closes the socket itself, so a wake between that and the close event does not seat a ghost. */
+  gone?: boolean;
 }
 
 /** A slot held for a departed peer, keyed by slot in storage under "reserved". */
 interface Reservation {
   token: string;
   until: number;
+  name?: string;
+  player?: string;
+  flying?: boolean;
 }
 
 /**
@@ -128,7 +213,7 @@ export class Room extends DurableObject<Env> {
     super(ctx, env);
     for (const ws of this.ctx.getWebSockets()) {
       const attachment = ws.deserializeAttachment() as Session | null;
-      if (attachment) {
+      if (attachment && !attachment.gone) {
         this.sessions.set(ws, attachment);
       }
     }
@@ -141,6 +226,18 @@ export class Room extends DurableObject<Env> {
     // open a room: a guessed six characters finds nothing, not an empty room to wait in.
     if (parts.at(-1) === "issue") {
       await this.ctx.storage.put("issued", true);
+      // A body means a group: the Worker has already checked every field, so this only files it.
+      const fields = (await request.text()).trim().split(",");
+      if (fields.length === 7) {
+        const [code, visibility, max, galaxy, level, difficulty, host] = fields;
+        const group: Group = {
+          code, visibility: visibility === "PUBLIC" ? "PUBLIC" : "PRIVATE", max: Number(max),
+          galaxy, level, difficulty, host, status: "LOBBY", playingSince: 0,
+        };
+        await this.ctx.storage.put("group", group);
+        // If the host never arrives, the alarm finds an empty group and clears it away.
+        await this.ctx.storage.setAlarm(Date.now() + HEARTBEAT_MS);
+      }
       return new Response("issued");
     }
     if (!(await this.ctx.storage.get<boolean>("issued"))) {
@@ -151,6 +248,10 @@ export class Room extends DurableObject<Env> {
     }
     const room = parts.pop() ?? "";
     const reserved = await this.reservations();
+    const group = await this.ctx.storage.get<Group>("group");
+    const capacity = group?.max ?? MAX_PEERS;
+    const saidName = url.searchParams.get("name");
+    const saidPlayer = url.searchParams.get("player") ?? "";
 
     // A returning peer: the slot and token it was given, inside the window, is its seat.
     const wantedSlot = Number(url.searchParams.get("slot"));
@@ -158,17 +259,24 @@ export class Room extends DurableObject<Env> {
     const held = reserved.get(wantedSlot);
     let slot: number;
     let token: string;
+    let name = saidName === null ? "" : clean(saidName);
+    let player = PLAYER_ID.test(saidPlayer) ? saidPlayer : "";
+    let flying = false;
     if (held && offered && held.token === offered) {
       slot = wantedSlot;
       token = held.token;
+      // A pilot who dropped mid-level comes back as who they were, still part of that level.
+      name = name || (held.name ?? "");
+      player = player || (held.player ?? "");
+      flying = held.flying ?? false;
       reserved.delete(slot);
     } else {
-      if (this.sessions.size + reserved.size >= MAX_PEERS) {
+      if (this.sessions.size + reserved.size >= capacity) {
         // Refused before the upgrade, so a full room is an ordinary HTTP failure the client can
         // read rather than a socket that opens and immediately closes for reasons it has to guess at.
         return new Response("full", { status: 409 });
       }
-      slot = this.lowestFreeSlot(reserved);
+      slot = this.lowestFreeSlot(reserved, capacity);
       token = newToken();
     }
     await this.ctx.storage.put("reserved", Object.fromEntries(reserved));
@@ -179,15 +287,191 @@ export class Room extends DurableObject<Env> {
     // acceptWebSocket rather than server.accept(): this one lets the room hibernate between
     // matches, which is most of a room's life.
     this.ctx.acceptWebSocket(server);
-    const session: Session = { slot, token };
+    const session: Session = { slot, token, name, player, flying };
     server.serializeAttachment(session);
     this.sessions.set(server, session);
 
+    // Before the welcome, so a client knows what kind of room this is by the time it is seated.
+    if (group) {
+      this.send(server, { type: "group", group });
+    }
     this.send(server, { type: "welcome", slot, peers: this.slots(), room });
     this.send(server, { type: "token", token });
     this.broadcastControl({ type: "roster", peers: this.slots() }, server);
+    this.broadcastControl({ type: "names", names: this.names() });
+    await this.list(group);
 
     return new Response(null, { status: 101, webSocket: client });
+  }
+
+  /**
+   * What a peer says to the relay rather than to the other peers.
+   *
+   *   leave                                  this seat is free now, not in a minute
+   *   state,PLAYING,<level>,<slot>,<slot>... the host: a level has begun with these seats flying
+   *   state,LOBBY                            the host: nobody is flying
+   *   cleared                                the host: that level is won
+   *
+   * Never forwarded, which keeps the old rule whole: a peer's text reaches the relay and nobody
+   * else, so no peer can speak to another in the relay's voice.
+   */
+  private async command(ws: WebSocket, line: string): Promise<void> {
+    const session = this.sessions.get(ws);
+    if (!session) {
+      return;
+    }
+    const fields = line.split(",");
+    const group = await this.ctx.storage.get<Group>("group");
+    if (fields[0] === "leave") {
+      await this.leave(ws, session, group);
+      return;
+    }
+    // Everything else is the host describing the match, and only a group has a host.
+    if (!group || session.slot !== HOST_SLOT) {
+      return;
+    }
+    if (fields[0] === "state" && fields[1] === "PLAYING" && PLACE.test(fields[2] ?? "")) {
+      const flying = new Set(fields.slice(3).map(Number));
+      this.markFlying((slot) => flying.has(slot));
+      group.status = "PLAYING";
+      group.level = fields[2];
+      group.playingSince = Date.now();
+    } else if (fields[0] === "state" && fields[1] === "LOBBY") {
+      this.markFlying(() => false);
+      group.status = "LOBBY";
+      group.playingSince = 0;
+    } else if (fields[0] === "cleared") {
+      await this.creditHelpers(group);
+      return;
+    } else {
+      return;
+    }
+    await this.ctx.storage.put("group", group);
+    this.broadcastControl({ type: "group", group });
+    await this.list(group);
+  }
+
+  private markFlying(flying: (slot: number) => boolean): void {
+    for (const [peer, session] of this.sessions) {
+      session.flying = flying(session.slot);
+      peer.serializeAttachment(session);
+    }
+  }
+
+  /**
+   * Writes down everyone who helped clear the level the host just called won.
+   *
+   * The room reports this rather than the helper, which is the difference between a table of
+   * people who say they helped and a table of people who were seated in somebody else's room, not
+   * as its host, named by that host in a level that lasted long enough to have been flown. None of
+   * it is proof -- see MIN_LEVEL_MS -- but each of those is one more thing a liar has to arrange.
+   */
+  private async creditHelpers(group: Group): Promise<void> {
+    const least = Number(this.env.MIN_LEVEL_MS ?? MIN_LEVEL_MS);
+    if (!group.playingSince || Date.now() - group.playingSince < least) {
+      return;
+    }
+    // Spent, so one level cannot be cleared twice: the next needs its own "state,PLAYING".
+    group.playingSince = 0;
+    await this.ctx.storage.put("group", group);
+    const board = this.env.BOARD.getByName("global");
+    for (const session of this.sessions.values()) {
+      if (session.flying && session.slot !== HOST_SLOT && session.player) {
+        await board.assist(session.player, session.name || "PILOT", HELP_POINTS);
+      }
+    }
+  }
+
+  /**
+   * A peer leaving on purpose. Unlike a dropped socket there is nobody to hold the seat for, so it
+   * is free at once and the others are told it was a decision rather than an outage.
+   */
+  private async leave(ws: WebSocket, session: Session, group: Group | undefined): Promise<void> {
+    this.sessions.delete(ws);
+    this.dismiss(ws, session, 1000, "left");
+    this.broadcastControl({ type: "left", slot: session.slot });
+    this.broadcastControl({ type: "roster", peers: this.slots() });
+    this.broadcastControl({ type: "names", names: this.names() });
+    if (group && session.slot === HOST_SLOT) {
+      await this.closeGroup(group);
+      return;
+    }
+    await this.list(group);
+  }
+
+  /** Closes a socket from this end, marked so that no later wake mistakes it for a seated peer. */
+  private dismiss(ws: WebSocket, session: Session, code: number, reason: string): void {
+    try {
+      ws.serializeAttachment({ ...session, gone: true });
+      ws.close(code, reason);
+    } catch {
+      // already closed
+    }
+  }
+
+  /**
+   * The host is gone for good, and a group is its host's: they chose the level, and theirs is the
+   * only machine that names each level's terms. Everyone is told and the room stops existing, so
+   * its code finds nothing and its listing is taken down.
+   */
+  private async closeGroup(group: Group): Promise<void> {
+    const peers = [...this.sessions];
+    this.sessions.clear();
+    for (const [peer, session] of peers) {
+      try {
+        peer.send(encode({ type: "closed" }));
+      } catch {
+        // already closed
+      }
+      this.dismiss(peer, session, 4000, "the host left");
+    }
+    if (group.visibility === "PUBLIC") {
+      await this.env.GROUPS.getByName("global").remove(group.code);
+    }
+    await this.ctx.storage.deleteAlarm();
+    await this.ctx.storage.deleteAll();
+  }
+
+  /**
+   * Puts a public group on the board, or refreshes it there, and keeps the alarm running.
+   *
+   * Seats held for a dropped peer count as taken, because they are: a stranger who tried one would
+   * be refused. The alarm does two jobs for any group, listed or not -- it is the heartbeat that
+   * keeps a listing from going stale, and it is what notices the host's held seat running out.
+   */
+  private async list(group: Group | undefined): Promise<void> {
+    if (!group) {
+      return;
+    }
+    const reserved = await this.reservations();
+    const hostPresent = [...this.sessions.values()].some((session) => session.slot === HOST_SLOT);
+    if (group.visibility === "PUBLIC") {
+      const groups = this.env.GROUPS.getByName("global");
+      if (hostPresent) {
+        await groups.put(group.code, group.host, this.sessions.size + reserved.size, group.max,
+          group.galaxy, group.level, group.difficulty, group.status);
+      } else {
+        // Not while the host's seat is only held: joining a room whose host may not come back is
+        // a wait for nothing.
+        await groups.remove(group.code);
+      }
+    }
+    const hostHold = reserved.get(HOST_SLOT);
+    await this.ctx.storage.setAlarm(Math.min(Date.now() + HEARTBEAT_MS, hostHold ? hostHold.until + 50 : Infinity));
+  }
+
+  override async alarm(): Promise<void> {
+    const group = await this.ctx.storage.get<Group>("group");
+    if (!group) {
+      return;
+    }
+    const reserved = await this.reservations();
+    const hostPresent = [...this.sessions.values()].some((session) => session.slot === HOST_SLOT);
+    if (!hostPresent && !reserved.has(HOST_SLOT)) {
+      await this.closeGroup(group);
+      return;
+    }
+    await this.list(group);
   }
 
   /** Slots held for departed peers, with expired holds dropped. */
@@ -211,6 +495,7 @@ export class Room extends DurableObject<Env> {
    */
   override async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
     if (typeof message === "string") {
+      await this.command(ws, message);
       return;
     }
     for (const peer of this.sessions.keys()) {
@@ -241,20 +526,31 @@ export class Room extends DurableObject<Env> {
     }
     // Held for the window, so the match the others are now pausing can take this peer back as
     // the same player rather than as a newcomer in a freed seat.
+    // A group its host closed has no storage left, and its sockets are closing because of that.
+    if (!(await this.ctx.storage.get<boolean>("issued"))) {
+      return;
+    }
     const reserved = await this.reservations();
-    reserved.set(session.slot, { token: session.token, until: Date.now() + RECLAIM_MS });
+    reserved.set(session.slot, {
+      token: session.token, until: Date.now() + RECLAIM_MS,
+      name: session.name, player: session.player, flying: session.flying,
+    });
     await this.ctx.storage.put("reserved", Object.fromEntries(reserved));
     // The peers work out what a departure means for the match themselves; all they are told is
     // that it happened.
     this.broadcastControl({ type: "roster", peers: this.slots() });
+    this.broadcastControl({ type: "names", names: this.names() });
+    await this.list(await this.ctx.storage.get<Group>("group"));
   }
 
   /**
    * The lowest slot nobody holds, so a player who drops out of a three-player game frees their
    * number for whoever joins next rather than pushing the room past four.
    */
-  private lowestFreeSlot(reserved: Map<number, Reservation>): number {
+  private lowestFreeSlot(reserved: Map<number, Reservation>, capacity: number): number {
     const taken = new Set([...this.slots(), ...reserved.keys()]);
+    // Up to MAX_PEERS rather than to the capacity: a three-seat group whose second pilot left has
+    // seats one and three taken, and the free one is still a real ship slot.
     for (let slot = 1; slot <= MAX_PEERS; slot++) {
       if (!taken.has(slot)) {
         return slot;
@@ -265,6 +561,13 @@ export class Room extends DurableObject<Env> {
 
   private slots(): number[] {
     return [...this.sessions.values()].map((session) => session.slot).sort((a, b) => a - b);
+  }
+
+  /** Every seated pilot's name by slot. A client that sent none is "" and names itself locally. */
+  private names(): [number, string][] {
+    return [...this.sessions.values()]
+      .sort((a, b) => a.slot - b.slot)
+      .map((session) => [session.slot, session.name]);
   }
 
   private broadcastControl(control: Control, except?: WebSocket): void {
@@ -327,6 +630,35 @@ export class Board extends DurableObject<Env> {
         // already there
       }
     }
+    // A second table rather than more columns: a helper has no mode, and a score has no assists.
+    this.ctx.storage.sql.exec(
+      `CREATE TABLE IF NOT EXISTS helpers (
+         player  TEXT PRIMARY KEY,
+         name    TEXT NOT NULL,
+         points  INTEGER NOT NULL,
+         assists INTEGER NOT NULL
+       )`);
+    this.ctx.storage.sql.exec(
+      `CREATE INDEX IF NOT EXISTS helpers_by_rank ON helpers (points DESC)`);
+  }
+
+  /**
+   * One level cleared for somebody else. Only a room calls this -- there is no route to it -- so
+   * the only way onto the helpers' table is to have been seated in another pilot's group.
+   */
+  assist(player: string, name: string, points: number): void {
+    this.ctx.storage.sql.exec(
+      `INSERT INTO helpers (player, name, points, assists) VALUES (?, ?, ?, 1)
+         ON CONFLICT (player) DO UPDATE
+         SET name = excluded.name, points = helpers.points + excluded.points, assists = helpers.assists + 1`,
+      player, name, points);
+  }
+
+  /** The top of the helpers' table as `name,points` lines, the shape the score board already reads. */
+  helpers(): string {
+    const rows = [...this.ctx.storage.sql.exec<{ name: string; points: number }>(
+      `SELECT name, points FROM helpers ORDER BY points DESC, name ASC LIMIT ?`, TOP_ROWS)];
+    return rows.map((row) => `${row.name},${row.points}`).join("\n");
   }
 
   /**
@@ -431,9 +763,111 @@ export class Vault extends DurableObject<Env> {
   }
 }
 
+/**
+ * The game board: every public group that is open right now, one object for the whole world.
+ *
+ * Apart from the score board on purpose. This is read by everyone who has the board open, every
+ * few seconds, and written by every listed room once a minute; the score board is written once per
+ * run and carries recordings a megabyte at a time. One object serialises its callers, so sharing
+ * would put a pilot browsing for a game in a queue behind somebody's replay upload.
+ *
+ * Nothing here is the truth about a room -- the room is. A row is what the room last said, and a
+ * room that dies without saying goodbye is noticed by its silence rather than by a callback.
+ */
+export class Groups extends DurableObject<Env> {
+
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    this.ctx.storage.sql.exec(
+      `CREATE TABLE IF NOT EXISTS groups (
+         code       TEXT PRIMARY KEY,
+         host       TEXT NOT NULL,
+         players    INTEGER NOT NULL,
+         max        INTEGER NOT NULL,
+         galaxy     TEXT NOT NULL,
+         level      TEXT NOT NULL,
+         difficulty TEXT NOT NULL,
+         status     TEXT NOT NULL,
+         seen       INTEGER NOT NULL
+       )`);
+  }
+
+  put(code: string, host: string, players: number, max: number, galaxy: string, level: string,
+    difficulty: string, status: string): void {
+    this.ctx.storage.sql.exec(
+      `INSERT OR REPLACE INTO groups (code, host, players, max, galaxy, level, difficulty, status, seen)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      code, host, players, max, galaxy, level, difficulty, status, Date.now());
+  }
+
+  remove(code: string): void {
+    this.ctx.storage.sql.exec(`DELETE FROM groups WHERE code = ?`, code);
+  }
+
+  /**
+   * Open groups as `code,host,players,max,galaxy,level,difficulty,status` lines, those with a free
+   * seat first and the most recently heard from first within that. An empty filter matches all.
+   */
+  list(galaxy: string, difficulty: string): string {
+    // Swept on read rather than on a timer: a stale row matters only when somebody is looking.
+    this.ctx.storage.sql.exec(`DELETE FROM groups WHERE seen <= ?`, Date.now() - LISTING_STALE_MS);
+    const rows = [...this.ctx.storage.sql.exec<{
+      code: string; host: string; players: number; max: number;
+      galaxy: string; level: string; difficulty: string; status: string;
+    }>(
+      `SELECT code, host, players, max, galaxy, level, difficulty, status FROM groups
+         WHERE (? = '' OR galaxy = ?) AND (? = '' OR difficulty = ?)
+         ORDER BY (players < max) DESC, seen DESC LIMIT ?`,
+      galaxy, galaxy, difficulty, difficulty, LISTED_GROUPS)];
+    return rows.map((row) =>
+      [row.code, row.host, row.players, row.max, row.galaxy, row.level, row.difficulty, row.status].join(",")).join("\n");
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    // ---- Groups ----------------------------------------------------------------------------
+    //
+    // A group is a room with a note on the door: what is being flown, how hard, and how many
+    // may come. A public one is also pinned to the board, where anyone can find it.
+
+    if (url.pathname === "/group") {
+      if (request.method !== "POST") {
+        return new Response("POST", { status: 405, headers: { Allow: "POST" } });
+      }
+      const fields = (await request.text()).trim().split(",");
+      if (fields.length !== 6) {
+        return new Response("expected visibility,max,galaxy,level,difficulty,name", { status: 400 });
+      }
+      const [visibility, max, galaxy, level, difficulty, name] = fields;
+      const seats = Number(max);
+      if ((visibility !== "PUBLIC" && visibility !== "PRIVATE")
+        || !Number.isInteger(seats) || seats < 2 || seats > MAX_PEERS
+        || !PLACE.test(galaxy) || !PLACE.test(level) || !DIFFICULTY.test(difficulty)) {
+        return new Response("bad group", { status: 400 });
+      }
+      const code = newRoomCode();
+      await env.ROOM.getByName(code).fetch(new Request(`${url.origin}/room/${code}/issue`, {
+        method: "POST",
+        body: [code, visibility, seats, galaxy, level, difficulty, clean(name)].join(","),
+      }));
+      return text(code);
+    }
+
+    if (url.pathname === "/groups") {
+      const galaxy = url.searchParams.get("galaxy") ?? "";
+      const difficulty = url.searchParams.get("difficulty") ?? "";
+      if ((galaxy !== "" && !PLACE.test(galaxy)) || (difficulty !== "" && !DIFFICULTY.test(difficulty))) {
+        return new Response("bad filter", { status: 400 });
+      }
+      return text(await env.GROUPS.getByName("global").list(galaxy, difficulty));
+    }
+
+    if (url.pathname === "/helpers") {
+      return text(await env.BOARD.getByName("global").helpers());
+    }
 
     // ---- The board -------------------------------------------------------------------------
     //
@@ -557,6 +991,7 @@ export default {
     if (!match) {
       return new Response(
         "POST /new for a room code, then GET /room/{code} with Upgrade: websocket\n"
+        + "POST /group with visibility,max,galaxy,level,difficulty,name  |  GET /groups  |  GET /helpers\n"
         + "POST /score with player,mode,name,score,difficulty  |  GET /top/{mode}?v=2\n"
         + "PUT or GET /save/{sync code}\n",
         { status: 404 });

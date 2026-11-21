@@ -47,6 +47,7 @@ import com.hashimjacobs.spacecase.entity.PlayerShip;
 import com.hashimjacobs.spacecase.entity.PowerUp;
 import com.hashimjacobs.spacecase.garage.GarageSession;
 import com.hashimjacobs.spacecase.mode.Debrief;
+import com.hashimjacobs.spacecase.mode.HelperBonus;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.onfoot.OnFootRenderer;
 import com.hashimjacobs.spacecase.onfoot.OnFootStage;
@@ -551,11 +552,14 @@ public final class Renderer {
     /** The between-levels report, over a frozen world. */
     public void drawDebrief(Level level, List<Debrief> debriefs, List<Standing> standings,
                             int tick, boolean armed, int challengesMet, int challengesNew,
-                            int challengesHeld) {
+                            int challengesHeld, HelperBonus helperBonus) {
         centered(() -> {
             debriefOverlay.draw(level, debriefs, standings, tick, armed);
             if (challengesHeld >= 0) {
                 debriefOverlay.drawChallenges(tick, debriefs, challengesMet, challengesNew, challengesHeld);
+            }
+            if (helperBonus != null) {
+                debriefOverlay.drawHelperBonus(tick, debriefs, helperBonus);
             }
         });
     }

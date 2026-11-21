@@ -10,12 +10,14 @@ import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import com.hashimjacobs.spacecase.ui.Meter;
+import com.hashimjacobs.spacecase.ui.Pill;
 import com.hashimjacobs.spacecase.ui.Tokens;
 import com.hashimjacobs.spacecase.GameConfig;
 import com.hashimjacobs.spacecase.asset.Assets;
 import com.hashimjacobs.spacecase.asset.Sprite;
 import com.hashimjacobs.spacecase.mode.Challenge;
 import com.hashimjacobs.spacecase.mode.Debrief;
+import com.hashimjacobs.spacecase.mode.HelperBonus;
 import com.hashimjacobs.spacecase.mode.Level;
 import com.hashimjacobs.spacecase.prefs.Rank;
 import com.hashimjacobs.spacecase.prefs.Standing;
@@ -187,6 +189,35 @@ final class DebriefOverlay {
             }
             x += chip + gap;
         }
+        gc.setTextBaseline(VPos.TOP);
+    }
+
+    /**
+     * What helping in somebody else's group paid this machine's pilot, in one strip at the foot
+     * of the screen, landing with the challenges. Only a helper's debrief has one.
+     *
+     * Through {@link Pill} rather than a live rounded rectangle, which the software pipeline on a
+     * small board redraws from scratch every frame.
+     */
+    void drawHelperBonus(int tick, List<Debrief> debriefs, HelperBonus bonus) {
+        if (tick < landsAt(STAT_ROWS + mostBonuses(debriefs) + 4)) {
+            return;
+        }
+        double width = 460;
+        double height = 34;
+        double x = (GameConfig.WIDTH - width) / 2;
+        double top = PROMPT_Y + 28;
+        Pill.fill(gc, PANEL, x, top, width, height, Tokens.RADIUS);
+        Pill.stroke(gc, BRAND, 1, x, top, width, height, Tokens.RADIUS);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.setFont(rowFont);
+        gc.setTextAlign(TextAlignment.LEFT);
+        gc.setFill(LABEL);
+        gc.fillText("HELPER BONUS", x + 16, top + height / 2);
+        gc.setTextAlign(TextAlignment.RIGHT);
+        gc.setFill(BRAND);
+        gc.fillText(String.format("+%,d CR     +%,d XP", bonus.credits(), bonus.career()),
+                x + width - 16, top + height / 2);
         gc.setTextBaseline(VPos.TOP);
     }
 
