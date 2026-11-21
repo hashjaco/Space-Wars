@@ -10,6 +10,11 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.function.IntFunction;
 
 import javafx.scene.image.Image;
@@ -26,7 +31,7 @@ import com.hashimjacobs.spacecase.GameConfig;
  * Everything resolves through the classloader, so the game no longer depends on being launched
  * from the project directory and can run from a packaged jar.
  *
- * Most sprites are decoded once at startup. Backdrop layers and boss frames are not: there are
+ * Most sprites are decoded once at startup, across every core (see {@link #DECODERS}). Backdrop layers and boss frames are not: there are
  * twenty-four arena-sized layers and only three are ever on screen, so they fault in on request and
  * {@link #preload} warms the next level's set while the game covers the wait.
  */
@@ -76,40 +81,124 @@ public final class Assets {
      */
     private static final String DISPLAY_FAMILY = "Exo 2 ExtraBold";
 
-    private static boolean loaded;
+    /** Set by whichever thread ran {@link #load}, read by the JavaFX thread. */
+    private static volatile boolean loaded;
 
     private Assets() {
     }
 
-    /** Must run on the JavaFX thread before any scene is built. Idempotent. */
-    public static void load() {
+    /**
+     * Decoding is spread over every core. A JavaFX Image may be made on any thread, and each one
+     * here is independent, so the six hundred or so decoded at startup take a quarter of the time on
+     * a four-core Raspberry Pi, where one after another they were most of a ten-second blank window.
+     * Daemon threads, so an idle pool never holds the game open.
+     */
+    private static final ExecutorService DECODERS = Executors.newFixedThreadPool(
+            Math.max(1, Runtime.getRuntime().availableProcessors()), work -> {
+                Thread thread = new Thread(work, "asset-decoder");
+                thread.setDaemon(true);
+                return thread;
+            });
+
+    /**
+     * Decodes everything the game draws without warning, and registers the fonts. Idempotent.
+     *
+     * Any thread may call it: {@code Main} runs it in the background behind the loading screen, so
+     * the window is up and the JavaFX thread free while it works. Nothing may ask for an image
+     * until it has returned.
+     */
+    public static synchronized void load() {
         if (loaded) {
             return;
         }
+        List<Sprite> eager = new ArrayList<>();
         for (Sprite sprite : Sprite.values()) {
-            if (sprite.decodedOnDemand()) {
-                continue;
+            if (!sprite.decodedOnDemand()) {
+                eager.add(sprite);
             }
-            IMAGES.put(sprite, decode(sprite));
         }
+        // Everything is queued before anything is waited on, so all the cores stay busy throughout.
+        List<Future<Image>> sprites = new ArrayList<>(eager.size());
+        for (Sprite sprite : eager) {
+            sprites.add(DECODERS.submit(() -> decode(sprite)));
+        }
+        Map<Explosion, List<Future<Image>>> explosions = new EnumMap<>(Explosion.class);
         for (Explosion explosion : Explosion.values()) {
             // Zero size means the explosion frames keep their natural dimensions; the size an
             // explosion draws at varies per hit, so it is applied at draw time instead.
-            List<Image> frames = decodeFrames(explosion.frameCount(), explosion::framePath, 0, 0);
-            EXPLOSION_FRAMES.put(explosion, frames);
+            explosions.put(explosion, submitFrames(explosion.frameCount(), explosion::framePath, 0, 0));
         }
+        Map<Round, List<Future<Image>>> rounds = new EnumMap<>(Round.class);
         for (Round round : Round.values()) {
             Sprite still = round.sprite();
-            ROUND_FRAMES.put(round, decodeFrames(round.frameCount(), round::framePath, still.width(), still.height()));
+            rounds.put(round, submitFrames(round.frameCount(), round::framePath, still.width(), still.height()));
         }
+        Map<Sprite, List<Future<Image>>> tumbles = new EnumMap<>(Sprite.class);
         for (Sprite rock : ROCKS) {
-            TUMBLES.put(rock, decodeFrames(TUMBLE_FRAMES,
+            tumbles.put(rock, submitFrames(TUMBLE_FRAMES,
                     i -> rock.resourcePath().replace("/1.png", "/" + i + ".png"), rock.width() * 2, rock.height() * 2));
         }
+        // The fonts on this thread meanwhile.
         for (String font : FONTS) {
             loadFont("/fonts/" + font);
         }
+        for (int at = 0; at < eager.size(); at++) {
+            IMAGES.put(eager.get(at), await(sprites.get(at)));
+        }
+        explosions.forEach((explosion, frames) -> EXPLOSION_FRAMES.put(explosion, awaitAll(frames)));
+        rounds.forEach((round, frames) -> ROUND_FRAMES.put(round, awaitAll(frames)));
+        tumbles.forEach((rock, frames) -> TUMBLES.put(rock, awaitAll(frames)));
         loaded = true;
+    }
+
+    private static List<Future<Image>> submitFrames(int frameCount, IntFunction<String> framePath,
+                                                    double width, double height) {
+        List<Future<Image>> frames = new ArrayList<>(frameCount);
+        for (int index = 1; index <= frameCount; index++) {
+            String path = framePath.apply(index);
+            frames.add(DECODERS.submit(() -> decode(path, width, height)));
+        }
+        return frames;
+    }
+
+    private static List<Image> awaitAll(List<Future<Image>> frames) {
+        List<Image> images = new ArrayList<>(frames.size());
+        for (Future<Image> frame : frames) {
+            images.add(await(frame));
+        }
+        return Collections.unmodifiableList(images);
+    }
+
+    /** Runs every task on the decoder threads and answers their results in order. */
+    private static <T> List<T> inParallel(List<Callable<T>> tasks) {
+        List<Future<T>> running = new ArrayList<>(tasks.size());
+        for (Callable<T> task : tasks) {
+            running.add(DECODERS.submit(task));
+        }
+        List<T> results = new ArrayList<>(running.size());
+        for (Future<T> result : running) {
+            results.add(await(result));
+        }
+        return results;
+    }
+
+    /** A decode's result, with its failure -- a missing resource, say -- thrown here as it was there. */
+    private static <T> T await(Future<T> result) {
+        try {
+            return result.get();
+        } catch (ExecutionException failed) {
+            Throwable cause = failed.getCause();
+            if (cause instanceof RuntimeException runtime) {
+                throw runtime;
+            }
+            if (cause instanceof Error error) {
+                throw error;
+            }
+            throw new IllegalStateException(cause);
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("interrupted while decoding", interrupted);
+        }
     }
 
     /** Frames in an asteroid's tumble loop, one full turn, rendered by {@code tools/blender/asteroids.py}. */
@@ -197,24 +286,31 @@ public final class Assets {
         return CHASSIS_FRAMES.computeIfAbsent(new PoseKey(art, kit, view, hue, saturation, pose, hit), key -> {
             int w = view == ChassisArt.View.TURN ? TURN_PX : view == ChassisArt.View.SIDE ? HULL_H : HULL_W;
             int h = view == ChassisArt.View.TURN ? TURN_PX : view == ChassisArt.View.SIDE ? HULL_W : HULL_H;
+            // A loop is up to 36 frames, each decoded and then repainted pixel by pixel; one frame
+            // per decoder thread, since the title screen waits on the turntable's.
             List<int[]> base = CHASSIS_BASE.computeIfAbsent(new BaseKey(art, kit, view), missing -> {
-                List<int[]> decoded = new ArrayList<>(view.frameCount());
+                List<Callable<int[]>> decoding = new ArrayList<>(view.frameCount());
                 for (int index = 1; index <= view.frameCount(); index++) {
-                    Image image = decode(art.framePath(kit, view, index), w, h);
-                    int[] argb = new int[w * h];
-                    image.getPixelReader().getPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(), argb, 0, w);
-                    decoded.add(argb);
+                    String path = art.framePath(kit, view, index);
+                    decoding.add(() -> {
+                        Image image = decode(path, w, h);
+                        int[] argb = new int[w * h];
+                        image.getPixelReader().getPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(), argb, 0, w);
+                        return argb;
+                    });
                 }
-                return decoded;
+                return inParallel(decoding);
             });
-            List<Image> frames = new ArrayList<>(base.size());
+            List<Callable<Image>> painting = new ArrayList<>(base.size());
             for (int[] argb : base) {
-                WritableImage frame = new WritableImage(w, h);
-                frame.getPixelWriter().setPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(),
-                        HullPaint.derive(argb, w, h, hue, saturation, pose, hit, view == ChassisArt.View.SIDE), 0, w);
-                frames.add(frame);
+                painting.add(() -> {
+                    WritableImage frame = new WritableImage(w, h);
+                    frame.getPixelWriter().setPixels(0, 0, w, h, PixelFormat.getIntArgbInstance(),
+                            HullPaint.derive(argb, w, h, hue, saturation, pose, hit, view == ChassisArt.View.SIDE), 0, w);
+                    return frame;
+                });
             }
-            return Collections.unmodifiableList(frames);
+            return Collections.unmodifiableList(inParallel(painting));
         });
     }
 
@@ -325,17 +421,10 @@ public final class Assets {
         return DISPLAY_FAMILY;
     }
 
-    /** Decodes a numbered frame sequence, shared by explosions and boss animations. */
+    /** Decodes a numbered frame sequence on every core, for the loops decoded on first request. */
     private static List<Image> decodeFrames(int frameCount, IntFunction<String> framePath,
                                             double width, double height) {
-        List<Image> frames = new ArrayList<>(frameCount);
-        for (int index = 1; index <= frameCount; index++) {
-            String path = framePath.apply(index);
-            Image frame = decode(path, width, height);
-            frames.add(frame);
-        }
-        List<Image> immutable = Collections.unmodifiableList(frames);
-        return immutable;
+        return awaitAll(submitFrames(frameCount, framePath, width, height));
     }
 
     /**
